@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="groundlift_event_sync_view_event_form" model="ir.ui.view">
+        <field name="name">event.event.form.groundlift.sync</field>
+        <field name="model">event.event</field>
+        <field name="inherit_id" ref="event.view_event_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet/notebook" position="inside">
+                <page string="Groundlift Website">
+                    <group>
+                        <group>
+                            <field name="groundlift_publish_on_external_site"/>
+                            <field name="groundlift_public_category"/>
+                            <field name="groundlift_public_filter_category"/>
+                            <field name="groundlift_public_venue"/>
+                            <field name="groundlift_export_sequence"/>
+                        </group>
+                        <group>
+                            <field name="groundlift_public_image_url"/>
+                            <field name="groundlift_public_ticket_url"/>
+                        </group>
+                    </group>
+                    <group>
+                        <button name="action_groundlift_export_public_site"
+                                type="object"
+                                string="Jetzt exportieren"
+                                class="btn-primary"/>
+                    </group>
+                    <div class="text-muted">
+                        Hinweis: Exportiert wird nur, wenn die Veranstaltung sich in der Stufe 'Announced/Angekündigt' befindet. Abgelaufene Veranstaltungen werden am Folgetag ab 06:00 Uhr in die Stufe 'Abrechnung' verschoben und dann nicht mehr exportiert.
+                    </div>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
