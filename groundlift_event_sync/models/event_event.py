@@ -121,6 +121,7 @@ class EventEvent(models.Model):
             "cover_properties",
             "active",
             "x_studio_event_kurzbeschreibung",
+            "x_studio_website_header",
         }
 
         self._groundlift_apply_website_publication_state()
@@ -449,6 +450,11 @@ class EventEvent(models.Model):
         if explicit_image:
             return explicit_image
 
+        # NEU: Prüfen, ob das Studio-Feld existiert und ein Bild enthält
+        if "x_studio_website_header" in self._fields and getattr(self, "x_studio_website_header", False):
+        return f"{self.get_base_url()}/web/image/event.event/{self.id}/x_studio_website_header"
+
+        
         cover_properties = getattr(self, "cover_properties", False)
         if cover_properties:
             try:
