@@ -42,11 +42,11 @@ class EventEvent(models.Model):
     groundlift_public_filter_category = fields.Selection(
         selection=[
             ("music", "Live Musik"),
-            ("Comedy", "Comedy"),
-            ("Cinema", "Kino"),
-            ("Party", "Party"),
-            ("Lesung", "Lesung"),
-            ("Talk", "Talk"),
+            ("comedy", "Comedy"),
+            ("cinema", "Kino"),
+            ("party", "Party"),
+            ("lesung", "Lesung"),
+            ("talk", "Talk"),
         ],
         string="Filterkategorie",
         default="music",
