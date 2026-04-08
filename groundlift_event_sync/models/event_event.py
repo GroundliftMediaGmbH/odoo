@@ -452,7 +452,7 @@ class EventEvent(models.Model):
 
         # NEU: Prüfen, ob das Studio-Feld existiert und ein Bild enthält
         if "x_studio_website_header" in self._fields and getattr(self, "x_studio_website_header", False):
-        return f"{self.get_base_url()}/web/image/event.event/{self.id}/x_studio_website_header"
+            return f"{self.get_base_url()}/web/image/event.event/{self.id}/x_studio_website_header"
 
         
         cover_properties = getattr(self, "cover_properties", False)
