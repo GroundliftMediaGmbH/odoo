@@ -428,7 +428,12 @@ class EventEvent(models.Model):
         value = getattr(self, field_name, False)
         if not value:
             return ""
-        return str(value).strip()
+            
+        # NEU: HTML-Tags entfernen, sodass nur reiner Text exportiert wird
+        text_value = str(value)
+        clean_text = re.sub(r'<[^>]+>', '', text_value)
+        
+        return clean_text.strip()
 
     def _groundlift_public_link(self):
         self.ensure_one()
