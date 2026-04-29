@@ -12,7 +12,7 @@ class EventEvent(models.Model):
         max_width=1920,
         max_height=1080,
         help=(
-            "Optionales Bildfeld für das Website-Cover. "
+            "Optionales Bildfeld für die Website-Uebersicht. "
             "Wenn ein vorhandenes Studio-Bildfeld erkannt wird, wird dieses bevorzugt."
         ),
     )
