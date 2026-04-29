@@ -413,7 +413,7 @@ class EventEvent(models.Model):
             </div>
         </div>
 {short_description_html}        <h3 itemprop="name">{title}</h3>
-        <a href="{ticket_url}" target="_blank" rel="noopener" class="btn-ticket">Tickets sichern</a>
+        <a href="{ticket_url}" target="_blank" rel="noopener" class="btn-ticket">Infos & Tickets</a>
     </div>
 </article>""".strip())
 
