@@ -27,9 +27,9 @@ class EventEvent(models.Model):
         4. ein eventuell vorhandenes Standard-Bildfeld
         """
         return [
+            "x_studio_website_header",
             "x_studio_x_studio_binary_field_4ut_1jl7us7lt",
             "x_studio_event_header_image",
-            "x_studio_website_header",
             "x_studio_event_header",
             "x_studio_header_image",
             "x_studio_website_header_image",
