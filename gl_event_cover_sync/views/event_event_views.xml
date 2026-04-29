@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_event_form_gl_event_cover_sync" model="ir.ui.view">
+        <field name="name">event.event.form.gl.event.cover.sync</field>
+        <field name="model">event.event</field>
+        <field name="inherit_id" ref="event.view_event_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="Website Cover Sync">
+                    <field name="gl_event_header_image" widget="image"/>
+                    <label for="gl_event_header_image" string="Hinweis"/>
+                    <div class="text-muted">
+                        Dieses Feld ist optional. Wenn bereits ein Odoo-Studio-Bildfeld wie
+                        x_studio_x_studio_binary_field_4ut_1jl7us7lt existiert und gefüllt ist,
+                        wird dieses automatisch bevorzugt. Das Website-Cover wird in cover_properties geschrieben.
+                    </div>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>
