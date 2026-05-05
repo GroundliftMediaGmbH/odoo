@@ -1,105 +1,59 @@
 # GROUNDLIFT Invoice Layout für Odoo 19 SH
 
-Dieses Modul ersetzt das sichtbare `web.external_layout_wave`-Layout durch ein reduziertes GROUNDLIFT-Rechnungslayout und setzt den PDF-Dateinamen für Rechnungen/Gutschriften.
+Version 19.0.1.1.0
 
-## Was das Modul ändert
+Dieses Modul passt das Odoo-Layout `web.external_layout_wave` an das reduzierte GROUNDLIFT-Rechnungslayout an und setzt den Dateinamen der Rechnungs-PDFs.
 
-1. Header des Wave-Layouts:
-   - GROUNDLIFT-Logo zentriert
-   - Belegnummer, Belegdatum und Liefer-/Leistungsdatum rechts
-   - Seitenzählung `Seite X von Y`
+## Was in dieser Version angepasst wurde
 
-2. Body des Wave-Layouts:
-   - Odoo-Rechnungsinhalt bleibt erhalten
-   - Wave-Hintergrund/Stripes werden entfernt
-   - Tabellen werden sachlicher/ruhiger formatiert
-   - doppelte rechte Infobox wird unterdrückt, weil sie im Header steht
+1. **Horizontale Linien**
+   - Linien unter der Positionstabelle werden nun direkt auf `thead th` gesetzt, weil wkhtmltopdf `border-bottom` auf `tr` häufig nicht zuverlässig rendert.
+   - Summenbereiche erhalten eine dezente obere Trennlinie.
 
-3. Footer:
-   - dreispaltiger GROUNDLIFT-Footer mit roter Linie links
-   - Firmendaten, Geschäftsführung/HRB/USt-ID, Bankverbindung
+2. **Schriftgrößen**
+   - Body, Tabellen, Summen und Header wurden deutlich kleiner gesetzt.
+   - Der Dokumenttitel wird nicht mehr in Odoo-Primärfarbe, sondern neutral schwarz gerendert.
 
-4. Report-Action:
-   - PDF-Name statt `Externer Bericht.pdf`, z. B. `Rechnung_RE_2026_00017.pdf`
-   - Gutschriften heißen `Gutschrift_...pdf`
-   - eigenes A4-Paperformat wird den Rechnungsreports zugewiesen
+3. **Deutsche Begriffe**
+   - Das Modul zwingt den Rechnungsreport auf `de_DE`.
+   - Voraussetzung: Deutsch ist in Odoo aktiv.
+   - Maßeinheiten wie `Units` oder `Hours` kommen aus den Maßeinheiten-Datensätzen. Wenn diese trotzdem englisch bleiben, müssen die Maßeinheiten in Odoo übersetzt/umbenannt werden.
 
-## Installation auf Odoo.sh
+4. **Footer**
+   - Der Footer nutzt jetzt absolute Spaltenpositionen statt `display: table-cell`, weil wkhtmltopdf Tabellen im Footer unzuverlässig umbrechen kann.
+   - Die Spalten sind breiter und näher am Referenzlayout.
 
-1. Den Ordner `groundlift_invoice_layout` in dein Odoo.sh-Git-Repository legen, z. B. nach:
+5. **Papierformat**
+   - Der obere Rand wurde vergrößert, damit Inhalt auf Folgeseiten nicht in Logo/Belegdaten/Seitenzahl läuft.
 
-   ```text
-   /src/user/groundlift_invoice_layout
-   ```
+## Installation / Update auf Odoo.sh
 
-2. Committen und auf deine Odoo.sh-Branch pushen:
+Den Ordner `groundlift_invoice_layout` in `/src/user` legen und dann:
 
-   ```bash
-   git add groundlift_invoice_layout
-   git commit -m "Add GROUNDLIFT invoice PDF layout"
-   git push origin HEAD:staging/19.0
-   ```
-
-3. Warten, bis Odoo.sh die Branch neu gebaut hat.
-
-4. In Odoo:
-   - Entwicklermodus aktivieren
-   - Apps öffnen
-   - App-Liste aktualisieren
-   - nach `GROUNDLIFT Invoice Layout` suchen
-   - Modul installieren
-
-5. Prüfen:
-   - Einstellungen > Unternehmen > Dokumentenlayout konfigurieren
-   - Layout muss auf `Wave` stehen, weil dieses Modul `web.external_layout_wave` überschreibt
-   - eine Rechnung öffnen und neu drucken
-
-## Wichtig bei bestehenden Rechnungen
-
-Wenn eine Rechnung bereits als PDF-Anhang gespeichert wurde, kann Odoo je nach Report-Einstellung den alten Anhang erneut ausliefern. Dann sieht man eventuell noch den alten Dateinamen oder das alte Layout. In diesem Fall den bestehenden PDF-Anhang an der Rechnung entfernen oder den Report einmal ohne Attachment-Reload neu erzeugen.
-
-## Anpassungspunkte
-
-### Vertikaler Sitz von Header/Body
-
-Datei:
-
-```text
-data/report_paperformat.xml
+```bash
+git add groundlift_invoice_layout
+git commit -m "Refine GROUNDLIFT invoice PDF layout"
+git push origin HEAD:staging/19.0
 ```
 
-Wichtige Werte:
+Danach in Odoo:
 
-```xml
-<field name="margin_top">42</field>
-<field name="header_spacing">32</field>
-```
+1. Apps-Liste aktualisieren.
+2. Modul `GROUNDLIFT Invoice Layout` aktualisieren.
+3. Rechnung neu drucken.
 
-Wenn der Body zu weit oben oder unten sitzt, zuerst diese beiden Werte feinjustieren.
+Bei bereits erzeugten Rechnungs-PDFs ggf. den alten PDF-Anhang an der Rechnung löschen, damit Odoo das PDF neu rendert.
 
-### Footer-Daten
+## Wichtige Dateien
 
-Datei:
+- `views/report_external_layout_wave.xml`  
+  Header, Body-CSS, Tabellenlinien, Schriftgrößen, Footer.
 
-```text
-views/report_external_layout_wave.xml
-```
+- `views/report_invoice_language.xml`  
+  Erzwingt deutsche Rechnungsbegriffe über `t-lang = 'de_DE'`.
 
-Footer-Block suchen:
+- `data/report_paperformat.xml`  
+  A4-Ränder und Header-Abstände.
 
-```xml
-<div class="gl_footer_col">
-```
-
-Dort sind Bankverbindung, HRB und Geschäftsführung hinterlegt.
-
-### PDF-Dateiname
-
-Datei:
-
-```text
-models/ir_actions_report.py
-```
-
-Dort stehen `print_name_expr` und `attachment_expr`.
-
+- `models/ir_actions_report.py`  
+  PDF-Dateiname für Rechnungen/Gutschriften.
