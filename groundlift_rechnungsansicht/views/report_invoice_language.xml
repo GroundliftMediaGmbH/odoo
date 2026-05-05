@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <!-- Keep invoice reports German even if the test/customer partner language is English. -->
-    <template id="report_invoice_force_german" inherit_id="account.report_invoice" priority="99">
-        <xpath expr="//t[@t-set='lang']" position="attributes">
-            <attribute name="t-value">'de_DE'</attribute>
-        </xpath>
-    </template>
-</odoo>
