@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="paperformat_groundlift_invoice_a4" model="report.paperformat">
+        <field name="name">GROUNDLIFT Rechnung A4</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="page_height">0</field>
+        <field name="page_width">0</field>
+        <field name="orientation">Portrait</field>
+        <!--
+            Header/footer are rendered by wkhtmltopdf outside the body.
+            The generous top margin keeps page 2+ below logo, metadata and page counter.
+            Page 1 pulls only sender/address upward inside the body.
+        -->
+        <field name="margin_top">99</field>
+        <field name="margin_bottom">31</field>
+        <field name="margin_left">18</field>
+        <field name="margin_right">18</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">88</field>
+        <field name="dpi">90</field>
+    </record>
+</odoo>

@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Dedicated invoice external layout for GROUNDLIFT. It does not touch web.external_layout_wave globally. -->
+    <template id="external_layout_groundlift_invoice">
+        <t t-set="company" t-value="o.company_id if o and o._name == 'account.move' else res_company"/>
+        <t t-set="gl_invoice_number" t-value="o._groundlift_invoice_display_number() if o and o._name == 'account.move' else ''"/>
+
+        <!-- HEADER -->
+        <div t-attf-class="header gl_groundlift_invoice_header o_company_#{company.id}_layout">
+            <style type="text/css">
+                .gl_groundlift_invoice_header {
+                    font-family: Arial, Helvetica, sans-serif !important;
+                    color: #111111 !important;
+                    position: relative !important;
+                    min-height: 98mm !important;
+                    padding: 9mm 18mm 0 18mm !important;
+                    line-height: 1.15 !important;
+                }
+                .gl_groundlift_invoice_header .gl_logo_wrap {
+                    width: 100% !important;
+                    text-align: center !important;
+                }
+                .gl_groundlift_invoice_header .gl_company_logo {
+                    max-width: 62mm !important;
+                    max-height: 20mm !important;
+                    object-fit: contain !important;
+                }
+                .gl_groundlift_invoice_header .gl_invoice_sender_line {
+                    position: absolute !important;
+                    top: 53mm !important;
+                    left: 0 !important;
+                    width: 174mm !important;
+                    font-size: 6.8pt !important;
+                    line-height: 1.16 !important;
+                    color: #e30613 !important;
+                    white-space: nowrap !important;
+                }
+                .gl_groundlift_invoice_header .gl_customer_address {
+                    position: absolute !important;
+                    top: 61mm !important;
+                    left: 0 !important;
+                    width: 82mm !important;
+                    font-size: 8.0pt !important;
+                    line-height: 1.16 !important;
+                    color: #111111 !important;
+                    white-space: normal !important;
+                }
+                .gl_groundlift_invoice_header .gl_customer_address * {
+                    font-size: 8.0pt !important;
+                    line-height: 1.16 !important;
+                    color: #111111 !important;
+                }
+                .gl_groundlift_invoice_header .gl_invoice_meta {
+                    position: absolute !important;
+                    top: 61mm !important;
+                    left: 108mm !important;
+                    width: 78mm !important;
+                    font-size: 8.2pt !important;
+                    line-height: 1.18 !important;
+                    color: #111111 !important;
+                    white-space: nowrap !important;
+                }
+                .gl_groundlift_invoice_header .gl_invoice_meta_row {
+                    display: block !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                }
+                .gl_groundlift_invoice_header .gl_page_counter {
+                    position: absolute !important;
+                    top: 87mm !important;
+                    left: 108mm !important;
+                    width: 78mm !important;
+                    font-size: 8.2pt !important;
+                    line-height: 1 !important;
+                    color: #111111 !important;
+                    white-space: nowrap !important;
+                }
+                .gl_groundlift_invoice_header .gl_page_counter .gl_page_gap {
+                    display: inline-block !important;
+                    width: 11mm !important;
+                }
+            </style>
+
+            <div class="gl_logo_wrap">
+                <img t-if="company.logo" class="gl_company_logo" t-att-src="image_data_uri(company.logo)" alt="GROUNDLIFT"/>
+            </div>
+
+            <div class="gl_invoice_sender_line" t-if="o and o._name == 'account.move'">Groundlift Media GmbH · Am Eichet 11 a · 86938 Schondorf</div>
+
+            <div class="gl_customer_address" t-if="o and o._name == 'account.move' and o.partner_id">
+                <!-- Manual address rendering is intentionally used instead of the contact widget,
+                     because the widget can be suppressed by localized report/view contexts. -->
+                <div t-if="o.partner_id.name"><span t-field="o.partner_id.name"/></div>
+                <div t-if="o.partner_id.street"><span t-field="o.partner_id.street"/></div>
+                <div t-if="o.partner_id.street2"><span t-field="o.partner_id.street2"/></div>
+                <div t-if="o.partner_id.zip or o.partner_id.city">
+                    <span t-if="o.partner_id.zip" t-field="o.partner_id.zip"/>
+                    <span t-if="o.partner_id.zip and o.partner_id.city"> </span>
+                    <span t-if="o.partner_id.city" t-field="o.partner_id.city"/>
+                </div>
+                <div t-if="o.partner_id.country_id and o.partner_id.country_id != o.company_id.country_id">
+                    <span t-field="o.partner_id.country_id.name"/>
+                </div>
+                <div t-if="o.partner_id.vat">USt-IdNr.: <span t-field="o.partner_id.vat"/></div>
+            </div>
+
+            <div class="gl_invoice_meta" t-if="o and o._name == 'account.move'">
+                <div class="gl_invoice_meta_row">
+                    <span>Belegnummer: </span>
+                    <span t-out="gl_invoice_number"/>
+                </div>
+                <div class="gl_invoice_meta_row">
+                    <span>Belegdatum: </span>
+                    <span t-field="o.invoice_date" t-if="o.invoice_date"/>
+                </div>
+                <div class="gl_invoice_meta_row">
+                    <span>Liefer-/Leistungsdatum: </span>
+                    <span t-field="o.delivery_date" t-if="'delivery_date' in o._fields and o.delivery_date"/>
+                    <span t-field="o.invoice_date" t-elif="o.invoice_date"/>
+                </div>
+            </div>
+
+            <div class="gl_page_counter" t-if="report_type == 'pdf'">
+                <span>Seite </span><span class="page"/><span class="gl_page_gap"/><span>von </span><span class="topage"/>
+            </div>
+        </div>
+
+        <!-- BODY -->
+        <div t-attf-class="article gl_groundlift_invoice_article o_company_#{company.id}_layout"
+             t-att-data-oe-model="o and o._name"
+             t-att-data-oe-id="o and o.id"
+             t-att-data-oe-lang="o and o.env.context.get('lang')">
+            <t t-out="0"/>
+        </div>
+
+        <!-- FOOTER -->
+        <div t-attf-class="footer gl_groundlift_invoice_footer o_company_#{company.id}_layout">
+            <style type="text/css">
+                .gl_groundlift_invoice_footer {
+                    font-family: Arial, Helvetica, sans-serif !important;
+                    color: #7f7f7f !important;
+                    position: relative !important;
+                    height: 25mm !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    font-size: 6.9pt !important;
+                    line-height: 1.17 !important;
+                    overflow: hidden !important;
+                }
+                .gl_groundlift_invoice_footer .gl_footer_bar {
+                    position: absolute !important;
+                    left: 0 !important;
+                    top: 2mm !important;
+                    width: 0.55mm !important;
+                    height: 22mm !important;
+                    background: #e30613 !important;
+                }
+                .gl_groundlift_invoice_footer .gl_footer_col {
+                    position: absolute !important;
+                    top: 2mm !important;
+                    font-size: 6.9pt !important;
+                    line-height: 1.17 !important;
+                    color: #7f7f7f !important;
+                    white-space: normal !important;
+                }
+                .gl_groundlift_invoice_footer .gl_footer_col strong {
+                    color: #e30613 !important;
+                    font-size: 7.1pt !important;
+                    letter-spacing: 0.01em !important;
+                }
+                .gl_groundlift_invoice_footer .gl_footer_col_1 { left: 4mm !important; width: 70mm !important; }
+                .gl_groundlift_invoice_footer .gl_footer_col_2 { left: 78mm !important; width: 52mm !important; }
+                .gl_groundlift_invoice_footer .gl_footer_col_3 { left: 133mm !important; width: 41mm !important; }
+            </style>
+            <div class="gl_footer_bar"/>
+            <div class="gl_footer_col gl_footer_col_1">
+                <strong>GROUNDLIFT MEDIA GMBH</strong>
+                <div>Am Eichet 11a, 86938 Schondorf am Ammersee</div>
+                <div>Telefon: +49 8192 933333 | Fax: +49 8192 933339</div>
+                <div>anfrage@groundlift.de | www.groundlift.de</div>
+            </div>
+            <div class="gl_footer_col gl_footer_col_2">
+                <div>Geschäftsführung: Daniel Betz</div>
+                <div>HRB 34444, Amtsgericht Augsburg</div>
+                <div>USt.-ID: <span t-out="company.vat or 'DE328162722'"/></div>
+            </div>
+            <div class="gl_footer_col gl_footer_col_3">
+                <div>VR-Bank Landsberg-Ammersee eG</div>
+                <div>IBAN: DE57700916000002572265</div>
+                <div>BIC: GENODEF1DSS</div>
+            </div>
+        </div>
+    </template>
+</odoo>
