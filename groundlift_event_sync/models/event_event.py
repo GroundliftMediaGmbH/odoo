@@ -344,7 +344,7 @@ class EventEvent(models.Model):
             "title": self.name or "",
             "short_description": self._groundlift_public_short_description(),
             "date": start_local.strftime("%Y-%m-%d %H:%M:%S"),
-            "price": "Tickets sichern",
+            "price": "Infos & Tickets",
             "image": self._groundlift_public_image(),
             "link": self._groundlift_public_link(),
             "category": self.groundlift_public_category or "Live Event",
@@ -413,7 +413,7 @@ class EventEvent(models.Model):
             </div>
         </div>
 {short_description_html}        <h3 itemprop="name">{title}</h3>
-        <a href="{ticket_url}" target="_blank" rel="noopener" class="btn-ticket">Tickets sichern</a>
+        <a href="{ticket_url}" target="_blank" rel="noopener" class="btn-ticket">Infos & Tickets</a>
     </div>
 </article>""".strip())
 
