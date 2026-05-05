@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Replaces the visible header/body/footer parts of the standard Odoo Wave layout.
+        Because this inherits web.external_layout_wave, it applies to every report that uses
+        the Wave document layout. The module also assigns this paperformat/name patch to
+        account.move invoice report actions.
+    -->
+    <template id="external_layout_wave_groundlift" inherit_id="web.external_layout_wave" priority="99">
+
+        <!-- HEADER: centered logo, invoice meta block and page counter -->
+        <xpath expr="//div[contains(@t-attf-class, 'header o_company_')]" position="replace">
+            <div t-attf-class="header gl_groundlift_header o_company_#{company.id}_layout {{report_type != 'pdf' and 'h-0'}}">
+                <style type="text/css">
+                    .gl_groundlift_header,
+                    .gl_groundlift_article,
+                    .gl_groundlift_footer {
+                        font-family: Arial, Helvetica, sans-serif;
+                        color: #111111;
+                    }
+                    .gl_groundlift_header {
+                        position: relative;
+                        min-height: 42mm;
+                        padding: 9mm 18mm 0 18mm;
+                    }
+                    .gl_groundlift_header .gl_logo_wrap {
+                        width: 100%;
+                        text-align: center;
+                    }
+                    .gl_groundlift_header .gl_company_logo {
+                        max-width: 74mm;
+                        max-height: 24mm;
+                        object-fit: contain;
+                    }
+                    .gl_groundlift_header .gl_invoice_meta {
+                        position: absolute;
+                        top: 45mm;
+                        right: 18mm;
+                        width: 88mm;
+                        font-size: 10.5pt;
+                        line-height: 1.18;
+                        color: #111111;
+                    }
+                    .gl_groundlift_header .gl_page_counter {
+                        position: absolute;
+                        top: 76mm;
+                        left: 0;
+                        right: 0;
+                        text-align: center;
+                        font-size: 10.2pt;
+                        color: #111111;
+                    }
+                    .gl_groundlift_article {
+                        font-size: 10.5pt;
+                        line-height: 1.22;
+                    }
+                    .gl_groundlift_article h2,
+                    .gl_groundlift_article .gl_document_title {
+                        margin: 12mm 0 10mm 0;
+                        padding: 0;
+                        font-size: 16pt;
+                        line-height: 1.2;
+                        font-weight: 400;
+                        color: #111111;
+                    }
+                    .gl_groundlift_article .row,
+                    .gl_groundlift_article .o_address_layout,
+                    .gl_groundlift_article [name='address'] {
+                        font-size: 10.5pt;
+                    }
+                    .gl_groundlift_article [name='company_address'],
+                    .gl_groundlift_article .o_company_address,
+                    .gl_groundlift_article .company_address {
+                        color: #e5262d;
+                        font-size: 8.5pt;
+                    }
+                    .gl_groundlift_article table.o_main_table,
+                    .gl_groundlift_article table.table {
+                        width: 100%;
+                        margin-top: 6mm;
+                        font-size: 10pt;
+                        border-collapse: collapse;
+                    }
+                    .gl_groundlift_article table.o_main_table thead tr,
+                    .gl_groundlift_article table.table thead tr {
+                        border-bottom: 1px solid #111111;
+                    }
+                    .gl_groundlift_article table.o_main_table thead th,
+                    .gl_groundlift_article table.table thead th {
+                        padding: 0 0 1.6mm 0;
+                        font-weight: 400;
+                        color: #555555;
+                        background: transparent !important;
+                        border: none !important;
+                    }
+                    .gl_groundlift_article table.o_main_table tbody td,
+                    .gl_groundlift_article table.table tbody td {
+                        padding: 2.1mm 0 1mm 0;
+                        vertical-align: top;
+                        border: none !important;
+                        background: transparent !important;
+                    }
+                    .gl_groundlift_article .o_line_section,
+                    .gl_groundlift_article .o_line_note {
+                        background: transparent !important;
+                    }
+                    .gl_groundlift_article #total,
+                    .gl_groundlift_article .clearfix .row,
+                    .gl_groundlift_article .o_total_table {
+                        font-size: 10.5pt;
+                    }
+                    .gl_groundlift_article .o_total_table td,
+                    .gl_groundlift_article .o_total_table th {
+                        padding-top: 1mm;
+                        padding-bottom: 1mm;
+                    }
+                    .gl_groundlift_article .o_total_table tr:last-child,
+                    .gl_groundlift_article .o_total_table .o_subtotal,
+                    .gl_groundlift_article .o_total_table .o_total {
+                        border-top: 1px solid #111111;
+                    }
+                    .gl_groundlift_footer {
+                        font-size: 7.7pt;
+                        color: #8a8d91;
+                    }
+                    .gl_groundlift_footer .gl_footer_inner {
+                        position: relative;
+                        margin: 0 18mm 7mm 18mm;
+                        padding-left: 7mm;
+                        display: table;
+                        width: 174mm;
+                    }
+                    .gl_groundlift_footer .gl_footer_mark {
+                        position: absolute;
+                        left: 0;
+                        top: 0.8mm;
+                        width: 0.7mm;
+                        height: 17mm;
+                        background: #e5262d;
+                    }
+                    .gl_groundlift_footer .gl_footer_col {
+                        display: table-cell;
+                        width: 33.333%;
+                        padding-right: 7mm;
+                        vertical-align: top;
+                        line-height: 1.23;
+                    }
+                    .gl_groundlift_footer strong {
+                        display: block;
+                        margin-bottom: 1.2mm;
+                        color: #e5262d;
+                        font-weight: 700;
+                        letter-spacing: 0.02em;
+                    }
+                </style>
+
+                <div class="gl_logo_wrap">
+                    <img t-if="company.logo" class="gl_company_logo" t-att-src="image_data_uri(company.logo)" alt="GROUNDLIFT"/>
+                </div>
+
+                <div class="gl_invoice_meta" t-if="o and o._name == 'account.move'">
+                    <div>
+                        <span>Belegnummer:</span>
+                        <span t-out="o.name if o.name and o.name != '/' else ''"/>
+                    </div>
+                    <div t-if="o.invoice_date">
+                        <span>Belegdatum:</span>
+                        <span t-field="o.invoice_date"/>
+                    </div>
+                    <div t-if="'delivery_date' in o._fields and o.delivery_date">
+                        <span>Liefer-/Leistungsdatum:</span>
+                        <span t-field="o.delivery_date"/>
+                    </div>
+                    <div t-elif="o.invoice_date">
+                        <span>Liefer-/Leistungsdatum:</span>
+                        <span t-field="o.invoice_date"/>
+                    </div>
+                </div>
+
+                <div class="gl_page_counter" t-if="report_type == 'pdf'">
+                    <span>Seite </span><span class="page"/> <span>von</span> <span class="topage"/>
+                </div>
+            </div>
+        </xpath>
+
+        <!-- BODY: keep Odoo invoice content, remove Wave background/stripes and hide duplicated info block. -->
+        <xpath expr="//div[contains(@t-attf-class, 'article o_report_layout_wave')]" position="replace">
+            <div t-attf-class="article gl_groundlift_article o_company_#{company.id}_layout {{'o_report_layout_background' if company.layout_background != 'Blank' else ''}}"
+                 t-attf-style="{{report_type != 'pdf' and 'margin-top:90mm;'}} {{ 'background-image: url(%s);' % layout_background_url if layout_background_url else ''}}"
+                 t-att-data-oe-model="o and o._name"
+                 t-att-data-oe-id="o and o.id"
+                 t-att-data-oe-lang="o and o.env.context.get('lang')">
+                <!-- The invoice report usually provides address + information_block. The meta block is now in the repeated header. -->
+                <t t-set="custom_layout_address" t-value="true"/>
+                <t t-set="information_block" t-value="False"/>
+                <t t-call="web.address_layout"/>
+                <h2 class="gl_document_title" t-out="layout_document_title"/>
+                <t t-out="0"/>
+            </div>
+        </xpath>
+
+        <!-- FOOTER: three-column GROUNDLIFT footer, no Wave SVG. -->
+        <xpath expr="//div[contains(@t-attf-class, 'footer o_company_')]" position="replace">
+            <div t-attf-class="footer gl_groundlift_footer o_company_#{company.id}_layout {{report_type != 'pdf' and 'position-relative mt-auto mx-n5'}}">
+                <div class="gl_footer_inner">
+                    <div class="gl_footer_mark"/>
+                    <div class="gl_footer_col">
+                        <strong>GROUNDLIFT MEDIA GMBH</strong>
+                        <div>Am Eichet 11a, 86938 Schondorf am Ammersee</div>
+                        <div>Telefon: +49 8192 933333 | Fax: +49 8192 933339</div>
+                        <div>anfrage@groundlift.de | www.groundlift.de</div>
+                    </div>
+                    <div class="gl_footer_col">
+                        <div>Geschäftsführung: Daniel Betz</div>
+                        <div>HRB 34444, Amtsgericht Augsburg</div>
+                        <div>USt.-ID: <span t-out="company.vat or 'DE328162722'"/></div>
+                    </div>
+                    <div class="gl_footer_col">
+                        <div>VR-Bank Landsberg-Ammersee eG</div>
+                        <div>IBAN: DE57700916000002572265</div>
+                        <div>BIC: GENODEF1DSS</div>
+                    </div>
+                </div>
+            </div>
+        </xpath>
+    </template>
+</odoo>
