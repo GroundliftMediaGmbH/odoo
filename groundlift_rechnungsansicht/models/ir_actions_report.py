@@ -11,11 +11,11 @@ class IrActionsReport(models.Model):
 
     @api.model
     def _groundlift_setup_invoice_report_actions(self):
-        """Patch invoice report actions without depending on one brittle XML id.
+        """Patch invoice report actions without relying on a single XML id.
 
-        Odoo invoice report external IDs can differ slightly between editions/localizations.
-        Searching by model + QWeb report name is safer on Odoo.sh databases that have
-        been customized via Studio.
+        Odoo databases with Accounting localizations/Studio customizations may have
+        more than one invoice report action. Searching by model/report_name keeps the
+        module usable on Odoo.sh staging databases.
         """
         reports = self.sudo().search([
             ("model", "=", "account.move"),
@@ -60,6 +60,6 @@ class IrActionsReport(models.Model):
         else:
             _logger.warning(
                 "Groundlift Rechnungsansicht: no account.move QWeb PDF report action "
-                "with report_name ilike 'report_invoice' found. Filename was not patched."
+                "with report_name ilike 'report_invoice' found."
             )
         return True

@@ -1,13 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!--
-        Force invoice report translations to German. This fixes standard labels such as
-        Draft Invoice, Delivery Date, Description, Quantity, Unit Price, Taxes, Amount,
-        Untaxed Amount and Total as long as German (de_DE) is activated in Odoo.
-
-        If you want partner-language invoices later, remove this file from __manifest__.py
-        and set the customer language on each contact instead.
-    -->
+    <!-- Keep invoice reports German even if the test/customer partner language is English. -->
     <template id="report_invoice_force_german" inherit_id="account.report_invoice" priority="99">
         <xpath expr="//t[@t-set='lang']" position="attributes">
             <attribute name="t-value">'de_DE'</attribute>

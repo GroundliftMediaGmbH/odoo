@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Groundlift Rechnungsansicht",
-    "summary": "Groundlift Rechnungsansicht / PDF-Rechnungslayout auf Basis des Odoo Wave External Layouts",
-    "version": "19.0.1.1.0",
+    "summary": "GROUNDLIFT PDF-Rechnungslayout im Stil der Farbe-Blau-Referenz",
+    "version": "19.0.2.0.0",
     "category": "Accounting/Accounting",
     "author": "GROUNDLIFT Media GmbH",
     "website": "https://www.groundlift.de",
@@ -13,7 +13,8 @@
     ],
     "data": [
         "data/report_paperformat.xml",
-        "views/report_external_layout_wave.xml",
+        "views/report_external_layout_invoice.xml",
+        "views/report_invoice_document.xml",
         "views/report_invoice_language.xml",
         "data/report_action_setup.xml",
     ],
