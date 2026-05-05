@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Cleanup for older module iterations.
+        v2 inherited web.external_layout_wave globally; v3 inherited account.report_invoice_document
+        with a brittle xpath. The new version replaces the invoice call in account.report_invoice
+        and uses a dedicated external layout only for customer invoices.
+    -->
+    <delete model="ir.ui.view" search="[('key', '=', 'groundlift_rechnungsansicht.external_layout_wave_groundlift')]"/>
+    <delete model="ir.ui.view" search="[('key', '=', 'groundlift_rechnungsansicht.report_invoice_force_german')]"/>
+    <delete model="ir.ui.view" search="[('key', '=', 'groundlift_rechnungsansicht.report_invoice_document_groundlift')]"/>
+</odoo>
