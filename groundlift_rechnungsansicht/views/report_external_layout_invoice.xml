@@ -3,6 +3,7 @@
     <!-- Dedicated invoice external layout for GROUNDLIFT. It does not touch web.external_layout_wave globally. -->
     <template id="external_layout_groundlift_invoice">
         <t t-set="company" t-value="o.company_id if o and o._name == 'account.move' else res_company"/>
+        <t t-set="gl_invoice_number" t-value="((o.name if o and o._name == 'account.move' and o.name and o.name != '/' else '') or '').replace('/', '_')"/>
 
         <!-- HEADER -->
         <div t-attf-class="header gl_groundlift_invoice_header o_company_#{company.id}_layout">
@@ -62,7 +63,7 @@
             <div class="gl_invoice_meta" t-if="o and o._name == 'account.move'">
                 <div class="gl_invoice_meta_row">
                     <span>Belegnummer: </span>
-                    <span t-out="o.name if o.name and o.name != '/' else ''"/>
+                    <span t-out="gl_invoice_number"/>
                 </div>
                 <div class="gl_invoice_meta_row">
                     <span>Belegdatum: </span>
@@ -96,14 +97,15 @@
                     color: #7f7f7f !important;
                     position: relative !important;
                     height: 25mm !important;
-                    padding: 0 18mm !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
                     font-size: 6.9pt !important;
                     line-height: 1.17 !important;
                     overflow: hidden !important;
                 }
                 .gl_groundlift_invoice_footer .gl_footer_bar {
                     position: absolute !important;
-                    left: 18mm !important;
+                    left: 0 !important;
                     top: 2mm !important;
                     width: 0.55mm !important;
                     height: 22mm !important;
@@ -122,9 +124,9 @@
                     font-size: 7.1pt !important;
                     letter-spacing: 0.01em !important;
                 }
-                .gl_groundlift_invoice_footer .gl_footer_col_1 { left: 23mm !important; width: 66mm !important; }
-                .gl_groundlift_invoice_footer .gl_footer_col_2 { left: 92mm !important; width: 51mm !important; }
-                .gl_groundlift_invoice_footer .gl_footer_col_3 { left: 146mm !important; width: 47mm !important; }
+                .gl_groundlift_invoice_footer .gl_footer_col_1 { left: 4mm !important; width: 70mm !important; }
+                .gl_groundlift_invoice_footer .gl_footer_col_2 { left: 78mm !important; width: 52mm !important; }
+                .gl_groundlift_invoice_footer .gl_footer_col_3 { left: 133mm !important; width: 41mm !important; }
             </style>
             <div class="gl_footer_bar"/>
             <div class="gl_footer_col gl_footer_col_1">

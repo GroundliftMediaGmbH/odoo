@@ -19,6 +19,7 @@
 
     <template id="report_invoice_document_groundlift_custom">
         <t t-set="o" t-value="o.with_context(lang='de_DE')"/>
+        <t t-set="gl_invoice_number" t-value="((o.name if o.name and o.name != '/' else 'Entwurf') or 'Entwurf').replace('/', '_')"/>
         <t t-call="groundlift_rechnungsansicht.external_layout_groundlift_invoice">
             <div class="page gl_invoice_page">
                 <style type="text/css">
@@ -162,7 +163,19 @@
                 <div class="gl_first_intro">
                     <div class="gl_sender_line">Groundlift Media GmbH · Am Eichet 11a · 86938 Schondorf</div>
                     <div class="gl_customer_address">
-                        <div t-field="o.partner_id" t-options="{'widget': 'contact', 'fields': ['address', 'name'], 'no_marker': True}"/>
+                        <!-- Manual address rendering is intentionally used instead of the contact widget,
+                             because the widget can be suppressed by localized report/view contexts. -->
+                        <div t-if="o.partner_id.name"><span t-field="o.partner_id.name"/></div>
+                        <div t-if="o.partner_id.street"><span t-field="o.partner_id.street"/></div>
+                        <div t-if="o.partner_id.street2"><span t-field="o.partner_id.street2"/></div>
+                        <div t-if="o.partner_id.zip or o.partner_id.city">
+                            <span t-if="o.partner_id.zip" t-field="o.partner_id.zip"/>
+                            <span t-if="o.partner_id.zip and o.partner_id.city"> </span>
+                            <span t-if="o.partner_id.city" t-field="o.partner_id.city"/>
+                        </div>
+                        <div t-if="o.partner_id.country_id and o.partner_id.country_id != o.company_id.country_id">
+                            <span t-field="o.partner_id.country_id.name"/>
+                        </div>
                         <div t-if="o.partner_id.vat">USt-IdNr.: <span t-field="o.partner_id.vat"/></div>
                     </div>
                 </div>
@@ -170,7 +183,7 @@
                 <h2 class="gl_invoice_title">
                     <t t-if="o.move_type == 'out_refund'">Gutschrift </t>
                     <t t-else="">Rechnung </t>
-                    <span t-out="o.name if o.name and o.name != '/' else 'Entwurf'"/>
+                    <span t-out="gl_invoice_number"/>
                 </h2>
 
                 <div class="gl_invoice_origin" t-if="o.invoice_origin">

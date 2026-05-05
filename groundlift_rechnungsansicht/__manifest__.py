@@ -2,7 +2,7 @@
 {
     "name": "Groundlift Rechnungsansicht",
     "summary": "GROUNDLIFT PDF-Rechnungslayout im Stil der Farbe-Blau-Referenz",
-    "version": "19.0.3.1.0",
+    "version": "19.0.3.2.0",
     "category": "Accounting/Accounting",
     "author": "GROUNDLIFT Media GmbH",
     "website": "https://www.groundlift.de",
