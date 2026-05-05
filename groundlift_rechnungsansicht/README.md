@@ -1,12 +1,13 @@
 # Groundlift Rechnungsansicht für Odoo 19 SH
 
-Version 19.0.3.2.0
+Version 19.0.3.3.0
 
-Diese Version baut auf v31 auf und behebt drei konkrete Punkte aus dem Testdruck:
+Diese Version baut auf v32 auf und behebt vier konkrete Punkte aus dem Testdruck:
 
-1. Rechnungsnummern werden im PDF ohne Schrägstriche angezeigt, z. B. `RE_2026_00003` statt `RE/2026/00003`.
-2. Die Kunden-Rechnungsadresse wird nicht mehr über das Odoo-Kontaktwidget, sondern manuell aus den Partnerfeldern gerendert. Dadurch bleibt sie auch in angepassten/übersetzten Report-Kontexten sichtbar.
-3. Der Footer beginnt jetzt am linken Rand des PDF-Inhaltsbereichs. Der rote Strich sowie alle Spalten rechts davon sind auf die linke Achse von Rechnungstitel und Positionsspalte ausgerichtet.
+1. Rechnungsnummern werden im PDF im Format `RE202600003` angezeigt, also ohne Schrägstriche und mit fünfstelliger laufender Nummer.
+2. Die Kunden-Rechnungsadresse aus `partner_id` wird links im Header auf Höhe der Belegnummer manuell aus den Partnerfeldern gerendert.
+3. Oberhalb von Kundenadresse und Belegnummer steht die rote Absenderzeile `Groundlift Media GmbH · Am Eichet 11 a · 86938 Schondorf`.
+4. Unterhalb der Tabellenüberschrift `Pos` bis `Betrag EUR` wird eine dünne horizontale Trennlinie gerendert.
 
 ## Dateien
 
@@ -22,6 +23,9 @@ Diese Version baut auf v31 auf und behebt drei konkrete Punkte aus dem Testdruck
 - `data/report_paperformat.xml`  
   Papierformat mit passenden Rändern für wiederholte Header/Footer.
 
+- `models/account_move.py`  
+  Formatiert die sichtbare Rechnungsnummer für PDF und Dateiname.
+
 - `models/ir_actions_report.py`  
   Setzt PDF-Dateiname und Paperformat für Rechnungsreports.
 
@@ -30,9 +34,9 @@ Diese Version baut auf v31 auf und behebt drei konkrete Punkte aus dem Testdruck
 ```bash
 cd ~/src/user
 rm -rf groundlift_rechnungsansicht
-unzip /pfad/zu/groundlift_rechnungsansicht_odoo19_v32.zip
+unzip /pfad/zu/groundlift_rechnungsansicht_odoo19_v33.zip
 git add -A groundlift_rechnungsansicht
-git commit -m "Update Groundlift Rechnungsansicht invoice layout v32"
+git commit -m "Update Groundlift Rechnungsansicht invoice layout v33"
 git push origin HEAD:staging/19.0
 ```
 

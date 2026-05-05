@@ -22,14 +22,14 @@ class IrActionsReport(models.Model):
             "(object.move_type == 'out_refund' and 'Gutschrift_%s' "
             "or object.move_type == 'out_invoice' and 'Rechnung_%s' "
             "or 'Beleg_%s') % "
-            "((object.name or object.ref or 'Entwurf').replace('/', '_'))"
+            "(object._groundlift_invoice_display_number())"
         )
         attachment_expr = (
             "(object.state == 'posted') and "
             "(((object.move_type == 'out_refund' and 'Gutschrift_%s' "
             "or object.move_type == 'out_invoice' and 'Rechnung_%s' "
             "or 'Beleg_%s') % "
-            "((object.name or object.ref or 'Entwurf').replace('/', '_'))) + '.pdf')"
+            "(object._groundlift_invoice_display_number())) + '.pdf')"
         )
 
         vals = {

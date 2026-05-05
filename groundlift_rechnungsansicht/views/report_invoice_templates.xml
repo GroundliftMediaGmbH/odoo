@@ -19,7 +19,7 @@
 
     <template id="report_invoice_document_groundlift_custom">
         <t t-set="o" t-value="o.with_context(lang='de_DE')"/>
-        <t t-set="gl_invoice_number" t-value="((o.name if o.name and o.name != '/' else 'Entwurf') or 'Entwurf').replace('/', '_')"/>
+        <t t-set="gl_invoice_number" t-value="o._groundlift_invoice_display_number()"/>
         <t t-call="groundlift_rechnungsansicht.external_layout_groundlift_invoice">
             <div class="page gl_invoice_page">
                 <style type="text/css">
@@ -31,31 +31,6 @@
                     }
                     .gl_invoice_page {
                         font-size: 8.4pt !important;
-                    }
-                    .gl_invoice_page .gl_first_intro {
-                        position: relative !important;
-                        margin-top: -42mm !important;
-                        height: 47mm !important;
-                        width: 100% !important;
-                        overflow: visible !important;
-                    }
-                    .gl_invoice_page .gl_sender_line {
-                        font-size: 6.8pt !important;
-                        color: #e30613 !important;
-                        margin: 0 0 7mm 0 !important;
-                        padding: 0 !important;
-                        white-space: nowrap !important;
-                    }
-                    .gl_invoice_page .gl_customer_address {
-                        width: 82mm !important;
-                        font-size: 8.0pt !important;
-                        line-height: 1.16 !important;
-                        margin: 0 !important;
-                        padding: 0 !important;
-                    }
-                    .gl_invoice_page .gl_customer_address * {
-                        font-size: 8.0pt !important;
-                        line-height: 1.16 !important;
                     }
                     .gl_invoice_page .gl_invoice_title {
                         margin: 0 0 13mm 0 !important;
@@ -86,6 +61,9 @@
                     }
                     .gl_invoice_page table.gl_invoice_line_table thead {
                         display: table-header-group !important;
+                    }
+                    .gl_invoice_page table.gl_invoice_line_table thead tr {
+                        border-bottom: 0.55pt solid #111111 !important;
                     }
                     .gl_invoice_page table.gl_invoice_line_table thead th {
                         padding: 0 1.5mm 1.4mm 0 !important;
@@ -159,26 +137,6 @@
                         white-space: pre-line !important;
                     }
                 </style>
-
-                <div class="gl_first_intro">
-                    <div class="gl_sender_line">Groundlift Media GmbH · Am Eichet 11a · 86938 Schondorf</div>
-                    <div class="gl_customer_address">
-                        <!-- Manual address rendering is intentionally used instead of the contact widget,
-                             because the widget can be suppressed by localized report/view contexts. -->
-                        <div t-if="o.partner_id.name"><span t-field="o.partner_id.name"/></div>
-                        <div t-if="o.partner_id.street"><span t-field="o.partner_id.street"/></div>
-                        <div t-if="o.partner_id.street2"><span t-field="o.partner_id.street2"/></div>
-                        <div t-if="o.partner_id.zip or o.partner_id.city">
-                            <span t-if="o.partner_id.zip" t-field="o.partner_id.zip"/>
-                            <span t-if="o.partner_id.zip and o.partner_id.city"> </span>
-                            <span t-if="o.partner_id.city" t-field="o.partner_id.city"/>
-                        </div>
-                        <div t-if="o.partner_id.country_id and o.partner_id.country_id != o.company_id.country_id">
-                            <span t-field="o.partner_id.country_id.name"/>
-                        </div>
-                        <div t-if="o.partner_id.vat">USt-IdNr.: <span t-field="o.partner_id.vat"/></div>
-                    </div>
-                </div>
 
                 <h2 class="gl_invoice_title">
                     <t t-if="o.move_type == 'out_refund'">Gutschrift </t>
