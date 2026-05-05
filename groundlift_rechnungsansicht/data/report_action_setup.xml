@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Runs on install/update and patches the invoice report action name, PDF filename and paperformat. -->
+    <function model="ir.actions.report" name="_groundlift_setup_invoice_report_actions"/>
+</odoo>
