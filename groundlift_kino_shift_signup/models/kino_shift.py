@@ -34,7 +34,10 @@ MONTH_LABELS_DE = {
     11: "November",
     12: "Dezember",
 }
-KINO_WEEKDAYS = (3, 4, 5, 6)  # Donnerstag bis Sonntag
+KINO_WEEKDAYS_BY_MODE = {
+    "thu_sun": (3, 4, 5, 6),  # Donnerstag bis Sonntag
+    "tue_sun": (1, 2, 3, 4, 5, 6),  # Dienstag bis Sonntag
+}
 
 
 def _new_token(recordset=None):
@@ -69,6 +72,18 @@ class GroundliftKinoShiftCampaign(models.Model):
         string="Benachrichtigung an",
         help="E-Mail-Adresse, die bei jeder Eintragung den aktuellen Füllstand erhält. Standard: Vorgesetzte/r der Abteilung Kino.",
     )
+    day_mode = fields.Selection(
+        selection=[
+            ("thu_sun", "Donnerstag bis Sonntag"),
+            ("tue_sun", "Dienstag bis Sonntag"),
+        ],
+        string="Reguläre Spieltage",
+        default="thu_sun",
+        required=True,
+        tracking=True,
+        help="Legt fest, welche Wochentage beim Erzeugen der regulären Kinotage automatisch angelegt werden. Bereits vorhandene oder manuell hinzugefügte Tage werden dabei nicht gelöscht.",
+    )
+    day_mode_label = fields.Char(string="Reguläre Spieltage Anzeige", compute="_compute_day_mode_label")
     request_sent_date = fields.Date(string="Anfrage gesendet am", readonly=True, copy=False)
     reminder_sent_date = fields.Date(string="Erinnerung gesendet am", readonly=True, copy=False)
     slot_ids = fields.One2many("gl.kino.shift.slot", "campaign_id", string="Kinotage")
@@ -96,10 +111,23 @@ class GroundliftKinoShiftCampaign(models.Model):
         return campaigns
 
     def write(self, vals):
+        should_regenerate_slots = bool(set(vals) & {"target_month", "day_mode"})
         if vals.get("target_month"):
             target = fields.Date.to_date(vals["target_month"])
             vals["target_month"] = target.replace(day=1)
-        return super().write(vals)
+        result = super().write(vals)
+        if should_regenerate_slots:
+            # Beim Wechsel zwischen Donnerstag-Sonntag und Dienstag-Sonntag
+            # werden fehlende reguläre Tage ergänzt. Bestehende/manuelle Tage
+            # bleiben bewusst erhalten und werden nicht gelöscht.
+            self.action_generate_slots(show_notification=False)
+        return result
+
+    @api.depends("day_mode")
+    def _compute_day_mode_label(self):
+        labels = dict(self._fields["day_mode"].selection)
+        for campaign in self:
+            campaign.day_mode_label = labels.get(campaign.day_mode or "thu_sun", "Donnerstag bis Sonntag")
 
     @api.depends("target_month")
     def _compute_name(self):
@@ -126,7 +154,7 @@ class GroundliftKinoShiftCampaign(models.Model):
                 campaign.date_start = False
                 campaign.date_end = False
 
-    @api.depends("slot_ids.employee_id")
+    @api.depends("slot_ids", "slot_ids.employee_id")
     def _compute_counts(self):
         for campaign in self:
             slots = campaign.slot_ids
@@ -176,18 +204,23 @@ class GroundliftKinoShiftCampaign(models.Model):
         domain = expression.AND([base_domain, job_domain])
         return self.env["hr.employee"].sudo().search(domain, order="name")
 
+    def _get_regular_weekdays(self):
+        self.ensure_one()
+        return KINO_WEEKDAYS_BY_MODE.get(self.day_mode or "thu_sun", KINO_WEEKDAYS_BY_MODE["thu_sun"])
+
     def action_generate_slots(self, show_notification=True):
         Slot = self.env["gl.kino.shift.slot"].sudo()
         for campaign in self:
             if not campaign.date_start or not campaign.date_end:
                 continue
             existing_dates = set(campaign.slot_ids.mapped("date"))
+            regular_weekdays = campaign._get_regular_weekdays()
             create_vals = []
             current = fields.Date.to_date(campaign.date_start)
             end = fields.Date.to_date(campaign.date_end)
             while current <= end:
-                if current.weekday() in KINO_WEEKDAYS and current not in existing_dates:
-                    create_vals.append({"campaign_id": campaign.id, "date": current})
+                if current.weekday() in regular_weekdays and current not in existing_dates:
+                    create_vals.append({"campaign_id": campaign.id, "date": current, "is_manual": False})
                 current += timedelta(days=1)
             if create_vals:
                 Slot.create(create_vals)
@@ -251,7 +284,7 @@ class GroundliftKinoShiftCampaign(models.Model):
             if reminder
             else "wir planen den Kino-Dienstplan für %s. Bitte trage über den folgenden Link ein, an welchen Tagen du Kino machen kannst."
         ) % escape(self.month_label)
-        open_lines = "".join("<li>%s</li>" % escape(candidate.display_line_short) for candidate in slots.sorted("date") if not candidate.employee_id)
+        open_lines = "".join(self._slot_list_item_html(candidate) for candidate in slots.sorted("date") if not candidate.employee_id)
         if not open_lines:
             open_lines = "<li>Aktuell sind alle Tage besetzt.</li>"
         return """
@@ -259,6 +292,7 @@ class GroundliftKinoShiftCampaign(models.Model):
                 <p>Hallo %s,</p>
                 <h2 style="margin:0 0 12px 0;">%s</h2>
                 <p>%s</p>
+                <p><strong>Reguläre Spieltage:</strong> %s</p>
                 <p><a href="%s" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:12px 18px;border-radius:6px;">Jetzt Kino-Tage eintragen</a></p>
                 <p><strong>Aktueller Stand:</strong> %s/%s Kinotagen besetzt.</p>
                 <p><strong>Noch offen:</strong></p>
@@ -269,6 +303,7 @@ class GroundliftKinoShiftCampaign(models.Model):
             escape(invite.employee_id.name),
             escape(headline),
             intro,
+            escape(self.day_mode_label),
             escape(invite.signup_url),
             filled,
             total,
@@ -315,13 +350,17 @@ class GroundliftKinoShiftCampaign(models.Model):
             return False
         total, filled, open_count, slots = self._slot_counts_now()
         open_slots = slots.filtered(lambda candidate: not candidate.employee_id).sorted("date")
-        open_lines = "".join("<li>%s</li>" % escape(candidate.display_line_short) for candidate in open_slots)
+        open_lines = "".join(self._slot_list_item_html(candidate) for candidate in open_slots)
         if not open_lines:
             open_lines = "<li>Alle Kinotage sind besetzt.</li>"
         subject = "Kino-Dienstplan: %s hat %s übernommen" % (slot.employee_id.name, slot.display_line_short)
+        selected_note = ""
+        if slot.note:
+            selected_note = "<p><strong>Hinweis:</strong> %s</p>" % escape(slot.note)
         body_html = """
             <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#111;">
                 <p>%s hat sich für <strong>%s</strong> eingetragen.</p>
+                %s
                 <p><strong>%s/%s Kinotagen besetzt.</strong></p>
                 <p><strong>Diese Tage sind noch nicht besetzt:</strong></p>
                 <ul>%s</ul>
@@ -330,6 +369,7 @@ class GroundliftKinoShiftCampaign(models.Model):
         """ % (
             escape(slot.employee_id.name),
             escape(slot.display_line_short),
+            selected_note,
             filled,
             total,
             open_lines,
@@ -337,6 +377,14 @@ class GroundliftKinoShiftCampaign(models.Model):
         )
         self._send_mail(email_to=self.manager_email, subject=subject, body_html=body_html)
         return True
+
+    def _slot_list_item_html(self, slot):
+        self.ensure_one()
+        note_html = ""
+        if slot.note:
+            note_html = "<br/><span style='color:#555;'>Hinweis: %s</span>" % escape(slot.note)
+        manual_html = " <span style='color:#777;'>(Zusatztermin)</span>" if slot.is_manual else ""
+        return "<li>%s%s%s</li>" % (escape(slot.display_line_short), manual_html, note_html)
 
     def _send_mail(self, email_to, subject, body_html):
         email_from = self.env.company.partner_id.email_formatted or self.env.user.partner_id.email_formatted or self.env.user.email
@@ -386,10 +434,13 @@ class GroundliftKinoShiftCampaign(models.Model):
         self.ensure_one()
         rows = []
         current_row = []
+        current_week_key = False
         for slot in self.slot_ids.sorted("date"):
-            if current_row and slot.date.weekday() == 3:
+            week_key = slot.date.isocalendar()[:2] if slot.date else False
+            if current_row and week_key != current_week_key:
                 rows.append(current_row)
                 current_row = []
+            current_week_key = week_key
             current_row.append(slot)
         if current_row:
             rows.append(current_row)
@@ -416,6 +467,15 @@ class GroundliftKinoShiftSlot(models.Model):
     campaign_id = fields.Many2one("gl.kino.shift.campaign", string="Dienstplan", required=True, ondelete="cascade", index=True)
     date = fields.Date(string="Datum", required=True, index=True)
     employee_id = fields.Many2one("hr.employee", string="Filmvorführer:in")
+    is_manual = fields.Boolean(
+        string="Manuell",
+        default=False,
+        help="Kennzeichnet manuell ergänzte Zusatztermine, z. B. private Vermietungen außerhalb der regulären Spieltage.",
+    )
+    note = fields.Text(
+        string="Notiz für Filmvorführer:innen",
+        help="Dieser Hinweis wird auf der öffentlichen Eintrageseite und in den E-Mails angezeigt.",
+    )
     weekday_label = fields.Char(string="Wochentag", compute="_compute_display_fields", store=True)
     date_label = fields.Char(string="Datum formatiert", compute="_compute_display_fields", store=True)
     display_line_short = fields.Char(string="Anzeige", compute="_compute_display_fields", store=True)

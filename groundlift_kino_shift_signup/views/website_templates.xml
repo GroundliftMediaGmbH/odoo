@@ -24,6 +24,9 @@
                                                     <strong><t t-out="campaign.filled_slot_count"/>/<t t-out="campaign.total_slot_count"/></strong>
                                                     Kinotagen besetzt
                                                 </p>
+                                                <p class="mb-0 text-muted" style="font-size:14px;">
+                                                    Reguläre Spieltage: <t t-out="campaign.day_mode_label"/>
+                                                </p>
                                             </div>
                                             <div t-if="invite" class="alert alert-success mb-0">
                                                 Persönlicher Link für <strong><t t-out="invite.employee_id.name"/></strong>
@@ -42,6 +45,7 @@
                                                 <thead>
                                                     <tr>
                                                         <th style="width:160px;">Tag</th>
+                                                        <th>Hinweis</th>
                                                         <th>Status</th>
                                                         <th t-if="invite" style="width:220px;">Aktion</th>
                                                     </tr>
@@ -53,6 +57,17 @@
                                                                 <td>
                                                                     <strong><t t-out="slot.weekday_label"/>:</strong>
                                                                     <t t-out="slot.date_label"/>
+                                                                    <t t-if="slot.is_manual">
+                                                                        <div class="mt-1"><span class="badge text-bg-info">Zusatztermin</span></div>
+                                                                    </t>
+                                                                </td>
+                                                                <td>
+                                                                    <t t-if="slot.note">
+                                                                        <span><t t-out="slot.note"/></span>
+                                                                    </t>
+                                                                    <t t-if="not slot.note">
+                                                                        <span class="text-muted">–</span>
+                                                                    </t>
                                                                 </td>
                                                                 <td>
                                                                     <t t-if="slot.employee_id">

@@ -7,6 +7,7 @@
             <list string="Kino Dienstpläne">
                 <field name="name"/>
                 <field name="target_month"/>
+                <field name="day_mode"/>
                 <field name="state"/>
                 <field name="filled_slot_count"/>
                 <field name="total_slot_count"/>
@@ -35,6 +36,7 @@
                     <group>
                         <group>
                             <field name="target_month"/>
+                            <field name="day_mode"/>
                             <field name="date_start" readonly="1"/>
                             <field name="date_end" readonly="1"/>
                             <field name="manager_email"/>
@@ -50,12 +52,28 @@
                     </group>
                     <notebook>
                         <page string="Kinotage">
-                            <field name="slot_ids">
+                            <p class="text-muted">
+                                Reguläre Tage werden über die Auswahl oben und den Button <strong>Kinotage erzeugen</strong> ergänzt.
+                                Manuelle Zusatztermine können hier per <strong>Zeile hinzufügen</strong> angelegt werden.
+                                Die Notiz ist für Filmvorführer:innen auf der öffentlichen Eintrageseite sichtbar.
+                            </p>
+                            <field name="slot_ids" context="{'default_is_manual': True}" mode="list,form">
                                 <list editable="bottom" string="Kinotage">
                                     <field name="weekday_label" readonly="1"/>
-                                    <field name="date"/>
+                                    <field name="date" required="1"/>
+                                    <field name="is_manual" string="Manuell"/>
+                                    <field name="note" string="Notiz für Filmvorführer:innen" placeholder="z. B. Private Vermietung 11:00–18:00"/>
                                     <field name="employee_id"/>
                                 </list>
+                                <form string="Kinotag">
+                                    <group>
+                                        <field name="date" required="1"/>
+                                        <field name="weekday_label" readonly="1"/>
+                                        <field name="is_manual"/>
+                                        <field name="employee_id"/>
+                                        <field name="note" placeholder="z. B. Private Vermietung 11:00–18:00"/>
+                                    </group>
+                                </form>
                             </field>
                         </page>
                         <page string="Einladungen">
@@ -82,6 +100,7 @@
             <search string="Kino Dienstpläne">
                 <field name="name"/>
                 <field name="target_month"/>
+                <field name="day_mode"/>
                 <filter name="open" string="Offen" domain="[('state','=','open')]"/>
                 <filter name="done" string="Vollständig" domain="[('state','=','done')]"/>
             </search>
