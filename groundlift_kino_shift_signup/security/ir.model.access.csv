@@ -1,5 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_gl_kino_shift_campaign_user,gl.kino.shift.campaign user,model_gl_kino_shift_campaign,base.group_user,1,1,1,1
-access_gl_kino_shift_slot_user,gl.kino.shift.slot user,model_gl_kino_shift_slot,base.group_user,1,1,1,1
-access_gl_kino_shift_invite_user,gl.kino.shift.invite user,model_gl_kino_shift_invite,base.group_user,1,1,1,1
-access_gl_kino_shift_preference_user,gl.kino.shift.preference user,model_gl_kino_shift_preference,base.group_user,1,1,1,1
