@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_kino_shift_campaign_list" model="ir.ui.view">
+        <field name="name">gl.kino.shift.campaign.list</field>
+        <field name="model">gl.kino.shift.campaign</field>
+        <field name="arch" type="xml">
+            <list string="Kino Dienstpläne">
+                <field name="name"/>
+                <field name="target_month"/>
+                <field name="state"/>
+                <field name="filled_slot_count"/>
+                <field name="total_slot_count"/>
+                <field name="open_slot_count"/>
+                <field name="request_sent_date"/>
+                <field name="reminder_sent_date"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_kino_shift_campaign_form" model="ir.ui.view">
+        <field name="name">gl.kino.shift.campaign.form</field>
+        <field name="model">gl.kino.shift.campaign</field>
+        <field name="arch" type="xml">
+            <form string="Kino Dienstplan">
+                <header>
+                    <button name="action_generate_slots" type="object" string="Kinotage erzeugen" class="btn-secondary"/>
+                    <button name="action_send_request" type="object" string="Anfrage senden" class="btn-primary"/>
+                    <button name="action_send_reminder" type="object" string="Erinnerung senden" class="btn-secondary"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,open,done"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="target_month"/>
+                            <field name="date_start" readonly="1"/>
+                            <field name="date_end" readonly="1"/>
+                            <field name="manager_email"/>
+                        </group>
+                        <group>
+                            <field name="filled_slot_count" readonly="1"/>
+                            <field name="total_slot_count" readonly="1"/>
+                            <field name="open_slot_count" readonly="1"/>
+                            <field name="request_sent_date" readonly="1"/>
+                            <field name="reminder_sent_date" readonly="1"/>
+                            <field name="status_url" widget="url" readonly="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Kinotage">
+                            <field name="slot_ids">
+                                <list editable="bottom" string="Kinotage">
+                                    <field name="weekday_label" readonly="1"/>
+                                    <field name="date"/>
+                                    <field name="employee_id"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Einladungen">
+                            <field name="invite_ids" readonly="1">
+                                <list string="Einladungen">
+                                    <field name="employee_id"/>
+                                    <field name="email_to"/>
+                                    <field name="send_count"/>
+                                    <field name="last_sent_date"/>
+                                    <field name="signup_url" widget="url"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_gl_kino_shift_campaign_search" model="ir.ui.view">
+        <field name="name">gl.kino.shift.campaign.search</field>
+        <field name="model">gl.kino.shift.campaign</field>
+        <field name="arch" type="xml">
+            <search string="Kino Dienstpläne">
+                <field name="name"/>
+                <field name="target_month"/>
+                <filter name="open" string="Offen" domain="[('state','=','open')]"/>
+                <filter name="done" string="Vollständig" domain="[('state','=','done')]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_gl_kino_shift_campaigns" model="ir.actions.act_window">
+        <field name="name">Kino Dienstpläne</field>
+        <field name="res_model">gl.kino.shift.campaign</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_gl_kino_shift_campaign_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Lege eine Kino-Dienstplan-Abfrage an oder lasse sie automatisch in der ersten Woche des Monats erstellen.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_gl_kino_shift_root" name="Kino Dienstplan" sequence="80"/>
+    <menuitem id="menu_gl_kino_shift_campaigns" name="Dienstpläne" parent="menu_gl_kino_shift_root" action="action_gl_kino_shift_campaigns" sequence="10"/>
+</odoo>

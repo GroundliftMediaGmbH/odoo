@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="kino_shift_page" name="Kino Dienstplan Seite">
+        <t t-call="website.layout">
+            <t t-set="head">
+                <meta name="robots" content="noindex,nofollow"/>
+            </t>
+            <div id="wrap" class="oe_structure">
+                <section class="container py-5">
+                    <div class="row justify-content-center">
+                        <div class="col-lg-10">
+                            <div class="card shadow-sm border-0" style="border-radius:18px; overflow:hidden;">
+                                <div class="card-body p-4 p-md-5">
+                                    <t t-if="not campaign">
+                                        <h1 class="mb-3">Kino-Dienstplan</h1>
+                                        <p>Aktuell ist kein offener Kino-Dienstplan vorhanden.</p>
+                                    </t>
+                                    <t t-if="campaign">
+                                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-start gap-3 mb-4">
+                                            <div>
+                                                <p class="text-uppercase text-muted mb-1" style="letter-spacing:.08em;font-size:12px;">Kino Alte Brauerei Stegen</p>
+                                                <h1 class="mb-2">Kino-Dienstplan <t t-out="campaign.month_label"/></h1>
+                                                <p class="mb-0 text-muted">
+                                                    <strong><t t-out="campaign.filled_slot_count"/>/<t t-out="campaign.total_slot_count"/></strong>
+                                                    Kinotagen besetzt
+                                                </p>
+                                            </div>
+                                            <div t-if="invite" class="alert alert-success mb-0">
+                                                Persönlicher Link für <strong><t t-out="invite.employee_id.name"/></strong>
+                                            </div>
+                                            <div t-if="not invite" class="alert alert-secondary mb-0">
+                                                Statusansicht ohne Eintragung. Zum Eintragen bitte den persönlichen Link aus der E-Mail verwenden.
+                                            </div>
+                                        </div>
+
+                                        <t t-if="message">
+                                            <div class="alert alert-info" role="alert"><t t-out="message"/></div>
+                                        </t>
+
+                                        <div class="table-responsive">
+                                            <table class="table align-middle">
+                                                <thead>
+                                                    <tr>
+                                                        <th style="width:160px;">Tag</th>
+                                                        <th>Status</th>
+                                                        <th t-if="invite" style="width:220px;">Aktion</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <t t-foreach="week_rows" t-as="week">
+                                                        <t t-foreach="week" t-as="slot">
+                                                            <tr>
+                                                                <td>
+                                                                    <strong><t t-out="slot.weekday_label"/>:</strong>
+                                                                    <t t-out="slot.date_label"/>
+                                                                </td>
+                                                                <td>
+                                                                    <t t-if="slot.employee_id">
+                                                                        <span class="badge text-bg-success">besetzt</span>
+                                                                        <span class="ms-2"><t t-out="slot.employee_id.name"/></span>
+                                                                    </t>
+                                                                    <t t-if="not slot.employee_id">
+                                                                        <span class="badge text-bg-warning">offen</span>
+                                                                    </t>
+                                                                </td>
+                                                                <td t-if="invite">
+                                                                    <t t-if="not slot.employee_id">
+                                                                        <form method="post" action="/kino-dienstplan/signup" class="m-0">
+                                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                                            <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
+                                                                            <input type="hidden" name="employee_token" t-att-value="invite.token"/>
+                                                                            <input type="hidden" name="slot_id" t-att-value="slot.id"/>
+                                                                            <button type="submit" class="btn btn-dark btn-sm">Ich übernehme diesen Tag</button>
+                                                                        </form>
+                                                                    </t>
+                                                                    <t t-if="slot.employee_id and slot.employee_id.id == invite.employee_id.id">
+                                                                        <span class="text-success">Von dir übernommen</span>
+                                                                    </t>
+                                                                    <t t-if="slot.employee_id and slot.employee_id.id != invite.employee_id.id">
+                                                                        <span class="text-muted">nicht mehr offen</span>
+                                                                    </t>
+                                                                </td>
+                                                            </tr>
+                                                        </t>
+                                                    </t>
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        <div class="mt-4 p-3 bg-light rounded">
+                                            <p class="mb-1"><strong>Hinweis:</strong></p>
+                                            <p class="mb-0">Sobald du einen offenen Tag übernimmst, erhält die zuständige Person automatisch eine E-Mail mit dem aktuellen Stand und der Liste der noch offenen Kinotage.</p>
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </t>
+    </template>
+</odoo>
