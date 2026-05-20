@@ -1,13 +1,13 @@
 # Groundlift Kino Dienstplan Anmeldung
 
-Custom Odoo 19 SH Modul für die monatliche Abfrage der Kinovorführer:innen.
+Custom Odoo 19 SH Modul für die monatliche Abfrage der Filmvorführer:innen.
 
 ## Funktionsumfang
 
 - erzeugt pro Zielmonat automatisch alle Kinotage von Donnerstag bis Sonntag
 - findet Empfänger:innen über HR-Mitarbeiter:
   - Abteilung enthält `Kino`
-  - Stelle/Stellenbezeichnung enthält `Kinovor`
+  - Stelle/Stellenbezeichnung enthält `Filmvor`
   - Arbeits-E-Mail ist gepflegt
 - versendet in der ersten Woche des Monats eine Anfrage für den Folgemonat
 - versendet nach 7 Tagen genau eine Erinnerung, sofern noch Slots offen sind
@@ -23,7 +23,7 @@ Custom Odoo 19 SH Modul für die monatliche Abfrage der Kinovorführer:innen.
 3. In Odoo Apps-Liste aktualisieren.
 4. App `Groundlift Kino Dienstplan Anmeldung` installieren.
 5. Prüfen, dass die Abteilung `Kino` existiert und der/die Vorgesetzte dort gesetzt ist.
-6. Prüfen, dass Kinovorführer:innen als Mitarbeiter mit Arbeits-E-Mail gepflegt sind und Stelle/Stellenbezeichnung `Kinovorführer:in` oder zumindest `Kinovor...` enthält.
+6. Prüfen, dass Filmvorführer:innen als Mitarbeiter mit Arbeits-E-Mail gepflegt sind und Stelle/Stellenbezeichnung `Filmvorführer:in` oder zumindest `Filmvor...` enthält.
 
 ## Nutzung
 
@@ -39,5 +39,5 @@ Custom Odoo 19 SH Modul für die monatliche Abfrage der Kinovorführer:innen.
 ## Wichtige Hinweise
 
 - Antworten wie „Ich kann am 16.“ werden nicht automatisch aus Freitext-Mails geparst. Das ist bewusst nicht enthalten, weil Freitext-Antworten fehleranfällig sind. Der sichere Workflow ist der persönliche Eintragelink.
-- Die Statusseite ist nicht indexierbar (`sitemap=False`, `robots noindex`) und über Token geschützt, aber ohne Login erreichbar. Das ist absichtlich so, damit Kinovorführer:innen keinen Odoo-Login benötigen.
+- Die Statusseite ist nicht indexierbar (`sitemap=False`, `robots noindex`) und über Token geschützt, aber ohne Login erreichbar. Das ist absichtlich so, damit Filmvorführer:innen keinen Odoo-Login benötigen.
 - Für eine spätere tiefe Integration in Odoo Planning kann bei erfolgreicher Eintragung zusätzlich ein `planning.slot` erzeugt werden.

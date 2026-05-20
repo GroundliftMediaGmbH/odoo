@@ -172,7 +172,7 @@ class GroundliftKinoShiftCampaign(models.Model):
         base_domain = [("active", "=", True), ("work_email", "!=", False)]
         if department:
             base_domain.append(("department_id", "child_of", department.id))
-        job_domain = ["|", ("job_id.name", "ilike", "Kinovor"), ("job_title", "ilike", "Kinovor")]
+        job_domain = ["|", ("job_id.name", "ilike", "Filmvor"), ("job_title", "ilike", "Filmvor")]
         domain = expression.AND([base_domain, job_domain])
         return self.env["hr.employee"].sudo().search(domain, order="name")
 
@@ -213,7 +213,7 @@ class GroundliftKinoShiftCampaign(models.Model):
             campaign.action_generate_slots(show_notification=False)
             sent = campaign._send_to_invites(reminder=False)
             if not sent:
-                raise UserError(_("Es wurden keine Kinovorführer:innen mit Arbeits-E-Mail gefunden. Bitte prüfe Abteilung, Stelle und E-Mail-Adressen."))
+                raise UserError(_("Es wurden keine Filmvorführer:innen mit Arbeits-E-Mail gefunden. Bitte prüfe Abteilung, Stelle und E-Mail-Adressen."))
             campaign.write({"request_sent_date": fields.Date.context_today(campaign), "state": "open"})
         return self._notification("Dienstplan-Anfrage wurde versendet.")
 
@@ -415,7 +415,7 @@ class GroundliftKinoShiftSlot(models.Model):
 
     campaign_id = fields.Many2one("gl.kino.shift.campaign", string="Dienstplan", required=True, ondelete="cascade", index=True)
     date = fields.Date(string="Datum", required=True, index=True)
-    employee_id = fields.Many2one("hr.employee", string="Kinovorführer:in")
+    employee_id = fields.Many2one("hr.employee", string="Filmvorführer:in")
     weekday_label = fields.Char(string="Wochentag", compute="_compute_display_fields", store=True)
     date_label = fields.Char(string="Datum formatiert", compute="_compute_display_fields", store=True)
     display_line_short = fields.Char(string="Anzeige", compute="_compute_display_fields", store=True)
@@ -444,7 +444,7 @@ class GroundliftKinoShiftInvite(models.Model):
 
     name = fields.Char(string="Name", compute="_compute_name", store=True)
     campaign_id = fields.Many2one("gl.kino.shift.campaign", string="Dienstplan", required=True, ondelete="cascade", index=True)
-    employee_id = fields.Many2one("hr.employee", string="Kinovorführer:in", required=True, ondelete="cascade", index=True)
+    employee_id = fields.Many2one("hr.employee", string="Filmvorführer:in", required=True, ondelete="cascade", index=True)
     token = fields.Char(string="Persönlicher Token", default=_new_token, required=True, copy=False, index=True)
     email_to = fields.Char(string="E-Mail", compute="_compute_email_to", store=True)
     signup_url = fields.Char(string="Eintragelink", compute="_compute_signup_url")
