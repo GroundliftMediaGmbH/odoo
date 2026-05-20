@@ -37,7 +37,9 @@ MONTH_LABELS_DE = {
 KINO_WEEKDAYS = (3, 4, 5, 6)  # Donnerstag bis Sonntag
 
 
-def _new_token():
+def _new_token(recordset=None):
+    # Odoo calls callable defaults with the current recordset.
+    # The argument is intentionally unused; the signature keeps Odoo 19 onchange/default_get compatible.
     return secrets.token_urlsafe(32)
 
 
