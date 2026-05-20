@@ -12,6 +12,7 @@
                 <field name="filled_slot_count"/>
                 <field name="total_slot_count"/>
                 <field name="open_slot_count"/>
+                <field name="priority_quota"/>
                 <field name="request_sent_date"/>
                 <field name="reminder_sent_date"/>
             </list>
@@ -45,6 +46,8 @@
                             <field name="filled_slot_count" readonly="1"/>
                             <field name="total_slot_count" readonly="1"/>
                             <field name="open_slot_count" readonly="1"/>
+                            <field name="filmvorfuehrer_count" readonly="1"/>
+                            <field name="priority_quota" readonly="1"/>
                             <field name="request_sent_date" readonly="1"/>
                             <field name="reminder_sent_date" readonly="1"/>
                             <field name="status_url" widget="url" readonly="1"/>
@@ -63,15 +66,32 @@
                                     <field name="date" required="1"/>
                                     <field name="is_manual" string="Manuell"/>
                                     <field name="note" string="Notiz für Filmvorführer:innen" placeholder="z. B. Private Vermietung 11:00–18:00"/>
+                                    <field name="status_label" readonly="1"/>
                                     <field name="employee_id"/>
+                                    <field name="swap_requested"/>
+                                    <field name="swap_requested_by_id" readonly="1"/>
+                                    <field name="swap_requested_date" readonly="1"/>
                                 </list>
                                 <form string="Kinotag">
                                     <group>
                                         <field name="date" required="1"/>
                                         <field name="weekday_label" readonly="1"/>
                                         <field name="is_manual"/>
+                                        <field name="status_label" readonly="1"/>
                                         <field name="employee_id"/>
+                                        <field name="swap_requested"/>
+                                        <field name="swap_requested_by_id" readonly="1"/>
+                                        <field name="swap_requested_date" readonly="1"/>
                                         <field name="note" placeholder="z. B. Private Vermietung 11:00–18:00"/>
+                                    </group>
+                                    <group string="Prioritäten">
+                                        <field name="preference_ids" readonly="1">
+                                            <list string="Prioritäten">
+                                                <field name="employee_id"/>
+                                                <field name="priority"/>
+                                                <field name="create_date"/>
+                                            </list>
+                                        </field>
                                     </group>
                                 </form>
                             </field>
@@ -84,6 +104,21 @@
                                     <field name="send_count"/>
                                     <field name="last_sent_date"/>
                                     <field name="signup_url" widget="url"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Prioritäten">
+                            <p class="text-muted">
+                                Diese Liste zeigt alle per Website abgegebenen Prioritäten. Die automatische Besetzung bevorzugt
+                                „will ich unbedingt machen“ vor „kann ich übernehmen“. Bei gleicher Priorität zählt die erste Eintragung.
+                            </p>
+                            <field name="preference_ids" readonly="1">
+                                <list string="Prioritäten">
+                                    <field name="slot_id"/>
+                                    <field name="employee_id"/>
+                                    <field name="priority"/>
+                                    <field name="create_date"/>
+                                    <field name="write_date"/>
                                 </list>
                             </field>
                         </page>
