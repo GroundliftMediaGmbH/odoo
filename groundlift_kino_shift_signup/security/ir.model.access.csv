@@ -3,3 +3,5 @@ access_gl_kino_shift_campaign_user,gl.kino.shift.campaign user,model_gl_kino_shi
 access_gl_kino_shift_slot_user,gl.kino.shift.slot user,model_gl_kino_shift_slot,base.group_user,1,1,1,1
 access_gl_kino_shift_invite_user,gl.kino.shift.invite user,model_gl_kino_shift_invite,base.group_user,1,1,1,1
 access_gl_kino_shift_preference_user,gl.kino.shift.preference user,model_gl_kino_shift_preference,base.group_user,1,1,1,1
+access_gl_kino_shift_team_member_user,gl.kino.shift.team.member user,model_gl_kino_shift_team_member,base.group_user,1,1,1,1
+access_gl_kino_shift_slot_offer_user,gl.kino.shift.slot.offer user,model_gl_kino_shift_slot_offer,base.group_user,1,1,1,1

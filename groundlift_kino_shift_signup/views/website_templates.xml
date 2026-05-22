@@ -31,10 +31,13 @@
                                             <div t-if="invite" class="alert alert-success mb-0">
                                                 <div>Persönlicher Link für <strong><t t-out="invite.employee_id.name"/></strong></div>
                                                 <div class="mt-1">
-                                                    Du kannst noch <strong><t t-out="strong_remaining"/></strong> Schicht(en) priorisieren.
+                                                    <strong>Schichten:</strong> <t t-out="monthly_shift_count"/>/<t t-out="max_monthly_shift_count"/> übernommen, noch <strong><t t-out="monthly_shift_remaining"/></strong> möglich.
                                                 </div>
                                                 <div class="text-muted" style="font-size:13px;">
-                                                    Monatslimit: <t t-out="priority_quota"/>x „will ich unbedingt machen“
+                                                    Prioritäten: noch <t t-out="strong_remaining"/>x „will ich unbedingt machen“ · max. <t t-out="priority_quota"/> Prioritäten
+                                                </div>
+                                                <div class="text-muted" style="font-size:13px;">
+                                                    <t t-out="campaign.signup_state_label"/>
                                                 </div>
                                             </div>
                                             <div t-if="not invite" class="alert alert-secondary mb-0">
@@ -129,12 +132,22 @@
                                                                         </t>
                                                                     </t>
                                                                     <t t-if="not slot.swap_requested and not slot.employee_id">
-                                                                        <span class="badge text-bg-warning">offen</span>
+                                                                        <t t-if="slot.fill_request_state == 'waiting' and slot.fill_request_current_employee_id">
+                                                                            <span class="badge text-bg-info">Einzelanfrage läuft</span>
+                                                                            <div class="small text-muted mt-1">aktuell angefragt: <t t-out="slot.fill_request_current_employee_id.name"/></div>
+                                                                        </t>
+                                                                        <t t-if="slot.fill_request_state == 'exhausted'">
+                                                                            <span class="badge text-bg-danger">offen – niemand verfügbar</span>
+                                                                        </t>
+                                                                        <t t-if="slot.fill_request_state not in ['waiting', 'exhausted']">
+                                                                            <span class="badge text-bg-warning">offen</span>
+                                                                        </t>
                                                                     </t>
                                                                 </td>
                                                                 <td t-if="invite">
                                                                     <t t-set="current_pref" t-value="preference_by_slot_id.get(slot.id) if preference_by_slot_id else False"/>
                                                                     <t t-set="is_own_slot" t-value="slot.employee_id and slot.employee_id.id == invite.employee_id.id"/>
+                                                                    <t t-set="can_take_more_shifts" t-value="monthly_shift_remaining &gt; 0 or is_own_slot"/>
                                                                     <t t-if="is_own_slot">
                                                                         <div class="text-success fw-semibold mb-2">Von dir übernommen</div>
                                                                         <t t-if="not slot.swap_requested">
@@ -176,13 +189,18 @@
                                                                     </t>
 
                                                                     <t t-if="not is_own_slot and slot.swap_requested">
-                                                                        <form method="post" action="/kino-dienstplan/swap/accept" class="m-0">
-                                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                                            <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
-                                                                            <input type="hidden" name="employee_token" t-att-value="invite.token"/>
-                                                                            <input type="hidden" name="slot_id" t-att-value="slot.id"/>
-                                                                            <button type="submit" class="btn btn-dark btn-sm">Tausch übernehmen</button>
-                                                                        </form>
+                                                                        <t t-if="monthly_shift_remaining &gt; 0">
+                                                                            <form method="post" action="/kino-dienstplan/swap/accept" class="m-0">
+                                                                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                                                <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
+                                                                                <input type="hidden" name="employee_token" t-att-value="invite.token"/>
+                                                                                <input type="hidden" name="slot_id" t-att-value="slot.id"/>
+                                                                                <button type="submit" class="btn btn-dark btn-sm">Tausch übernehmen</button>
+                                                                            </form>
+                                                                        </t>
+                                                                        <t t-if="monthly_shift_remaining &lt;= 0">
+                                                                            <button type="button" class="btn btn-outline-secondary btn-sm" disabled="disabled">Monatslimit erreicht</button>
+                                                                        </t>
                                                                     </t>
 
                                                                     <t t-if="not is_own_slot and not slot.swap_requested">
@@ -191,30 +209,52 @@
                                                                                 Deine Auswahl: <strong><t t-out="current_pref.priority_label"/></strong>
                                                                             </div>
                                                                         </t>
-                                                                        <div class="d-flex flex-column gap-2">
-                                                                            <t t-set="can_use_strong" t-value="strong_remaining &gt; 0 or (current_pref and current_pref.priority == 'strong')"/>
-                                                                            <form method="post" action="/kino-dienstplan/signup" class="m-0">
-                                                                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                                                <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
-                                                                                <input type="hidden" name="employee_token" t-att-value="invite.token"/>
-                                                                                <input type="hidden" name="slot_id" t-att-value="slot.id"/>
-                                                                                <input type="hidden" name="priority" value="strong"/>
-                                                                                <t t-if="can_use_strong">
-                                                                                    <button type="submit" class="btn btn-dark btn-sm w-100">Will ich unbedingt machen</button>
+                                                                        <t t-if="not can_take_more_shifts">
+                                                                            <button type="button" class="btn btn-outline-secondary btn-sm w-100" disabled="disabled">Monatslimit erreicht</button>
+                                                                        </t>
+                                                                        <t t-if="can_take_more_shifts">
+                                                                            <t t-if="campaign.signup_locked">
+                                                                                <t t-if="not slot.employee_id">
+                                                                                    <form method="post" action="/kino-dienstplan/signup" class="m-0">
+                                                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                                                        <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
+                                                                                        <input type="hidden" name="employee_token" t-att-value="invite.token"/>
+                                                                                        <input type="hidden" name="slot_id" t-att-value="slot.id"/>
+                                                                                        <input type="hidden" name="priority" value="normal"/>
+                                                                                        <button type="submit" class="btn btn-dark btn-sm w-100">Freien Termin übernehmen</button>
+                                                                                    </form>
                                                                                 </t>
-                                                                                <t t-if="not can_use_strong">
-                                                                                    <button type="button" class="btn btn-dark btn-sm w-100" disabled="disabled">Priorisierung ausgeschöpft</button>
+                                                                                <t t-if="slot.employee_id">
+                                                                                    <span class="text-muted small">Nach der Frist nur noch per Tausch änderbar</span>
                                                                                 </t>
-                                                                            </form>
-                                                                            <form method="post" action="/kino-dienstplan/signup" class="m-0">
-                                                                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                                                <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
-                                                                                <input type="hidden" name="employee_token" t-att-value="invite.token"/>
-                                                                                <input type="hidden" name="slot_id" t-att-value="slot.id"/>
-                                                                                <input type="hidden" name="priority" value="normal"/>
-                                                                                <button type="submit" class="btn btn-outline-dark btn-sm w-100">Kann ich übernehmen</button>
-                                                                            </form>
-                                                                        </div>
+                                                                            </t>
+                                                                            <t t-if="not campaign.signup_locked">
+                                                                                <div class="d-flex flex-column gap-2">
+                                                                                    <t t-set="can_use_strong" t-value="strong_remaining &gt; 0 or (current_pref and current_pref.priority == 'strong')"/>
+                                                                                    <form method="post" action="/kino-dienstplan/signup" class="m-0">
+                                                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                                                        <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
+                                                                                        <input type="hidden" name="employee_token" t-att-value="invite.token"/>
+                                                                                        <input type="hidden" name="slot_id" t-att-value="slot.id"/>
+                                                                                        <input type="hidden" name="priority" value="strong"/>
+                                                                                        <t t-if="can_use_strong">
+                                                                                            <button type="submit" class="btn btn-dark btn-sm w-100">Will ich unbedingt machen</button>
+                                                                                        </t>
+                                                                                        <t t-if="not can_use_strong">
+                                                                                            <button type="button" class="btn btn-dark btn-sm w-100" disabled="disabled">Priorisierung ausgeschöpft</button>
+                                                                                        </t>
+                                                                                    </form>
+                                                                                    <form method="post" action="/kino-dienstplan/signup" class="m-0">
+                                                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                                                        <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
+                                                                                        <input type="hidden" name="employee_token" t-att-value="invite.token"/>
+                                                                                        <input type="hidden" name="slot_id" t-att-value="slot.id"/>
+                                                                                        <input type="hidden" name="priority" value="normal"/>
+                                                                                        <button type="submit" class="btn btn-outline-dark btn-sm w-100">Kann ich übernehmen</button>
+                                                                                    </form>
+                                                                                </div>
+                                                                            </t>
+                                                                        </t>
                                                                     </t>
                                                                 </td>
                                                             </tr>
@@ -227,8 +267,8 @@
                                         <div class="mt-4 p-3 bg-light rounded">
                                             <p class="mb-1"><strong>Hinweis:</strong></p>
                                             <p class="mb-0">
-                                                „Will ich unbedingt machen“ überschreibt eine reine „Kann ich übernehmen“-Eintragung am selben Datum nur bei noch offenen Terminen.
-                                                Ist der Termin bereits fix besetzt, wird die aktuell eingetragene Person per E-Mail gefragt, ob sie den Termin abgeben möchte.
+                                                Prioritäten können bis zwei Wochen vor der ersten Schicht gesetzt werden. Danach können nur noch freie Termine direkt übernommen oder bestehende Termine per Tauschanfrage geändert werden.
+                                                Pro Person können maximal <t t-out="max_monthly_shift_count"/> Schichten im Monat übernommen werden.
                                                 Eine laufende Tauschanfrage wird als „Tauschanfrage“ angezeigt, bis jemand den Termin übernimmt.
                                             </p>
                                         </div>
