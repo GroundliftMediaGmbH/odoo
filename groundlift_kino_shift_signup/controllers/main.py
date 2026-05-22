@@ -70,6 +70,7 @@ class GroundliftKinoShiftController(http.Controller):
         strong_remaining = 0
         priority_quota = 0
         takeover_request_slots = request.env["gl.kino.shift.slot"].sudo()
+        correction_available_by_slot_id = {}
         monthly_shift_count = 0
         monthly_shift_remaining = 0
         max_monthly_shift_count = campaign.max_monthly_shift_count if campaign else 6
@@ -83,6 +84,10 @@ class GroundliftKinoShiftController(http.Controller):
             takeover_request_slots = campaign.slot_ids.filtered(
                 lambda slot: slot.employee_id.id == invite.employee_id.id and bool(slot.takeover_requested_by_id)
             ).sorted("date")
+            correction_available_by_slot_id = {
+                slot.id: campaign.can_correct_assignment_from_invite(invite, slot)
+                for slot in campaign.slot_ids
+            }
 
         values = {
             "campaign": campaign,
@@ -93,6 +98,7 @@ class GroundliftKinoShiftController(http.Controller):
             "strong_remaining": strong_remaining,
             "priority_quota": priority_quota,
             "takeover_request_slots": takeover_request_slots,
+            "correction_available_by_slot_id": correction_available_by_slot_id,
             "monthly_shift_count": monthly_shift_count,
             "monthly_shift_remaining": monthly_shift_remaining,
             "max_monthly_shift_count": max_monthly_shift_count,
@@ -116,6 +122,25 @@ class GroundliftKinoShiftController(http.Controller):
             return self._redirect_back(campaign, invite, message)
 
         message = campaign.action_signup_from_invite(invite, slot, priority=priority)
+        return self._redirect_back(campaign, invite, message)
+
+    @http.route(
+        "/kino-dienstplan/correct",
+        type="http",
+        auth="public",
+        website=True,
+        methods=["POST"],
+        csrf=True,
+        sitemap=False,
+    )
+    def kino_shift_correct(self, campaign_token=None, employee_token=None, slot_id=None, **post):
+        campaign, invite, slot = self._get_campaign_invite_slot(campaign_token, employee_token, slot_id)
+
+        if not campaign or not invite or not slot:
+            message = "Die Korrektur konnte nicht verarbeitet werden. Bitte öffne den Link aus deiner E-Mail erneut."
+            return self._redirect_back(campaign, invite, message)
+
+        message = campaign.action_correct_assignment_from_invite(invite, slot)
         return self._redirect_back(campaign, invite, message)
 
     @http.route(

@@ -2,9 +2,9 @@
 
 Custom Odoo 19 SH Modul für die monatliche Abfrage und Verwaltung der Filmvorführer:innen-Schichten.
 
-## Version 19.0.1.6.0
+## Version 19.0.1.7.0
 
-Diese Version erweitert die bestehende Schichtlogik um vier Punkte:
+Diese Version erweitert die bestehende Schichtlogik um sechs Punkte:
 
 1. **Eintragungsfrist / Prioritäten-Sperre**
    - Die Priorisierungsphase endet zwei Wochen vor der ersten Schicht des Dienstplans.
@@ -30,6 +30,15 @@ Diese Version erweitert die bestehende Schichtlogik um vier Punkte:
    - Standardwert: `6`.
    - Die persönliche Anmeldeseite zeigt sichtbar an, wie viele Schichten die Person bereits übernommen hat und wie viele noch möglich sind.
    - Das Limit wird bei normalen Eintragungen, freien Terminen nach Fristablauf, Tauschen, Übergabe-Annahmen und Zusatztermin-Anfragen serverseitig geprüft.
+
+5. **Robuste Zusatztermin-Ablehnung**
+   - Klickt die einzeln angefragte Person auf `Nein, ich kann nicht`, wird die nächste geeignete Person sofort neu ermittelt.
+   - Die Reihenfolge ist: wenigste bereits übernommene Schichten, bei Gleichstand alphabetisch nach Name.
+   - Der abgelehnte Anfrage-Datensatz kann die Kette nicht mehr als vermeintlich offene Anfrage blockieren.
+
+6. **24-Stunden-Korrektur eigener Eintragungen**
+   - Nach einer erfolgreichen Eintragung erscheint innerhalb der laufenden Eintragungsfrist für 24 Stunden der Button `Korrigieren`.
+   - Die Korrektur nimmt die eigene Eintragung zurück; danach wird der Termin wieder offen oder anhand vorhandener Prioritäten neu vergeben.
 
 ## Grundfunktionen
 
