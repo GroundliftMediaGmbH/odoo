@@ -70,10 +70,16 @@ class GroundliftKinoShiftController(http.Controller):
         strong_remaining = 0
         priority_quota = 0
         takeover_request_slots = request.env["gl.kino.shift.slot"].sudo()
+        monthly_shift_count = 0
+        monthly_shift_remaining = 0
+        max_monthly_shift_count = campaign.max_monthly_shift_count if campaign else 6
         if campaign and invite:
             preference_by_slot_id = campaign.get_preference_by_slot_for_employee(invite.employee_id)
             strong_remaining = campaign.get_strong_priority_remaining(invite.employee_id)
             priority_quota = campaign.priority_quota
+            monthly_shift_count = campaign.get_employee_shift_count(invite.employee_id)
+            monthly_shift_remaining = campaign.get_monthly_shift_remaining(invite.employee_id)
+            max_monthly_shift_count = campaign.max_monthly_shift_count
             takeover_request_slots = campaign.slot_ids.filtered(
                 lambda slot: slot.employee_id.id == invite.employee_id.id and bool(slot.takeover_requested_by_id)
             ).sorted("date")
@@ -87,6 +93,9 @@ class GroundliftKinoShiftController(http.Controller):
             "strong_remaining": strong_remaining,
             "priority_quota": priority_quota,
             "takeover_request_slots": takeover_request_slots,
+            "monthly_shift_count": monthly_shift_count,
+            "monthly_shift_remaining": monthly_shift_remaining,
+            "max_monthly_shift_count": max_monthly_shift_count,
         }
         return request.render("groundlift_kino_shift_signup.kino_shift_page", values)
 
@@ -165,6 +174,27 @@ class GroundliftKinoShiftController(http.Controller):
 
         accept = answer == "yes"
         message = campaign.action_respond_swap_from_invite(invite, slot, accept=accept)
+        return self._redirect_back(campaign, invite, message)
+
+
+    @http.route(
+        "/kino-dienstplan/fill/respond/<string:campaign_token>/<string:employee_token>/<int:slot_id>/<string:answer>",
+        type="http",
+        auth="public",
+        website=True,
+        methods=["GET"],
+        csrf=False,
+        sitemap=False,
+    )
+    def kino_shift_fill_respond_email(self, campaign_token=None, employee_token=None, slot_id=None, answer=None, **kwargs):
+        campaign, invite, slot = self._get_campaign_invite_slot(campaign_token, employee_token, slot_id)
+
+        if not campaign or not invite or not slot:
+            message = "Die Zusatztermin-Anfrage konnte nicht verarbeitet werden. Bitte öffne den Link aus deiner E-Mail erneut."
+            return self._redirect_back(campaign, invite, message)
+
+        accept = answer == "yes"
+        message = campaign.action_respond_fill_request_from_invite(invite, slot, accept=accept)
         return self._redirect_back(campaign, invite, message)
 
 

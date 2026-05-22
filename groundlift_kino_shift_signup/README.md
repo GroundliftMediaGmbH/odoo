@@ -1,17 +1,42 @@
 # Groundlift Kino Dienstplan Anmeldung
 
-Custom Odoo 19 SH Modul für die monatliche Abfrage der Filmvorführer:innen.
+Custom Odoo 19 SH Modul für die monatliche Abfrage und Verwaltung der Filmvorführer:innen-Schichten.
 
-## Funktionsumfang
+## Version 19.0.1.6.0
+
+Diese Version erweitert die bestehende Schichtlogik um vier Punkte:
+
+1. **Eintragungsfrist / Prioritäten-Sperre**
+   - Die Priorisierungsphase endet zwei Wochen vor der ersten Schicht des Dienstplans.
+   - Bis einschließlich Fristdatum können Filmvorführer:innen Prioritäten setzen.
+   - Ab dem Folgetag sind keine neuen Prioritäten und keine Wunsch-Übernahmen bereits besetzter Termine mehr möglich.
+   - Nach Ablauf der Frist können nur noch freie Termine direkt übernommen oder bestehende Termine per Tauschanfrage geändert werden.
+
+2. **Automatische Anfragekette für Zusatztermine**
+   - Wird in einem bereits geöffneten Dienstplan ein manueller Zusatztermin angelegt, z. B. private Kinovermietung, erhalten alle aktiven Filmvorführer:innen eine Info-Mail.
+   - Danach fragt das System automatisch jeweils die Person mit der geringsten Anzahl bereits übernommener Schichten an.
+   - Klickt diese Person auf „Nein, ich kann nicht“, wird automatisch die nächste geeignete Person mit der nächsthöheren bzw. nächstpassenden Schichtanzahl angeschrieben.
+   - Klickt die angefragte Person auf „Ja, ich übernehme“, wird der Zusatztermin direkt fix besetzt.
+   - Ist der Zusatztermin eine Woche vorher noch unbesetzt, sendet ein täglicher Cron eine Erinnerung an alle Filmvorführer:innen und eine separate Mail an die hinterlegte Vorgesetzten-Adresse.
+
+3. **Backend-Teamliste für Filmvorführer:innen**
+   - Neues Menü: `Kino Dienstplan` → `Filmvorführer:innen`.
+   - Über „Neu“ / „Hinzufügen“ kann jede aktive Mitarbeiter:in des Unternehmens in das Kino-Schichtsystem aufgenommen werden.
+   - Die gepflegte Teamliste ist maßgeblich für Einladungen, Erinnerungen und Zusatztermin-Anfragen.
+   - Falls noch keine Teamliste gepflegt ist, verwendet das Modul aus Kompatibilitätsgründen weiterhin den bisherigen Fallback: Abteilung/Stelle enthält `Kino` bzw. `Filmvor...` und Arbeits-E-Mail ist gesetzt.
+
+4. **Monatslimit für Schichten**
+   - Pro Dienstplan gibt es das neue Feld `Max. Schichten pro Person/Monat`.
+   - Standardwert: `6`.
+   - Die persönliche Anmeldeseite zeigt sichtbar an, wie viele Schichten die Person bereits übernommen hat und wie viele noch möglich sind.
+   - Das Limit wird bei normalen Eintragungen, freien Terminen nach Fristablauf, Tauschen, Übergabe-Annahmen und Zusatztermin-Anfragen serverseitig geprüft.
+
+## Grundfunktionen
 
 - erzeugt pro Zielmonat automatisch reguläre Kinotage nach Auswahl:
   - Donnerstag bis Sonntag
   - Dienstag bis Sonntag
 - erlaubt manuelle Zusatztermine mit sichtbarer Notiz für Filmvorführer:innen, z. B. private Vermietung 11:00–18:00
-- findet Empfänger:innen über HR-Mitarbeiter:
-  - Abteilung enthält `Kino`
-  - Stelle/Stellenbezeichnung enthält `Filmvor`
-  - Arbeits-E-Mail ist gepflegt
 - versendet in der ersten Woche des Monats eine Anfrage für den Folgemonat
 - versendet nach 7 Tagen genau eine Erinnerung, sofern noch Slots offen sind oder Tauschanfragen laufen
 - stellt eine öffentliche, aber tokenisierte Status-/Eintrageseite bereit
@@ -21,19 +46,19 @@ Custom Odoo 19 SH Modul für die monatliche Abfrage der Filmvorführer:innen.
 
 ## Prioritäten / Ranking
 
-Filmvorführer:innen können pro Termin eine Auswahl abgeben:
+Filmvorführer:innen können während der Priorisierungsphase pro Termin eine Auswahl abgeben:
 
 1. `will ich unbedingt machen`
 2. `kann ich übernehmen`
 
 Die automatische Besetzung folgt dieser Logik:
 
-- `will ich unbedingt machen` hat Vorrang vor `kann ich übernehmen`.
+- `will ich unbedingt machen` hat Vorrang vor `kann ich übernehmen`, solange der Termin noch nicht fix besetzt ist.
 - Bei gleicher Priorität zählt die zuerst gespeicherte Eintragung.
-- `kann ich übernehmen` kann für beliebig viele Termine gewählt werden.
 - `will ich unbedingt machen` ist pro Person limitiert.
-- Die Quote wird aus `Anzahl Kinotage / Anzahl Filmvorführer:innen` berechnet und technisch aufgerundet, damit eine ganzzahlige Anzahl an priorisierbaren Schichten entsteht.
-- Auf der persönlichen Website steht: `Du kannst noch xx Schichten priorisieren`.
+- Die Quote wird aus `Anzahl Kinotage / Anzahl Filmvorführer:innen` berechnet und technisch aufgerundet.
+- Bereits fix besetzte Termine werden nicht automatisch überschrieben. Vor der Eintragungsfrist kann nur eine Übergabeanfrage an die aktuell eingetragene Person ausgelöst werden.
+- Nach Ablauf der Eintragungsfrist kann kein `kann ich übernehmen` mehr durch `will ich unbedingt machen` verdrängt werden.
 
 ## Tauschanfragen
 
@@ -41,9 +66,20 @@ Die automatische Besetzung folgt dieser Logik:
 - Beim Klick erscheint die Browser-Bestätigung: `Kannst du an diesem Tag wirklich nicht?`
 - Wird bestätigt, erhält der Slot den Status `Tauschanfrage`.
 - Alle anderen Filmvorführer:innen erhalten eine E-Mail mit Ja-/Nein-Link.
-- Klickt eine andere Person auf `Ja`, wird sie direkt für den Termin eingetragen, sofern die Tauschanfrage noch offen ist.
+- Klickt eine andere Person auf `Ja`, wird sie direkt für den Termin eingetragen, sofern die Tauschanfrage noch offen ist und das Monatslimit nicht überschritten wird.
 - Klickt eine Person auf `Nein`, wird nichts eingetragen und nur eine Rückmeldung angezeigt.
-- Auf personalisierter Seite und Übersichtsseite wird der Slot währenddessen als `Tauschanfrage` angezeigt, nicht als fix besetzt.
+
+## Zusatztermin-Workflow
+
+Ein Zusatztermin ist ein manuell angelegter Kinotag (`Manuell = aktiv`). Wird er in einem bereits geöffneten Dienstplan ohne Besetzung angelegt, läuft automatisch:
+
+1. Info-Mail an alle Filmvorführer:innen.
+2. Einzelanfrage an die Person mit der geringsten bisherigen Schichtanzahl.
+3. Bei Ablehnung automatische Anfrage an die nächste geeignete Person.
+4. Bei Annahme direkte fixe Besetzung.
+5. Eine Woche vor dem Termin: Erinnerung an alle und Meldung an die Vorgesetzten-Adresse, falls der Termin noch offen ist.
+
+Im Backend ist der Verlauf im Reiter `Kinotage` → Datensatz öffnen → `Automatische Zusatztermin-Anfragen` sichtbar. Zusätzlich gibt es das Menü `Zusatztermin-Anfragen`.
 
 ## Installation auf Odoo SH
 
@@ -51,9 +87,9 @@ Die automatische Besetzung folgt dieser Logik:
 2. Commit und Push in den gewünschten Branch.
 3. In Odoo Apps-Liste aktualisieren.
 4. App `Groundlift Kino Dienstplan Anmeldung` installieren oder aktualisieren.
-5. Bei bestehenden Installationen zwingend die App upgraden, damit neue Felder, Datenbankspalten und XML-Views geladen werden.
-6. Prüfen, dass die Abteilung `Kino` existiert und der/die Vorgesetzte dort gesetzt ist.
-7. Prüfen, dass Filmvorführer:innen als Mitarbeiter mit Arbeits-E-Mail gepflegt sind und Stelle/Stellenbezeichnung `Filmvorführer:in` oder zumindest `Filmvor...` enthält.
+5. Bei bestehenden Installationen zwingend die App upgraden, damit neue Felder, Datenbankspalten, Views, Cronjobs und Zugriffsrechte geladen werden.
+6. Menü `Kino Dienstplan` → `Filmvorführer:innen` öffnen und das Team pflegen.
+7. Prüfen, dass bei den ausgewählten Mitarbeiter:innen eine Arbeits-E-Mail gepflegt ist.
 
 ## Nutzung
 
@@ -67,14 +103,10 @@ Die automatische Besetzung folgt dieser Logik:
 - Automatik:
   - Cron `Kino Dienstplan: Monatsanfrage versenden` läuft täglich und sendet nur vom 1. bis 7. eines Monats für den Folgemonat.
   - Cron `Kino Dienstplan: Erinnerung offene Slots` läuft täglich und sendet nach 7 Tagen eine Erinnerung, falls noch Slots offen sind oder Tauschanfragen laufen.
+  - Cron `Kino Dienstplan: Zusatztermin 1-Woche-Erinnerung` läuft täglich und prüft offene Zusatztermine innerhalb der nächsten 7 Tage.
 
 ## Wichtige Hinweise
 
-- Antworten wie „Ich kann am 16.“ werden nicht automatisch aus Freitext-Mails geparst. Das ist bewusst nicht enthalten, weil Freitext-Antworten fehleranfällig sind. Der sichere Workflow ist der persönliche Eintragelink.
-- Die Statusseite ist nicht indexierbar (`sitemap=False`, `robots noindex`) und über Token geschützt, aber ohne Login erreichbar. Das ist absichtlich so, damit Filmvorführer:innen keinen Odoo-Login benötigen.
+- Antworten wie „Ich kann am 16.“ werden nicht automatisch aus Freitext-Mails geparst. Der sichere Workflow ist der persönliche Eintragelink.
+- Die Statusseite ist nicht indexierbar (`sitemap=False`, `robots noindex`) und über Token geschützt, aber ohne Login erreichbar.
 - Für eine spätere tiefe Integration in Odoo Planning kann bei erfolgreicher Eintragung zusätzlich ein `planning.slot` erzeugt werden.
-
-
-## Zusatzlogik 19.0.1.4.0
-
-Wenn eine zweite Person einen bereits fix besetzten Termin mit „will ich unbedingt machen“ priorisiert, wird die aktuell eingetragene Person per E-Mail gefragt, ob sie den Termin abgeben möchte. Bei Ja wird die zweite Person eingetragen, bei Nein bleibt die bisherige Besetzung erhalten.
