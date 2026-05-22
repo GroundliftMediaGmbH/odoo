@@ -13,6 +13,8 @@
                 <field name="total_slot_count"/>
                 <field name="open_slot_count"/>
                 <field name="priority_quota"/>
+                <field name="max_monthly_shift_count"/>
+                <field name="signup_deadline_date"/>
                 <field name="request_sent_date"/>
                 <field name="reminder_sent_date"/>
             </list>
@@ -48,6 +50,10 @@
                             <field name="open_slot_count" readonly="1"/>
                             <field name="filmvorfuehrer_count" readonly="1"/>
                             <field name="priority_quota" readonly="1"/>
+                            <field name="max_monthly_shift_count"/>
+                            <field name="first_slot_date" readonly="1"/>
+                            <field name="signup_deadline_date" readonly="1"/>
+                            <field name="signup_state_label" readonly="1"/>
                             <field name="request_sent_date" readonly="1"/>
                             <field name="reminder_sent_date" readonly="1"/>
                             <field name="status_url" widget="url" readonly="1"/>
@@ -73,8 +79,15 @@
                                     <field name="swap_requested_date" readonly="1"/>
                                     <field name="takeover_requested_by_id" readonly="1"/>
                                     <field name="takeover_requested_date" readonly="1"/>
+                                    <field name="fill_request_state" readonly="1"/>
+                                    <field name="fill_request_current_employee_id" readonly="1"/>
+                                    <field name="fill_request_notice_sent_date" readonly="1"/>
+                                    <field name="fill_request_due_reminder_sent_date" readonly="1"/>
                                 </list>
                                 <form string="Kinotag">
+                                    <header>
+                                        <button name="action_start_fill_request" type="object" string="Zusatztermin-Anfrage starten" class="btn-secondary"/>
+                                    </header>
                                     <group>
                                         <field name="date" required="1"/>
                                         <field name="weekday_label" readonly="1"/>
@@ -86,7 +99,23 @@
                                         <field name="swap_requested_date" readonly="1"/>
                                         <field name="takeover_requested_by_id" readonly="1"/>
                                         <field name="takeover_requested_date" readonly="1"/>
+                                        <field name="fill_request_state" readonly="1"/>
+                                        <field name="fill_request_current_employee_id" readonly="1"/>
+                                        <field name="fill_request_notice_sent_date" readonly="1"/>
+                                        <field name="fill_request_due_reminder_sent_date" readonly="1"/>
                                         <field name="note" placeholder="z. B. Private Vermietung 11:00–18:00"/>
+                                    </group>
+                                    <group string="Automatische Zusatztermin-Anfragen">
+                                        <field name="offer_ids" readonly="1">
+                                            <list string="Anfragen">
+                                                <field name="sequence"/>
+                                                <field name="employee_id"/>
+                                                <field name="shift_count_at_offer"/>
+                                                <field name="state"/>
+                                                <field name="sent_datetime"/>
+                                                <field name="responded_datetime"/>
+                                            </list>
+                                        </field>
                                     </group>
                                     <group string="Prioritäten">
                                         <field name="preference_ids" readonly="1">
@@ -158,6 +187,95 @@
         </field>
     </record>
 
+
+
+    <record id="view_gl_kino_shift_team_member_list" model="ir.ui.view">
+        <field name="name">gl.kino.shift.team.member.list</field>
+        <field name="model">gl.kino.shift.team.member</field>
+        <field name="arch" type="xml">
+            <list string="Filmvorführer:innen" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="employee_id" required="1"/>
+                <field name="email_to" readonly="1"/>
+                <field name="department_id" readonly="1"/>
+                <field name="job_title" readonly="1"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_kino_shift_team_member_form" model="ir.ui.view">
+        <field name="name">gl.kino.shift.team.member.form</field>
+        <field name="model">gl.kino.shift.team.member</field>
+        <field name="arch" type="xml">
+            <form string="Filmvorführer:in">
+                <sheet>
+                    <group>
+                        <field name="employee_id" required="1"/>
+                        <field name="active"/>
+                        <field name="sequence"/>
+                    </group>
+                    <group>
+                        <field name="email_to" readonly="1"/>
+                        <field name="department_id" readonly="1"/>
+                        <field name="job_title" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_gl_kino_shift_team_member_search" model="ir.ui.view">
+        <field name="name">gl.kino.shift.team.member.search</field>
+        <field name="model">gl.kino.shift.team.member</field>
+        <field name="arch" type="xml">
+            <search string="Filmvorführer:innen">
+                <field name="employee_id"/>
+                <filter name="active" string="Aktiv" domain="[('active','=',True)]"/>
+                <filter name="inactive" string="Inaktiv" domain="[('active','=',False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_gl_kino_shift_team_members" model="ir.actions.act_window">
+        <field name="name">Filmvorführer:innen</field>
+        <field name="res_model">gl.kino.shift.team.member</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_gl_kino_shift_team_member_search"/>
+        <field name="context">{'search_default_active': 1, 'active_test': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Über „Neu“ bzw. „Hinzufügen“ kannst du eine:n beliebige:n Mitarbeiter:in in das Kino-Schichtsystem aufnehmen.
+            </p>
+        </field>
+    </record>
+
+    <record id="view_gl_kino_shift_slot_offer_list" model="ir.ui.view">
+        <field name="name">gl.kino.shift.slot.offer.list</field>
+        <field name="model">gl.kino.shift.slot.offer</field>
+        <field name="arch" type="xml">
+            <list string="Zusatztermin-Anfragen">
+                <field name="slot_id"/>
+                <field name="campaign_id"/>
+                <field name="sequence"/>
+                <field name="employee_id"/>
+                <field name="shift_count_at_offer"/>
+                <field name="state"/>
+                <field name="sent_datetime"/>
+                <field name="responded_datetime"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_gl_kino_shift_slot_offers" model="ir.actions.act_window">
+        <field name="name">Zusatztermin-Anfragen</field>
+        <field name="res_model">gl.kino.shift.slot.offer</field>
+        <field name="view_mode">list</field>
+    </record>
+
+
     <menuitem id="menu_gl_kino_shift_root" name="Kino Dienstplan" sequence="80"/>
     <menuitem id="menu_gl_kino_shift_campaigns" name="Dienstpläne" parent="menu_gl_kino_shift_root" action="action_gl_kino_shift_campaigns" sequence="10"/>
+    <menuitem id="menu_gl_kino_shift_team_members" name="Filmvorführer:innen" parent="menu_gl_kino_shift_root" action="action_gl_kino_shift_team_members" sequence="20"/>
+    <menuitem id="menu_gl_kino_shift_slot_offers" name="Zusatztermin-Anfragen" parent="menu_gl_kino_shift_root" action="action_gl_kino_shift_slot_offers" sequence="30"/>
 </odoo>
