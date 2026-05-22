@@ -430,6 +430,75 @@ class GroundliftKinoShiftCampaign(models.Model):
             open_lines,
         )
 
+    def can_correct_assignment_from_invite(self, invite, slot):
+        self.ensure_one()
+        if not invite or invite.campaign_id.id != self.id:
+            return False
+        if not slot or slot.campaign_id.id != self.id:
+            return False
+        if self._is_signup_locked():
+            return False
+        if not slot.employee_id or slot.employee_id.id != invite.employee_id.id:
+            return False
+        if slot.swap_requested:
+            return False
+        assigned_dt = fields.Datetime.to_datetime(slot.employee_assigned_datetime) if slot.employee_assigned_datetime else False
+        if not assigned_dt:
+            return False
+        return fields.Datetime.now() <= assigned_dt + timedelta(days=1)
+
+    def action_correct_assignment_from_invite(self, invite, slot):
+        self.ensure_one()
+        if not invite or invite.campaign_id.id != self.id:
+            return "Der persönliche Eintragelink ist ungültig."
+        if not slot or slot.campaign_id.id != self.id:
+            return "Der ausgewählte Kinotag gehört nicht zu diesem Dienstplan."
+        self.env.cr.execute(
+            'SELECT id FROM "%s" WHERE id = %%s FOR UPDATE' % slot._table,
+            [slot.id],
+        )
+        slot.invalidate_recordset([
+            "employee_id",
+            "swap_requested",
+            "swap_requested_by_id",
+            "takeover_requested_by_id",
+            "fill_request_state",
+            "fill_request_current_employee_id",
+            "employee_assigned_datetime",
+        ])
+        if not self.can_correct_assignment_from_invite(invite, slot):
+            return "Die Korrektur ist für diesen Termin nicht mehr möglich. Nach Ablauf von 24 Stunden oder nach Ende der Eintragungsfrist ist nur noch Tauschen möglich."
+
+        slot_label = slot.display_line_short
+        Preference = self.env["gl.kino.shift.preference"].sudo()
+        Preference.search([
+            ("campaign_id", "=", self.id),
+            ("slot_id", "=", slot.id),
+            ("employee_id", "=", invite.employee_id.id),
+        ]).unlink()
+        slot.write(
+            {
+                "employee_id": False,
+                "swap_requested": False,
+                "swap_requested_by_id": False,
+                "swap_requested_date": False,
+                "takeover_requested_by_id": False,
+                "takeover_requested_date": False,
+                "fill_request_current_employee_id": False,
+            }
+        )
+        selected_preference = False
+        if not slot.is_manual:
+            selected_preference = self._recompute_slot_assignment(slot)
+        self._refresh_state_from_slots()
+        slot.invalidate_recordset(["employee_id", "fill_request_state", "fill_request_current_employee_id"])
+        if selected_preference and slot.employee_id:
+            self._notify_manager(slot, extra_message="Termin wurde nach Korrektur automatisch neu vergeben; vorher: %s" % invite.employee_id.name)
+            return "Die Korrektur für %s wurde gespeichert. Der Termin wurde automatisch an %s vergeben." % (slot_label, slot.employee_id.name)
+        if slot.is_manual and slot.fill_request_state == "waiting" and slot.fill_request_current_employee_id:
+            return "Die Korrektur für %s wurde gespeichert. Die nächste Person wurde automatisch angefragt." % slot_label
+        return "Die Korrektur für %s wurde gespeichert. Der Termin ist wieder offen." % slot_label
+
     def action_signup_from_invite(self, invite, slot, priority=PRIORITY_NORMAL):
         self.ensure_one()
         priority = priority if priority in (PRIORITY_STRONG, PRIORITY_NORMAL) else PRIORITY_NORMAL
@@ -1120,20 +1189,24 @@ class GroundliftKinoShiftCampaign(models.Model):
                     }
                 )
                 continue
-            candidates.append((self.get_employee_shift_count(employee), (employee.name or "").lower(), employee.id, employee))
+            candidate_name = (employee.name or employee.display_name or "").casefold()
+            candidates.append((self.get_employee_shift_count(employee), candidate_name, employee.id, employee))
         if not candidates:
             return self.env["hr.employee"].sudo()
         candidates.sort(key=lambda item: (item[0], item[1], item[2]))
         return candidates[0][3]
 
-    def _send_next_fill_offer(self, slot):
+    def _send_next_fill_offer(self, slot, ignore_offer=False):
         self.ensure_one()
         slot = slot.sudo()
         if slot.employee_id:
             slot.write({"fill_request_state": "assigned", "fill_request_current_employee_id": False})
             return 0
         Offer = self.env["gl.kino.shift.slot.offer"].sudo()
-        pending = Offer.search([("slot_id", "=", slot.id), ("state", "=", FILL_OFFER_PENDING)], limit=1)
+        pending_domain = [("slot_id", "=", slot.id), ("state", "=", FILL_OFFER_PENDING)]
+        if ignore_offer:
+            pending_domain.append(("id", "!=", ignore_offer.id))
+        pending = Offer.search(pending_domain, limit=1)
         if pending:
             return 0
         candidate = self._get_next_fill_offer_candidate(slot)
@@ -1159,7 +1232,7 @@ class GroundliftKinoShiftCampaign(models.Model):
             self._send_mail(email_to=invite.email_to, subject=subject, body_html=body_html)
             return 1
         offer.write({"state": FILL_OFFER_SKIPPED, "responded_datetime": fields.Datetime.now()})
-        return self._send_next_fill_offer(slot)
+        return self._send_next_fill_offer(slot, ignore_offer=offer)
 
     def _build_fill_offer_email_body(self, invite, slot, offer):
         self.ensure_one()
@@ -1215,14 +1288,16 @@ class GroundliftKinoShiftCampaign(models.Model):
             return "Für dich liegt aktuell keine offene Einzelanfrage für %s vor." % slot.display_line_short
         if not accept:
             offer.write({"state": FILL_OFFER_DECLINED, "responded_datetime": fields.Datetime.now()})
-            sent = self._send_next_fill_offer(slot)
+            slot.write({"fill_request_current_employee_id": False})
+            sent = self._send_next_fill_offer(slot, ignore_offer=offer)
+            self._refresh_state_from_slots()
             if sent:
                 return "Danke für deine Rückmeldung. Die nächste Person wurde angefragt."
             return "Danke für deine Rückmeldung. Es konnte keine weitere geeignete Person automatisch angefragt werden."
         can_take, limit_message = self._check_employee_can_take_slot(invite.employee_id, slot=slot)
         if not can_take:
             offer.write({"state": FILL_OFFER_SKIPPED, "responded_datetime": fields.Datetime.now()})
-            self._send_next_fill_offer(slot)
+            self._send_next_fill_offer(slot, ignore_offer=offer)
             return limit_message
         self.env["gl.kino.shift.preference"].sudo().search([("campaign_id", "=", self.id), ("slot_id", "=", slot.id)]).unlink()
         self.env["gl.kino.shift.preference"].sudo().create(
@@ -1369,6 +1444,7 @@ class GroundliftKinoShiftSlot(models.Model):
     campaign_id = fields.Many2one("gl.kino.shift.campaign", string="Dienstplan", required=True, ondelete="cascade", index=True)
     date = fields.Date(string="Datum", required=True, index=True)
     employee_id = fields.Many2one("hr.employee", string="Filmvorführer:in")
+    employee_assigned_datetime = fields.Datetime(string="Übernommen am", readonly=True, copy=False)
     is_manual = fields.Boolean(
         string="Manuell",
         default=False,
@@ -1415,12 +1491,22 @@ class GroundliftKinoShiftSlot(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get("employee_id") and not vals.get("employee_assigned_datetime"):
+                vals["employee_assigned_datetime"] = fields.Datetime.now()
         slots = super().create(vals_list)
         for slot in slots:
             slot._maybe_start_fill_request_after_change()
         return slots
 
     def write(self, vals):
+        vals = dict(vals)
+        if "employee_id" in vals and "employee_assigned_datetime" not in vals:
+            new_employee_id = vals.get("employee_id") or False
+            if not new_employee_id:
+                vals["employee_assigned_datetime"] = False
+            elif len(self) != 1 or self.employee_id.id != new_employee_id:
+                vals["employee_assigned_datetime"] = fields.Datetime.now()
         result = super().write(vals)
         if set(vals) & {"date", "is_manual", "employee_id", "note", "campaign_id"}:
             for slot in self:
