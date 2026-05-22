@@ -2,9 +2,9 @@
 
 Custom Odoo 19 SH Modul für die monatliche Abfrage und Verwaltung der Filmvorführer:innen-Schichten.
 
-## Version 19.0.1.7.0
+## Version 19.0.1.8.0
 
-Diese Version erweitert die bestehende Schichtlogik um sechs Punkte:
+Diese Version erweitert die bestehende Schichtlogik um sieben Punkte:
 
 1. **Eintragungsfrist / Prioritäten-Sperre**
    - Die Priorisierungsphase endet zwei Wochen vor der ersten Schicht des Dienstplans.
@@ -39,6 +39,12 @@ Diese Version erweitert die bestehende Schichtlogik um sechs Punkte:
 6. **24-Stunden-Korrektur eigener Eintragungen**
    - Nach einer erfolgreichen Eintragung erscheint innerhalb der laufenden Eintragungsfrist für 24 Stunden der Button `Korrigieren`.
    - Die Korrektur nimmt die eigene Eintragung zurück; danach wird der Termin wieder offen oder anhand vorhandener Prioritäten neu vergeben.
+
+7. **Kinotage nachträglich sperren**
+   - In der Kinotage-Liste kann ein erzeugter Termin über `Sperren` nachträglich deaktiviert werden.
+   - Gesperrte Termine zählen nicht mehr als Spieltag, werden auf der öffentlichen Eintrageseite ausgeblendet und bleiben als gesperrter Datensatz erhalten, damit `Kinotage erzeugen` dasselbe Datum nicht versehentlich erneut anlegt.
+   - Ist beim Sperren bereits eine Filmvorführer:in eingetragen, erhält diese Person automatisch eine E-Mail, dass an diesem Tag leider doch kein Kino stattfindet.
+   - Bestehende Prioritäten, Tauschanfragen, Übergabewünsche und offene Zusatztermin-Anfragen des gesperrten Termins werden sauber zurückgesetzt.
 
 ## Grundfunktionen
 

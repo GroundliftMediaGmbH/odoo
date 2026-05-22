@@ -180,15 +180,15 @@ class GroundliftKinoShiftCampaign(models.Model):
                 campaign.date_start = False
                 campaign.date_end = False
 
-    @api.depends("slot_ids", "slot_ids.employee_id", "slot_ids.swap_requested")
+    @api.depends("slot_ids", "slot_ids.employee_id", "slot_ids.swap_requested", "slot_ids.is_blocked")
     def _compute_counts(self):
         for campaign in self:
-            slots = campaign.slot_ids
-            campaign.total_slot_count = len(slots)
-            campaign.open_slot_count = len(slots.filtered(lambda slot: not slot.employee_id or slot.swap_requested))
+            active_slots = campaign.slot_ids.filtered(lambda slot: not slot.is_blocked)
+            campaign.total_slot_count = len(active_slots)
+            campaign.open_slot_count = len(active_slots.filtered(lambda slot: not slot.employee_id or slot.swap_requested))
             campaign.filled_slot_count = campaign.total_slot_count - campaign.open_slot_count
 
-    @api.depends("slot_ids", "invite_ids")
+    @api.depends("slot_ids", "slot_ids.is_blocked", "invite_ids")
     def _compute_priority_quota(self):
         for campaign in self:
             employee_count = len(campaign._get_kino_employees())
@@ -202,10 +202,10 @@ class GroundliftKinoShiftCampaign(models.Model):
             else:
                 campaign.priority_quota = 0
 
-    @api.depends("slot_ids.date")
+    @api.depends("slot_ids.date", "slot_ids.is_blocked")
     def _compute_signup_dates(self):
         for campaign in self:
-            dated_slots = campaign.slot_ids.filtered(lambda slot: bool(slot.date))
+            dated_slots = campaign.slot_ids.filtered(lambda slot: bool(slot.date) and not slot.is_blocked)
             first_date = min(dated_slots.mapped("date")) if dated_slots else False
             deadline = first_date - timedelta(days=14) if first_date else False
             today = fields.Date.context_today(campaign)
@@ -317,7 +317,7 @@ class GroundliftKinoShiftCampaign(models.Model):
         if not employee:
             return 0
         return self.env["gl.kino.shift.slot"].sudo().search_count(
-            [("campaign_id", "=", self.id), ("employee_id", "=", employee.id)]
+            [("campaign_id", "=", self.id), ("employee_id", "=", employee.id), ("is_blocked", "=", False)]
         )
 
     def get_monthly_shift_remaining(self, employee):
@@ -331,6 +331,8 @@ class GroundliftKinoShiftCampaign(models.Model):
         self.ensure_one()
         if not employee:
             return False, "Es wurde keine Filmvorführer:in erkannt."
+        if slot and slot.is_blocked:
+            return False, "Dieser Kinotag ist gesperrt und kann nicht mehr übernommen werden."
         if slot and slot.employee_id and slot.employee_id.id == employee.id:
             return True, False
         limit = self.max_monthly_shift_count or DEFAULT_MAX_MONTHLY_SHIFTS
@@ -436,6 +438,8 @@ class GroundliftKinoShiftCampaign(models.Model):
             return False
         if not slot or slot.campaign_id.id != self.id:
             return False
+        if slot.is_blocked:
+            return False
         if self._is_signup_locked():
             return False
         if not slot.employee_id or slot.employee_id.id != invite.employee_id.id:
@@ -465,7 +469,10 @@ class GroundliftKinoShiftCampaign(models.Model):
             "fill_request_state",
             "fill_request_current_employee_id",
             "employee_assigned_datetime",
+            "is_blocked",
         ])
+        if slot.is_blocked:
+            return "Dieser Kinotag ist gesperrt und kann nicht mehr bearbeitet werden."
         if not self.can_correct_assignment_from_invite(invite, slot):
             return "Die Korrektur ist für diesen Termin nicht mehr möglich. Nach Ablauf von 24 Stunden oder nach Ende der Eintragungsfrist ist nur noch Tauschen möglich."
 
@@ -518,7 +525,10 @@ class GroundliftKinoShiftCampaign(models.Model):
             "swap_requested_by_id",
             "takeover_requested_by_id",
             "fill_request_state",
+            "is_blocked",
         ])
+        if slot.is_blocked:
+            return "Dieser Kinotag ist gesperrt und kann nicht mehr übernommen werden."
 
         can_take, limit_message = self._check_employee_can_take_slot(invite.employee_id, slot=slot)
         if not can_take:
@@ -636,6 +646,8 @@ class GroundliftKinoShiftCampaign(models.Model):
     def _recompute_slot_assignment(self, slot):
         self.ensure_one()
         slot = slot.sudo()
+        if slot.is_blocked:
+            return False
         preferences = self.env["gl.kino.shift.preference"].sudo().search(
             [("campaign_id", "=", self.id), ("slot_id", "=", slot.id)],
             order="priority asc, create_date asc, id asc",
@@ -791,7 +803,9 @@ class GroundliftKinoShiftCampaign(models.Model):
             'SELECT id FROM "%s" WHERE id = %%s FOR UPDATE' % slot._table,
             [slot.id],
         )
-        slot.invalidate_recordset(["employee_id", "takeover_requested_by_id", "takeover_requested_date"])
+        slot.invalidate_recordset(["employee_id", "takeover_requested_by_id", "takeover_requested_date", "is_blocked"])
+        if slot.is_blocked:
+            return "Dieser Kinotag ist inzwischen gesperrt. Es findet an diesem Tag leider doch kein Kino statt."
         if not slot.employee_id or slot.employee_id.id != owner_invite.employee_id.id:
             return "Du bist für diesen Termin nicht mehr eingetragen. Die Anfrage ist damit nicht mehr aktuell."
         requester = slot.takeover_requested_by_id
@@ -869,7 +883,9 @@ class GroundliftKinoShiftCampaign(models.Model):
             'SELECT id FROM "%s" WHERE id = %%s FOR UPDATE' % slot._table,
             [slot.id],
         )
-        slot.invalidate_recordset(["employee_id", "swap_requested"])
+        slot.invalidate_recordset(["employee_id", "swap_requested", "is_blocked"])
+        if slot.is_blocked:
+            return "Dieser Kinotag ist gesperrt und kann nicht mehr getauscht werden."
         if not slot.employee_id or slot.employee_id.id != invite.employee_id.id:
             return "Du bist für diesen Termin nicht eingetragen und kannst daher keine Tauschanfrage stellen."
         if slot.swap_requested:
@@ -949,7 +965,9 @@ class GroundliftKinoShiftCampaign(models.Model):
             'SELECT id FROM "%s" WHERE id = %%s FOR UPDATE' % slot._table,
             [slot.id],
         )
-        slot.invalidate_recordset(["employee_id", "swap_requested", "swap_requested_by_id", "takeover_requested_by_id"])
+        slot.invalidate_recordset(["employee_id", "swap_requested", "swap_requested_by_id", "takeover_requested_by_id", "is_blocked"])
+        if slot.is_blocked:
+            return "Dieser Kinotag ist inzwischen gesperrt. Es findet an diesem Tag leider doch kein Kino statt."
         if not slot.swap_requested:
             return "Diese Tauschanfrage ist nicht mehr offen."
         if slot.employee_id and slot.employee_id.id == invite.employee_id.id:
@@ -992,7 +1010,7 @@ class GroundliftKinoShiftCampaign(models.Model):
 
     def _slot_counts_now(self):
         self.ensure_one()
-        slots = self.env["gl.kino.shift.slot"].sudo().search([("campaign_id", "=", self.id)])
+        slots = self.env["gl.kino.shift.slot"].sudo().search([("campaign_id", "=", self.id), ("is_blocked", "=", False)])
         total = len(slots)
         open_count = len(slots.filtered(lambda candidate: not candidate.employee_id or candidate.swap_requested))
         filled = total - open_count
@@ -1066,9 +1084,36 @@ class GroundliftKinoShiftCampaign(models.Model):
         if not employee:
             return {}
         preferences = self.env["gl.kino.shift.preference"].sudo().search(
-            [("campaign_id", "=", self.id), ("employee_id", "=", employee.id)]
+            [("campaign_id", "=", self.id), ("employee_id", "=", employee.id), ("slot_id.is_blocked", "=", False)]
         )
         return {preference.slot_id.id: preference for preference in preferences}
+
+    def _send_blocked_slot_notice(self, employee, slot):
+        self.ensure_one()
+        if not employee:
+            return False
+        email_to = employee.work_email or (employee.user_id.partner_id.email if employee.user_id and employee.user_id.partner_id else False)
+        if not email_to:
+            return False
+        note_html = ""
+        if slot.note:
+            note_html = "<p><strong>Bisheriger Hinweis zum Termin:</strong> %s</p>" % escape(slot.note)
+        subject = "Kino-Dienstplan: %s findet leider doch nicht statt" % slot.display_line_short
+        body_html = """
+            <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#111;">
+                <p>Hallo %s,</p>
+                <p>der Kinotag <strong>%s</strong>, für den du eingetragen warst, wurde nachträglich gesperrt.</p>
+                <p>An diesem Tag findet leider doch kein Kino statt. Du bist für diesen Termin deshalb nicht mehr eingeplant.</p>
+                %s
+                <p>Vielen Dank für dein Verständnis!</p>
+            </div>
+        """ % (
+            escape(employee.name),
+            escape(slot.display_line_short),
+            note_html,
+        )
+        self._send_mail(email_to=email_to, subject=subject, body_html=body_html)
+        return True
 
     def _send_mail(self, email_to, subject, body_html):
         email_from = self.env.company.partner_id.email_formatted or self.env.user.partner_id.email_formatted or self.env.user.email
@@ -1127,6 +1172,8 @@ class GroundliftKinoShiftCampaign(models.Model):
 
     def _send_manual_slot_new_notice_to_all(self, slot):
         self.ensure_one()
+        if slot.is_blocked:
+            return 0
         sent = 0
         for invite in self._ensure_invites():
             if not invite.email_to:
@@ -1166,6 +1213,8 @@ class GroundliftKinoShiftCampaign(models.Model):
 
     def _get_next_fill_offer_candidate(self, slot):
         self.ensure_one()
+        if slot.is_blocked:
+            return self.env["hr.employee"].sudo()
         employees = self._get_kino_employees()
         Offer = self.env["gl.kino.shift.slot.offer"].sudo()
         already_offered_ids = set(Offer.search([("slot_id", "=", slot.id)]).mapped("employee_id").ids)
@@ -1199,6 +1248,8 @@ class GroundliftKinoShiftCampaign(models.Model):
     def _send_next_fill_offer(self, slot, ignore_offer=False):
         self.ensure_one()
         slot = slot.sudo()
+        if slot.is_blocked:
+            return 0
         if slot.employee_id:
             slot.write({"fill_request_state": "assigned", "fill_request_current_employee_id": False})
             return 0
@@ -1275,7 +1326,9 @@ class GroundliftKinoShiftCampaign(models.Model):
             'SELECT id FROM "%s" WHERE id = %%s FOR UPDATE' % slot._table,
             [slot.id],
         )
-        slot.invalidate_recordset(["employee_id", "fill_request_state", "fill_request_current_employee_id"])
+        slot.invalidate_recordset(["employee_id", "fill_request_state", "fill_request_current_employee_id", "is_blocked"])
+        if slot.is_blocked:
+            return "Dieser Kinotag ist inzwischen gesperrt. Es findet an diesem Tag leider doch kein Kino statt."
         offer = self.env["gl.kino.shift.slot.offer"].sudo().search(
             [("slot_id", "=", slot.id), ("employee_id", "=", invite.employee_id.id), ("state", "=", FILL_OFFER_PENDING)],
             limit=1,
@@ -1394,6 +1447,7 @@ class GroundliftKinoShiftCampaign(models.Model):
         slots = self.env["gl.kino.shift.slot"].sudo().search(
             [
                 ("is_manual", "=", True),
+                ("is_blocked", "=", False),
                 ("employee_id", "=", False),
                 ("date", ">=", today),
                 ("date", "<=", reminder_until),
@@ -1412,7 +1466,7 @@ class GroundliftKinoShiftCampaign(models.Model):
         rows = []
         current_row = []
         current_week_key = False
-        for slot in self.slot_ids.sorted("date"):
+        for slot in self.slot_ids.filtered(lambda candidate: not candidate.is_blocked).sorted("date"):
             week_key = slot.date.isocalendar()[:2] if slot.date else False
             if current_row and week_key != current_week_key:
                 rows.append(current_row)
@@ -1445,6 +1499,13 @@ class GroundliftKinoShiftSlot(models.Model):
     date = fields.Date(string="Datum", required=True, index=True)
     employee_id = fields.Many2one("hr.employee", string="Filmvorführer:in")
     employee_assigned_datetime = fields.Datetime(string="Übernommen am", readonly=True, copy=False)
+    is_blocked = fields.Boolean(
+        string="Gesperrt",
+        default=False,
+        copy=False,
+        help="Gesperrte Kinotage zählen nicht mehr als Spieltag, erscheinen nicht auf der öffentlichen Eintrageseite und können nicht mehr übernommen werden.",
+    )
+    blocked_datetime = fields.Datetime(string="Gesperrt am", readonly=True, copy=False)
     is_manual = fields.Boolean(
         string="Manuell",
         default=False,
@@ -1508,13 +1569,87 @@ class GroundliftKinoShiftSlot(models.Model):
             elif len(self) != 1 or self.employee_id.id != new_employee_id:
                 vals["employee_assigned_datetime"] = fields.Datetime.now()
         result = super().write(vals)
-        if set(vals) & {"date", "is_manual", "employee_id", "note", "campaign_id"}:
+        if set(vals) & {"date", "is_manual", "employee_id", "note", "campaign_id", "is_blocked"}:
             for slot in self:
                 slot._maybe_start_fill_request_after_change()
         return result
 
+    def action_block_slot(self):
+        for slot in self.sudo():
+            if slot.is_blocked:
+                continue
+            slot.env.cr.execute(
+                'SELECT id FROM "%s" WHERE id = %%s FOR UPDATE' % slot._table,
+                [slot.id],
+            )
+            slot.invalidate_recordset([
+                "employee_id",
+                "is_blocked",
+                "swap_requested",
+                "takeover_requested_by_id",
+                "fill_request_state",
+                "fill_request_current_employee_id",
+            ])
+            if slot.is_blocked:
+                continue
+            previous_employee = slot.employee_id
+            campaign = slot.campaign_id.sudo()
+            if previous_employee:
+                sent = campaign._send_blocked_slot_notice(previous_employee, slot)
+                if not sent:
+                    raise UserError(_("Der Kinotag wurde nicht gesperrt, weil für %s keine E-Mail-Adresse gefunden wurde.") % previous_employee.name)
+            slot.preference_ids.sudo().unlink()
+            slot.offer_ids.sudo().unlink()
+            slot.write(
+                {
+                    "is_blocked": True,
+                    "blocked_datetime": fields.Datetime.now(),
+                    "employee_id": False,
+                    "employee_assigned_datetime": False,
+                    "swap_requested": False,
+                    "swap_requested_by_id": False,
+                    "swap_requested_date": False,
+                    "takeover_requested_by_id": False,
+                    "takeover_requested_date": False,
+                    "fill_request_state": "none",
+                    "fill_request_current_employee_id": False,
+                    "fill_request_notice_sent_date": False,
+                    "fill_request_due_reminder_sent_date": False,
+                }
+            )
+            campaign._refresh_state_from_slots()
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Kino Dienstplan"),
+                "message": _("Kinotag wurde gesperrt und zählt nicht mehr als Spieltag."),
+                "type": "success",
+                "sticky": False,
+            },
+        }
+
+    def action_unblock_slot(self):
+        for slot in self.sudo():
+            if not slot.is_blocked:
+                continue
+            slot.write({"is_blocked": False, "blocked_datetime": False})
+            slot.campaign_id._refresh_state_from_slots()
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Kino Dienstplan"),
+                "message": _("Kinotag wurde wieder freigegeben."),
+                "type": "success",
+                "sticky": False,
+            },
+        }
+
     def action_start_fill_request(self):
         for slot in self.sudo():
+            if slot.is_blocked:
+                continue
             if not slot.is_manual:
                 continue
             if slot.employee_id:
@@ -1529,6 +1664,8 @@ class GroundliftKinoShiftSlot(models.Model):
 
     def _maybe_start_fill_request_after_change(self):
         self.ensure_one()
+        if self.is_blocked:
+            return False
         if not self.is_manual or not self.campaign_id or self.campaign_id.state not in ("open", "done"):
             return False
         if self.employee_id:
@@ -1557,10 +1694,12 @@ class GroundliftKinoShiftSlot(models.Model):
                 slot.date_label = False
                 slot.display_line_short = False
 
-    @api.depends("employee_id", "swap_requested", "takeover_requested_by_id", "fill_request_state", "fill_request_current_employee_id")
+    @api.depends("employee_id", "swap_requested", "takeover_requested_by_id", "fill_request_state", "fill_request_current_employee_id", "is_blocked")
     def _compute_status_label(self):
         for slot in self:
-            if slot.swap_requested:
+            if slot.is_blocked:
+                slot.status_label = "gesperrt"
+            elif slot.swap_requested:
                 slot.status_label = "Tauschanfrage"
             elif slot.employee_id and slot.takeover_requested_by_id:
                 slot.status_label = "Übergabe angefragt"
