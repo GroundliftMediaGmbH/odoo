@@ -64,6 +64,7 @@
                             <p class="text-muted">
                                 Reguläre Tage werden über die Auswahl oben und den Button <strong>Kinotage erzeugen</strong> ergänzt.
                                 Manuelle Zusatztermine können hier per <strong>Zeile hinzufügen</strong> angelegt werden.
+                                Nachträglich gesperrte Termine zählen nicht mehr als Spieltag und werden auf der öffentlichen Eintrageseite ausgeblendet.
                                 Die Notiz ist für Filmvorführer:innen auf der öffentlichen Eintrageseite sichtbar.
                             </p>
                             <field name="slot_ids" context="{'default_is_manual': True}" mode="list,form">
@@ -71,10 +72,13 @@
                                     <field name="weekday_label" readonly="1"/>
                                     <field name="date" required="1"/>
                                     <field name="is_manual" string="Manuell"/>
+                                    <field name="is_blocked" string="Gesperrt" readonly="1"/>
                                     <field name="note" string="Notiz für Filmvorführer:innen" placeholder="z. B. Private Vermietung 11:00–18:00"/>
                                     <field name="status_label" readonly="1"/>
-                                    <field name="employee_id"/>
-                                    <field name="swap_requested"/>
+                                    <button name="action_block_slot" type="object" string="Sperren" class="btn-secondary" invisible="is_blocked" confirm="Diesen Kinotag wirklich sperren? Falls bereits jemand eingetragen ist, wird diese Person per E-Mail informiert."/>
+                                    <button name="action_unblock_slot" type="object" string="Entsperren" class="btn-secondary" invisible="not is_blocked"/>
+                                    <field name="employee_id" readonly="is_blocked"/>
+                                    <field name="swap_requested" readonly="is_blocked"/>
                                     <field name="swap_requested_by_id" readonly="1"/>
                                     <field name="swap_requested_date" readonly="1"/>
                                     <field name="takeover_requested_by_id" readonly="1"/>
@@ -86,15 +90,19 @@
                                 </list>
                                 <form string="Kinotag">
                                     <header>
-                                        <button name="action_start_fill_request" type="object" string="Zusatztermin-Anfrage starten" class="btn-secondary"/>
+                                        <button name="action_start_fill_request" type="object" string="Zusatztermin-Anfrage starten" class="btn-secondary" invisible="is_blocked"/>
+                                        <button name="action_block_slot" type="object" string="Termin sperren" class="btn-secondary" invisible="is_blocked" confirm="Diesen Kinotag wirklich sperren? Falls bereits jemand eingetragen ist, wird diese Person per E-Mail informiert."/>
+                                        <button name="action_unblock_slot" type="object" string="Termin entsperren" class="btn-secondary" invisible="not is_blocked"/>
                                     </header>
                                     <group>
                                         <field name="date" required="1"/>
                                         <field name="weekday_label" readonly="1"/>
                                         <field name="is_manual"/>
+                                        <field name="is_blocked" readonly="1"/>
+                                        <field name="blocked_datetime" readonly="1"/>
                                         <field name="status_label" readonly="1"/>
-                                        <field name="employee_id"/>
-                                        <field name="swap_requested"/>
+                                        <field name="employee_id" readonly="is_blocked"/>
+                                        <field name="swap_requested" readonly="is_blocked"/>
                                         <field name="swap_requested_by_id" readonly="1"/>
                                         <field name="swap_requested_date" readonly="1"/>
                                         <field name="takeover_requested_by_id" readonly="1"/>
