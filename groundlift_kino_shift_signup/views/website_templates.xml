@@ -175,13 +175,24 @@
                                                                                     </div>
                                                                                 </div>
                                                                             </t>
-                                                                            <form method="post" action="/kino-dienstplan/swap/request" class="m-0" onsubmit="return confirm('Kannst du an diesem Tag wirklich nicht?');">
-                                                                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                                                <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
-                                                                                <input type="hidden" name="employee_token" t-att-value="invite.token"/>
-                                                                                <input type="hidden" name="slot_id" t-att-value="slot.id"/>
-                                                                                <button type="submit" class="btn btn-outline-danger btn-sm">Tauschen</button>
-                                                                            </form>
+                                                                            <div class="d-flex flex-wrap gap-2">
+                                                                                <t t-if="correction_available_by_slot_id.get(slot.id)">
+                                                                                    <form method="post" action="/kino-dienstplan/correct" class="m-0" onsubmit="return confirm('Möchtest du deine Eintragung für diesen Termin korrigieren?');">
+                                                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                                                        <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
+                                                                                        <input type="hidden" name="employee_token" t-att-value="invite.token"/>
+                                                                                        <input type="hidden" name="slot_id" t-att-value="slot.id"/>
+                                                                                        <button type="submit" class="btn btn-outline-dark btn-sm">Korrigieren</button>
+                                                                                    </form>
+                                                                                </t>
+                                                                                <form method="post" action="/kino-dienstplan/swap/request" class="m-0" onsubmit="return confirm('Kannst du an diesem Tag wirklich nicht?');">
+                                                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                                                    <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
+                                                                                    <input type="hidden" name="employee_token" t-att-value="invite.token"/>
+                                                                                    <input type="hidden" name="slot_id" t-att-value="slot.id"/>
+                                                                                    <button type="submit" class="btn btn-outline-danger btn-sm">Tauschen</button>
+                                                                                </form>
+                                                                            </div>
                                                                         </t>
                                                                         <t t-if="slot.swap_requested">
                                                                             <span class="text-muted small">Tauschanfrage läuft</span>
@@ -268,6 +279,7 @@
                                             <p class="mb-1"><strong>Hinweis:</strong></p>
                                             <p class="mb-0">
                                                 Prioritäten können bis zwei Wochen vor der ersten Schicht gesetzt werden. Danach können nur noch freie Termine direkt übernommen oder bestehende Termine per Tauschanfrage geändert werden.
+                                                Eine eigene Eintragung kann innerhalb von 24 Stunden über „Korrigieren“ zurückgenommen werden, solange die Eintragungsfrist noch läuft.
                                                 Pro Person können maximal <t t-out="max_monthly_shift_count"/> Schichten im Monat übernommen werden.
                                                 Eine laufende Tauschanfrage wird als „Tauschanfrage“ angezeigt, bis jemand den Termin übernimmt.
                                             </p>
