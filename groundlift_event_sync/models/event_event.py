@@ -47,7 +47,7 @@ class EventEvent(models.Model):
             ("party", "Party"),
             ("lesung", "Lesung"),
             ("talk", "Talk"),
-            ("führung", "Führung"),
+            ("Führung", "Führung"),
         ],
         string="Filterkategorie",
         default="music",
