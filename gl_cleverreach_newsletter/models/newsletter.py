@@ -934,22 +934,38 @@ class CleverReachNewsletterJob(models.Model):
         return False
 
     def _cleverreach_send_mailing_now(self, mailing_id):
+        """Release an already prepared CleverReach mailing immediately.
+
+        CleverReach REST v3 has no documented /mailings/{id}/send endpoint.
+        Immediate sending is the same operation as releasing the mailing without
+        a future scheduling payload. Odoo handles all scheduling and only calls
+        this method when the newsletter is due or when the user clicks
+        "Sofort versenden".
+        """
         self.ensure_one()
-        now_ts = int(datetime.now(timezone.utc).timestamp())
-        attempts = [
-            ("POST", "/mailings/%s/release" % mailing_id, None),
-            ("POST", "/mailings/%s/release" % mailing_id, {}),
-            ("POST", "/mailings/%s/release" % mailing_id, {"send_time": now_ts}),
-            ("POST", "/mailings/%s/release" % mailing_id, {"time": now_ts}),
-            ("POST", "/mailings/%s/send" % mailing_id, None),
-            ("POST", "/mailings/%s/send" % mailing_id, {}),
-        ]
+        endpoint = "/mailings/%s/release" % mailing_id
         last_error = None
-        for method, path, payload in attempts:
+        for payload in (None, {}):
             try:
-                return self.config_id._api(method, path, payload=payload)
+                return self.config_id._api("POST", endpoint, payload=payload)
             except Exception as exc:
                 last_error = exc
+                error_text = str(exc)
+                if "invalid scope" in error_text.lower() or "forbidden" in error_text.lower():
+                    raise UserError(_(
+                        "Mailing wurde in CleverReach vorbereitet, konnte aber nicht versendet werden. "
+                        "CleverReach verweigert POST %s mit fehlender Berechtigung / invalid scope. "
+                        "Der Versand-Endpunkt heißt in CleverReach REST v3 'release' und benötigt laut CleverReach eine Sonderberechtigung. "
+                        "Bitte die REST-API-App in CleverReach für das Release/Senden von Mailings freischalten lassen oder eine App mit passendem Scope verwenden. "
+                        "Ursprünglicher Fehler: %s"
+                    ) % (endpoint, error_text))
+                if "not found" in error_text.lower() or "404" in error_text:
+                    raise UserError(_(
+                        "Mailing wurde in CleverReach vorbereitet, konnte aber nicht versendet werden. "
+                        "CleverReach meldet, dass das Mailing oder der Release-Endpunkt nicht gefunden wurde. "
+                        "Bitte prüfen, ob die CleverReach-Mailing-ID %s noch existiert und zur verwendeten API-App gehört. "
+                        "Ursprünglicher Fehler: %s"
+                    ) % (mailing_id, error_text))
         raise UserError(_("Mailing wurde in CleverReach vorbereitet, konnte aber nicht sofort versendet werden. Letzter Fehler: %s") % last_error)
 
     def _create_or_update_calendar_event(self):

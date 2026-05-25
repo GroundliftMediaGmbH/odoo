@@ -89,6 +89,7 @@ Wenn eine hochgeladene CleverReach-Vorlage die Überschrift hart codiert enthäl
 ## Wichtige Hinweise
 
 - Die CleverReach API hat mit `setup_v2` Änderungen im neuen Editor. Das Modul versucht mehrere API-Payload-Varianten automatisch. Falls CleverReach bei eurem Account eine abweichende Payload verlangt, wird der vollständige Fehler im Newsletter-Auftrag gespeichert.
+- CleverReach REST v3 verwendet für das tatsächliche Senden den Endpoint `POST /mailings/{id}/release`. Dieser Endpoint kann je nach CleverReach-App eine Sonderberechtigung beziehungsweise einen passenden Scope erfordern. Das Modul verwendet bewusst keinen `/send`-Endpoint, weil dieser für Mailings nicht dokumentiert ist.
 - Das Modul nutzt CleverReach nicht mehr für geplanten Versand (`release` mit Zukunftszeitpunkt), sondern plant in Odoo. Ein Cronjob prüft alle 5 Minuten fällige Newsletter und löst dann den Sofortversand aus. Dadurch wird der API-Fehler `Forbidden: invalid scope` beim terminierten Release vermieden.
 - Auf Odoo SH sollte das Python-Paket `requests` bereits verfügbar sein.
 - Der Odoo-Server speichert Datumswerte in UTC. Das Modul rechnet über `timezone_name`, standardmäßig `Europe/Berlin`, in lokale Termine um.
