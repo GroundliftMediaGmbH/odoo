@@ -23,6 +23,8 @@
             <form string="CleverReach Newsletter-Konfiguration">
                 <header>
                     <button name="action_test_connection" type="object" string="Verbindung testen" class="btn-secondary"/>
+                    <button name="action_open_oauth_authorization" type="object" string="CleverReach-Benutzer autorisieren" class="btn-primary"/>
+                    <button name="action_exchange_oauth_code" type="object" string="OAuth-Code einlösen" class="btn-secondary"/>
                     <button name="action_sync_groups" type="object" string="Listen importieren" class="btn-primary"/>
                     <button name="action_run_announced_now" type="object" string="Neue Events jetzt prüfen" class="btn-secondary"/>
                     <button name="action_run_biweekly_now" type="object" string="14-Tage-Newsletter jetzt erstellen" class="btn-secondary"/>
@@ -50,9 +52,14 @@
                                     <field name="client_secret" password="True"/>
                                     <field name="api_base_url"/>
                                     <field name="oauth_token_url"/>
+                                    <field name="oauth_authorize_url"/>
+                                    <field name="oauth_redirect_uri"/>
+                                    <field name="oauth_authorization_code" password="True"/>
                                 </group>
                                 <group>
                                     <field name="token_valid_until" readonly="1"/>
+                                    <field name="oauth_refresh_token" readonly="1" password="True"/>
+                                    <field name="oauth_scope" readonly="1"/>
                                     <field name="last_api_message" readonly="1" nolabel="1"/>
                                 </group>
                             </group>

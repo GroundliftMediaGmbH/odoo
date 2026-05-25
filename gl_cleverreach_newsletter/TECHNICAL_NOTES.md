@@ -25,3 +25,23 @@ CleverReachNewsletterJob._cleverreach_send_mailing_now()
 ```
 
 CleverReach wird nicht mehr für zukünftige Terminierung genutzt. Falls CleverReach für euren Account einen anderen Endpoint für Sofortversand erwartet, muss nur dort die Payload bzw. der Endpoint ergänzt werden.
+
+
+## Version 19.0.1.2.0 – OAuth-Fix für CleverReach Release
+
+Der Fehler `Forbidden: invalid scope` bei `POST /mailings/{id}/release` ist kein Payload-Fehler, sondern ein Token-/Scope-Fehler. Diese Version ergänzt deshalb:
+
+- Authorization Code Flow über `/gl_cleverreach/oauth/callback`
+- Speicherung von `oauth_refresh_token` und `oauth_scope`
+- automatische Token-Erneuerung über `grant_type=refresh_token`
+- weiterhin Fallback auf Client Credentials, solange kein Refresh Token vorhanden ist
+- klarere Fehlermeldung, wenn auch der Benutzer-OAuth-Token keinen Release-/Mailings-Scope besitzt
+
+Relevante Methoden:
+
+```python
+CleverReachNewsletterConfig.action_open_oauth_authorization()
+CleverReachNewsletterConfig._exchange_authorization_code()
+CleverReachNewsletterConfig._refresh_access_token_from_refresh_token()
+CleverReachNewsletterJob._cleverreach_send_mailing_now()
+```
