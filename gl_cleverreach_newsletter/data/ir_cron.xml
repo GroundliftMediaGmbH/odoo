@@ -29,4 +29,14 @@
         <field name="interval_type">hours</field>
         <field name="active">True</field>
     </record>
+
+    <record id="ir_cron_gl_cr_due_newsletters" model="ir.cron">
+        <field name="name">Groundlift CleverReach: fällige Newsletter versenden</field>
+        <field name="model_id" ref="model_gl_cleverreach_newsletter_config"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_due_newsletters()</field>
+        <field name="interval_number">5</field>
+        <field name="interval_type">minutes</field>
+        <field name="active">True</field>
+    </record>
 </odoo>

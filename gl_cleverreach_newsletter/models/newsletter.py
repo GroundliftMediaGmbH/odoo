@@ -145,7 +145,7 @@ class CleverReachNewsletterConfig(models.Model):
     sender_name = fields.Char(default="Groundlift")
     sender_email = fields.Char(default="info@groundlift.de")
     reply_to = fields.Char(default="info@groundlift.de")
-    auto_push_to_cleverreach = fields.Boolean(default=True, string="Mailings automatisch an CleverReach übertragen und terminieren")
+    auto_push_to_cleverreach = fields.Boolean(default=True, string="Mailings automatisch an CleverReach vorbereiten")
     remote_watchdog_active = fields.Boolean(default=True, string="CleverReach-Warteschlange im Watchdog berücksichtigen")
 
     image_field_name = fields.Char(default="image_1920", help="Bei Groundlift ggf. x_studio_website_header eintragen.")
@@ -458,6 +458,31 @@ class CleverReachNewsletterConfig(models.Model):
                 _logger.exception("CleverReach watchdog failed for config %s", config.id)
         return True
 
+    @api.model
+    def _cron_due_newsletters(self):
+        """Send newsletters whose scheduling is handled by Odoo.
+
+        CleverReach is intentionally not used as scheduling engine here, because
+        some API apps do not have the scope required for scheduled release. Odoo
+        keeps the planned datetime and calls CleverReach only when the datetime
+        is due.
+        """
+        now = fields.Datetime.now()
+        Job = self.env["gl.cleverreach.newsletter.job"].sudo()
+        for config in self.search([("active", "=", True)]):
+            jobs = Job.search([
+                ("config_id", "=", config.id),
+                ("state", "in", ["ready", "scheduled"]),
+                ("scheduled_datetime", "!=", False),
+                ("scheduled_datetime", "<=", now),
+            ], order="scheduled_datetime asc, id asc")
+            for job in jobs:
+                try:
+                    job.action_send_due()
+                except Exception:
+                    _logger.exception("CleverReach due newsletter send failed for job %s", job.id)
+        return True
+
     def action_run_announced_now(self):
         for rec in self:
             rec._run_announced_newsletter_cron(ignore_time=True)
@@ -585,7 +610,7 @@ class CleverReachNewsletterConfig(models.Model):
         self.last_watchdog_run = fields.Datetime.now()
         jobs = self.env["gl.cleverreach.newsletter.job"].search([
             ("config_id", "=", self.id),
-            ("state", "in", ["ready", "scheduled", "sent"]),
+            ("state", "in", ["ready", "scheduled"]),
             ("scheduled_datetime", "!=", False),
         ], order="scheduled_datetime asc")
         by_date = {}
@@ -709,7 +734,7 @@ class CleverReachNewsletterJob(models.Model):
         index=True,
     )
     state = fields.Selection(
-        [("draft", "Entwurf"), ("ready", "Geplant in Odoo"), ("scheduled", "In CleverReach geplant"), ("sent", "Versendet"), ("error", "Fehler"), ("blocked", "Blockiert")],
+        [("draft", "Entwurf"), ("ready", "Geplant in Odoo"), ("scheduled", "In CleverReach vorbereitet"), ("sent", "Versendet"), ("error", "Fehler"), ("blocked", "Blockiert")],
         default="draft",
         required=True,
         index=True,
@@ -718,6 +743,7 @@ class CleverReachNewsletterJob(models.Model):
     heading = fields.Char(required=True)
     html_body = fields.Text(string="HTML")
     scheduled_datetime = fields.Datetime(index=True)
+    sent_datetime = fields.Datetime(string="Tatsächlich versendet am", readonly=True, copy=False)
     group_id = fields.Many2one("gl.cleverreach.group", string="Empfängerliste")
     event_ids = fields.Many2many("event.event", "gl_cr_newsletter_event_rel", "newsletter_id", "event_id", string="Veranstaltungen")
     queue_ids = fields.Many2many("gl.cleverreach.event.queue", "gl_cr_newsletter_queue_rel", "newsletter_id", "queue_id", string="Queue-Einträge")
@@ -733,30 +759,136 @@ class CleverReachNewsletterJob(models.Model):
             if not config.recipient_group_id:
                 raise UserError(_("Bitte in der CleverReach-Konfiguration zuerst eine globale Empfängerliste wählen."))
             html = config._render_newsletter_html(job.heading, job.event_ids, note=job.note or "")
-            scheduled_dt = config._next_allowed_send_datetime(job.newsletter_type)
-            job.write({"html_body": html, "scheduled_datetime": scheduled_dt, "group_id": config.recipient_group_id.id, "state": "ready", "error_message": False})
+            scheduled_dt = job.scheduled_datetime or config._next_allowed_send_datetime(job.newsletter_type)
+            job.write({
+                "html_body": html,
+                "scheduled_datetime": scheduled_dt,
+                "group_id": config.recipient_group_id.id,
+                "state": "ready",
+                "error_message": False,
+            })
             job._create_or_update_calendar_event()
             if config.auto_push_to_cleverreach:
                 job.action_push_to_cleverreach()
         return True
 
     def action_push_to_cleverreach(self):
+        """Create the CleverReach mailing, but do not release/schedule it there.
+
+        Odoo remains the scheduling authority. This avoids CleverReach's
+        scheduled-release endpoint/scope and keeps the planned send time in Odoo.
+        """
         for job in self:
             try:
-                if not job.html_body:
-                    job.html_body = job.config_id._render_newsletter_html(job.heading, job.event_ids, note=job.note or "")
-                mailing_id, create_response = job._cleverreach_create_mailing()
-                release_response = job._cleverreach_release_mailing(mailing_id)
+                job._ensure_rendered_and_grouped()
+                mailing_id, create_response = job._ensure_cleverreach_mailing()
+                existing = job._response_dict()
+                existing["create"] = create_response or existing.get("create") or {"mailing_id": mailing_id, "already_existing": True}
+                existing["odoo_scheduling"] = {
+                    "mode": "odoo_cron",
+                    "scheduled_datetime_utc": fields.Datetime.to_string(job.scheduled_datetime) if job.scheduled_datetime else False,
+                    "note": "CleverReach wird erst beim tatsächlichen Versandzeitpunkt aus Odoo heraus released.",
+                }
                 job.write({
                     "cleverreach_mailing_id": str(mailing_id),
-                    "cleverreach_response": json.dumps({"create": create_response, "release": release_response}, ensure_ascii=False, indent=2),
+                    "cleverreach_response": json.dumps(existing, ensure_ascii=False, indent=2),
                     "state": "scheduled",
                     "error_message": False,
                 })
+                job._create_or_update_calendar_event()
             except Exception as exc:
-                _logger.exception("CleverReach push failed for job %s", job.id)
+                _logger.exception("CleverReach preparation failed for job %s", job.id)
                 job.write({"state": "error", "error_message": str(exc)})
         return True
+
+    def action_send_due(self):
+        """Called by the Odoo cron when scheduled_datetime is due."""
+        for job in self:
+            if job.state == "sent":
+                continue
+            try:
+                job._send_to_cleverreach_now(update_planned_datetime=False)
+            except Exception as exc:
+                _logger.exception("CleverReach due send failed for job %s", job.id)
+                job.write({"state": "error", "error_message": str(exc)})
+        return True
+
+    def action_send_now(self):
+        """Manual button: send a planned newsletter immediately."""
+        for job in self:
+            if job.state == "sent":
+                raise UserError(_("Dieser Newsletter wurde bereits versendet."))
+            try:
+                job._send_to_cleverreach_now(update_planned_datetime=True)
+            except Exception as exc:
+                _logger.exception("CleverReach immediate send failed for job %s", job.id)
+                job.write({"state": "error", "error_message": str(exc)})
+                raise
+        return True
+
+    def _ensure_rendered_and_grouped(self):
+        self.ensure_one()
+        config = self.config_id
+        if not config.recipient_group_id and not self.group_id:
+            raise UserError(_("Bitte in der CleverReach-Konfiguration zuerst eine globale Empfängerliste wählen."))
+        vals = {}
+        if not self.group_id:
+            vals["group_id"] = config.recipient_group_id.id
+        if not self.html_body:
+            vals["html_body"] = config._render_newsletter_html(self.heading, self.event_ids, note=self.note or "")
+        if not self.scheduled_datetime:
+            vals["scheduled_datetime"] = config._next_allowed_send_datetime(self.newsletter_type)
+        if vals:
+            self.write(vals)
+        return True
+
+    def _ensure_cleverreach_mailing(self):
+        self.ensure_one()
+        if self.cleverreach_mailing_id:
+            return self.cleverreach_mailing_id, {"mailing_id": self.cleverreach_mailing_id, "already_existing": True}
+        mailing_id, create_response = self._cleverreach_create_mailing()
+        self.write({
+            "cleverreach_mailing_id": str(mailing_id),
+            "cleverreach_response": json.dumps({"create": create_response}, ensure_ascii=False, indent=2),
+            "state": "scheduled",
+            "error_message": False,
+        })
+        return str(mailing_id), create_response
+
+    def _send_to_cleverreach_now(self, update_planned_datetime=False):
+        self.ensure_one()
+        self._ensure_rendered_and_grouped()
+        if update_planned_datetime:
+            self.write({"scheduled_datetime": fields.Datetime.now()})
+        mailing_id, create_response = self._ensure_cleverreach_mailing()
+        release_response = self._cleverreach_send_mailing_now(mailing_id)
+        data = self._response_dict()
+        if create_response and not create_response.get("already_existing"):
+            data["create"] = create_response
+        data["release"] = release_response
+        data["odoo_scheduling"] = {
+            "mode": "sent_by_odoo_cron" if not update_planned_datetime else "manual_send_now",
+            "scheduled_datetime_utc": fields.Datetime.to_string(self.scheduled_datetime) if self.scheduled_datetime else False,
+            "sent_datetime_utc": fields.Datetime.to_string(fields.Datetime.now()),
+        }
+        self.write({
+            "cleverreach_response": json.dumps(data, ensure_ascii=False, indent=2),
+            "state": "sent",
+            "sent_datetime": fields.Datetime.now(),
+            "error_message": False,
+        })
+        self._create_or_update_calendar_event()
+        return True
+
+    def _response_dict(self):
+        self.ensure_one()
+        if not self.cleverreach_response:
+            return {}
+        try:
+            parsed = json.loads(self.cleverreach_response)
+            return parsed if isinstance(parsed, dict) else {"previous": parsed}
+        except Exception:
+            return {"previous": self.cleverreach_response}
 
     def _cleverreach_create_mailing(self):
         self.ensure_one()
@@ -801,20 +933,24 @@ class CleverReachNewsletterJob(models.Model):
                 return self._extract_mailing_id(data["data"])
         return False
 
-    def _cleverreach_release_mailing(self, mailing_id):
+    def _cleverreach_send_mailing_now(self, mailing_id):
         self.ensure_one()
-        if not self.scheduled_datetime:
-            raise UserError(_("Kein Versandzeitpunkt gesetzt."))
-        dt = fields.Datetime.to_datetime(self.scheduled_datetime)
-        timestamp = int(dt.replace(tzinfo=timezone.utc).timestamp())
-        payloads = [{"send_time": timestamp}, {"time": timestamp}, {"scheduled": timestamp}, {"send_at": timestamp}]
+        now_ts = int(datetime.now(timezone.utc).timestamp())
+        attempts = [
+            ("POST", "/mailings/%s/release" % mailing_id, None),
+            ("POST", "/mailings/%s/release" % mailing_id, {}),
+            ("POST", "/mailings/%s/release" % mailing_id, {"send_time": now_ts}),
+            ("POST", "/mailings/%s/release" % mailing_id, {"time": now_ts}),
+            ("POST", "/mailings/%s/send" % mailing_id, None),
+            ("POST", "/mailings/%s/send" % mailing_id, {}),
+        ]
         last_error = None
-        for payload in payloads:
+        for method, path, payload in attempts:
             try:
-                return self.config_id._api("POST", "/mailings/%s/release" % mailing_id, payload=payload)
+                return self.config_id._api(method, path, payload=payload)
             except Exception as exc:
                 last_error = exc
-        raise UserError(_("Mailing wurde erstellt, konnte aber nicht terminiert werden. Letzter Fehler: %s") % last_error)
+        raise UserError(_("Mailing wurde in CleverReach vorbereitet, konnte aber nicht sofort versendet werden. Letzter Fehler: %s") % last_error)
 
     def _create_or_update_calendar_event(self):
         for job in self:
@@ -826,7 +962,7 @@ class CleverReachNewsletterJob(models.Model):
                 "name": _("Newsletter-Versand: %s") % job.subject,
                 "start": start,
                 "stop": stop,
-                "description": _("Automatisch geplanter CleverReach-Newsletter.\nTyp: %s\nCleverReach-ID: %s\nStatus: %s") % (job.newsletter_type, job.cleverreach_mailing_id or "-", job.state),
+                "description": _("Automatisch in Odoo geplanter CleverReach-Newsletter.\nTyp: %s\nCleverReach-ID: %s\nStatus: %s\nTatsächlich versendet am: %s") % (job.newsletter_type, job.cleverreach_mailing_id or "-", job.state, job.sent_datetime or "-"),
             }
             if job.calendar_event_id:
                 job.calendar_event_id.sudo().write(vals)

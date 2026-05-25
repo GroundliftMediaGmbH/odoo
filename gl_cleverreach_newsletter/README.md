@@ -9,10 +9,12 @@ Dieses Modul erzeugt aus Odoo-Veranstaltungen automatisch HTML-Newsletter für C
 3. Die Newsletter-HTML-Vorlage ist in Odoo austauschbar. Die Standardvorlage enthält den Platzhalter `{{EVENTS_BLOCK}}`.
 4. Für neue Eventnewsletter gilt ein Mindestabstand von 7 Tagen.
 5. Der Watchdog verhindert innerhalb der Odoo-geplanten Newsletter mehr als einen Versandtermin pro Kalendertag.
-6. Alle 14 Tage erzeugt das Modul einen Newsletter mit den nächsten Veranstaltungen.
+6. CleverReach wird nicht mehr als Terminierungs-System verwendet: Odoo plant den Versand und ruft CleverReach erst zum fälligen Zeitpunkt zum Sofortversand auf.
+7. Geplante Newsletter können über den Button **Sofort versenden** manuell sofort ausgelöst werden.
+8. Alle 14 Tage erzeugt das Modul einen Newsletter mit den nächsten Veranstaltungen.
 7. Bei mehreren Führungen wird nur die Führung mit der niedrigsten Teilnehmerzahl angezeigt; zusätzlich wird der Hinweis „Wir freuen uns auf Ihren Besuch unserer anderen Führungen!“ eingefügt.
 8. CleverReach-Listen können importiert und global als Empfängerliste gewählt werden.
-9. Jeder geplante Newsletter wird zusätzlich als `calendar.event` in Odoo eingetragen.
+10. Jeder geplante Newsletter wird zusätzlich als `calendar.event` in Odoo eingetragen.
 
 ## Installation in Odoo SH
 
@@ -81,12 +83,13 @@ Wenn eine hochgeladene CleverReach-Vorlage die Überschrift hart codiert enthäl
 5. In **Newsletter-Aufträge** den erzeugten Newsletter öffnen.
 6. HTML prüfen.
 7. Kalendereintrag prüfen.
-8. In CleverReach prüfen, ob das Mailing als geplant erscheint.
+8. In CleverReach prüfen, ob das Mailing als vorbereitet/Entwurf erscheint. Der Versandtermin bleibt in Odoo.
 9. Danach erst die echte Empfängerliste auswählen.
 
 ## Wichtige Hinweise
 
 - Die CleverReach API hat mit `setup_v2` Änderungen im neuen Editor. Das Modul versucht mehrere API-Payload-Varianten automatisch. Falls CleverReach bei eurem Account eine abweichende Payload verlangt, wird der vollständige Fehler im Newsletter-Auftrag gespeichert.
+- Das Modul nutzt CleverReach nicht mehr für geplanten Versand (`release` mit Zukunftszeitpunkt), sondern plant in Odoo. Ein Cronjob prüft alle 5 Minuten fällige Newsletter und löst dann den Sofortversand aus. Dadurch wird der API-Fehler `Forbidden: invalid scope` beim terminierten Release vermieden.
 - Auf Odoo SH sollte das Python-Paket `requests` bereits verfügbar sein.
 - Der Odoo-Server speichert Datumswerte in UTC. Das Modul rechnet über `timezone_name`, standardmäßig `Europe/Berlin`, in lokale Termine um.
 - Der Watchdog schützt die vom Modul geplanten Newsletter. Fremde CleverReach-Mailings außerhalb von Odoo können nur dann sicher berücksichtigt werden, wenn deren geplante Versandzeiten über die CleverReach-API eindeutig geliefert werden.
