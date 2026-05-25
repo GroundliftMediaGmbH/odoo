@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_cr_config_list" model="ir.ui.view">
+        <field name="name">gl.cleverreach.newsletter.config.list</field>
+        <field name="model">gl.cleverreach.newsletter.config</field>
+        <field name="arch" type="xml">
+            <list string="CleverReach Konfigurationen">
+                <field name="name"/>
+                <field name="active"/>
+                <field name="recipient_group_id"/>
+                <field name="announced_stage_name"/>
+                <field name="biweekly_next_due_date"/>
+                <field name="last_group_sync"/>
+                <field name="last_watchdog_run"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_cr_config_form" model="ir.ui.view">
+        <field name="name">gl.cleverreach.newsletter.config.form</field>
+        <field name="model">gl.cleverreach.newsletter.config</field>
+        <field name="arch" type="xml">
+            <form string="CleverReach Newsletter-Konfiguration">
+                <header>
+                    <button name="action_test_connection" type="object" string="Verbindung testen" class="btn-secondary"/>
+                    <button name="action_sync_groups" type="object" string="Listen importieren" class="btn-primary"/>
+                    <button name="action_run_announced_now" type="object" string="Neue Events jetzt prüfen" class="btn-secondary"/>
+                    <button name="action_run_biweekly_now" type="object" string="14-Tage-Newsletter jetzt erstellen" class="btn-secondary"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="active"/>
+                            <field name="auto_push_to_cleverreach"/>
+                            <field name="remote_watchdog_active"/>
+                            <field name="timezone_name"/>
+                        </group>
+                        <group>
+                            <field name="recipient_group_id" domain="[('config_id', '=', id)]"/>
+                            <field name="newsletter_template_id"/>
+                            <field name="announced_stage_name"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="CleverReach API">
+                            <group>
+                                <group>
+                                    <field name="client_id"/>
+                                    <field name="client_secret" password="True"/>
+                                    <field name="api_base_url"/>
+                                    <field name="oauth_token_url"/>
+                                </group>
+                                <group>
+                                    <field name="token_valid_until" readonly="1"/>
+                                    <field name="last_api_message" readonly="1" nolabel="1"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Newsletter-Logik">
+                            <group>
+                                <group string="Zeitsteuerung">
+                                    <field name="create_time_hour"/>
+                                    <field name="default_send_hour"/>
+                                    <field name="min_days_between_any_newsletters"/>
+                                    <field name="min_days_between_new_event_newsletters"/>
+                                </group>
+                                <group string="14-tägiger Newsletter">
+                                    <field name="biweekly_enabled"/>
+                                    <field name="biweekly_next_due_date"/>
+                                    <field name="max_upcoming_events"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Event-Felder">
+                            <group>
+                                <field name="public_base_url"/>
+                                <field name="image_field_name"/>
+                                <field name="short_description_field_names"/>
+                                <field name="ticket_url_field_names"/>
+                            </group>
+                        </page>
+                        <page string="Absender">
+                            <group>
+                                <field name="sender_name"/>
+                                <field name="sender_email"/>
+                                <field name="reply_to"/>
+                            </group>
+                        </page>
+                        <page string="Importierte Listen">
+                            <field name="group_ids">
+                                <list editable="bottom">
+                                    <field name="name"/>
+                                    <field name="external_id"/>
+                                    <field name="receiver_count"/>
+                                    <field name="active"/>
+                                    <field name="last_sync"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_cr_config" model="ir.actions.act_window">
+        <field name="name">CleverReach Einstellungen</field>
+        <field name="res_model">gl.cleverreach.newsletter.config</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_gl_cr_template_list" model="ir.ui.view">
+        <field name="name">gl.cleverreach.newsletter.template.list</field>
+        <field name="model">gl.cleverreach.newsletter.template</field>
+        <field name="arch" type="xml">
+            <list string="Newsletter-Vorlagen">
+                <field name="name"/>
+                <field name="filename"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_cr_template_form" model="ir.ui.view">
+        <field name="name">gl.cleverreach.newsletter.template.form</field>
+        <field name="model">gl.cleverreach.newsletter.template</field>
+        <field name="arch" type="xml">
+            <form string="Newsletter-Vorlage">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="active"/>
+                        <field name="html_file" filename="filename"/>
+                        <field name="filename"/>
+                    </group>
+                    <group string="HTML-Quelltext">
+                        <field name="html_source" nolabel="1" widget="text"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_cr_template" model="ir.actions.act_window">
+        <field name="name">Newsletter-Vorlagen</field>
+        <field name="res_model">gl.cleverreach.newsletter.template</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_gl_cr_queue_list" model="ir.ui.view">
+        <field name="name">gl.cleverreach.event.queue.list</field>
+        <field name="model">gl.cleverreach.event.queue</field>
+        <field name="arch" type="xml">
+            <list string="Angekündigte Events">
+                <field name="announced_date"/>
+                <field name="event_id"/>
+                <field name="state"/>
+                <field name="newsletter_id"/>
+                <field name="config_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_cr_queue_form" model="ir.ui.view">
+        <field name="name">gl.cleverreach.event.queue.form</field>
+        <field name="model">gl.cleverreach.event.queue</field>
+        <field name="arch" type="xml">
+            <form string="Angekündigtes Event">
+                <sheet>
+                    <group>
+                        <field name="config_id"/>
+                        <field name="event_id"/>
+                        <field name="source_stage_id"/>
+                        <field name="announced_at"/>
+                        <field name="announced_date"/>
+                        <field name="state"/>
+                        <field name="newsletter_id"/>
+                    </group>
+                    <field name="note"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_cr_queue" model="ir.actions.act_window">
+        <field name="name">Angekündigte Events</field>
+        <field name="res_model">gl.cleverreach.event.queue</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_gl_cr_job_list" model="ir.ui.view">
+        <field name="name">gl.cleverreach.newsletter.job.list</field>
+        <field name="model">gl.cleverreach.newsletter.job</field>
+        <field name="arch" type="xml">
+            <list string="Newsletter-Aufträge">
+                <field name="scheduled_datetime"/>
+                <field name="name"/>
+                <field name="newsletter_type"/>
+                <field name="state"/>
+                <field name="group_id"/>
+                <field name="cleverreach_mailing_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_cr_job_form" model="ir.ui.view">
+        <field name="name">gl.cleverreach.newsletter.job.form</field>
+        <field name="model">gl.cleverreach.newsletter.job</field>
+        <field name="arch" type="xml">
+            <form string="Newsletter-Auftrag">
+                <header>
+                    <button name="action_render_and_schedule" type="object" string="Neu rendern &amp; planen" class="btn-secondary"/>
+                    <button name="action_push_to_cleverreach" type="object" string="An CleverReach senden/terminieren" class="btn-primary"/>
+                    <button name="action_open_calendar_event" type="object" string="Kalendereintrag öffnen" class="btn-secondary"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,ready,scheduled,sent,error"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="config_id"/>
+                            <field name="newsletter_type"/>
+                            <field name="subject"/>
+                            <field name="heading"/>
+                        </group>
+                        <group>
+                            <field name="scheduled_datetime"/>
+                            <field name="group_id"/>
+                            <field name="cleverreach_mailing_id" readonly="1"/>
+                            <field name="calendar_event_id" readonly="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Veranstaltungen">
+                            <field name="event_ids"/>
+                            <field name="note"/>
+                        </page>
+                        <page string="HTML">
+                            <field name="html_body" nolabel="1" widget="text"/>
+                        </page>
+                        <page string="CleverReach Antwort / Fehler">
+                            <field name="error_message" nolabel="1" readonly="1"/>
+                            <field name="cleverreach_response" nolabel="1" readonly="1" widget="text"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_cr_job" model="ir.actions.act_window">
+        <field name="name">Newsletter-Aufträge</field>
+        <field name="res_model">gl.cleverreach.newsletter.job</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_gl_cr_root" name="CleverReach Newsletter" sequence="60" groups="base.group_system"/>
+    <menuitem id="menu_gl_cr_config" name="Einstellungen" parent="menu_gl_cr_root" action="action_gl_cr_config" sequence="10" groups="base.group_system"/>
+    <menuitem id="menu_gl_cr_jobs" name="Newsletter-Aufträge" parent="menu_gl_cr_root" action="action_gl_cr_job" sequence="20" groups="base.group_system"/>
+    <menuitem id="menu_gl_cr_queue" name="Angekündigte Events" parent="menu_gl_cr_root" action="action_gl_cr_queue" sequence="30" groups="base.group_system"/>
+    <menuitem id="menu_gl_cr_templates" name="Newsletter-Vorlagen" parent="menu_gl_cr_root" action="action_gl_cr_template" sequence="40" groups="base.group_system"/>
+</odoo>

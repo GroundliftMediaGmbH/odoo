@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ir_cron_gl_cr_announced_newsletters" model="ir.cron">
+        <field name="name">Groundlift CleverReach: neue angekündigte Events prüfen</field>
+        <field name="model_id" ref="model_gl_cleverreach_newsletter_config"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_announced_newsletters()</field>
+        <field name="interval_number">15</field>
+        <field name="interval_type">minutes</field>
+        <field name="active">True</field>
+    </record>
+
+    <record id="ir_cron_gl_cr_biweekly_newsletters" model="ir.cron">
+        <field name="name">Groundlift CleverReach: 14-tägigen Eventnewsletter prüfen</field>
+        <field name="model_id" ref="model_gl_cleverreach_newsletter_config"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_biweekly_newsletters()</field>
+        <field name="interval_number">15</field>
+        <field name="interval_type">minutes</field>
+        <field name="active">True</field>
+    </record>
+
+    <record id="ir_cron_gl_cr_watchdog" model="ir.cron">
+        <field name="name">Groundlift CleverReach: Newsletter-Watchdog</field>
+        <field name="model_id" ref="model_gl_cleverreach_newsletter_config"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_watchdog()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+        <field name="active">True</field>
+    </record>
+</odoo>
