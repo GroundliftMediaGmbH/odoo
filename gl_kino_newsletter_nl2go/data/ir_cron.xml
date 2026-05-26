@@ -7,7 +7,6 @@
         <field name="code">model.cron_prepare_monday_newsletter()</field>
         <field name="interval_number">30</field>
         <field name="interval_type">minutes</field>
-        <field name="numbercall">-1</field>
         <field name="active">True</field>
     </record>
     <record id="ir_cron_gl_kino_newsletter_send" model="ir.cron">
@@ -17,7 +16,6 @@
         <field name="code">model.cron_send_monday_newsletter()</field>
         <field name="interval_number">30</field>
         <field name="interval_type">minutes</field>
-        <field name="numbercall">-1</field>
         <field name="active">True</field>
     </record>
 </odoo>
