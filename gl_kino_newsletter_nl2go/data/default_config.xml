@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<odoo noupdate="1">
-    <record id="gl_kino_newsletter_default_config" model="gl.kino.newsletter.config">
-        <field name="name">Kino Stegen Newsletter</field>
-        <field name="active">True</field>
-    </record>
+<odoo>
+    <data noupdate="1">
+        <record id="gl_kino_newsletter_default_config" model="gl.kino.newsletter.config">
+            <field name="name">Kino Stegen Newsletter</field>
+            <field name="active">True</field>
+        </record>
+    </data>
+    <function model="gl.kino.newsletter.config" name="_ensure_all_press_recipient_lines"/>
 </odoo>

@@ -11,6 +11,8 @@ Odoo-19-SH-Modul für den Kino-Stegen-Wochennewsletter und die sachliche Presse-
 - Ergänzt optional die nächste Groundlift-Veranstaltung aus `event.event` inklusive Bild, Datum, Kurzbeschreibung und Link.
 - Sendet den Newsletter per Newsletter2Go-REST-API automatisch montags um 18:00 Uhr oder manuell per Button.
 - Erstellt und versendet die Presse-Mail direkt über Odoo `mail.mail` an die aus dem Projektmanagement übernommenen Presse-Adressen.
+- Presse-Adressen werden in den Einstellungen als editierbare Tabelle gepflegt.
+- Der HTML-Newsletter nutzt eine kompakte Filmkarten-Ansicht mit Bild, Kurzinfo, Spielzeiten und Button.
 - Beide Automatiken sind pro Ausgabe per Haken steuerbar.
 
 
@@ -32,6 +34,7 @@ Der Montag-17:00-Schritt kann jederzeit manuell ausgeführt werden:
    - Newsletter2Go Passwort
    - Newsletter2Go Listen-ID
    - Absender- und Reply-Adresse
+   - Presse-Verteiler in der Tabelle prüfen/ergänzen
 5. Button **Newsletter2Go Auth testen** ausführen.
 6. Menü **Kino Newsletter → Ausgaben** öffnen und testweise **Cinetixx prüfen & Vorschau bauen** klicken.
 

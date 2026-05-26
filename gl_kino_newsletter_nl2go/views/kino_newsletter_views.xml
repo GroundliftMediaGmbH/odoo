@@ -8,6 +8,7 @@
                 <header>
                     <button name="action_load_films_current_week" type="object" string="Filme laden" class="oe_highlight"/>
                     <button name="action_test_nl2go_auth" type="object" string="Newsletter2Go Auth testen"/>
+                    <button name="action_sync_press_recipients_from_text" type="object" string="Presse-Verteiler prüfen"/>
                 </header>
                 <sheet>
                     <div class="oe_title">
@@ -63,10 +64,23 @@
                                 </group>
                                 <group>
                                     <field name="press_notice_line"/>
+                                    <field name="press_recipient_count" readonly="1"/>
                                 </group>
                             </group>
-                            <group string="Presse-Mailadressen">
-                                <field name="press_recipients" nolabel="1" placeholder="Eine E-Mail-Adresse pro Zeile"/>
+                            <group string="Presse-Verteiler">
+                                <p class="text-muted">Aktive Zeilen werden einzeln angeschrieben, sodass Empfänger sich gegenseitig nicht sehen.</p>
+                                <field name="press_recipient_ids" nolabel="1" context="{'default_config_id': id}">
+                                    <list editable="bottom">
+                                        <field name="sequence" widget="handle"/>
+                                        <field name="active"/>
+                                        <field name="name"/>
+                                        <field name="email"/>
+                                        <field name="note"/>
+                                    </list>
+                                </field>
+                            </group>
+                            <group string="Import / Altbestand" invisible="1">
+                                <field name="press_recipients" nolabel="1"/>
                             </group>
                         </page>
                         <page string="HTML-Template">
@@ -89,6 +103,7 @@
                 <field name="week_mode"/>
                 <field name="newsletter_auto_send"/>
                 <field name="press_auto_send"/>
+                <field name="press_recipient_count"/>
             </list>
         </field>
     </record>

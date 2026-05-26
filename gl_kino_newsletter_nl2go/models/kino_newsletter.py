@@ -142,7 +142,20 @@ class GlKinoNewsletterConfig(models.Model):
     press_visible_to = fields.Char(string="Sichtbarer Presse-Empfänger", default="office@groundlift.de")
     press_sender_email = fields.Char(string="Presse Absender E-Mail", default="office@groundlift.de")
     press_subject = fields.Char(string="Presse Betreff", default="Kino Stegen Wochenübersicht")
-    press_recipients = fields.Text(string="Presse-Mailadressen", default=DEFAULT_PRESS_RECIPIENTS)
+    press_recipients = fields.Text(
+        string="Presse-Mailadressen (Alt/Import)",
+        default=DEFAULT_PRESS_RECIPIENTS,
+        help="Legacy-Feld. Die aktive Pflege erfolgt über die Tabelle Presse-Verteiler.",
+    )
+    press_recipient_ids = fields.One2many(
+        "gl.kino.newsletter.press.recipient",
+        "config_id",
+        string="Presse-Verteiler",
+    )
+    press_recipient_count = fields.Integer(
+        string="Aktive Presse-Empfänger",
+        compute="_compute_press_recipient_count",
+    )
     press_notice_line = fields.Text(
         string="Presse-Hinweistext",
         default=(
@@ -172,12 +185,99 @@ class GlKinoNewsletterConfig(models.Model):
             </body></html>
             """
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records._ensure_press_recipient_lines()
+        return records
+
+    @api.depends("press_recipient_ids.active", "press_recipient_ids.email")
+    def _compute_press_recipient_count(self):
+        for rec in self:
+            rec.press_recipient_count = len(rec.press_recipient_ids.filtered(lambda line: line.active and line.email))
+
     @api.model
     def get_config(self):
         config = self.search([("active", "=", True)], limit=1)
         if not config:
             config = self.create({"name": "Kino Stegen Newsletter"})
+        config._ensure_press_recipient_lines()
         return config
+
+    @api.model
+    def _ensure_all_press_recipient_lines(self):
+        self.search([])._ensure_press_recipient_lines()
+        return True
+
+    def _ensure_press_recipient_lines(self):
+        """Materialisiert das frühere Textfeld in eine editierbare Tabelle.
+
+        Das ist bewusst idempotent: Bestehende Tabellenzeilen bleiben erhalten,
+        fehlende Adressen aus dem Legacy-Textfeld werden ergänzt.
+        """
+        PressRecipient = self.env["gl.kino.newsletter.press.recipient"].sudo()
+        for config in self:
+            existing = {
+                (line.email or "").strip().casefold()
+                for line in config.press_recipient_ids
+                if (line.email or "").strip()
+            }
+            sequence = max(config.press_recipient_ids.mapped("sequence") or [0]) + 10
+            for email_addr in _safe_email_list(config.press_recipients or DEFAULT_PRESS_RECIPIENTS):
+                if email_addr.casefold() in existing:
+                    continue
+                PressRecipient.create({
+                    "config_id": config.id,
+                    "sequence": sequence,
+                    "name": self._guess_press_name(email_addr),
+                    "email": email_addr,
+                    "active": True,
+                })
+                existing.add(email_addr.casefold())
+                sequence += 10
+
+    @api.model
+    def _guess_press_name(self, email_addr):
+        local, _, domain = (email_addr or "").partition("@")
+        label = domain or local or email_addr
+        label = label.replace("www.", "")
+        label = label.split(".")[0] if "." in label else label
+        return label.replace("-", " ").replace("_", " ").title()
+
+    def action_sync_press_recipients_from_text(self):
+        self.ensure_one()
+        before = len(self.press_recipient_ids)
+        self._ensure_press_recipient_lines()
+        after = len(self.press_recipient_ids)
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Presse-Verteiler"),
+                "message": _("Presse-Verteiler geprüft. Neue Einträge: %s") % max(0, after - before),
+                "type": "success",
+                "sticky": False,
+            },
+        }
+
+    def _get_press_emails(self):
+        self.ensure_one()
+        self._ensure_press_recipient_lines()
+        emails = []
+        for line in self.press_recipient_ids.sorted(lambda r: (r.sequence, r.id)):
+            if line.active and line.email:
+                emails.extend(_safe_email_list(line.email))
+        if not emails:
+            emails = _safe_email_list(self.press_recipients)
+        # Reihenfolge halten, Duplikate entfernen
+        out = []
+        seen = set()
+        for email_addr in emails:
+            key = email_addr.casefold()
+            if key not in seen:
+                seen.add(key)
+                out.append(email_addr)
+        return out
 
     def _check_required_nl2go(self):
         self.ensure_one()
@@ -270,6 +370,32 @@ class GlKinoNewsletterConfig(models.Model):
             "view_mode": "form",
             "target": "current",
         }
+
+
+class GlKinoNewsletterPressRecipient(models.Model):
+    _name = "gl.kino.newsletter.press.recipient"
+    _description = "Kino Newsletter Presse-Empfänger"
+    _order = "sequence, id"
+
+    sequence = fields.Integer(default=10)
+    config_id = fields.Many2one(
+        "gl.kino.newsletter.config",
+        string="Konfiguration",
+        required=True,
+        ondelete="cascade",
+        index=True,
+    )
+    active = fields.Boolean(default=True)
+    name = fields.Char(string="Name / Medium")
+    email = fields.Char(string="E-Mail", required=True)
+    note = fields.Char(string="Notiz")
+
+    @api.constrains("email")
+    def _check_email(self):
+        for rec in self:
+            if rec.email and not _safe_email_list(rec.email):
+                raise ValidationError(_("Bitte eine gültige E-Mail-Adresse eintragen: %s") % rec.email)
+
 
 
 class GlKinoNewsletterIssue(models.Model):
@@ -651,7 +777,11 @@ class GlKinoNewsletterIssue(models.Model):
 
     def _build_newsletter_html(self, shows):
         self.ensure_one()
-        template = self.config_id.newsletter_template_html or ""
+        # Odoo liefert fields.Html teils als Markup-Objekt. Markup.replace() escaped
+        # Ersatzwerte automatisch; deshalb hier zwingend in einen normalen String
+        # wandeln, damit der generierte Programmblock als HTML und nicht als Text
+        # in der Vorschau landet.
+        template = "%s" % (self.config_id.newsletter_template_html or "")
         if "{{PROGRAMM_BLOCK}}" not in template:
             raise UserError(_("Im Newsletter-Template fehlt der Platzhalter {{PROGRAMM_BLOCK}}."))
 
@@ -673,10 +803,24 @@ class GlKinoNewsletterIssue(models.Model):
             by_movie[key].append(show)
 
         movies.sort(key=lambda key: min(s.get("start") or "" for s in by_movie[key]))
-        parts = []
+        parts = [
+            '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" '
+            'style="width:100%;margin:0 0 14px 0;"><tr><td '
+            'style="font-family:Verdana,Arial,sans-serif;color:#ffffff;">'
+            '<div style="font-size:14px;line-height:1.45;color:#ffffff;margin:0 0 16px 0;">'
+            'Unser Wochenprogramm auf einen Blick – mit Bildern, Kurzinfos und allen Spielzeiten.</div>'
+            '</td></tr></table>'
+        ]
         for key in movies:
             parts.append(self._build_movie_card(by_movie[key]))
         return "".join(parts)
+
+    def _time_pill(self, label):
+        return (
+            '<span style="display:inline-block;margin:0 6px 6px 0;padding:5px 8px;'
+            'background-color:#2d2d2d;border:1px solid #444444;border-radius:14px;'
+            'font-size:12px;line-height:1.2;color:#ffffff;white-space:nowrap;">%s</span>'
+        ) % html.escape(label or "")
 
     def _build_movie_card(self, movie_shows):
         self.ensure_one()
@@ -685,52 +829,62 @@ class GlKinoNewsletterIssue(models.Model):
         title = self._format_film(main)
         image_url = main.get("image_url") or ""
         desc = (main.get("description") or "").strip()
-        if len(desc) > 380:
-            desc = desc[:377].rsplit(" ", 1)[0] + " …"
+        if len(desc) > 250:
+            desc = desc[:247].rsplit(" ", 1)[0] + " …"
 
         meta_values = [main.get("genre"), main.get("year"), main.get("fsk")]
         if main.get("duration"):
             meta_values.append("%s Min." % main.get("duration"))
-        meta = " | ".join([str(x).strip() for x in meta_values if str(x or "").strip()])
+        meta = " · ".join([str(x).strip() for x in meta_values if str(x or "").strip()])
 
         by_date = defaultdict(list)
         for show in movie_shows:
             by_date[show.get("date")].append(show)
-        time_lines = []
+
+        time_blocks = []
         for date_key in sorted(by_date):
             day_shows = by_date[date_key]
             tag = day_shows[0].get("tag") or date_key
-            entries = []
+            # Kürzer für die Newsletterkarte: "Donnerstag, 28.05.2026" -> "Do 28.05."
+            compact_tag = tag
+            m = re.match(r"(\w+),\s*(\d{2})\.(\d{2})\.(\d{4})", tag or "")
+            if m:
+                compact_tag = "%s %s.%s." % (m.group(1)[:2], m.group(2), m.group(3))
+            pills = []
             for show in day_shows:
-                entry = "<b>%s Uhr</b>" % html.escape(show.get("uhrzeit") or "")
+                label = "%s Uhr" % (show.get("uhrzeit") or "")
                 if show.get("kino"):
-                    entry += " &nbsp;%s" % html.escape(show.get("kino"))
-                entries.append(entry)
-            time_lines.append(
-                '<div style="margin:0 0 6px 0;"><span style="color:#fc000f;font-weight:bold;">%s</span><br>%s</div>'
-                % (html.escape(tag), "<br>".join(entries))
+                    label += " · %s" % show.get("kino")
+                pills.append(self._time_pill(label))
+            time_blocks.append(
+                '<div style="margin:0 0 8px 0;">'
+                '<div style="font-size:12px;line-height:1.2;color:#ff2330;font-weight:bold;margin:0 0 5px 0;">%s</div>'
+                '<div>%s</div>'
+                '</div>' % (html.escape(compact_tag), "".join(pills))
             )
 
-        img_cell = ""
+        image_cell = ""
         if image_url:
-            img_cell = (
-                '<td width="150" valign="top" style="padding:14px 14px 14px 14px;">'
-                '<img src="%s" alt="%s" width="136" style="display:block;width:136px;height:auto;border-radius:4px;border:0;">'
+            image_cell = (
+                '<td class="movie-image" width="170" valign="top" style="width:170px;padding:0;">'
+                '<img src="%s" alt="%s" width="170" '
+                'style="display:block;width:170px;max-width:170px;height:auto;border:0;line-height:0;outline:none;text-decoration:none;">'
                 '</td>'
             ) % (html.escape(image_url), html.escape(title))
 
+        text_padding = "18px 18px 16px 18px" if image_url else "18px 18px 16px 18px"
         return "".join([
             '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" '
-            'style="width:100%;margin:0 0 18px 0;background-color:#111111;border-left:4px solid #fc000f;">',
+            'style="width:100%;margin:0 0 18px 0;background-color:#151515;border:1px solid #333333;border-radius:12px;overflow:hidden;">',
             '<tr>',
-            img_cell,
-            '<td valign="top" style="padding:14px 14px 14px 14px;font-family:Verdana,Arial,sans-serif;color:#ffffff;">',
-            ('<div style="font-size:12px;color:#bfbfbf;margin-bottom:5px;">%s</div>' % html.escape(meta)) if meta else "",
-            '<div style="font-size:20px;line-height:1.25;font-weight:bold;color:#ffffff;margin-bottom:8px;">%s</div>' % html.escape(title),
-            ('<div style="font-size:13px;line-height:1.45;color:#d8d8d8;margin-bottom:12px;">%s</div>' % html.escape(desc)) if desc else "",
-            '<div style="font-size:13px;line-height:1.5;color:#ffffff;margin-bottom:12px;">%s</div>' % "".join(time_lines),
-            '<a href="%s" style="display:inline-block;background:#fc000f;color:#ffffff;text-decoration:none;'
-            'font-weight:bold;font-size:13px;padding:9px 14px;border-radius:3px;">Film ansehen</a>' % html.escape(self.config_id.program_url),
+            image_cell,
+            '<td valign="top" style="padding:%s;font-family:Verdana,Arial,sans-serif;color:#ffffff;">' % text_padding,
+            ('<div style="font-size:11px;line-height:1.35;color:#bfbfbf;text-transform:uppercase;letter-spacing:.2px;margin:0 0 6px 0;">%s</div>' % html.escape(meta)) if meta else "",
+            '<div style="font-size:21px;line-height:1.18;font-weight:800;color:#ffffff;margin:0 0 8px 0;">%s</div>' % html.escape(title),
+            ('<div style="font-size:13px;line-height:1.48;color:#dddddd;margin:0 0 13px 0;">%s</div>' % html.escape(desc)) if desc else "",
+            '<div style="margin:0 0 12px 0;">%s</div>' % "".join(time_blocks),
+            '<a href="%s" style="display:inline-block;background-color:#fc000f;color:#ffffff;text-decoration:none;'
+            'font-weight:bold;font-size:13px;line-height:1;padding:11px 16px;border-radius:20px;">Film ansehen</a>' % html.escape(self.config_id.program_url),
             '</td></tr></table>',
         ])
 
@@ -930,7 +1084,7 @@ class GlKinoNewsletterIssue(models.Model):
         self.ensure_one()
         if not self.press_body:
             self._fetch_and_generate()
-        recipients = _safe_email_list(self.config_id.press_recipients)
+        recipients = self.config_id._get_press_emails()
         if not recipients:
             raise UserError(_("Es sind keine gültigen Presse-Mailadressen hinterlegt."))
         email_from = self.config_id.press_sender_email or self.config_id.sender_email or self.env.company.email or self.env.user.email
