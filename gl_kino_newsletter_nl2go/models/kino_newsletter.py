@@ -808,7 +808,7 @@ class GlKinoNewsletterIssue(models.Model):
             'style="width:100%;margin:0 0 14px 0;"><tr><td '
             'style="font-family:Verdana,Arial,sans-serif;color:#ffffff;">'
             '<div style="font-size:14px;line-height:1.45;color:#ffffff;margin:0 0 16px 0;">'
-            'Unser Wochenprogramm auf einen Blick – mit Bildern, Kurzinfos und allen Spielzeiten.</div>'
+            'Unser Wochenprogramm auf einen Blick:</div>'
             '</td></tr></table>'
         ]
         for key in movies:
