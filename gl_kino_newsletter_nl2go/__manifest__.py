@@ -2,7 +2,7 @@
 {
     "name": "GROUNDLIFT Kino Newsletter Newsletter2Go",
     "summary": "Kino-Wochennewsletter und Presse-Mail aus Cinetixx in Odoo 19",
-    "version": "19.0.1.1.0",
+    "version": "19.0.1.0.5",
     "category": "Marketing/Email Marketing",
     "author": "GROUNDLIFT / ChatGPT",
     "license": "LGPL-3",

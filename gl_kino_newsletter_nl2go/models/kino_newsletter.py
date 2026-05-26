@@ -648,8 +648,10 @@ class GlKinoNewsletterIssue(models.Model):
             title_raw = self._xml_text(node, ["VERANSTALTUNGSTITEL", "TITLE", "TITEL", "MOVIE_TITLE", "FILMTITEL"])
             short_title = self._xml_text(node, ["VERANSTALTUNGSKURZTITEL", "SHORT_TITLE", "KURZTITEL"])
             version_raw = self._xml_text(node, ["SPRACHVERSION", "VERSIONTYPE", "VERSION", "SPRACHE", "LANGUAGE", "FASSUNG"])
-            auditorium = self._xml_text(node, ["SAAL", "AUDITORIUM", "KINO", "HALL"])
-            cinema_name = self._xml_text(node, ["KINO", "CINEMA", "CINEMA_NAME"])
+            # Cinetixx liefert sowohl <KINO> (Name des Hauses) als auch <SAAL> (Kino 1/Kino 2).
+            # Für die Newsletter-Spielzeit darf nicht der Hausname neben der Uhrzeit stehen.
+            auditorium = self._xml_text_priority(node, ["SAAL", "AUDITORIUM", "HALL"])
+            cinema_name = self._xml_text_priority(node, ["KINO", "CINEMA", "CINEMA_NAME"])
             image_url = self._xml_text(node, IMAGE_FIELD_CANDIDATES)
             description = self._xml_text(node, ["TEXT", "TEXT_SHORT", "SUBTITLE", "KURZBESCHREIBUNG", "SHORT_DESCRIPTION", "DESCRIPTION", "BESCHREIBUNG"])
             booking_link = self._xml_text(node, ["BOOKING_LINK", "BOOKINGLINK", "TICKET_LINK", "TICKETLINK"])
@@ -715,6 +717,29 @@ class GlKinoNewsletterIssue(models.Model):
                 if text:
                     return text
         return ""
+
+    @api.model
+    def _xml_text_priority(self, node, candidates):
+        """Liest XML-Felder in der angegebenen Priorität statt in Dokumentreihenfolge."""
+        for candidate in candidates:
+            wanted = (candidate or "").upper()
+            for child in node.iter():
+                name = self._xml_local_name(child.tag).upper()
+                if name == wanted and child.text:
+                    text = child.text.strip()
+                    if text:
+                        return text
+        return ""
+
+    @api.model
+    def _is_house_name(self, value):
+        normalized = re.sub(r"\s+", " ", (value or "").strip()).casefold()
+        return normalized in {
+            "kino alte brauerei stegen",
+            "kino in der alten brauerei stegen",
+            "kino stegen",
+            "kino",
+        }
 
     @api.model
     def _parse_cinetixx_datetime(self, raw, tz):
@@ -853,8 +878,11 @@ class GlKinoNewsletterIssue(models.Model):
             pills = []
             for show in day_shows:
                 label = "%s Uhr" % (show.get("uhrzeit") or "")
-                if show.get("kino"):
-                    label += " · %s" % show.get("kino")
+                auditorium = (show.get("kino") or "").strip()
+                # Nur den tatsächlichen Saal anzeigen, nicht den allgemeinen Hausnamen
+                # "Kino Alte Brauerei Stegen". Falls Cinetixx keinen Saal liefert, bleibt nur die Uhrzeit.
+                if auditorium and not self._is_house_name(auditorium):
+                    label += " · %s" % auditorium
                 pills.append(self._time_pill(label))
             time_blocks.append(
                 '<div style="margin:0 0 8px 0;">'
