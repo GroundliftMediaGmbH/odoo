@@ -336,7 +336,7 @@ class GlKinoNewsletterIssue(models.Model):
             week_start = fields.Date.from_string(week_start)
         if isinstance(week_end, str):
             week_end = fields.Date.from_string(week_end)
-        iso_year, iso_week, _ = week_start.isocalendar()
+        iso_year, iso_week, iso_weekday = week_start.isocalendar()
         return _("Kino Stegen Newsletter KW %(week)02d/%(year)s (%(start)s–%(end)s)") % {
             "week": iso_week,
             "year": iso_year,
