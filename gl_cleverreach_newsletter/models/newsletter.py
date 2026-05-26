@@ -123,6 +123,72 @@ class CleverReachEventQueue(models.Model):
         ("config_event_unique", "unique(config_id, event_id)", "Dieses Event steht für diese Konfiguration bereits in der Newsletter-Warteschlange."),
     ]
 
+    def action_send_now(self):
+        """Manual button on a queued announced event: create and send this newsletter immediately.
+
+        This intentionally bypasses the normal "next morning" creation window and the
+        weekly spacing for new-event newsletters. It is a deliberate manual release for
+        exactly the clicked queue entry/event.
+        """
+        Job = self.env["gl.cleverreach.newsletter.job"].sudo()
+        action = False
+        for queue in self.sudo():
+            if not queue.event_id.exists():
+                queue.write({"state": "skipped", "note": _("Event existiert nicht mehr. Sofortversand nicht möglich.")})
+                raise UserError(_("Das verknüpfte Event existiert nicht mehr."))
+
+            config = queue.config_id
+            if not config:
+                raise UserError(_("Für diesen Queue-Eintrag fehlt die CleverReach-Konfiguration."))
+            if not config.recipient_group_id:
+                raise UserError(_("Bitte in der CleverReach-Konfiguration zuerst eine globale Empfängerliste wählen."))
+
+            job = queue.newsletter_id.sudo() if queue.newsletter_id else False
+            if job and job.state == "sent":
+                raise UserError(_("Für dieses angekündigte Event wurde bereits ein Newsletter versendet: %s") % job.name)
+
+            if not job:
+                local_today = config._local_today()
+                event_name = queue.event_id.display_name or queue.event_id.name or str(queue.event_id.id)
+                job = Job.create({
+                    "config_id": config.id,
+                    "newsletter_type": "new_events",
+                    "name": _("Sofort: Neue Veranstaltung %s") % event_name,
+                    "subject": _("Jetzt neu bei Groundlift"),
+                    "heading": _("Jetzt neu bei Groundlift"),
+                    "scheduled_datetime": fields.Datetime.now(),
+                    "event_ids": [(6, 0, [queue.event_id.id])],
+                    "queue_ids": [(6, 0, [queue.id])],
+                    "note": _("Manueller Sofortversand aus dem Reiter 'Angekündigte Events' am %s.") % local_today.strftime("%d.%m.%Y"),
+                })
+                queue.write({"newsletter_id": job.id})
+
+            try:
+                if not job.html_body or not job.group_id:
+                    job.action_render_and_schedule()
+                job.action_send_now()
+                queue.write({
+                    "state": "used",
+                    "newsletter_id": job.id,
+                    "note": _("Newsletter wurde manuell sofort über CleverReach versendet."),
+                })
+            except Exception as exc:
+                queue.write({
+                    "newsletter_id": job.id,
+                    "note": _("Sofortversand fehlgeschlagen: %s") % str(exc),
+                })
+                raise
+
+            action = {
+                "type": "ir.actions.act_window",
+                "name": _("Versendeter Newsletter"),
+                "res_model": "gl.cleverreach.newsletter.job",
+                "view_mode": "form",
+                "res_id": job.id,
+                "target": "current",
+            }
+        return action or True
+
 
 class CleverReachNewsletterConfig(models.Model):
     _name = "gl.cleverreach.newsletter.config"

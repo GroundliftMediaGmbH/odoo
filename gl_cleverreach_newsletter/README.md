@@ -17,6 +17,11 @@ Dieses Modul erzeugt aus Odoo-Veranstaltungen automatisch HTML-Newsletter für C
 10. Jeder geplante Newsletter wird zusätzlich als `calendar.event` in Odoo eingetragen.
 
 
+## Änderung in Version 19.0.1.2.3 – Sofortversand aus „Angekündigte Events"
+
+Im Formular eines Eintrags unter **CleverReach Newsletter → Angekündigte Events** gibt es jetzt den Button **Sofort senden**. Der Button erzeugt für genau diesen Queue-Eintrag beziehungsweise dieses Event einen `new_events`-Newsletter mit der Überschrift **Jetzt neu bei Groundlift**, rendert den Newsletter, bereitet ihn bei CleverReach vor und released ihn sofort. Bei erfolgreichem Versand wird der Queue-Eintrag auf **Verwendet** gesetzt und mit dem erzeugten Newsletter-Auftrag verknüpft.
+
+
 ## Änderung in Version 19.0.1.2.2 – Website-Header-Bild und Newsletter-Kontrast
 
 - Eventbilder im Newsletter bevorzugen jetzt standardmäßig `x_studio_website_header` aus `event.event`.

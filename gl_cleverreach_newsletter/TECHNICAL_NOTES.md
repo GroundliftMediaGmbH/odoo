@@ -69,3 +69,8 @@ Als Fallback bleiben ein um 60 Sekunden nach vorne gesetzter Timestamp, Query-Pa
 - `gl.cleverreach.newsletter.config.image_field_name` nutzt nun standardmäßig `x_studio_website_header`.
 - `CleverReachNewsletterConfig._event_image_field()` bevorzugt `x_studio_website_header` auch dann, wenn bestehende Konfigurationsdatensätze noch den alten Wert `image_1920` enthalten.
 - `CleverReachNewsletterConfig._normalize_newsletter_html()` entfernt den sichtbaren `<br>`-Fehler in der Ticket-Zeile und setzt kritische dunkle Newsletter-Bereiche auf weiße Schrift.
+
+
+## Version 19.0.1.2.3 – Sofortversand aus Queue-Eintrag
+
+Ergänzt wurde `CleverReachEventQueue.action_send_now()`. Die Methode wird über den Button **Sofort senden** im Formular `gl.cleverreach.event.queue` ausgelöst. Sie erstellt bei Bedarf einen `gl.cleverreach.newsletter.job` vom Typ `new_events` für genau den geöffneten Queue-Eintrag, rendert ihn, bereitet ihn bei CleverReach vor und ruft anschließend den bestehenden Versandpfad `CleverReachNewsletterJob.action_send_now()` auf. Damit bleiben OAuth, Mailing-Erstellung, Release-Endpoint und Fehlerbehandlung zentral im vorhandenen Newsletter-Job implementiert.
