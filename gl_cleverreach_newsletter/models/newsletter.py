@@ -163,7 +163,7 @@ class CleverReachNewsletterConfig(models.Model):
     auto_push_to_cleverreach = fields.Boolean(default=True, string="Mailings automatisch an CleverReach vorbereiten")
     remote_watchdog_active = fields.Boolean(default=True, string="CleverReach-Warteschlange im Watchdog berücksichtigen")
 
-    image_field_name = fields.Char(default="image_1920", help="Bei Groundlift ggf. x_studio_website_header eintragen.")
+    image_field_name = fields.Char(default="x_studio_website_header", help="Standard: x_studio_website_header. Fallback: image_1920, falls kein Website-Header vorhanden ist.")
     short_description_field_names = fields.Char(default="x_studio_event_kurzbeschreibung, subtitle, description")
     ticket_url_field_names = fields.Char(default="x_studio_ticket_link, x_studio_event_ticketlink, website_url")
     public_base_url = fields.Char(string="Öffentliche Odoo-Basis-URL")
@@ -796,6 +796,32 @@ class CleverReachNewsletterConfig(models.Model):
         html = html.replace(PLACEHOLDER_HEADING, escape(heading or ""))
         html = html.replace(PLACEHOLDER_PREHEADER, escape(heading or ""))
         html = html.replace("UNSERE KOMMENDEN VERANSTALTUNGEN", escape(heading or ""))
+        return self._normalize_newsletter_html(html)
+
+    def _normalize_newsletter_html(self, html):
+        """Apply final email-client-safe cleanup to generated newsletter HTML.
+
+        This intentionally runs after template replacement so it also fixes older
+        template records already stored in the database, not only the bundled
+        static HTML template.
+        """
+        html = html or ""
+        replacements = {
+            "background-color: #181513; ;;;background-color: #ffffff;": "background-color: #181513; color: #ffffff;",
+            "background-color: #181513;;;background-color: #ffffff;": "background-color: #181513; color: #ffffff;",
+            "TICKETS ONLINE&nbsp;<br>ODER AN DER ABENDKASSE": "TICKETS ONLINE ODER AN DER ABENDKASSE",
+            "TICKETS ONLINE <br>ODER AN DER ABENDKASSE": "TICKETS ONLINE ODER AN DER ABENDKASSE",
+            "TICKETS ONLINE<br>ODER AN DER ABENDKASSE": "TICKETS ONLINE ODER AN DER ABENDKASSE",
+            "TICKETS ONLINE&nbsp;&lt;br&gt;ODER AN DER ABENDKASSE": "TICKETS ONLINE ODER AN DER ABENDKASSE",
+            "TICKETS ONLINE &lt;br&gt;ODER AN DER ABENDKASSE": "TICKETS ONLINE ODER AN DER ABENDKASSE",
+            "TICKETS ONLINE&lt;br&gt;ODER AN DER ABENDKASSE": "TICKETS ONLINE ODER AN DER ABENDKASSE",
+        }
+        for old, new in replacements.items():
+            html = html.replace(old, new)
+        # Some email clients do not inherit the body color reliably. For the
+        # generated dark Groundlift sections, force text containers to white.
+        html = html.replace("color: inherit; padding:", "color: #ffffff; padding:")
+        html = html.replace("color: inherit !important;", "color: #ffffff !important;")
         return html
 
     def _render_events_block(self, events, note=""):
@@ -816,10 +842,10 @@ class CleverReachNewsletterConfig(models.Model):
         teaser = escape(self._event_teaser(event))
         return f'''<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #181513; padding:15px 0px 15px 0px; border:0px;" class="cr-container" data-name="Container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color:inherit; border:inherit;" data-name="Inner container"><tbody><tr><td align="center" valign="top" class="cr-image"><table cellpadding="0" cellspacing="0" style="width: 100%; border: 0px; padding: 0px; margin: 0px;"><tbody><tr><td align="center" style="text-align: center;"><a href="{link}" target="_blank" style="color: #d94122; text-decoration: underline; pointer-events: auto" title="{title}" rel="noopener"><img src="{img_url}" alt="{title}" style="border: 0px; margin: 0px; padding: 0px; display: inline; width: 414px; height: auto;" width="414" /></a></td></tr></tbody></table></td></tr></tbody></table></td></tr></tbody></table>
 <table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #d94122;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px;"><tbody><tr><td style="line-height: 0; font-size: 0px; height: 2px;" height="2"></td></tr></tbody></table></td></tr></tbody></table>
-<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #181513; padding: 0px 20px 0px 20px; border: 0px;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color: inherit; border: 0px;"><tbody><tr><td align="left" valign="top" style="font-family: 'Trebuchet MS', Helvetica, sans-serif !important; font-size: 11px; line-height: 126%; font-weight: normal; letter-spacing: 1px; color: inherit; padding: 0px;" class="cr-text"><div align="left"><h1 style="color: #d94122;"><span style="font-family: verdana, geneva, sans-serif;"><span style="color: #ffffff; font-size: 12px;">{date_line}</span><span style="font-size: 18px;"><strong><br></strong></span></span></h1></div></td></tr></tbody></table></td></tr></tbody></table>
+<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #181513; padding: 0px 20px 0px 20px; border: 0px;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color: inherit; border: 0px;"><tbody><tr><td align="left" valign="top" style="font-family: 'Trebuchet MS', Helvetica, sans-serif !important; font-size: 11px; line-height: 126%; font-weight: normal; letter-spacing: 1px; color: #ffffff; padding: 0px;" class="cr-text"><div align="left"><h1 style="color: #d94122;"><span style="font-family: verdana, geneva, sans-serif;"><span style="color: #ffffff; font-size: 12px;">{date_line}</span><span style="font-size: 18px;"><strong><br></strong></span></span></h1></div></td></tr></tbody></table></td></tr></tbody></table>
 <table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #d94122;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px;"><tbody><tr><td style="line-height: 0; font-size: 0px; height: 2px;" height="2"></td></tr></tbody></table></td></tr></tbody></table>
-<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #181513; padding: 10px 20px; border: 0px;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color: inherit; border: 0px;"><tbody><tr><td align="left" valign="top" style="font-family: 'Trebuchet MS', Helvetica, sans-serif !important; font-size: 11px; line-height: 126%; font-weight: normal; letter-spacing: 1px; color: inherit; padding: 0px;" class="cr-text"><div align="left"><h2 style="color: #d94122;"><span style="font-family: verdana, geneva, sans-serif;"><span style="font-size: 18px;">{title}</span></span></h2></div></td></tr></tbody></table></td></tr></tbody></table>
-<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #181513; padding: 0px 20px 10px 20px; border: 0px;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color: inherit; border: 0px;"><tbody><tr><td align="left" valign="top" style="font-family: 'Trebuchet MS', Helvetica, sans-serif !important; font-size: 11px; line-height: 126%; font-weight: normal; letter-spacing: 1px; color: inherit; padding: 0px;" class="cr-text"><div align="left"><p><span style="font-family: verdana, geneva, sans-serif; font-size: 12px;">— {category}</span><br><br><span style="font-family: verdana, geneva, sans-serif; font-size: 12px;">{teaser}</span></p></div></td></tr></tbody></table></td></tr></tbody></table>
+<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #181513; padding: 10px 20px; border: 0px;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color: inherit; border: 0px;"><tbody><tr><td align="left" valign="top" style="font-family: 'Trebuchet MS', Helvetica, sans-serif !important; font-size: 11px; line-height: 126%; font-weight: normal; letter-spacing: 1px; color: #ffffff; padding: 0px;" class="cr-text"><div align="left"><h2 style="color: #d94122;"><span style="font-family: verdana, geneva, sans-serif;"><span style="font-size: 18px;">{title}</span></span></h2></div></td></tr></tbody></table></td></tr></tbody></table>
+<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #181513; padding: 0px 20px 10px 20px; border: 0px;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color: inherit; border: 0px;"><tbody><tr><td align="left" valign="top" style="font-family: 'Trebuchet MS', Helvetica, sans-serif !important; font-size: 11px; line-height: 126%; font-weight: normal; letter-spacing: 1px; color: #ffffff; padding: 0px;" class="cr-text"><div align="left"><p><span style="font-family: verdana, geneva, sans-serif; font-size: 12px; color: #ffffff;">— {category}</span><br><br><span style="font-family: verdana, geneva, sans-serif; font-size: 12px; color: #ffffff;">{teaser}</span></p></div></td></tr></tbody></table></td></tr></tbody></table>
 <table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color:#181513;border:0px;padding: 10px 20px 20px 20px;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color: #181513; border: inherit;"><tbody><tr><td align="center" valign="top" class="cr-button"><table align="left" border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:separate;line-height:100%;" class="cred-button"><tbody><tr><td align="center" bgcolor="#d94122" role="presentation" style="border:0px none #ffffff;border-radius:1px;cursor:auto;padding:15px 20px;background:#d94122;" valign="middle"><a href="{link}" style="display:inline-block;background:#d94122;color:#ffffff;font-family:'Trebuchet MS', Helvetica, sans-serif;font-size:14px;font-weight:700;line-height:120%;margin:0;text-decoration:none;text-transform:none;mso-padding-alt:0px;border-radius:1px;" target="_blank" title="{title}">MEHR INFOS</a></td></tr></tbody></table></td></tr></tbody></table></td></tr></tbody></table>
 <table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #000000;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px;"><tbody><tr><td style="line-height: 0; font-size: 0; height: 40px;" height="40"></td></tr></tbody></table></td></tr></tbody></table>'''
 
@@ -827,13 +853,36 @@ class CleverReachNewsletterConfig(models.Model):
         return (self.public_base_url or self.env["ir.config_parameter"].sudo().get_param("web.base.url") or "").rstrip("/")
 
     def _event_image_url(self, event):
-        field = (self.image_field_name or "image_1920").strip()
-        if field not in event._fields:
-            field = "image_1920" if "image_1920" in event._fields else ""
+        field = self._event_image_field(event)
         base = self._base_url()
         if field and base:
             return "%s/web/image/event.event/%s/%s" % (base, event.id, field)
         return "https://files.crsend.com/244000/244084/images/header_nl_GL_schwarz.png"
+
+    def _event_image_field(self, event):
+        """Return the best image field for newsletter event cards.
+
+        Groundlift's website header field is the default priority. This also
+        fixes existing configurations that still contain the previous default
+        value `image_1920`, because the actual rendering now checks
+        `x_studio_website_header` first when the field exists and is filled.
+        """
+        configured = (self.image_field_name or "").strip()
+        candidates = []
+        for field in ("x_studio_website_header", configured, "image_1920", "image_1024", "image_512"):
+            if field and field not in candidates:
+                candidates.append(field)
+        for field in candidates:
+            if field in event._fields:
+                try:
+                    if event[field]:
+                        return field
+                except Exception:
+                    # If reading a binary field fails for permission/lazy-load
+                    # reasons, still prefer its image URL over an unrelated
+                    # fallback field.
+                    return field
+        return ""
 
     def _event_link(self, event):
         for field_name in [x.strip() for x in (self.ticket_url_field_names or "").split(",") if x.strip()]:
@@ -859,7 +908,7 @@ class CleverReachNewsletterConfig(models.Model):
         if end:
             end_local = end.replace(tzinfo=timezone.utc).astimezone(self._tz()) if end.tzinfo is None else end.astimezone(self._tz())
             line += " - " + end_local.strftime("%H:%M")
-        return line + " | TICKETS ONLINE&nbsp;<br>ODER AN DER ABENDKASSE"
+        return line + " | TICKETS ONLINE ODER AN DER ABENDKASSE"
 
     def _event_category(self, event):
         if "event_type_id" in event._fields and event.event_type_id:

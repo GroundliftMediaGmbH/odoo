@@ -62,3 +62,10 @@ Die Methode `CleverReachNewsletterJob._cleverreach_send_mailing_now()` sendet de
 ```
 
 Als Fallback bleiben ein um 60 Sekunden nach vorne gesetzter Timestamp, Query-Parameter-Varianten sowie die bisherigen leeren Varianten erhalten.
+
+
+## Version 19.0.1.2.2 – Website-Header-Bild und Kontrast-Fix
+
+- `gl.cleverreach.newsletter.config.image_field_name` nutzt nun standardmäßig `x_studio_website_header`.
+- `CleverReachNewsletterConfig._event_image_field()` bevorzugt `x_studio_website_header` auch dann, wenn bestehende Konfigurationsdatensätze noch den alten Wert `image_1920` enthalten.
+- `CleverReachNewsletterConfig._normalize_newsletter_html()` entfernt den sichtbaren `<br>`-Fehler in der Ticket-Zeile und setzt kritische dunkle Newsletter-Bereiche auf weiße Schrift.

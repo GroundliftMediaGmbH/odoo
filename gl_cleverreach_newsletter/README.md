@@ -17,6 +17,13 @@ Dieses Modul erzeugt aus Odoo-Veranstaltungen automatisch HTML-Newsletter für C
 10. Jeder geplante Newsletter wird zusätzlich als `calendar.event` in Odoo eingetragen.
 
 
+## Änderung in Version 19.0.1.2.2 – Website-Header-Bild und Newsletter-Kontrast
+
+- Eventbilder im Newsletter bevorzugen jetzt standardmäßig `x_studio_website_header` aus `event.event`.
+- Bestehende Konfigurationen mit altem Wert `image_1920` werden beim Rendering trotzdem korrekt behandelt: Wenn `x_studio_website_header` vorhanden und befüllt ist, wird dieses Feld zuerst verwendet.
+- Dunkle Newsletter-Blöcke erzwingen nun weiße Schrift, damit E-Mail-Clients keine schwarze Schrift auf dunklem Hintergrund anzeigen.
+- Der fehlerhafte Text `TICKETS ONLINE <br>ODER AN DER ABENDKASSE` wurde bereinigt und erscheint nun ohne sichtbares `<br>`.
+
 ## Änderung in Version 19.0.1.2.1 – CleverReach `time`-Integer-Fix
 
 CleverReach kann bei `POST /mailings/{id}/release` den Fehler ``Invalid value specified for `time`. Expecting integer value`` zurückgeben, wenn der Release ohne gültigen Integer-Zeitwert aufgerufen wird. Diese Version sendet beim Sofortversand zuerst explizit `{"time": <aktueller Unix-Timestamp in UTC-Sekunden>}` und nutzt zusätzlich Query-Parameter-Fallbacks. Odoo bleibt weiterhin die Planungsinstanz; CleverReach wird nur zum fälligen Zeitpunkt released.
