@@ -15,6 +15,13 @@
 - `Groundlift CleverReach: Newsletter-Watchdog`: stündlich.
 - `Groundlift CleverReach: fällige Newsletter versenden`: alle 5 Minuten, verschickt in Odoo fällige Newsletter per CleverReach-Sofortversand.
 
+
+## Änderung in Version 19.0.1.2.4 – öffentliche Kategorie und sauberer Sofortversand
+
+- Newsletter-Eventkarten verwenden für die Kategoriezeile nun bevorzugt `groundlift_public_category` aus `event.event` statt `event_type_id`.
+- Der manuelle Sofortversand aus dem Reiter „Angekündigte Events“ schreibt keine interne Versandnotiz mehr in den öffentlichen Newsletter.
+- Falls ältere, noch nicht versendete Newsletter-Aufträge diese interne Notiz bereits im HTML oder im Notizfeld enthalten, werden sie vor dem Sofortversand sauber neu gerendert und als neues CleverReach-Mailing vorbereitet.
+
 ## Erweiterungspunkte
 
 Die wichtigste Stelle für CleverReach-Payload-Anpassungen ist:

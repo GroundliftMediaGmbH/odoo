@@ -148,7 +148,6 @@ class CleverReachEventQueue(models.Model):
                 raise UserError(_("Für dieses angekündigte Event wurde bereits ein Newsletter versendet: %s") % job.name)
 
             if not job:
-                local_today = config._local_today()
                 event_name = queue.event_id.display_name or queue.event_id.name or str(queue.event_id.id)
                 job = Job.create({
                     "config_id": config.id,
@@ -159,12 +158,29 @@ class CleverReachEventQueue(models.Model):
                     "scheduled_datetime": fields.Datetime.now(),
                     "event_ids": [(6, 0, [queue.event_id.id])],
                     "queue_ids": [(6, 0, [queue.id])],
-                    "note": _("Manueller Sofortversand aus dem Reiter 'Angekündigte Events' am %s.") % local_today.strftime("%d.%m.%Y"),
+                    "note": False,
                 })
                 queue.write({"newsletter_id": job.id})
 
+            if job.newsletter_type == "new_events" and (
+                (job.note and "Manueller Sofortversand" in job.note)
+                or (job.html_body and "Manueller Sofortversand" in job.html_body)
+            ):
+                # Older versions stored an internal manual-send note in the
+                # newsletter itself. That note must never appear in the public
+                # newsletter HTML or in a prepared CleverReach mailing, so we
+                # force a clean re-render and recreate the remote mailing.
+                job.write({
+                    "note": False,
+                    "html_body": False,
+                    "cleverreach_mailing_id": False,
+                    "cleverreach_response": False,
+                    "state": "draft",
+                    "error_message": False,
+                })
+
             try:
-                if not job.html_body or not job.group_id:
+                if not job.html_body or not job.group_id or not job.cleverreach_mailing_id:
                     job.action_render_and_schedule()
                 job.action_send_now()
                 queue.write({
@@ -808,6 +824,9 @@ class CleverReachNewsletterConfig(models.Model):
 
     def _is_tour_event(self, event):
         needles = [str(event.name or "").lower()]
+        public_category = self._event_field_display_value(event, "groundlift_public_category")
+        if public_category:
+            needles.append(public_category.lower())
         if "event_type_id" in event._fields and event.event_type_id:
             needles.append(str(event.event_type_id.name or "").lower())
         if "tag_ids" in event._fields:
@@ -884,6 +903,12 @@ class CleverReachNewsletterConfig(models.Model):
         }
         for old, new in replacements.items():
             html = html.replace(old, new)
+        html = re.sub(
+            r"(?:Manueller\s+Sofortversand\s+aus\s+dem\s+Reiter(?:\s|&nbsp;)*)+'?Angekündigte\s+Events'?(?:\s|&nbsp;)*am(?:\s|&nbsp;)*\d{2}\.\d{2}\.\d{4}\.?",
+            "",
+            html,
+            flags=re.IGNORECASE,
+        )
         # Some email clients do not inherit the body color reliably. For the
         # generated dark Groundlift sections, force text containers to white.
         html = html.replace("color: inherit; padding:", "color: #ffffff; padding:")
@@ -976,9 +1001,25 @@ class CleverReachNewsletterConfig(models.Model):
             line += " - " + end_local.strftime("%H:%M")
         return line + " | TICKETS ONLINE ODER AN DER ABENDKASSE"
 
+    def _event_field_display_value(self, event, field_name):
+        if not field_name or field_name not in event._fields:
+            return ""
+        try:
+            value = event[field_name]
+        except Exception:
+            return ""
+        if not value:
+            return ""
+        if hasattr(value, "display_name") and getattr(value, "ids", False):
+            return _strip_html(value.display_name or "")
+        return _strip_html(str(value))
+
     def _event_category(self, event):
-        if "event_type_id" in event._fields and event.event_type_id:
-            return (event.event_type_id.name or "VERANSTALTUNG").upper()
+        public_category = self._event_field_display_value(event, "groundlift_public_category")
+        if not public_category:
+            public_category = self._event_field_display_value(event, "x_studio_groundlift_public_category")
+        if public_category:
+            return public_category.upper()
         if "tag_ids" in event._fields and event.tag_ids:
             return (event.tag_ids[0].name or "VERANSTALTUNG").upper()
         return "VERANSTALTUNG"

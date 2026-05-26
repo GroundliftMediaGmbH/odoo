@@ -33,6 +33,13 @@ Im Formular eines Eintrags unter **CleverReach Newsletter → Angekündigte Even
 
 CleverReach kann bei `POST /mailings/{id}/release` den Fehler ``Invalid value specified for `time`. Expecting integer value`` zurückgeben, wenn der Release ohne gültigen Integer-Zeitwert aufgerufen wird. Diese Version sendet beim Sofortversand zuerst explizit `{"time": <aktueller Unix-Timestamp in UTC-Sekunden>}` und nutzt zusätzlich Query-Parameter-Fallbacks. Odoo bleibt weiterhin die Planungsinstanz; CleverReach wird nur zum fälligen Zeitpunkt released.
 
+
+## Änderung in Version 19.0.1.2.4 – öffentliche Kategorie und sauberer Sofortversand
+
+- Newsletter-Eventkarten verwenden für die Kategoriezeile nun bevorzugt `groundlift_public_category` aus `event.event` statt `event_type_id`.
+- Der manuelle Sofortversand aus dem Reiter „Angekündigte Events“ schreibt keine interne Versandnotiz mehr in den öffentlichen Newsletter.
+- Falls ältere, noch nicht versendete Newsletter-Aufträge diese interne Notiz bereits im HTML oder im Notizfeld enthalten, werden sie vor dem Sofortversand sauber neu gerendert und als neues CleverReach-Mailing vorbereitet.
+
 ## Installation in Odoo SH
 
 ### Variante A: über GitHub/Odoo SH
