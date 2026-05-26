@@ -8,7 +8,7 @@ import textwrap
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta, timezone
 from email.utils import parseaddr
-from urllib.parse import urljoin
+from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 import xml.etree.ElementTree as ET
 
 import pytz
@@ -21,7 +21,7 @@ _logger = logging.getLogger(__name__)
 
 DEFAULT_CINETIXX_API_URL = (
     "https://api.cinetixx.de/Services/CinetixxService.asmx/"
-    "GetShowInfo?mandatorID=3226381756&cinemaid=3226418798"
+    "GetShowInfo?mandatorID=3226381756"
 )
 DEFAULT_PROGRAM_URL = "https://www.kino-stegen.de/index.php/de/programm"
 DEFAULT_NL2GO_API_BASE = "https://api.newsletter2go.com"
@@ -42,6 +42,13 @@ DEFAULT_PRESS_RECIPIENTS = "\n".join([
 ])
 GERMAN_VERSION_CODES = {"", "D", "DE", "DEU", "GER", "DEUTSCH"}
 IMAGE_FIELD_CANDIDATES = [
+    # Cinetixx liefert die nutzbaren Poster/Bilder in der Regel so:
+    "ARTWORK",
+    "ARTWORK_BIG",
+    "IMAGE_1",
+    "IMAGE_2",
+    "IMAGE_3",
+    # generische Fallbacks für andere Cinetixx-/Kinodatenstände:
     "IMAGE_URL",
     "IMAGEURL",
     "PICTURE_URL",
@@ -437,31 +444,90 @@ class GlKinoNewsletterIssue(models.Model):
     def _fetch_cinetixx_shows(self):
         self.ensure_one()
         config = self.config_id
-        try:
-            response = requests.get(config.cinetixx_api_url, timeout=30)
-            response.raise_for_status()
-        except Exception as exc:
-            raise UserError(_("Cinetixx-API konnte nicht geladen werden: %s") % exc) from exc
-
-        try:
-            root = ET.fromstring(response.content)
-        except Exception as exc:
-            raise UserError(_("Cinetixx-XML konnte nicht gelesen werden: %s") % exc) from exc
 
         tz = pytz.timezone(config.timezone_name or DEFAULT_TIMEZONE)
         start_local = tz.localize(datetime.combine(self.week_start, time.min))
         end_local = tz.localize(datetime.combine(self.week_end, time.max))
-        shows = []
 
+        last_error = None
+        best_shows = []
+        tried_urls = []
+        for api_url in self._candidate_cinetixx_urls(config.cinetixx_api_url):
+            tried_urls.append(api_url)
+            try:
+                response = requests.get(api_url, timeout=30)
+                response.raise_for_status()
+                root = ET.fromstring(response.content)
+                shows = self._parse_cinetixx_root(root, tz, start_local, end_local)
+                if shows:
+                    return shows
+                # leeres Ergebnis merken, aber weitere Kandidaten testen
+                best_shows = shows
+            except Exception as exc:
+                last_error = exc
+                _logger.warning("Cinetixx API candidate failed (%s): %s", api_url, exc)
+
+        if last_error and not best_shows:
+            raise UserError(_("Cinetixx-API konnte nicht sinnvoll gelesen werden. Getestete URLs: %(urls)s\nLetzter Fehler: %(error)s") % {
+                "urls": ", ".join(tried_urls),
+                "error": last_error,
+            }) from last_error
+        return best_shows
+
+    @api.model
+    def _candidate_cinetixx_urls(self, configured_url):
+        """Liefert robuste Cinetixx-URL-Kandidaten.
+
+        In der Praxis liefert der Mandator-Aufruf
+        GetShowInfo?mandatorID=3226381756 zuverlässig alle Vorstellungen.
+        Ältere Modulstände hatten zusätzlich cinemaid/cinemaId in der URL; je nach
+        Cinetixx-Endpoint kann das zu leeren oder abweichenden Ergebnissen führen.
+        Deshalb testen wir zuerst die konfigurierte URL und danach automatisch die
+        mandatorID-only-Variante.
+        """
+        urls = []
+
+        def add(url):
+            url = (url or "").strip()
+            if url and url not in urls:
+                urls.append(url)
+
+        configured_url = configured_url or DEFAULT_CINETIXX_API_URL
+        add(configured_url)
+
+        try:
+            parts = urlsplit(configured_url)
+            query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k.lower() != "cinemaid"]
+            if query != parse_qsl(parts.query, keep_blank_values=True):
+                add(urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment)))
+        except Exception:
+            pass
+
+        add(DEFAULT_CINETIXX_API_URL)
+        return urls
+
+    def _parse_cinetixx_root(self, root, tz, start_local, end_local):
+        self.ensure_one()
+        shows = []
         for node in root.iter():
             if self._xml_local_name(node.tag).lower() != "show":
                 continue
+
+            status = self._xml_text(node, ["STATUS"]) or (node.attrib.get("status") or "")
+            if status and status.upper() not in {"SHOW_ENABLED", "ENABLED"}:
+                continue
+
             raw_begin = self._xml_text(node, ["SHOW_BEGINNING", "BEGIN", "START", "STARTDATE", "DATE_TIME", "DATETIME"])
+            raw_end = self._xml_text(node, ["SHOW_END", "END", "ENDDATE", "DATE_END"])
             title_raw = self._xml_text(node, ["VERANSTALTUNGSTITEL", "TITLE", "TITEL", "MOVIE_TITLE", "FILMTITEL"])
-            version_raw = self._xml_text(node, ["VERSIONTYPE", "VERSION", "SPRACHE", "LANGUAGE", "FASSUNG"])
+            short_title = self._xml_text(node, ["VERANSTALTUNGSKURZTITEL", "SHORT_TITLE", "KURZTITEL"])
+            version_raw = self._xml_text(node, ["SPRACHVERSION", "VERSIONTYPE", "VERSION", "SPRACHE", "LANGUAGE", "FASSUNG"])
             auditorium = self._xml_text(node, ["SAAL", "AUDITORIUM", "KINO", "HALL"])
+            cinema_name = self._xml_text(node, ["KINO", "CINEMA", "CINEMA_NAME"])
             image_url = self._xml_text(node, IMAGE_FIELD_CANDIDATES)
-            subtitle = self._xml_text(node, ["SUBTITLE", "KURZBESCHREIBUNG", "SHORT_DESCRIPTION", "DESCRIPTION", "BESCHREIBUNG"])
+            description = self._xml_text(node, ["TEXT", "TEXT_SHORT", "SUBTITLE", "KURZBESCHREIBUNG", "SHORT_DESCRIPTION", "DESCRIPTION", "BESCHREIBUNG"])
+            booking_link = self._xml_text(node, ["BOOKING_LINK", "BOOKINGLINK", "TICKET_LINK", "TICKETLINK"])
+            trailer_url = self._xml_text(node, ["EVENT_TRAILER", "MOVIE_LINK", "TRAILER", "TRAILER_URL"])
 
             if not raw_begin or not title_raw:
                 continue
@@ -472,17 +538,38 @@ class GlKinoNewsletterIssue(models.Model):
             if start_dt_local < start_local or start_dt_local > end_local:
                 continue
 
+            end_dt = self._parse_cinetixx_datetime(raw_end, tz) if raw_end else None
+            end_dt_local = end_dt.astimezone(tz) if end_dt else None
             title, version = self._normalize_title_and_version(title_raw, version_raw)
+            image_url = self._absolute_url(image_url, self.config_id.program_url)
+
             shows.append({
+                "show_id": self._xml_text(node, ["SHOW_ID"]) or node.attrib.get("id") or "",
+                "event_id": self._xml_text(node, ["EVENT_ID"]),
+                "movie_id": self._xml_text(node, ["MOVIE_ID"]),
                 "start": start_dt_local.isoformat(),
+                "end": end_dt_local.isoformat() if end_dt_local else "",
                 "date": start_dt_local.strftime("%Y-%m-%d"),
                 "tag": self._format_german_date(start_dt_local.date()),
                 "uhrzeit": start_dt_local.strftime("%H:%M"),
-                "kino": auditorium or "Kino",
+                "kino": auditorium or cinema_name or "Kino",
+                "cinema": cinema_name,
                 "film": title,
+                "short_title": short_title,
                 "version": version,
-                "image_url": self._absolute_url(image_url, config.program_url),
-                "description": subtitle,
+                "language": self._xml_text(node, ["LANGUAGE"]),
+                "image_url": image_url,
+                "description": description,
+                "booking_link": self._absolute_url(booking_link, self.config_id.program_url),
+                "trailer_url": self._absolute_url(trailer_url, self.config_id.program_url),
+                "genre": self._xml_text(node, ["GENRE"]),
+                "fsk": self._xml_text(node, ["ALTERSFREIGABE", "FSK", "AGE_RATING"]),
+                "year": self._xml_text(node, ["YEAR", "JAHR"]),
+                "country": self._xml_text(node, ["COUNTRY", "LAND"]),
+                "director": self._xml_text(node, ["DIRECTOR", "REGIE"]),
+                "actor": self._xml_text(node, ["ACTOR", "DARSTELLER"]),
+                "duration": self._xml_text(node, ["SPIELDAUER_EVENT", "DURATION", "LAUFZEIT"]),
+                "status": status,
             })
 
         shows.sort(key=lambda s: (s.get("start"), s.get("kino"), s.get("film")))
@@ -576,52 +663,80 @@ class GlKinoNewsletterIssue(models.Model):
 
     def _build_program_block(self, shows):
         self.ensure_one()
-        by_date = defaultdict(list)
+        movies = []
+        by_movie = {}
         for show in shows:
-            by_date[show.get("date")].append(show)
+            key = (show.get("movie_id") or self._format_film(show) or show.get("film") or "").strip().casefold()
+            if key not in by_movie:
+                by_movie[key] = []
+                movies.append(key)
+            by_movie[key].append(show)
 
+        movies.sort(key=lambda key: min(s.get("start") or "" for s in by_movie[key]))
         parts = []
+        for key in movies:
+            parts.append(self._build_movie_card(by_movie[key]))
+        return "".join(parts)
+
+    def _build_movie_card(self, movie_shows):
+        self.ensure_one()
+        movie_shows = sorted(movie_shows, key=lambda s: (s.get("start"), s.get("kino"), s.get("film")))
+        main = movie_shows[0]
+        title = self._format_film(main)
+        image_url = main.get("image_url") or ""
+        desc = (main.get("description") or "").strip()
+        if len(desc) > 380:
+            desc = desc[:377].rsplit(" ", 1)[0] + " …"
+
+        meta_values = [main.get("genre"), main.get("year"), main.get("fsk")]
+        if main.get("duration"):
+            meta_values.append("%s Min." % main.get("duration"))
+        meta = " | ".join([str(x).strip() for x in meta_values if str(x or "").strip()])
+
+        by_date = defaultdict(list)
+        for show in movie_shows:
+            by_date[show.get("date")].append(show)
+        time_lines = []
         for date_key in sorted(by_date):
             day_shows = by_date[date_key]
             tag = day_shows[0].get("tag") or date_key
-            parts.append(
-                '<div style="margin:20px 0 10px 0;font-family:Verdana,Arial,sans-serif;">'
-                '<div style="color:#fc000f;font-size:20px;font-weight:bold;text-decoration:underline;">%s</div>'
-                '</div>' % html.escape(tag)
-            )
+            entries = []
             for show in day_shows:
-                parts.append(self._build_show_card(show))
-            parts.append('<div style="height:10px;line-height:10px;">&nbsp;</div>')
-        return "".join(parts)
+                entry = "<b>%s Uhr</b>" % html.escape(show.get("uhrzeit") or "")
+                if show.get("kino"):
+                    entry += " &nbsp;%s" % html.escape(show.get("kino"))
+                entries.append(entry)
+            time_lines.append(
+                '<div style="margin:0 0 6px 0;"><span style="color:#fc000f;font-weight:bold;">%s</span><br>%s</div>'
+                % (html.escape(tag), "<br>".join(entries))
+            )
 
-    def _build_show_card(self, show):
-        self.ensure_one()
-        title = self._format_film(show)
-        image_url = show.get("image_url") or ""
-        meta = " | ".join([x for x in [show.get("uhrzeit"), show.get("kino")] if x])
-        desc = (show.get("description") or "").strip()
-        if len(desc) > 180:
-            desc = desc[:177].rsplit(" ", 1)[0] + " …"
         img_cell = ""
         if image_url:
             img_cell = (
-                '<td width="132" valign="top" style="padding:0 12px 12px 0;">'
-                '<img src="%s" alt="%s" width="120" style="display:block;width:120px;height:auto;border-radius:4px;border:0;">'
+                '<td width="150" valign="top" style="padding:14px 14px 14px 14px;">'
+                '<img src="%s" alt="%s" width="136" style="display:block;width:136px;height:auto;border-radius:4px;border:0;">'
                 '</td>'
             ) % (html.escape(image_url), html.escape(title))
+
         return "".join([
             '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" '
-            'style="width:100%;margin:0 0 14px 0;background-color:#111111;border-left:3px solid #fc000f;">',
+            'style="width:100%;margin:0 0 18px 0;background-color:#111111;border-left:4px solid #fc000f;">',
             '<tr>',
             img_cell,
-            '<td valign="top" style="padding:12px 12px 12px 12px;font-family:Verdana,Arial,sans-serif;color:#ffffff;">',
-            '<div style="font-size:13px;color:#bfbfbf;margin-bottom:4px;">%s</div>' % html.escape(meta),
-            '<div style="font-size:18px;line-height:1.3;font-weight:bold;color:#ffffff;margin-bottom:8px;">%s</div>' % html.escape(title),
+            '<td valign="top" style="padding:14px 14px 14px 14px;font-family:Verdana,Arial,sans-serif;color:#ffffff;">',
+            ('<div style="font-size:12px;color:#bfbfbf;margin-bottom:5px;">%s</div>' % html.escape(meta)) if meta else "",
+            '<div style="font-size:20px;line-height:1.25;font-weight:bold;color:#ffffff;margin-bottom:8px;">%s</div>' % html.escape(title),
             ('<div style="font-size:13px;line-height:1.45;color:#d8d8d8;margin-bottom:12px;">%s</div>' % html.escape(desc)) if desc else "",
+            '<div style="font-size:13px;line-height:1.5;color:#ffffff;margin-bottom:12px;">%s</div>' % "".join(time_lines),
             '<a href="%s" style="display:inline-block;background:#fc000f;color:#ffffff;text-decoration:none;'
             'font-weight:bold;font-size:13px;padding:9px 14px;border-radius:3px;">Film ansehen</a>' % html.escape(self.config_id.program_url),
             '</td></tr></table>',
         ])
+
+    # Kompatibilität, falls alte Templates/Tests diese Methode noch direkt aufrufen
+    def _build_show_card(self, show):
+        return self._build_movie_card([show])
 
     def _build_groundlift_events_block(self, shows):
         self.ensure_one()

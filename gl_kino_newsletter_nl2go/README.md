@@ -7,7 +7,7 @@ Odoo-19-SH-Modul für den Kino-Stegen-Wochennewsletter und die sachliche Presse-
 - Lädt montags um 17:00 Uhr lokaler Zeit das Wochenprogramm aus der Cinetixx-API.
 - Erzeugt eine Odoo-Vorschau für den Kinonewsletter auf Basis von `newsletter_template.html`.
 - Fügt pro Vorstellung einen Button **Film ansehen** mit Link auf `https://www.kino-stegen.de/index.php/de/programm` ein.
-- Verwendet Film-Bilder aus Cinetixx, sofern die API Bildfelder liefert.
+- Verwendet Film-Bilder aus Cinetixx (`ARTWORK`, `ARTWORK_BIG`, `IMAGE_1` usw.), sofern die API Bildfelder liefert.
 - Ergänzt optional die nächste Groundlift-Veranstaltung aus `event.event` inklusive Bild, Datum, Kurzbeschreibung und Link.
 - Sendet den Newsletter per Newsletter2Go-REST-API automatisch montags um 18:00 Uhr oder manuell per Button.
 - Erstellt und versendet die Presse-Mail direkt über Odoo `mail.mail` an die aus dem Projektmanagement übernommenen Presse-Adressen.
@@ -43,6 +43,12 @@ Die Cronjobs laufen alle 30 Minuten, handeln aber nur in den gewünschten lokale
 - Montag 18:00–18:59: Newsletter und/oder Presse-Mail senden, wenn die jeweiligen Haken aktiv sind.
 
 Die Zeitzone steht standardmäßig auf `Europe/Berlin`.
+
+## Cinetixx-Interpretation
+
+Das Modul liest die reale Cinetixx-XML-Struktur aus `GetShowInfo?mandatorID=3226381756`, unter anderem `SHOW_BEGINNING`, `SHOW_END`, `TEXT`, `BOOKING_LINK`, `ARTWORK`, `ARTWORK_BIG`, `VERANSTALTUNGSTITEL`, `SPRACHVERSION`, `VERSIONTYPE`, `SAAL`, `GENRE`, `ALTERSFREIGABE`, `SPIELDAUER_EVENT` und `STATUS`.
+
+Wenn in einer bestehenden Konfiguration noch die alte URL mit `cinemaid`/`cinemaId` steht, versucht das Modul automatisch zusätzlich die robuste Mandator-only-URL.
 
 ## Hinweise
 
