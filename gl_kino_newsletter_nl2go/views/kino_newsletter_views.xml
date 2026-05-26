@@ -6,7 +6,8 @@
         <field name="arch" type="xml">
             <form string="Kino Newsletter Einstellungen">
                 <header>
-                    <button name="action_test_nl2go_auth" type="object" string="Newsletter2Go Auth testen" class="oe_highlight"/>
+                    <button name="action_load_films_current_week" type="object" string="Filme laden" class="oe_highlight"/>
+                    <button name="action_test_nl2go_auth" type="object" string="Newsletter2Go Auth testen"/>
                 </header>
                 <sheet>
                     <div class="oe_title">
@@ -145,7 +146,8 @@
         <field name="arch" type="xml">
             <form string="Kino Newsletter">
                 <header>
-                    <button name="action_fetch_and_generate" type="object" string="Cinetixx prüfen &amp; Vorschau bauen" class="oe_highlight"/>
+                    <button name="action_load_films" type="object" string="Filme laden" class="oe_highlight"/>
+                    <button name="action_fetch_and_generate" type="object" string="Cinetixx prüfen &amp; Vorschau bauen"/>
                     <button name="action_open_preview" type="object" string="Vorschau öffnen"/>
                     <button name="action_send_newsletter_now" type="object" string="Newsletter sofort senden" class="btn-primary"/>
                     <button name="action_send_press_now" type="object" string="Presse-Mail sofort senden"/>

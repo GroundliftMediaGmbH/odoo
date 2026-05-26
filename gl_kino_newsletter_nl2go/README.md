@@ -13,6 +13,14 @@ Odoo-19-SH-Modul für den Kino-Stegen-Wochennewsletter und die sachliche Presse-
 - Erstellt und versendet die Presse-Mail direkt über Odoo `mail.mail` an die aus dem Projektmanagement übernommenen Presse-Adressen.
 - Beide Automatiken sind pro Ausgabe per Haken steuerbar.
 
+
+## Manuell Filme laden
+
+Der Montag-17:00-Schritt kann jederzeit manuell ausgeführt werden:
+
+- **Kino Newsletter → Einstellungen → Filme laden** lädt die Filme für die aktuelle Woche, legt bei Bedarf automatisch eine Ausgabe an und öffnet diese direkt.
+- **Kino Newsletter → Ausgaben → Ausgabe öffnen → Filme laden** lädt die Filme für die ausgewählte Woche erneut und baut Newsletter- und Presse-Vorschau neu.
+
 ## Installation auf Odoo.sh
 
 1. Ordner `gl_kino_newsletter_nl2go` in dein Odoo.sh-Repository unter `addons/` kopieren.

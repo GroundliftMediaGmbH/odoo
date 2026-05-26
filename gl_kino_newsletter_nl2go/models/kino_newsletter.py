@@ -245,6 +245,25 @@ class GlKinoNewsletterConfig(models.Model):
             },
         }
 
+    def action_load_films_current_week(self):
+        """Manueller Ersatz für den Montag-17:00-Cronjob.
+
+        Legt die Ausgabe für die aktuelle Woche an, falls sie noch nicht existiert,
+        lädt das Cinetixx-Programm und baut Newsletter- sowie Presse-Vorschau.
+        Danach wird die erzeugte Ausgabe direkt geöffnet.
+        """
+        self.ensure_one()
+        issue = self.env["gl.kino.newsletter.issue"]._get_or_create_current_issue(config=self)
+        issue._fetch_and_generate()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Kino Newsletter"),
+            "res_model": "gl.kino.newsletter.issue",
+            "res_id": issue.id,
+            "view_mode": "form",
+            "target": "current",
+        }
+
 
 class GlKinoNewsletterIssue(models.Model):
     _name = "gl.kino.newsletter.issue"
@@ -367,6 +386,10 @@ class GlKinoNewsletterIssue(models.Model):
         for issue in self:
             issue._fetch_and_generate()
         return True
+
+    def action_load_films(self):
+        """Expliziter Button: Filme laden / Vorschau neu erzeugen."""
+        return self.action_fetch_and_generate()
 
     def _fetch_and_generate(self):
         self.ensure_one()
