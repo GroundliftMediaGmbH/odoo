@@ -1,7 +1,7 @@
 {
     "name": "Groundlift CleverReach Event Newsletter",
     "summary": "Automatische CleverReach-Newsletter aus Odoo-Veranstaltungen",
-    "version": "19.0.1.2.0",
+    "version": "19.0.1.1.0",
     "category": "Marketing/Email Marketing",
     "author": "Groundlift / ChatGPT",
     "website": "https://www.groundlift.de",

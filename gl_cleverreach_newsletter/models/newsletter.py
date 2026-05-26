@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
 import base64
-import hashlib
-import hmac
 import json
 import logging
 import re
 from datetime import datetime, time, timedelta, timezone
 from html import escape
-from urllib.parse import urlencode
 
 import requests
 
@@ -138,18 +135,6 @@ class CleverReachNewsletterConfig(models.Model):
     token_valid_until = fields.Datetime(readonly=True, copy=False)
     api_base_url = fields.Char(default="https://rest.cleverreach.com/v3", required=True)
     oauth_token_url = fields.Char(default="https://rest.cleverreach.com/oauth/token.php", required=True)
-    oauth_authorize_url = fields.Char(default="https://rest.cleverreach.com/oauth/authorize.php", required=True)
-    oauth_redirect_uri = fields.Char(
-        string="OAuth Redirect URI",
-        help="Diese URL muss in der CleverReach REST-API-App exakt als Redirect/Callback URI hinterlegt sein.",
-    )
-    oauth_authorization_code = fields.Char(
-        string="OAuth-Code manuell einlösen",
-        copy=False,
-        help="Nur als Fallback verwenden, falls die automatische Callback-Route nicht erreichbar ist.",
-    )
-    oauth_refresh_token = fields.Char(string="OAuth Refresh Token", readonly=True, copy=False)
-    oauth_scope = fields.Char(string="OAuth Scopes", readonly=True, copy=False)
     last_api_message = fields.Text(readonly=True)
 
     timezone_name = fields.Char(default="Europe/Berlin", required=True)
@@ -257,146 +242,6 @@ class CleverReachNewsletterConfig(models.Model):
         if not self.client_id or not self.client_secret:
             raise UserError(_("Bitte zuerst CleverReach Client ID und Client Secret eintragen."))
 
-    def _default_oauth_redirect_uri(self):
-        self.ensure_one()
-        base = (self.env["ir.config_parameter"].sudo().get_param("web.base.url") or "").rstrip("/")
-        return "%s/gl_cleverreach/oauth/callback" % base if base else ""
-
-    def _oauth_state_secret(self):
-        secret = self.env["ir.config_parameter"].sudo().get_param("database.secret")
-        if not secret:
-            secret = self.env.cr.dbname or "gl_cleverreach_newsletter"
-        return str(secret)
-
-    def _oauth_state(self):
-        self.ensure_one()
-        signature = hmac.new(
-            self._oauth_state_secret().encode("utf-8"),
-            str(self.id).encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()[:32]
-        return "%s:%s" % (self.id, signature)
-
-    @api.model
-    def _config_from_oauth_state(self, state):
-        if not state or ":" not in str(state):
-            raise UserError(_("Ungültiger OAuth-State."))
-        rec_id, signature = str(state).split(":", 1)
-        if not rec_id.isdigit():
-            raise UserError(_("Ungültiger OAuth-State."))
-        config = self.sudo().browse(int(rec_id)).exists()
-        if not config:
-            raise UserError(_("Die CleverReach-Konfiguration aus dem OAuth-State wurde nicht gefunden."))
-        expected = config._oauth_state().split(":", 1)[1]
-        if not hmac.compare_digest(signature, expected):
-            raise UserError(_("Der OAuth-State passt nicht zur CleverReach-Konfiguration."))
-        return config
-
-    def action_open_oauth_authorization(self):
-        """Start CleverReach Authorization Code OAuth flow.
-
-        This creates a user-authorized token. For sending/releasing mailings this
-        is safer than relying on a pure client_credentials token, because some
-        CleverReach accounts/apps reject release with `invalid scope` otherwise.
-        """
-        self.ensure_one()
-        self._require_api_credentials()
-        redirect_uri = (self.oauth_redirect_uri or self._default_oauth_redirect_uri() or "").strip()
-        if not redirect_uri:
-            raise UserError(_("Es konnte keine OAuth Redirect URI ermittelt werden. Bitte web.base.url prüfen oder die Redirect URI manuell eintragen."))
-        if redirect_uri != (self.oauth_redirect_uri or "").strip():
-            self.oauth_redirect_uri = redirect_uri
-        params = {
-            "client_id": self.client_id,
-            "grant": "basic",
-            "response_type": "code",
-            "redirect_uri": redirect_uri,
-            "state": self._oauth_state(),
-        }
-        url = (self.oauth_authorize_url or "https://rest.cleverreach.com/oauth/authorize.php").strip() + "?" + urlencode(params)
-        self.last_api_message = _(
-            "CleverReach-Autorisierung gestartet. Wichtig: Die Redirect URI muss in der CleverReach REST-API-App exakt hinterlegt sein: %s"
-        ) % redirect_uri
-        return {"type": "ir.actions.act_url", "url": url, "target": "new"}
-
-    def action_exchange_oauth_code(self):
-        for rec in self:
-            code = (rec.oauth_authorization_code or "").strip()
-            if not code:
-                raise UserError(_("Bitte zuerst den OAuth-Code eintragen."))
-            rec._exchange_authorization_code(code)
-        return True
-
-    def _exchange_authorization_code(self, code, redirect_uri=None):
-        self.ensure_one()
-        self._require_api_credentials()
-        redirect_uri = (redirect_uri or self.oauth_redirect_uri or self._default_oauth_redirect_uri() or "").strip()
-        if not redirect_uri:
-            raise UserError(_("Für den Authorization-Code-Austausch fehlt die OAuth Redirect URI."))
-        try:
-            response = requests.post(
-                self.oauth_token_url,
-                data={
-                    "grant_type": "authorization_code",
-                    "client_id": self.client_id,
-                    "client_secret": self.client_secret,
-                    "redirect_uri": redirect_uri,
-                    "code": code,
-                },
-                timeout=30,
-            )
-        except requests.RequestException as exc:
-            raise UserError(_("CleverReach OAuth-Code-Austausch fehlgeschlagen: %s") % exc)
-        if response.status_code >= 400:
-            raise UserError(_("CleverReach OAuth-Code-Fehler %s: %s") % (response.status_code, response.text[:1000]))
-        data = response.json()
-        self._store_oauth_response(data, message=_("OAuth Benutzer-Autorisierung erfolgreich. Versand-Token wurde gespeichert."), clear_manual_code=True)
-        return data
-
-    def _refresh_access_token_from_refresh_token(self):
-        self.ensure_one()
-        self._require_api_credentials()
-        if not self.oauth_refresh_token:
-            raise UserError(_("Es ist noch kein OAuth Refresh Token gespeichert. Bitte zuerst den CleverReach-Benutzer autorisieren."))
-        try:
-            response = requests.post(
-                self.oauth_token_url,
-                data={
-                    "grant_type": "refresh_token",
-                    "refresh_token": self.oauth_refresh_token,
-                    "client_id": self.client_id,
-                    "client_secret": self.client_secret,
-                },
-                timeout=30,
-            )
-        except requests.RequestException as exc:
-            raise UserError(_("CleverReach OAuth-Refresh fehlgeschlagen: %s") % exc)
-        if response.status_code >= 400:
-            raise UserError(_("CleverReach OAuth-Refresh-Fehler %s: %s") % (response.status_code, response.text[:1000]))
-        data = response.json()
-        self._store_oauth_response(data, message=_("OAuth Token per Refresh Token erneuert."))
-        return self.access_token
-
-    def _store_oauth_response(self, data, message=None, clear_manual_code=False):
-        self.ensure_one()
-        token = data.get("access_token") if isinstance(data, dict) else False
-        if not token:
-            raise UserError(_("CleverReach hat kein access_token zurückgegeben: %s") % data)
-        expires_in = int(data.get("expires_in") or 3600)
-        vals = {
-            "access_token": token,
-            "token_valid_until": self._utc_now() + timedelta(seconds=max(expires_in - 60, 300)),
-            "last_api_message": message or _("OAuth Token erfolgreich erneuert."),
-        }
-        if data.get("refresh_token"):
-            vals["oauth_refresh_token"] = data.get("refresh_token")
-        if data.get("scope"):
-            vals["oauth_scope"] = data.get("scope")
-        if clear_manual_code:
-            vals["oauth_authorization_code"] = False
-        self.sudo().write(vals)
-        return token
-
     def _get_access_token(self, force=False):
         self.ensure_one()
         self._require_api_credentials()
@@ -404,8 +249,6 @@ class CleverReachNewsletterConfig(models.Model):
         valid_until = fields.Datetime.to_datetime(self.token_valid_until)
         if not force and self.access_token and valid_until and valid_until > now + timedelta(minutes=10):
             return self.access_token
-        if self.oauth_refresh_token:
-            return self._refresh_access_token_from_refresh_token()
         try:
             response = requests.post(
                 self.oauth_token_url,
@@ -418,7 +261,15 @@ class CleverReachNewsletterConfig(models.Model):
         if response.status_code >= 400:
             raise UserError(_("CleverReach OAuth-Fehler %s: %s") % (response.status_code, response.text[:1000]))
         data = response.json()
-        token = self._store_oauth_response(data, message=_("Client-Credentials Token erfolgreich erneuert. Hinweis: Für Versand/Release kann zusätzlich eine Benutzer-Autorisierung nötig sein."))
+        token = data.get("access_token")
+        if not token:
+            raise UserError(_("CleverReach hat kein access_token zurückgegeben: %s") % data)
+        expires_in = int(data.get("expires_in") or 3600)
+        self.sudo().write({
+            "access_token": token,
+            "token_valid_until": now + timedelta(seconds=max(expires_in - 60, 300)),
+            "last_api_message": _("OAuth Token erfolgreich erneuert."),
+        })
         return token
 
     def _api(self, method, path, payload=None, params=None, retry=True):
@@ -452,13 +303,7 @@ class CleverReachNewsletterConfig(models.Model):
                     data = rec._api("GET", "/debug/whoami")
                 except Exception:
                     data = rec._api("GET", "/groups")
-                scope_info = ""
-                try:
-                    scopes = rec._api("GET", "/debug/validate")
-                    scope_info = " | Token/Scopes: %s" % _truncate(str(scopes), 500)
-                except Exception:
-                    pass
-                rec.last_api_message = _("Verbindung OK. Antwort: %s%s") % (_truncate(str(data), 800), scope_info)
+                rec.last_api_message = _("Verbindung OK. Antwort: %s") % _truncate(str(data), 800)
             except Exception as exc:
                 rec.last_api_message = _("Verbindung fehlgeschlagen: %s") % exc
                 raise
@@ -1051,28 +896,7 @@ class CleverReachNewsletterJob(models.Model):
         group_id = self.group_id.external_id or config.recipient_group_id.external_id
         group_id_int = int(group_id) if str(group_id).isdigit() else group_id
         text = _strip_html(self.html_body)
-        official_payload = {
-            "name": self.name,
-            "subject": self.subject,
-            "sender_name": config.sender_name,
-            "sender_email": config.sender_email,
-            "content": {
-                "type": "html/text",
-                "html": self.html_body,
-                "text": text,
-            },
-            "receivers": {
-                "groups": [group_id_int],
-            },
-            "settings": {
-                "editor": "freeform",
-                "open_tracking": True,
-                "click_tracking": True,
-            },
-        }
-        if config.reply_to:
-            official_payload["reply_to"] = config.reply_to
-        legacy_setup = {
+        base_setup = {
             "name": self.name,
             "subject": self.subject,
             "sender_name": config.sender_name,
@@ -1083,10 +907,9 @@ class CleverReachNewsletterJob(models.Model):
             "text": text,
         }
         payloads = [
-            official_payload,
-            {"name": self.name, "subject": self.subject, "type": "html", "groups": [group_id_int], "sender_name": config.sender_name, "sender_email": config.sender_email, "reply_to": config.reply_to or config.sender_email, "content": {"html": self.html_body, "text": text}, "setup": legacy_setup, "setup_v2": legacy_setup},
-            {"name": self.name, "subject": self.subject, "groups": [group_id_int], "settings": {"editor": "html", "sender_name": config.sender_name, "sender_email": config.sender_email, "reply_to": config.reply_to or config.sender_email}, "html": self.html_body, "text": text, "setup_v2": legacy_setup},
-            legacy_setup,
+            {"name": self.name, "subject": self.subject, "type": "html", "groups": [group_id_int], "sender_name": config.sender_name, "sender_email": config.sender_email, "reply_to": config.reply_to or config.sender_email, "content": {"html": self.html_body, "text": text}, "setup": base_setup, "setup_v2": base_setup},
+            {"name": self.name, "subject": self.subject, "groups": [group_id_int], "settings": {"editor": "html", "sender_name": config.sender_name, "sender_email": config.sender_email, "reply_to": config.reply_to or config.sender_email}, "html": self.html_body, "text": text, "setup_v2": base_setup},
+            base_setup,
         ]
         last_error = None
         for endpoint in ("/mailings", "/mailings/template"):
@@ -1129,22 +952,13 @@ class CleverReachNewsletterJob(models.Model):
                 last_error = exc
                 error_text = str(exc)
                 if "invalid scope" in error_text.lower() or "forbidden" in error_text.lower():
-                    config = self.config_id
-                    if not config.oauth_refresh_token:
-                        raise UserError(_(
-                            "Mailing wurde in CleverReach vorbereitet, konnte aber nicht versendet werden. "
-                            "CleverReach verweigert POST %s mit fehlender Berechtigung / invalid scope. "
-                            "Bitte in der CleverReach-Konfiguration den Button 'CleverReach-Benutzer autorisieren' verwenden. "
-                            "Dadurch nutzt Odoo einen Benutzer-OAuth-Token mit Refresh Token statt nur Client Credentials. "
-                            "Ursprünglicher Fehler: %s"
-                        ) % (endpoint, error_text))
                     raise UserError(_(
                         "Mailing wurde in CleverReach vorbereitet, konnte aber nicht versendet werden. "
-                        "CleverReach verweigert POST %s weiterhin mit fehlender Berechtigung / invalid scope, obwohl bereits ein Benutzer-OAuth-Token gespeichert ist. "
-                        "Dann fehlt der REST-API-App in CleverReach weiterhin die Freigabe für Mailings/Release/Senden. "
-                        "Bitte in CleverReach die App-Berechtigungen prüfen oder CleverReach mit Request Header, Request Body, Response Header und Response Body um Freischaltung bitten. "
-                        "Aktuelle gespeicherte Scopes: %s. Ursprünglicher Fehler: %s"
-                    ) % (endpoint, config.oauth_scope or "unbekannt", error_text))
+                        "CleverReach verweigert POST %s mit fehlender Berechtigung / invalid scope. "
+                        "Der Versand-Endpunkt heißt in CleverReach REST v3 'release' und benötigt laut CleverReach eine Sonderberechtigung. "
+                        "Bitte die REST-API-App in CleverReach für das Release/Senden von Mailings freischalten lassen oder eine App mit passendem Scope verwenden. "
+                        "Ursprünglicher Fehler: %s"
+                    ) % (endpoint, error_text))
                 if "not found" in error_text.lower() or "404" in error_text:
                     raise UserError(_(
                         "Mailing wurde in CleverReach vorbereitet, konnte aber nicht versendet werden. "
