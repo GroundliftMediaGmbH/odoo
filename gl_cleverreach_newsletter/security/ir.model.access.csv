@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_gl_cleverreach_newsletter_config,gl.cleverreach.newsletter.config,model_gl_cleverreach_newsletter_config,base.group_system,1,1,1,1
+access_gl_cleverreach_newsletter_template,gl.cleverreach.newsletter.template,model_gl_cleverreach_newsletter_template,base.group_system,1,1,1,1
+access_gl_cleverreach_group,gl.cleverreach.group,model_gl_cleverreach_group,base.group_system,1,1,1,1
+access_gl_cleverreach_event_queue,gl.cleverreach.event.queue,model_gl_cleverreach_event_queue,base.group_system,1,1,1,1
+access_gl_cleverreach_newsletter_job,gl.cleverreach.newsletter.job,model_gl_cleverreach_newsletter_job,base.group_system,1,1,1,1
