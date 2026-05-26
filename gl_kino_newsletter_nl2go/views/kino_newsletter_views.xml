@@ -110,7 +110,8 @@
                 <filter name="ready" string="Vorschau bereit" domain="[('state','=','ready')]"/>
                 <filter name="failed" string="Fehler" domain="[('state','=','failed')]"/>
                 <filter name="sent" string="Gesendet" domain="[('state','=','sent')]"/>
-                <group expand="0" string="Gruppieren">
+                <separator/>
+                <group>
                     <filter name="group_state" string="Status" context="{'group_by':'state'}"/>
                     <filter name="group_week" string="Woche" context="{'group_by':'week_start'}"/>
                 </group>
