@@ -533,6 +533,22 @@ class GLServiceShiftLine(models.Model):
     planned_start_datetime = fields.Datetime(string='Anfangszeit')
     planned_end_datetime = fields.Datetime(string='Endzeit')
 
+    time_change_state = fields.Selection(
+        selection=[
+            ('none', 'Keine Zeitänderung'),
+            ('pending', 'Zeitänderung offen'),
+            ('accepted', 'Zeitänderung bestätigt'),
+            ('declined', 'Zeitänderung abgelehnt'),
+        ],
+        string='Zeitänderung',
+        default='none',
+        required=True,
+        tracking=True,
+    )
+    time_change_requested_at = fields.Datetime(string='Zeitänderung angefragt am', readonly=True)
+    time_change_answered_at = fields.Datetime(string='Zeitänderung beantwortet am', readonly=True)
+    time_change_warning = fields.Char(string='Warnung Zeitänderung', compute='_compute_time_change_warning')
+
     token = fields.Char(string='Antwort-Token', copy=False, index=True)
     invite_sent_at = fields.Datetime(string='Einladung gesendet am', readonly=True)
     invite_deadline = fields.Datetime(string='Antwortfrist')
@@ -577,11 +593,51 @@ class GLServiceShiftLine(models.Model):
         return records
 
     def write(self, vals):
+        time_fields_changed = any(key in vals for key in ('planned_start_datetime', 'planned_end_datetime'))
+        tracked_time_change = self.env['gl.service.shift.line']
+        old_times = {}
+        if time_fields_changed and not self.env.context.get('skip_time_change_confirmation'):
+            tracked_time_change = self.filtered(lambda r: r.state == 'accepted')
+            old_times = {
+                rec.id: (rec.planned_start_datetime, rec.planned_end_datetime)
+                for rec in tracked_time_change
+            }
+
         res = super().write(vals)
+
         if not self.env.context.get('skip_service_role_balance') and any(key in vals for key in ('role', 'shift_rating', 'state')):
             preferred = self.filtered(lambda r: r.role == 'desired').ids
             self.mapped('shift_id')._apply_desired_limit(preferred_line_ids=preferred, preserve_active=True)
+
+        if time_fields_changed and tracked_time_change:
+            now = fields.Datetime.now()
+            for line in tracked_time_change:
+                old_start, old_end = old_times.get(line.id, (False, False))
+                if old_start == line.planned_start_datetime and old_end == line.planned_end_datetime:
+                    continue
+                line.with_context(
+                    skip_time_change_confirmation=True,
+                    skip_service_role_balance=True,
+                ).write({
+                    'time_change_state': 'pending',
+                    'time_change_requested_at': now,
+                    'time_change_answered_at': False,
+                })
+                line._send_template('gl_service_staff.mail_template_service_time_change')
+                line.message_post(body=_(
+                    'Die Arbeitszeit wurde geändert. Eine Bestätigungsmail wurde an %s gesendet.'
+                ) % (line.member_id.name or line.email or _('Servicepersonal')))
         return res
+
+    @api.depends('time_change_state')
+    def _compute_time_change_warning(self):
+        for rec in self:
+            if rec.time_change_state == 'pending':
+                rec.time_change_warning = _('Zeitänderung noch nicht bestätigt')
+            elif rec.time_change_state == 'declined':
+                rec.time_change_warning = _('Achtung: Zeitänderung wurde abgelehnt')
+            else:
+                rec.time_change_warning = False
 
     @api.depends('shift_rating')
     def _compute_shift_rating_choice(self):
@@ -684,6 +740,16 @@ class GLServiceShiftLine(models.Model):
     def _accept(self, source='public'):
         now = fields.Datetime.now()
         for line in self:
+            if line.time_change_state == 'pending' and line.state == 'accepted' and source == 'public':
+                line.with_context(
+                    skip_time_change_confirmation=True,
+                    skip_service_role_balance=True,
+                ).write({
+                    'time_change_state': 'accepted',
+                    'time_change_answered_at': now,
+                })
+                line.message_post(body=_('Zeitänderung wurde durch %s bestätigt.') % (line.member_id.name or line.email or _('Servicepersonal')))
+                continue
             if line.state in ('declined', 'expired') and source == 'public':
                 continue
             vals = {
@@ -701,6 +767,18 @@ class GLServiceShiftLine(models.Model):
     def _decline(self, source='public'):
         now = fields.Datetime.now()
         for line in self:
+            if line.time_change_state == 'pending' and line.state == 'accepted' and source == 'public':
+                line.with_context(
+                    skip_time_change_confirmation=True,
+                    skip_service_role_balance=True,
+                ).write({
+                    'time_change_state': 'declined',
+                    'time_change_answered_at': now,
+                })
+                line.message_post(body=_(
+                    'Achtung: Die Zeitänderung wurde durch %s abgelehnt. Bitte im Backend prüfen.'
+                ) % (line.member_id.name or line.email or _('Servicepersonal')))
+                return True
             if line.state in ('declined', 'expired') and source == 'public':
                 continue
             was_reserve = line.role == 'reserve'
