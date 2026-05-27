@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_gl_service_staff_member_user,gl.service.staff.member user,model_gl_service_staff_member,base.group_user,1,1,1,1
+access_gl_service_shift_user,gl.service.shift user,model_gl_service_shift,base.group_user,1,1,1,1
+access_gl_service_shift_line_user,gl.service.shift.line user,model_gl_service_shift_line,base.group_user,1,1,1,1

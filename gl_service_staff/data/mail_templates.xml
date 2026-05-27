@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="mail_template_service_invitation" model="mail.template">
+        <field name="name">Servicepersonal: Einladung</field>
+        <field name="model_id" ref="model_gl_service_shift_line"/>
+        <field name="subject">Service-Schicht: {{ object.shift_id.name }}</field>
+        <field name="email_from">{{ user.email_formatted or company.email_formatted }}</field>
+        <field name="email_to">{{ object.email }}</field>
+        <field name="auto_delete" eval="False"/>
+        <field name="body_html" type="html">
+            <div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.45;color:#222;">
+                <p>Hallo <t t-out="object.member_id.name"/>,</p>
+                <p>wir würden dich gerne für folgende Service-Schicht einteilen:</p>
+                <p>
+                    <strong><t t-out="object.shift_id.name"/></strong><br/>
+                    Datum: <t t-out="object.shift_id.shift_date"/><br/>
+                    Anfang: <t t-out="format_datetime(object.planned_start_datetime) if object.planned_start_datetime else 'noch offen'"/><br/>
+                    Ende: <t t-out="format_datetime(object.planned_end_datetime) if object.planned_end_datetime else 'noch offen'"/>
+                </p>
+                <p>Bitte gib uns kurz Rückmeldung:</p>
+                <p style="margin:24px 0;">
+                    <a t-att-href="object.accept_url" style="background:#1f8f3a;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;margin-right:8px;">Ich bin gerne dabei</a>
+                    <a t-att-href="object.decline_url" style="background:#8f1f1f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;">Ich kann leider nicht</a>
+                </p>
+                <p>Vielen Dank!</p>
+            </div>
+        </field>
+    </record>
+
+    <record id="mail_template_service_reminder_4w" model="mail.template">
+        <field name="name">Servicepersonal: Erinnerung 4 Wochen</field>
+        <field name="model_id" ref="model_gl_service_shift_line"/>
+        <field name="subject">Erinnerung Service-Schicht: {{ object.shift_id.name }}</field>
+        <field name="email_from">{{ user.email_formatted or company.email_formatted }}</field>
+        <field name="email_to">{{ object.email }}</field>
+        <field name="auto_delete" eval="False"/>
+        <field name="body_html" type="html">
+            <div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.45;color:#222;">
+                <p>Hallo <t t-out="object.member_id.name"/>,</p>
+                <p>für die folgende Service-Schicht fehlt uns noch deine Rückmeldung:</p>
+                <p>
+                    <strong><t t-out="object.shift_id.name"/></strong><br/>
+                    Datum: <t t-out="object.shift_id.shift_date"/><br/>
+                    Anfang: <t t-out="format_datetime(object.planned_start_datetime) if object.planned_start_datetime else 'noch offen'"/><br/>
+                    Ende: <t t-out="format_datetime(object.planned_end_datetime) if object.planned_end_datetime else 'noch offen'"/>
+                </p>
+                <p style="margin:24px 0;">
+                    <a t-att-href="object.accept_url" style="background:#1f8f3a;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;margin-right:8px;">Ich bin gerne dabei</a>
+                    <a t-att-href="object.decline_url" style="background:#8f1f1f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;">Ich kann leider nicht</a>
+                </p>
+            </div>
+        </field>
+    </record>
+
+    <record id="mail_template_service_final_3w" model="mail.template">
+        <field name="name">Servicepersonal: Letzte Rückfrage 3 Wochen / 6h-Frist</field>
+        <field name="model_id" ref="model_gl_service_shift_line"/>
+        <field name="subject">Letzte Rückfrage: Service-Schicht {{ object.shift_id.name }}</field>
+        <field name="email_from">{{ user.email_formatted or company.email_formatted }}</field>
+        <field name="email_to">{{ object.email }}</field>
+        <field name="auto_delete" eval="False"/>
+        <field name="body_html" type="html">
+            <div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.45;color:#222;">
+                <p>Hallo <t t-out="object.member_id.name"/>,</p>
+                <p>für diese Service-Schicht fehlt noch deine Rückmeldung. Ab jetzt läuft eine Frist von 6 Stunden. Wenn keine Zusage kommt, fragt das System automatisch Reservepersonal an.</p>
+                <p>
+                    <strong><t t-out="object.shift_id.name"/></strong><br/>
+                    Datum: <t t-out="object.shift_id.shift_date"/><br/>
+                    Anfang: <t t-out="format_datetime(object.planned_start_datetime) if object.planned_start_datetime else 'noch offen'"/><br/>
+                    Ende: <t t-out="format_datetime(object.planned_end_datetime) if object.planned_end_datetime else 'noch offen'"/><br/>
+                    Antwortfrist: <t t-out="format_datetime(object.invite_deadline) if object.invite_deadline else ''"/>
+                </p>
+                <p style="margin:24px 0;">
+                    <a t-att-href="object.accept_url" style="background:#1f8f3a;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;margin-right:8px;">Ich bin gerne dabei</a>
+                    <a t-att-href="object.decline_url" style="background:#8f1f1f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;">Ich kann leider nicht</a>
+                </p>
+            </div>
+        </field>
+    </record>
+
+    <record id="mail_template_service_replacement_3d" model="mail.template">
+        <field name="name">Servicepersonal: Nachrücker 3-Tage-Frist</field>
+        <field name="model_id" ref="model_gl_service_shift_line"/>
+        <field name="subject">Nachrück-Anfrage Service: {{ object.shift_id.name }}</field>
+        <field name="email_from">{{ user.email_formatted or company.email_formatted }}</field>
+        <field name="email_to">{{ object.email }}</field>
+        <field name="auto_delete" eval="False"/>
+        <field name="body_html" type="html">
+            <div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.45;color:#222;">
+                <p>Hallo <t t-out="object.member_id.name"/>,</p>
+                <p>du wirst als Nachrücker:in für folgende Service-Schicht angefragt. Bitte gib innerhalb von 3 Tagen Rückmeldung.</p>
+                <p>
+                    <strong><t t-out="object.shift_id.name"/></strong><br/>
+                    Datum: <t t-out="object.shift_id.shift_date"/><br/>
+                    Anfang: <t t-out="format_datetime(object.planned_start_datetime) if object.planned_start_datetime else 'noch offen'"/><br/>
+                    Ende: <t t-out="format_datetime(object.planned_end_datetime) if object.planned_end_datetime else 'noch offen'"/><br/>
+                    Antwortfrist: <t t-out="format_datetime(object.invite_deadline) if object.invite_deadline else ''"/>
+                </p>
+                <p style="margin:24px 0;">
+                    <a t-att-href="object.accept_url" style="background:#1f8f3a;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;margin-right:8px;">Ich bin gerne dabei</a>
+                    <a t-att-href="object.decline_url" style="background:#8f1f1f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;">Ich kann leider nicht</a>
+                </p>
+            </div>
+        </field>
+    </record>
+
+    <record id="mail_template_service_day_before" model="mail.template">
+        <field name="name">Servicepersonal: Arbeitszeit-Erinnerung am Vortag</field>
+        <field name="model_id" ref="model_gl_service_shift_line"/>
+        <field name="subject">Morgen: Service-Schicht {{ object.shift_id.name }}</field>
+        <field name="email_from">{{ user.email_formatted or company.email_formatted }}</field>
+        <field name="email_to">{{ object.email }}</field>
+        <field name="auto_delete" eval="False"/>
+        <field name="body_html" type="html">
+            <div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.45;color:#222;">
+                <p>Hallo <t t-out="object.member_id.name"/>,</p>
+                <p>hier kommt deine Erinnerung für die morgige Service-Schicht:</p>
+                <p>
+                    <strong><t t-out="object.shift_id.name"/></strong><br/>
+                    Datum: <t t-out="object.shift_id.shift_date"/><br/>
+                    Geplante Arbeitszeit:<br/>
+                    Anfang: <t t-out="format_datetime(object.planned_start_datetime) if object.planned_start_datetime else 'noch offen'"/><br/>
+                    Ende: <t t-out="format_datetime(object.planned_end_datetime) if object.planned_end_datetime else 'noch offen'"/>
+                </p>
+                <p>Vielen Dank und bis morgen!</p>
+            </div>
+        </field>
+    </record>
+</odoo>
