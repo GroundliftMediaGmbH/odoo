@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_gl_event_guestlist_line_event_user,gl.event.guestlist.line event user,model_gl_event_guestlist_line,event.group_event_user,1,1,1,1
+access_gl_event_guestlist_price_option_event_user,gl.event.guestlist.price.option event user,model_gl_event_guestlist_price_option,event.group_event_user,1,0,0,0
+access_gl_event_guestlist_line_event_manager,gl.event.guestlist.line event manager,model_gl_event_guestlist_line,event.group_event_manager,1,1,1,1
+access_gl_event_guestlist_price_option_event_manager,gl.event.guestlist.price.option event manager,model_gl_event_guestlist_price_option,event.group_event_manager,1,1,1,0

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Wird bei Installation und Modul-Update ausgeführt, damit bestehende Veranstaltungen
+         sofort die technische Gästelisten-Summenzeile im Tickets-Tab erhalten. -->
+    <function model="event.event" name="_sync_guestlist_summary_ticket_for_all"/>
+</odoo>
