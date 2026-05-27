@@ -26,6 +26,18 @@ class GLServiceStaffMember(models.Model):
     name = fields.Char(string='Name', related='employee_id.name', store=True, readonly=True)
     email = fields.Char(string='E-Mail', tracking=True)
     rating = fields.Integer(string='Sterne', default=3, required=True, tracking=True)
+    rating_choice = fields.Selection(
+        selection=[
+            ('1', '★'),
+            ('2', '★★'),
+            ('3', '★★★'),
+            ('4', '★★★★'),
+            ('5', '★★★★★'),
+        ],
+        string='Sterne',
+        compute='_compute_rating_choice',
+        inverse='_inverse_rating_choice',
+    )
     rating_display = fields.Char(string='Bewertung', compute='_compute_rating_display')
     pin_code = fields.Char(string='PIN-Code', copy=False, index=True, tracking=True)
     active = fields.Boolean(default=True)
@@ -36,6 +48,16 @@ class GLServiceStaffMember(models.Model):
         ('employee_unique', 'unique(employee_id)', 'Dieser Mitarbeiter ist bereits als Servicepersonal angelegt.'),
         ('pin_unique', 'unique(pin_code)', 'Dieser PIN-Code ist bereits vergeben.'),
     ]
+
+    @api.depends('rating')
+    def _compute_rating_choice(self):
+        for rec in self:
+            rating = max(1, min(rec.rating or 3, 5))
+            rec.rating_choice = str(rating)
+
+    def _inverse_rating_choice(self):
+        for rec in self:
+            rec.rating = int(rec.rating_choice or '3')
 
     @api.depends('rating')
     def _compute_rating_display(self):
@@ -281,6 +303,19 @@ class GLServiceShift(models.Model):
             shift._apply_desired_limit()
         return True
 
+    def _is_spontaneous_request(self):
+        self.ensure_one()
+        if not self.shift_date:
+            return False
+        today = fields.Date.context_today(self)
+        return (self.shift_date - today).days <= 21
+
+    def _ranked_invitation_lines(self):
+        self.ensure_one()
+        return self.line_ids.filtered(lambda l: l.state == 'draft').sorted(
+            key=lambda l: (-l.effective_rating, (l.member_id.name or '').lower(), l.id)
+        )
+
     def action_servicepersonal_buchen(self):
         for shift in self:
             shift._ensure_lines_for_all_staff()
@@ -289,14 +324,27 @@ class GLServiceShift(models.Model):
             # Standard: exakt so viele Wunschpersonen wie benötigt.
             # Falls vorher manuell schon Wunschpersonal gesetzt wurde, bleiben aktive Einladungen/Zusagen bevorzugt erhalten.
             shift._apply_desired_limit(preserve_active=True)
-            desired_to_invite = shift.line_ids.filtered(lambda l: l.role == 'desired' and l.state == 'draft')
-            if not desired_to_invite:
+
+            if shift._is_spontaneous_request():
+                # Bei spontanen Schichten innerhalb der 3-Wochen-Frist werden die benötigten Wunschpersonen
+                # plus die nächsten 2 Personen aus dem Ranking angefragt. Die zusätzlichen Personen bleiben Reserve.
+                active_outreach_count = len(shift.line_ids.filtered(lambda l: l.state in ('invited', 'accepted')))
+                target_outreach_count = max(0, shift.required_count or 0) + 2
+                missing_outreach_count = max(0, target_outreach_count - active_outreach_count)
+                lines_to_invite = shift._ranked_invitation_lines()[:missing_outreach_count]
+                invitation_kind = 'spontaneous'
+            else:
+                lines_to_invite = shift.line_ids.filtered(lambda l: l.role == 'desired' and l.state == 'draft')
+                invitation_kind = 'normal'
+
+            if not lines_to_invite:
                 continue
-            missing_mail = desired_to_invite.filtered(lambda l: not l.email)
+            missing_mail = lines_to_invite.filtered(lambda l: not l.email)
             if missing_mail:
                 raise UserError(_('Bei folgendem Servicepersonal fehlt eine E-Mail-Adresse: %s') % ', '.join(missing_mail.mapped('member_id.name')))
-            for line in desired_to_invite:
-                line._send_invitation(kind='normal')
+            for line in lines_to_invite:
+                line._send_invitation(kind=invitation_kind)
+            shift._apply_desired_limit(preserve_active=True)
         return True
 
     @api.model
@@ -309,7 +357,7 @@ class GLServiceShift(models.Model):
             return False
         source_ref = self._source_ref('project.project', project.id)
         vals = {
-            'name': _('Projekt: %s') % (project.display_name or project.name),
+            'name': project.display_name or project.name,
             'source_model': 'project.project',
             'source_ref': source_ref,
             'project_id': project.id,
@@ -333,7 +381,7 @@ class GLServiceShift(models.Model):
         if 'date_end' in event._fields and event.date_end:
             end_dt = event.date_end
         vals = {
-            'name': _('Veranstaltung: %s') % (event.display_name or event.name),
+            'name': event.display_name or event.name,
             'source_model': 'event.event',
             'source_ref': source_ref,
             'event_id': event.id,
@@ -466,6 +514,19 @@ class GLServiceShiftLine(models.Model):
     )
     base_rating = fields.Integer(string='Grundbewertung', related='member_id.rating', store=True, readonly=True)
     shift_rating = fields.Integer(string='Schichtbewertung', default=0, tracking=True)
+    shift_rating_choice = fields.Selection(
+        selection=[
+            ('0', 'Grundbewertung'),
+            ('1', '★'),
+            ('2', '★★'),
+            ('3', '★★★'),
+            ('4', '★★★★'),
+            ('5', '★★★★★'),
+        ],
+        string='Schicht-Sterne',
+        compute='_compute_shift_rating_choice',
+        inverse='_inverse_shift_rating_choice',
+    )
     effective_rating = fields.Integer(string='Wertung', compute='_compute_effective_rating', store=True)
     rating_display = fields.Char(string='Sterne', compute='_compute_rating_display')
 
@@ -522,6 +583,16 @@ class GLServiceShiftLine(models.Model):
             self.mapped('shift_id')._apply_desired_limit(preferred_line_ids=preferred, preserve_active=True)
         return res
 
+    @api.depends('shift_rating')
+    def _compute_shift_rating_choice(self):
+        for rec in self:
+            rating = max(0, min(rec.shift_rating or 0, 5))
+            rec.shift_rating_choice = str(rating)
+
+    def _inverse_shift_rating_choice(self):
+        for rec in self:
+            rec.shift_rating = int(rec.shift_rating_choice or '0')
+
     @api.constrains('shift_rating')
     def _check_shift_rating(self):
         for rec in self:
@@ -567,9 +638,11 @@ class GLServiceShiftLine(models.Model):
         for line in self:
             if not line.email:
                 raise UserError(_('Bei %s fehlt eine E-Mail-Adresse.') % line.member_id.name)
-            line.write({
+            target_role = 'reserve' if kind == 'spontaneous' and line.role == 'reserve' and not replacement_for else 'desired'
+            write_target = line.with_context(skip_service_role_balance=True) if target_role == 'reserve' else line
+            write_target.write({
                 'state': 'invited',
-                'role': 'desired',
+                'role': target_role,
                 'invite_sent_at': now,
                 'accepted_at': False,
                 'declined_at': False,
@@ -582,13 +655,14 @@ class GLServiceShiftLine(models.Model):
                 line.final_3w_sent = True
                 line._send_template('gl_service_staff.mail_template_service_replacement_3d')
             else:
-                # Wenn die Einladung erst nach der 3-Wochen-Marke rausgeht, sofort mit 6h-Frist anfragen.
+                # Wenn die erste Einladung erst innerhalb der 3-Wochen-Marke rausgeht,
+                # ist das eine spontane Anfrage mit 6h-Frist, aber ohne „Letzte Rückfrage“-Ton.
                 today = fields.Date.context_today(line)
                 days_until = (line.shift_id.shift_date - today).days if line.shift_id.shift_date else 999
                 if days_until <= 21:
                     line.invite_deadline = now + timedelta(hours=6)
                     line.final_3w_sent = True
-                    line._send_template('gl_service_staff.mail_template_service_final_3w')
+                    line._send_template('gl_service_staff.mail_template_service_spontaneous_invitation')
                 else:
                     line.invite_deadline = False
                     line._send_template('gl_service_staff.mail_template_service_invitation')
@@ -612,12 +686,16 @@ class GLServiceShiftLine(models.Model):
         for line in self:
             if line.state in ('declined', 'expired') and source == 'public':
                 continue
-            line.write({
+            vals = {
                 'state': 'accepted',
-                'role': 'desired',
+                'role': line.role or 'desired',
                 'accepted_at': now,
                 'declined_at': False,
-            })
+            }
+            if line.role == 'reserve':
+                line.with_context(skip_service_role_balance=True).write(vals)
+            else:
+                line.write(vals)
         return True
 
     def _decline(self, source='public'):
@@ -625,21 +703,29 @@ class GLServiceShiftLine(models.Model):
         for line in self:
             if line.state in ('declined', 'expired') and source == 'public':
                 continue
+            was_reserve = line.role == 'reserve'
             line.with_context(skip_service_role_balance=True).write({
                 'state': 'declined',
                 'role': 'reserve',
                 'declined_at': now,
             })
-            line.shift_id._invite_next_candidate(replacement_for=line, replacement_reason='declined')
+            if was_reserve:
+                line.shift_id._invite_reserve_candidate()
+            else:
+                line.shift_id._invite_next_candidate(replacement_for=line, replacement_reason='declined')
         return True
 
     def _expire_and_replace(self):
         for line in self:
             if line.state != 'invited':
                 continue
+            was_reserve = line.role == 'reserve'
             reason = 'missed_replacement' if line.replacement_reason in ('missed_final', 'missed_replacement') else 'missed_final'
             line.with_context(skip_service_role_balance=True).write({'state': 'expired', 'role': 'reserve'})
-            line.shift_id._invite_next_candidate(replacement_for=line, replacement_reason=reason)
+            if was_reserve:
+                line.shift_id._invite_reserve_candidate()
+            else:
+                line.shift_id._invite_next_candidate(replacement_for=line, replacement_reason=reason)
         return True
 
 
@@ -649,10 +735,35 @@ class GLServiceShiftCandidateMixin(models.AbstractModel):
 
 
 # Die Methode hängt fachlich an der Schicht, wird aus Lesbarkeitsgründen nach der Line-Klasse ergänzt.
+def _invite_reserve_candidate(self):
+    for shift in self:
+        candidate = shift.line_ids.filtered(lambda l: l.state == 'draft' and l.role == 'reserve').sorted(
+            key=lambda l: (-l.effective_rating, (l.member_id.name or '').lower(), l.id)
+        )[:1]
+        if not candidate:
+            shift.message_post(body=_('Kein weiteres Reserve-Servicepersonal mehr verfügbar für %s.') % (shift.display_name,))
+            continue
+        candidate._send_invitation(kind='spontaneous')
+    return True
+
+
+GLServiceShift._invite_reserve_candidate = _invite_reserve_candidate
+
 def _invite_next_candidate(self, replacement_for=False, replacement_reason='declined'):
     for shift in self:
         if shift.accepted_count >= shift.required_count:
             continue
+
+        # Wenn bei spontanen Schichten bereits Reservepersonal zugesagt hat,
+        # wird diese Person zuerst auf Wunschpersonal hochgezogen, bevor eine weitere Anfrage versendet wird.
+        accepted_reserve = shift.line_ids.filtered(lambda l: l.state == 'accepted' and l.role == 'reserve').sorted(
+            key=lambda l: (-l.effective_rating, (l.member_id.name or '').lower(), l.id)
+        )[:1]
+        if accepted_reserve:
+            accepted_reserve.with_context(skip_service_role_balance=True).write({'role': 'desired'})
+            shift._apply_desired_limit(preserve_active=True)
+            continue
+
         candidate = shift.line_ids.filtered(lambda l: l.state == 'draft' and l.role == 'reserve').sorted(
             key=lambda l: (-l.effective_rating, (l.member_id.name or '').lower(), l.id)
         )[:1]

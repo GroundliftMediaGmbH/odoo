@@ -8,7 +8,7 @@
             <list string="Servicepersonal" editable="bottom">
                 <field name="employee_id"/>
                 <field name="email"/>
-                <field name="rating"/>
+                <field name="rating_choice"/>
                 <field name="rating_display" readonly="1"/>
                 <field name="pin_code"/>
                 <field name="active"/>
@@ -37,7 +37,7 @@
                             <field name="active"/>
                         </group>
                         <group>
-                            <field name="rating"/>
+                            <field name="rating_choice"/>
                             <field name="rating_display" readonly="1"/>
                             <field name="pin_code"/>
                             <field name="portal_url" readonly="1"/>
@@ -88,7 +88,7 @@
                 <field name="role"/>
                 <field name="state"/>
                 <field name="base_rating" readonly="1"/>
-                <field name="shift_rating"/>
+                <field name="shift_rating_choice"/>
                 <field name="rating_display" readonly="1"/>
                 <field name="planned_start_datetime"/>
                 <field name="planned_end_datetime"/>
@@ -121,7 +121,7 @@
                         </group>
                         <group>
                             <field name="base_rating" readonly="1"/>
-                            <field name="shift_rating"/>
+                            <field name="shift_rating_choice"/>
                             <field name="effective_rating" readonly="1"/>
                             <field name="rating_display" readonly="1"/>
                         </group>
@@ -247,7 +247,7 @@
                                     <field name="role"/>
                                     <field name="state"/>
                                     <field name="base_rating" readonly="1"/>
-                                    <field name="shift_rating"/>
+                                    <field name="shift_rating_choice"/>
                                     <field name="rating_display" readonly="1"/>
                                     <field name="planned_start_datetime"/>
                                     <field name="planned_end_datetime"/>

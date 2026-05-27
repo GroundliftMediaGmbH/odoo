@@ -4,6 +4,14 @@ Dieses Modul legt eine neue Odoo-App **Servicepersonal** an.
 
 ## Enthaltene Funktionen
 
+
+### Update 19.0.1.2.0
+
+- Spontane Schichten innerhalb der 3-Wochen-Frist verwenden jetzt eine eigene Erst-Anfrage mit passender Tonalität statt „Letzte Rückfrage“.
+- Bei spontanen Schichten werden automatisch `Benötigtes Servicepersonal + 2` Personen aus dem Ranking angefragt. Die zusätzlichen Personen bleiben Reservepersonal.
+- Automatisch erzeugte Schichtnamen enthalten keinen Präfix „Veranstaltung:“ oder „Projekt:“ mehr.
+- Sternebewertungen werden in der Oberfläche per Dropdown ausgewählt.
+
 ### Update 19.0.1.1.0
 
 - Button-Reihenfolge in Schichten geändert: **Personalliste erzeugen** vor **Servicepersonal buchen**.
