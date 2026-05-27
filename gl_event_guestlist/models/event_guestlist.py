@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 import uuid
+
+import pytz
 from urllib.parse import quote
 
 from markupsafe import Markup, escape
@@ -128,20 +130,155 @@ class EventEvent(models.Model):
     def create(self, vals_list):
         events = super().create(vals_list)
         events._sync_guestlist_price_options()
+        events._sync_guestlist_summary_ticket()
         return events
 
     def write(self, vals):
         res = super().write(vals)
         if 'event_ticket_ids' in vals:
             self._sync_guestlist_price_options()
+            self._sync_guestlist_summary_ticket()
         capacity_fields = {'seats_max', 'seats_limited'}
         if capacity_fields.intersection(vals):
             self._check_guestlist_capacity()
         return res
 
+    @api.model
+    def _sync_guestlist_summary_ticket_for_all(self):
+        events = self.search([])
+        events._sync_guestlist_summary_ticket()
+        return True
+
+    def _sync_guestlist_summary_ticket(self):
+        EventTicket = self.env['event.event.ticket'].sudo().with_context(
+            active_test=False,
+            gl_guestlist_sync=True,
+        )
+        for event in self.sudo():
+            if not event.id:
+                continue
+
+            summary_tickets = EventTicket.search([
+                ('event_id', '=', event.id),
+                ('gl_is_guestlist_summary_ticket', '=', True),
+            ], order='id')
+            summary_ticket = summary_tickets[:1]
+            extra_summary_tickets = summary_tickets[1:]
+            if extra_summary_tickets:
+                extra_summary_tickets.unlink()
+
+            max_sequence = 0
+            real_tickets = event.event_ticket_ids.filtered(lambda ticket: not ticket.gl_is_guestlist_summary_ticket)
+            if real_tickets:
+                max_sequence = max(real_tickets.mapped('sequence') or [0])
+
+            vals = {
+                'name': _('Gästeliste'),
+                'event_id': event.id,
+                'sequence': max_sequence + 100,
+                'seats_max': 0,
+                'gl_is_guestlist_summary_ticket': True,
+                'start_sale_datetime': False,
+                'end_sale_datetime': False,
+            }
+            if 'price' in EventTicket._fields:
+                vals['price'] = 0.0
+            if 'product_id' in EventTicket._fields and not EventTicket._fields['product_id'].required:
+                vals['product_id'] = False
+            if 'limit_max_per_order' in EventTicket._fields:
+                vals['limit_max_per_order'] = 0
+            if 'color' in EventTicket._fields:
+                vals['color'] = '#6c757d'
+
+            if summary_ticket:
+                summary_ticket.write(vals)
+            else:
+                EventTicket.create(vals)
+        return True
+
+    @api.depends(
+        'event_ticket_ids.start_sale_datetime',
+        'event_ticket_ids.end_sale_datetime',
+        'event_ticket_ids.is_expired',
+        'event_ticket_ids.gl_is_guestlist_summary_ticket',
+    )
+    def _compute_start_sale_date(self):
+        super()._compute_start_sale_date()
+        for event in self:
+            real_tickets = event.event_ticket_ids.filtered(lambda ticket: not ticket.gl_is_guestlist_summary_ticket)
+            start_dates = [ticket.start_sale_datetime for ticket in real_tickets if not ticket.is_expired]
+            event.start_sale_datetime = min(start_dates) if start_dates and all(start_dates) else False
+
+    @api.depends(
+        'date_tz',
+        'event_registrations_started',
+        'date_end',
+        'seats_available',
+        'seats_limited',
+        'seats_max',
+        'event_ticket_ids.sale_available',
+        'event_ticket_ids.gl_is_guestlist_summary_ticket',
+    )
+    def _compute_event_registrations_open(self):
+        super()._compute_event_registrations_open()
+        for event in self:
+            real_tickets = event.event_ticket_ids.filtered(lambda ticket: not ticket.gl_is_guestlist_summary_ticket)
+            event_tz = pytz.timezone(event.date_tz or 'UTC')
+            event_in_tz = event._set_tz_context()
+            current_datetime = fields.Datetime.context_timestamp(event_in_tz, fields.Datetime.now())
+            date_end_tz = event.date_end.astimezone(event_tz) if event.date_end else False
+            base_open = (
+                event.kanban_state != 'cancel'
+                and event.event_registrations_started
+                and (date_end_tz >= current_datetime if date_end_tz else True)
+                and (not event.seats_limited or not event.seats_max or event.seats_available)
+            )
+            if not real_tickets:
+                event.event_registrations_open = base_open
+            elif not event.is_multi_slots:
+                event.event_registrations_open = base_open and any(ticket.sale_available for ticket in real_tickets)
+            else:
+                multi_slot_open = bool(event.event_slot_count and any(
+                    ticket.is_launched and not ticket.is_expired and any(
+                        availability is None or availability > 0
+                        for availability in event._get_seats_availability([
+                            (slot, ticket) for slot in event.event_slot_ids
+                        ])
+                    )
+                    for ticket in real_tickets
+                ))
+                event.event_registrations_open = bool(base_open and multi_slot_open)
+
+    @api.depends(
+        'event_slot_ids',
+        'event_ticket_ids.sale_available',
+        'event_ticket_ids.gl_is_guestlist_summary_ticket',
+        'seats_available',
+        'seats_limited',
+    )
+    def _compute_event_registrations_sold_out(self):
+        super()._compute_event_registrations_sold_out()
+        for event in self:
+            real_tickets = event.event_ticket_ids.filtered(lambda ticket: not ticket.gl_is_guestlist_summary_ticket)
+            global_sold_out = event.seats_limited and event.seats_max and not event.seats_available > 0
+            if not real_tickets:
+                event.event_registrations_sold_out = bool(global_sold_out)
+            elif event.is_multi_slots:
+                event.event_registrations_sold_out = bool(global_sold_out) or not any(
+                    availability is None or availability > 0
+                    for availability in event._get_seats_availability([
+                        (slot, ticket)
+                        for slot in event.event_slot_ids
+                        for ticket in real_tickets
+                    ])
+                )
+            else:
+                event.event_registrations_sold_out = bool(global_sold_out) or all(ticket.is_sold_out for ticket in real_tickets)
+
     def action_sync_guestlist_price_options(self):
         self.ensure_one()
         self._sync_guestlist_price_options()
+        self._sync_guestlist_summary_ticket()
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
@@ -206,13 +343,14 @@ class EventEvent(models.Model):
                     'sequence': 0,
                 })
 
-            active_ticket_ids = set(event.event_ticket_ids.ids)
+            sellable_tickets = event.event_ticket_ids.filtered(lambda ticket: not ticket.gl_is_guestlist_summary_ticket)
+            active_ticket_ids = set(sellable_tickets.ids)
             existing_ticket_options = Option.search([
                 ('event_id', '=', event.id),
                 ('is_free', '=', False),
             ])
 
-            for ticket in event.event_ticket_ids:
+            for ticket in sellable_tickets:
                 option = existing_ticket_options.filtered(lambda opt: opt.ticket_id.id == ticket.id)[:1]
                 vals = {
                     'name': event._guestlist_ticket_option_name(ticket),
@@ -246,7 +384,7 @@ class EventEvent(models.Model):
                     available=event.seats_available,
                 ))
 
-            for ticket in event.event_ticket_ids:
+            for ticket in event.event_ticket_ids.filtered(lambda ticket: not ticket.gl_is_guestlist_summary_ticket):
                 if not ticket.seats_max:
                     continue
                 ticket_guest_qty = sum(lines.filtered(lambda line: line.price_option_id.ticket_id == ticket).mapped('quantity_int'))
@@ -263,27 +401,80 @@ class EventEvent(models.Model):
 class EventEventTicket(models.Model):
     _inherit = 'event.event.ticket'
 
+    gl_is_guestlist_summary_ticket = fields.Boolean(
+        string='Gästelisten-Summenzeile',
+        default=False,
+        copy=False,
+        index=True,
+        readonly=True,
+        help='Technische Summenzeile: zeigt die Anzahl der Gästelistenplätze im Ticket-Tab an, ohne ein verkaufbares Produkt zu sein.',
+    )
+
     @api.model_create_multi
     def create(self, vals_list):
         tickets = super().create(vals_list)
-        tickets.mapped('event_id')._sync_guestlist_price_options()
+        if not self.env.context.get('gl_guestlist_sync'):
+            affected_events = tickets.mapped('event_id')
+            affected_events._sync_guestlist_price_options()
+            affected_events._sync_guestlist_summary_ticket()
         return tickets
 
     def write(self, vals):
         events = self.mapped('event_id')
         res = super().write(vals)
         affected_events = events | self.mapped('event_id')
-        affected_events._sync_guestlist_price_options()
-        capacity_fields = {'seats_max', 'seats_limited', 'event_id'}
-        if capacity_fields.intersection(vals):
-            affected_events._check_guestlist_capacity()
+        if not self.env.context.get('gl_guestlist_sync'):
+            affected_events._sync_guestlist_price_options()
+            affected_events._sync_guestlist_summary_ticket()
+            capacity_fields = {'seats_max', 'seats_limited', 'event_id'}
+            if capacity_fields.intersection(vals):
+                affected_events._check_guestlist_capacity()
         return res
 
     def unlink(self):
         events = self.mapped('event_id')
         res = super().unlink()
-        events._sync_guestlist_price_options()
+        if not self.env.context.get('gl_guestlist_sync'):
+            events._sync_guestlist_price_options()
+            events._sync_guestlist_summary_ticket()
         return res
+
+    @api.depends(
+        'seats_max',
+        'registration_ids.state',
+        'registration_ids.active',
+        'gl_is_guestlist_summary_ticket',
+        'event_id.guestlist_line_ids.quantity_int',
+        'event_id.guestlist_line_ids.checked_in',
+        'event_id.guestlist_line_ids.active',
+    )
+    def _compute_seats(self):
+        super()._compute_seats()
+        for ticket in self.filtered('gl_is_guestlist_summary_ticket'):
+            lines = ticket.event_id.guestlist_line_ids.filtered('active')
+            total_qty = sum(lines.mapped('quantity_int'))
+            ticket.seats_reserved = total_qty
+            ticket.seats_used = 0
+            ticket.seats_taken = total_qty
+            ticket.seats_available = 0
+
+    @api.depends('end_sale_datetime', 'event_id.date_tz', 'gl_is_guestlist_summary_ticket')
+    def _compute_is_expired(self):
+        super()._compute_is_expired()
+        for ticket in self.filtered('gl_is_guestlist_summary_ticket'):
+            ticket.is_expired = True
+
+    @api.depends('seats_limited', 'seats_available', 'event_id.event_registrations_sold_out', 'gl_is_guestlist_summary_ticket')
+    def _compute_is_sold_out(self):
+        super()._compute_is_sold_out()
+        for ticket in self.filtered('gl_is_guestlist_summary_ticket'):
+            ticket.is_sold_out = True
+
+    @api.depends('is_expired', 'start_sale_datetime', 'event_id.date_tz', 'seats_available', 'seats_max', 'gl_is_guestlist_summary_ticket')
+    def _compute_sale_available(self):
+        super()._compute_sale_available()
+        for ticket in self.filtered('gl_is_guestlist_summary_ticket'):
+            ticket.sale_available = False
 
 
 class EventRegistration(models.Model):
@@ -406,7 +597,9 @@ class GuestlistLine(models.Model):
                 vals['checked_in_datetime'] = fields.Datetime.now()
 
         lines = super().create(vals_list)
-        lines.mapped('event_id')._check_guestlist_capacity()
+        affected_events = lines.mapped('event_id')
+        affected_events._sync_guestlist_summary_ticket()
+        affected_events._check_guestlist_capacity()
         return lines
 
     def write(self, vals):
@@ -417,8 +610,19 @@ class GuestlistLine(models.Model):
             vals = dict(vals, checked_in_datetime=False, checked_by_user_id=False)
         res = super().write(vals)
         capacity_fields = {'event_id', 'quantity', 'price_option_id', 'active'}
+        affected_events = events_before | self.mapped('event_id')
         if capacity_fields.intersection(vals):
-            (events_before | self.mapped('event_id'))._check_guestlist_capacity()
+            affected_events._sync_guestlist_summary_ticket()
+            affected_events._check_guestlist_capacity()
+        elif 'checked_in' in vals:
+            affected_events._sync_guestlist_summary_ticket()
+        return res
+
+    def unlink(self):
+        events = self.mapped('event_id')
+        res = super().unlink()
+        events._sync_guestlist_summary_ticket()
+        events._check_guestlist_capacity()
         return res
 
     @api.constrains('event_id', 'price_option_id')

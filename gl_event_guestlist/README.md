@@ -1,34 +1,38 @@
-# Groundlift Event Gästeliste (Odoo 19 SH)
+# Groundlift Event Gästeliste
 
-Dieses Modul erweitert die Veranstaltungsapp um einen Tab **Gästeliste**.
+Odoo 19 SH Modul für Gästelisten in der Veranstaltungsapp.
 
 ## Funktionen
 
-- Tab „Gästeliste“ auf der Veranstaltungsform
-- Gästelisten-Spalten:
+- neuer Tab **Gästeliste** auf `event.event`
+- Gästelistenzeilen mit:
   - Vor-/Nachname
-  - Anzahl als Dropdown 1–20
-  - Bearbeiter als Mitarbeiter-Dropdown
-  - Preis als Veranstaltungspreisoption: `gratis` plus Ticket-/Produktoptionen der Veranstaltung
+  - Anzahl 1 bis 20
+  - Bearbeiter
+  - Preisoption: `gratis` plus Ticket-/Produktoptionen der Veranstaltung
   - Bestellt per: E-Mail, Telefon, Persönlich
   - Kontaktdaten
   - Bemerkung
-- Summierung der Gästelistenpersonen
-- Kapazitätsprüfung gegen verfügbare Eventplätze und begrenzte Ticketarten
-- Token-geschützter QR-Link je Veranstaltung
-- Öffentliche Check-in-Seite mit Suche und abhakbarer Gästeliste
-- Kein eigenes App-Menü und kein App-Icon
+- Kapazitätsprüfung gegen globale Event-Kapazität und begrenzte Ticketarten
+- QR-Code und token-geschützte öffentliche Check-in-Seite
+- abhakbare Einlassliste mit Suchfunktion und Live-Zähler
+- technische Summenzeile **Gästeliste** im Tickets-Tab:
+  - kein Produkt
+  - kein Maximum (`seats_max = 0`, Odoo-Logik: unbegrenzt)
+  - Spalte `Registration` zeigt die Summe der Gästelistenplätze
+  - nicht verkaufbar (`sale_available = False`) und nicht für Preisoptionen auswählbar
+- kein eigenes App-Menü und kein Desktop-Icon (`application = False`)
 
-## Installation auf Odoo SH
+## Installation / Update auf Odoo SH
 
-1. Modulordner `gl_event_guestlist` in dein Custom-Addons-Repository kopieren.
-2. Committen und auf den gewünschten Odoo-SH-Branch pushen.
-3. In Odoo Apps-Liste aktualisieren.
-4. Modul **Groundlift Event Gästeliste** installieren.
-5. Veranstaltung öffnen und den neuen Tab **Gästeliste** verwenden.
+1. ZIP entpacken.
+2. Ordner `gl_event_guestlist` in den Addons-Pfad bzw. das Odoo-SH-Repository legen.
+3. Commit + Push auf Staging.
+4. Apps-Liste aktualisieren.
+5. Modul **Groundlift Event Gästeliste** installieren oder aktualisieren.
+
+Beim Modul-Update wird automatisch für bestehende Veranstaltungen die Summenzeile **Gästeliste** im Tickets-Tab erzeugt.
 
 ## Hinweise
 
-- Der QR-Link ist token-geschützt. Jede Person mit Link/QR kann die Gästeliste sehen und abhaken.
-- Mit dem Button **QR-Link neu erzeugen** wird der alte Link ungültig.
-- Preisoptionen werden automatisch aus den Ticketarten der Veranstaltung synchronisiert; der Button **Preisoptionen aktualisieren** ist als manuelle Sicherheitsfunktion enthalten.
+Die öffentliche Check-in-Seite ist nicht loginpflichtig, aber über einen Veranstaltungstoken geschützt. Wer den Link oder QR-Code besitzt, kann die Gästeliste sehen und Check-ins setzen.
