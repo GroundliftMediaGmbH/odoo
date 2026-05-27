@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <template id="public_guestlist_page" name="Gästeliste Einlass">
+        <t t-call="website.layout">
+            <div id="wrap" class="oe_structure">
+                <section class="gl-guestlist-page">
+                    <style>
+                        .gl-guestlist-page {
+                            min-height: 100vh;
+                            background: #f5f5f7;
+                            padding: 32px 16px;
+                        }
+                        .gl-guestlist-container {
+                            max-width: 980px;
+                            margin: 0 auto;
+                        }
+                        .gl-guestlist-header {
+                            background: #111827;
+                            color: white;
+                            border-radius: 24px;
+                            padding: 28px;
+                            margin-bottom: 18px;
+                            box-shadow: 0 16px 40px rgba(0,0,0,.16);
+                        }
+                        .gl-guestlist-title {
+                            margin: 0;
+                            font-size: clamp(28px, 4vw, 44px);
+                            line-height: 1.05;
+                            font-weight: 800;
+                        }
+                        .gl-guestlist-subtitle {
+                            opacity: .82;
+                            margin-top: 8px;
+                            font-size: 16px;
+                        }
+                        .gl-guestlist-stats {
+                            display: grid;
+                            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                            gap: 12px;
+                            margin-top: 22px;
+                        }
+                        .gl-stat-card {
+                            background: rgba(255,255,255,.10);
+                            border: 1px solid rgba(255,255,255,.18);
+                            border-radius: 18px;
+                            padding: 14px 16px;
+                        }
+                        .gl-stat-value {
+                            font-size: 28px;
+                            font-weight: 800;
+                            line-height: 1;
+                        }
+                        .gl-stat-label {
+                            opacity: .76;
+                            font-size: 13px;
+                            margin-top: 5px;
+                        }
+                        .gl-toolbar {
+                            display: flex;
+                            gap: 12px;
+                            flex-wrap: wrap;
+                            align-items: center;
+                            margin-bottom: 16px;
+                        }
+                        .gl-search {
+                            flex: 1 1 280px;
+                            border: 1px solid #ddd;
+                            border-radius: 16px;
+                            padding: 14px 16px;
+                            font-size: 16px;
+                            background: white;
+                            outline: none;
+                        }
+                        .gl-search:focus {
+                            border-color: #111827;
+                            box-shadow: 0 0 0 3px rgba(17,24,39,.12);
+                        }
+                        .gl-row {
+                            display: grid;
+                            grid-template-columns: 56px minmax(0, 1fr) auto;
+                            gap: 14px;
+                            align-items: center;
+                            background: white;
+                            border: 1px solid #e5e7eb;
+                            border-radius: 18px;
+                            padding: 16px;
+                            margin-bottom: 10px;
+                            box-shadow: 0 8px 24px rgba(17,24,39,.06);
+                            transition: transform .12s ease, opacity .12s ease, background .12s ease;
+                        }
+                        .gl-row:hover {
+                            transform: translateY(-1px);
+                        }
+                        .gl-row.is-checked {
+                            background: #f0fdf4;
+                            opacity: .78;
+                        }
+                        .gl-checkbox {
+                            width: 34px;
+                            height: 34px;
+                            cursor: pointer;
+                        }
+                        .gl-guest-name {
+                            font-size: 20px;
+                            font-weight: 750;
+                            line-height: 1.15;
+                            color: #111827;
+                        }
+                        .gl-meta {
+                            display: flex;
+                            gap: 8px;
+                            flex-wrap: wrap;
+                            margin-top: 7px;
+                        }
+                        .gl-badge {
+                            display: inline-flex;
+                            align-items: center;
+                            border-radius: 999px;
+                            background: #f3f4f6;
+                            color: #374151;
+                            padding: 5px 10px;
+                            font-size: 13px;
+                            font-weight: 650;
+                        }
+                        .gl-note {
+                            color: #6b7280;
+                            margin-top: 8px;
+                            font-size: 14px;
+                        }
+                        .gl-qty {
+                            font-size: 26px;
+                            font-weight: 850;
+                            color: #111827;
+                            min-width: 48px;
+                            text-align: right;
+                        }
+                        .gl-empty {
+                            background: white;
+                            border-radius: 18px;
+                            padding: 28px;
+                            text-align: center;
+                            color: #6b7280;
+                        }
+                        @media (max-width: 640px) {
+                            .gl-guestlist-page { padding: 18px 10px; }
+                            .gl-guestlist-header { border-radius: 20px; padding: 22px; }
+                            .gl-row {
+                                grid-template-columns: 46px minmax(0, 1fr);
+                            }
+                            .gl-qty {
+                                grid-column: 2;
+                                text-align: left;
+                                font-size: 18px;
+                            }
+                        }
+                    </style>
+
+                    <div class="gl-guestlist-container">
+                        <header class="gl-guestlist-header">
+                            <h1 class="gl-guestlist-title">Gästeliste</h1>
+                            <div class="gl-guestlist-subtitle">
+                                <strong t-esc="event.name"/>
+                                <t t-if="event.date_begin">
+                                    · <span t-field="event.date_begin" t-options="{'widget': 'datetime'}"/>
+                                </t>
+                            </div>
+                            <div class="gl-guestlist-stats">
+                                <div class="gl-stat-card">
+                                    <div class="gl-stat-value" id="glCheckedQty" t-esc="checked_qty"/>
+                                    <div class="gl-stat-label">eingecheckt</div>
+                                </div>
+                                <div class="gl-stat-card">
+                                    <div class="gl-stat-value" id="glTotalQty" t-esc="total_qty"/>
+                                    <div class="gl-stat-label">Personen gesamt</div>
+                                </div>
+                                <div class="gl-stat-card">
+                                    <div class="gl-stat-value" id="glOpenQty" t-esc="total_qty - checked_qty"/>
+                                    <div class="gl-stat-label">noch offen</div>
+                                </div>
+                            </div>
+                        </header>
+
+                        <div class="gl-toolbar">
+                            <input id="glGuestSearch" class="gl-search" type="search" placeholder="Gast suchen …" autocomplete="off"/>
+                        </div>
+
+                        <div id="glGuestRows">
+                            <t t-if="not guestlist_lines">
+                                <div class="gl-empty">Für diese Veranstaltung sind noch keine Gäste eingetragen.</div>
+                            </t>
+                            <t t-foreach="guestlist_lines" t-as="line">
+                                <div t-att-class="'gl-row is-checked' if line.checked_in else 'gl-row'"
+                                     t-att-data-search="'%s %s %s %s' % (line.name or '', line.contact_data or '', line.note or '', line.price_option_id.name or '')">
+                                    <input class="gl-checkbox"
+                                           type="checkbox"
+                                           t-att-checked="line.checked_in and 'checked'"
+                                           t-att-data-url="'/event/guestlist/check/%s/%s' % (line.id, token)"/>
+                                    <div>
+                                        <div class="gl-guest-name" t-esc="line.name"/>
+                                        <div class="gl-meta">
+                                            <span class="gl-badge">Anzahl: <t t-esc="line.quantity_int"/></span>
+                                            <span class="gl-badge" t-if="line.price_option_id" t-esc="line.price_option_id.name"/>
+                                            <span class="gl-badge" t-if="line.ordered_by_label" t-esc="line.ordered_by_label"/>
+                                            <span class="gl-badge" t-if="line.contact_data" t-esc="line.contact_data"/>
+                                        </div>
+                                        <div class="gl-note" t-if="line.note" t-esc="line.note"/>
+                                    </div>
+                                    <div class="gl-qty">×<t t-esc="line.quantity_int"/></div>
+                                </div>
+                            </t>
+                        </div>
+                    </div>
+
+                    <script type="text/javascript">
+                        document.addEventListener('DOMContentLoaded', function () {
+                            const search = document.getElementById('glGuestSearch');
+                            const checkedQtyEl = document.getElementById('glCheckedQty');
+                            const totalQtyEl = document.getElementById('glTotalQty');
+                            const openQtyEl = document.getElementById('glOpenQty');
+
+                            function updateCounters(data) {
+                                if (!data || !data.ok) { return; }
+                                checkedQtyEl.textContent = data.checked_qty;
+                                totalQtyEl.textContent = data.total_qty;
+                                openQtyEl.textContent = data.total_qty - data.checked_qty;
+                            }
+
+                            document.querySelectorAll('.gl-checkbox').forEach(function (checkbox) {
+                                checkbox.addEventListener('change', function () {
+                                    const cb = this;
+                                    const row = cb.closest('.gl-row');
+                                    const oldValue = !cb.checked;
+                                    cb.disabled = true;
+                                    row.classList.toggle('is-checked', cb.checked);
+
+                                    fetch(cb.dataset.url, {
+                                        method: 'POST',
+                                        headers: {'Content-Type': 'application/json'},
+                                        body: JSON.stringify({checked: cb.checked})
+                                    }).then(function (response) {
+                                        if (!response.ok) { throw new Error('HTTP ' + response.status); }
+                                        return response.json();
+                                    }).then(function (data) {
+                                        if (!data.ok) { throw new Error(data.error || 'Fehler'); }
+                                        updateCounters(data);
+                                    }).catch(function () {
+                                        cb.checked = oldValue;
+                                        row.classList.toggle('is-checked', cb.checked);
+                                        alert('Der Status konnte nicht gespeichert werden. Bitte Verbindung prüfen und erneut versuchen.');
+                                    }).finally(function () {
+                                        cb.disabled = false;
+                                    });
+                                });
+                            });
+
+                            if (search) {
+                                search.addEventListener('input', function () {
+                                    const query = search.value.trim().toLowerCase();
+                                    document.querySelectorAll('#glGuestRows .gl-row').forEach(function (row) {
+                                        const haystack = (row.dataset.search || '').toLowerCase();
+                                        row.style.display = (!query || haystack.indexOf(query) !== -1) ? '' : 'none';
+                                    });
+                                });
+                            }
+                        });
+                    </script>
+                </section>
+            </div>
+        </t>
+    </template>
+</odoo>
