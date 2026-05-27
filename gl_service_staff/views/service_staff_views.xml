@@ -60,7 +60,7 @@
                 <field name="employee_id"/>
                 <field name="email"/>
                 <filter string="Aktiv" name="active_members" domain="[('active','=',True)]"/>
-                <group expand="0" string="Gruppieren">
+                <group>
                     <filter string="Bewertung" name="group_rating" context="{'group_by': 'rating'}"/>
                 </group>
             </search>
@@ -161,7 +161,7 @@
                 <filter string="Reservepersonal" name="reserve" domain="[('role','=','reserve')]"/>
                 <filter string="Offen" name="invited" domain="[('state','=','invited')]"/>
                 <filter string="Zugesagt" name="accepted" domain="[('state','=','accepted')]"/>
-                <group expand="0" string="Gruppieren">
+                <group>
                     <filter string="Schicht" name="group_shift" context="{'group_by': 'shift_id'}"/>
                     <filter string="Antwort" name="group_state" context="{'group_by': 'state'}"/>
                     <filter string="Einteilung" name="group_role" context="{'group_by': 'role'}"/>
@@ -309,7 +309,7 @@
                 <filter string="Nicht vollständig" name="not_confirmed" domain="[('all_confirmed','=',False)]"/>
                 <filter string="Bestätigt" name="confirmed" domain="[('all_confirmed','=',True)]"/>
                 <filter string="Zukünftig" name="future" domain="[('shift_date','&gt;=', context_today().strftime('%Y-%m-%d'))]"/>
-                <group expand="0" string="Gruppieren">
+                <group>
                     <filter string="Datum" name="group_date" context="{'group_by': 'shift_date'}"/>
                     <filter string="Quelle" name="group_source" context="{'group_by': 'source_model'}"/>
                     <filter string="Status" name="group_state" context="{'group_by': 'state'}"/>
