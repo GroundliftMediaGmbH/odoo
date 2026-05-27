@@ -32,7 +32,6 @@
                                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 my-4">
                                     <div>
                                         <h2 class="h4 mb-0">Hallo <t t-out="member.name"/></h2>
-                                        <div class="text-muted">Bewertung: <t t-out="member.rating_display"/></div>
                                     </div>
                                     <a class="btn btn-outline-secondary" href="/servicepersonal/logout">Abmelden</a>
                                 </div>
@@ -60,14 +59,14 @@
                                                             <span t-if="line.state == 'invited'" class="badge text-bg-warning">Antwort offen</span>
                                                             <span t-if="line.state == 'declined'" class="badge text-bg-danger">Abgesagt</span>
                                                             <span t-if="line.state == 'expired'" class="badge text-bg-secondary">Frist abgelaufen</span>
-                                                            <span t-if="line.state == 'draft'" class="badge text-bg-light">Reserve / nicht angefragt</span>
+                                                            <span t-if="line.state == 'draft'" class="badge text-bg-light">Noch nicht angefragt</span>
                                                         </div>
                                                     </div>
-                                                    <div class="mt-3">
-                                                        <strong>Einteilung:</strong> <t t-out="dict(line._fields['role'].selection).get(line.role)"/><br/>
-                                                        <strong>Wertung für diese Schicht:</strong> <t t-out="line.rating_display"/>
-                                                        <t t-if="line.invite_deadline"><br/><strong>Antwortfrist:</strong> <span t-field="line.invite_deadline"/></t>
-                                                    </div>
+                                                    <t t-if="line.invite_deadline">
+                                                        <div class="mt-3">
+                                                            <strong>Antwortfrist:</strong> <span t-field="line.invite_deadline"/>
+                                                        </div>
+                                                    </t>
                                                     <t t-if="line.state == 'invited'">
                                                         <div class="mt-4 d-flex flex-wrap gap-2">
                                                             <a class="btn btn-success" t-att-href="line.accept_url">Ich bin gerne dabei</a>

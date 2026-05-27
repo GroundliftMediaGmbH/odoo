@@ -5,6 +5,11 @@ Dieses Modul legt eine neue Odoo-App **Servicepersonal** an.
 ## Enthaltene Funktionen
 
 
+### Update 19.0.1.3.0
+
+- Auf den Mitarbeiter-Homepages werden keine internen Bewertungen, Sterne-Wertungen oder Reserve-/Wunschpersonal-Einteilungen mehr angezeigt.
+- Die öffentliche Übersicht bleibt wertungsfrei und zeigt weiterhin nur die relevanten Schichtinformationen.
+
 ### Update 19.0.1.2.0
 
 - Spontane Schichten innerhalb der 3-Wochen-Frist verwenden jetzt eine eigene Erst-Anfrage mit passender Tonalität statt „Letzte Rückfrage“.

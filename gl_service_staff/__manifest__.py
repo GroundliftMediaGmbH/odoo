@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Groundlift Servicepersonal',
-    'version': '19.0.1.2.0',
+    'version': '19.0.1.3.0',
     'category': 'Human Resources/Planning',
     'summary': 'Servicepersonal für Projekte und Veranstaltungen disponieren, einladen und bestätigen lassen.',
     'author': 'Groundlift Media GmbH',
