@@ -30,6 +30,7 @@ class GLServiceStaffMember(models.Model):
     pin_code = fields.Char(string='PIN-Code', copy=False, index=True, tracking=True)
     active = fields.Boolean(default=True)
     note = fields.Text(string='Notiz')
+    portal_url = fields.Char(string='Mitarbeiter-Webseite', compute='_compute_portal_url')
 
     _sql_constraints = [
         ('employee_unique', 'unique(employee_id)', 'Dieser Mitarbeiter ist bereits als Servicepersonal angelegt.'),
@@ -41,6 +42,14 @@ class GLServiceStaffMember(models.Model):
         for rec in self:
             rating = max(0, min(rec.rating or 0, 5))
             rec.rating_display = '★' * rating + '☆' * (5 - rating)
+
+    def _compute_portal_url(self):
+        base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url', '').rstrip('/')
+        for rec in self:
+            if base_url and rec.id and rec.pin_code:
+                rec.portal_url = '%s/servicepersonal/mitarbeiter/%s/%s' % (base_url, rec.id, rec.pin_code)
+            else:
+                rec.portal_url = False
 
     @api.onchange('employee_id')
     def _onchange_employee_id(self):
@@ -77,6 +86,16 @@ class GLServiceStaffMember(models.Model):
         for rec in self:
             rec.pin_code = self._new_pin()
         return True
+
+    def action_open_portal(self):
+        self.ensure_one()
+        if not self.pin_code:
+            self.pin_code = self._new_pin()
+        return {
+            'type': 'ir.actions.act_url',
+            'url': '/servicepersonal/mitarbeiter/%s/%s' % (self.id, self.pin_code),
+            'target': 'new',
+        }
 
 
 class GLServiceShift(models.Model):
@@ -150,7 +169,7 @@ class GLServiceShift(models.Model):
             relevant_lines = shift.line_ids.filtered(lambda l: l.role == 'desired')
             accepted = relevant_lines.filtered(lambda l: l.state == 'accepted')
             invited = relevant_lines.filtered(lambda l: l.state == 'invited')
-            declined = relevant_lines.filtered(lambda l: l.state in ('declined', 'expired'))
+            declined = shift.line_ids.filtered(lambda l: l.state in ('declined', 'expired'))
             shift.accepted_count = len(accepted)
             shift.invited_count = len(invited)
             shift.declined_count = len(declined)
@@ -180,6 +199,12 @@ class GLServiceShift(models.Model):
             if shift.shift_date and not shift.end_datetime:
                 shift.end_datetime = datetime.combine(shift.shift_date, time(hour=23, minute=0))
 
+    def write(self, vals):
+        res = super().write(vals)
+        if 'required_count' in vals and not self.env.context.get('skip_service_role_balance'):
+            self._apply_desired_limit(preserve_active=True)
+        return res
+
     def _ensure_lines_for_all_staff(self):
         Staff = self.env['gl.service.staff.member'].sudo()
         Line = self.env['gl.service.shift.line'].sudo()
@@ -208,24 +233,52 @@ class GLServiceShift(models.Model):
             key=lambda l: (-l.effective_rating, (l.member_id.name or '').lower(), l.id)
         )
 
+    def _rank_lines_for_assignment(self, preferred_line_ids=None, preserve_active=False):
+        self.ensure_one()
+        preferred_line_ids = set(preferred_line_ids or [])
+
+        def sort_key(line):
+            if preserve_active and line.state == 'accepted':
+                state_prio = 0
+            elif preserve_active and line.state == 'invited':
+                state_prio = 1
+            elif line.id in preferred_line_ids:
+                state_prio = 2
+            else:
+                state_prio = 3
+            return (state_prio, -line.effective_rating, (line.member_id.name or '').lower(), line.id)
+
+        return self.line_ids.sorted(key=sort_key)
+
+    def _apply_desired_limit(self, preferred_line_ids=None, preserve_active=False):
+        """Setzt exakt die benötigte Anzahl als Wunschpersonal; alle übrigen werden Reservepersonal."""
+        for shift in self:
+            required = max(0, shift.required_count or 0)
+            ranked = shift._rank_lines_for_assignment(
+                preferred_line_ids=preferred_line_ids,
+                preserve_active=preserve_active,
+            )
+            desired_ids = set(ranked[:required].ids)
+            for line in ranked:
+                vals = {'role': 'desired' if line.id in desired_ids else 'reserve'}
+                if line.id in desired_ids:
+                    if not line.planned_start_datetime:
+                        vals['planned_start_datetime'] = shift.start_datetime
+                    if not line.planned_end_datetime:
+                        vals['planned_end_datetime'] = shift.end_datetime
+                if vals and any(getattr(line, key) != value for key, value in vals.items()):
+                    line.with_context(skip_service_role_balance=True).write(vals)
+        return True
+
     def action_generate_lines(self):
         self._ensure_lines_for_all_staff()
+        self.action_auto_assign()
         return True
 
     def action_auto_assign(self):
         for shift in self:
             shift._ensure_lines_for_all_staff()
-            ranked = shift.line_ids.sorted(key=lambda l: (-l.effective_rating, (l.member_id.name or '').lower(), l.id))
-            desired_ids = set(ranked[:shift.required_count].ids)
-            for line in ranked:
-                if line.id in desired_ids:
-                    line.role = 'desired'
-                    if not line.planned_start_datetime:
-                        line.planned_start_datetime = shift.start_datetime
-                    if not line.planned_end_datetime:
-                        line.planned_end_datetime = shift.end_datetime
-                elif line.state in ('draft', 'declined', 'expired'):
-                    line.role = 'reserve'
+            shift._apply_desired_limit()
         return True
 
     def action_servicepersonal_buchen(self):
@@ -233,15 +286,9 @@ class GLServiceShift(models.Model):
             shift._ensure_lines_for_all_staff()
             if shift.required_count <= 0:
                 raise UserError(_('Bitte trage zuerst ein, wie viele Servicepersonen benötigt werden.'))
-            # Wenn noch kein Wunschpersonal gewählt wurde, automatisch nach Schichtbewertung einteilen.
-            if not shift.line_ids.filtered(lambda l: l.role == 'desired'):
-                shift.action_auto_assign()
-            # Falls weniger Wunschpersonal als benötigt vorhanden ist, mit Reserven auffüllen.
-            desired_active = shift.line_ids.filtered(lambda l: l.role == 'desired' and l.state in ('draft', 'invited', 'accepted'))
-            missing = shift.required_count - len(desired_active)
-            if missing > 0:
-                for candidate in shift._ranked_available_lines().filtered(lambda l: l.role == 'reserve')[:missing]:
-                    candidate.role = 'desired'
+            # Standard: exakt so viele Wunschpersonen wie benötigt.
+            # Falls vorher manuell schon Wunschpersonal gesetzt wurde, bleiben aktive Einladungen/Zusagen bevorzugt erhalten.
+            shift._apply_desired_limit(preserve_active=True)
             desired_to_invite = shift.line_ids.filtered(lambda l: l.role == 'desired' and l.state == 'draft')
             if not desired_to_invite:
                 continue
@@ -460,7 +507,20 @@ class GLServiceShiftLine(models.Model):
                 shift = self.env['gl.service.shift'].browse(vals['shift_id'])
                 vals.setdefault('planned_start_datetime', shift.start_datetime)
                 vals.setdefault('planned_end_datetime', shift.end_datetime)
-        return super().create(vals_list)
+        records = super().create(vals_list)
+        if not self.env.context.get('skip_service_role_balance'):
+            shifts = records.mapped('shift_id')
+            preferred = records.filtered(lambda r: r.role == 'desired').ids
+            if preferred:
+                shifts._apply_desired_limit(preferred_line_ids=preferred, preserve_active=True)
+        return records
+
+    def write(self, vals):
+        res = super().write(vals)
+        if not self.env.context.get('skip_service_role_balance') and any(key in vals for key in ('role', 'shift_rating', 'state')):
+            preferred = self.filtered(lambda r: r.role == 'desired').ids
+            self.mapped('shift_id')._apply_desired_limit(preferred_line_ids=preferred, preserve_active=True)
+        return res
 
     @api.constrains('shift_rating')
     def _check_shift_rating(self):
@@ -565,8 +625,9 @@ class GLServiceShiftLine(models.Model):
         for line in self:
             if line.state in ('declined', 'expired') and source == 'public':
                 continue
-            line.write({
+            line.with_context(skip_service_role_balance=True).write({
                 'state': 'declined',
+                'role': 'reserve',
                 'declined_at': now,
             })
             line.shift_id._invite_next_candidate(replacement_for=line, replacement_reason='declined')
@@ -577,7 +638,7 @@ class GLServiceShiftLine(models.Model):
             if line.state != 'invited':
                 continue
             reason = 'missed_replacement' if line.replacement_reason in ('missed_final', 'missed_replacement') else 'missed_final'
-            line.write({'state': 'expired'})
+            line.with_context(skip_service_role_balance=True).write({'state': 'expired', 'role': 'reserve'})
             line.shift_id._invite_next_candidate(replacement_for=line, replacement_reason=reason)
         return True
 

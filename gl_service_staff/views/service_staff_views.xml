@@ -12,6 +12,7 @@
                 <field name="rating_display" readonly="1"/>
                 <field name="pin_code"/>
                 <field name="active"/>
+                <button name="action_open_portal" type="object" string="Webseite öffnen" class="btn-secondary"/>
             </list>
         </field>
     </record>
@@ -22,6 +23,7 @@
         <field name="arch" type="xml">
             <form string="Servicepersonal">
                 <header>
+                    <button name="action_open_portal" type="object" string="Mitarbeiter-Webseite öffnen" class="btn-primary"/>
                     <button name="action_generate_new_pin" type="object" string="Neuen PIN erzeugen" class="btn-secondary"/>
                 </header>
                 <sheet>
@@ -38,6 +40,7 @@
                             <field name="rating"/>
                             <field name="rating_display" readonly="1"/>
                             <field name="pin_code"/>
+                            <field name="portal_url" readonly="1"/>
                         </group>
                     </group>
                     <notebook>
@@ -183,9 +186,8 @@
         <field name="arch" type="xml">
             <list string="Schichten" decoration-success="all_confirmed" decoration-warning="pending_count &gt; 0" decoration-danger="state == 'problem'">
                 <header>
+                    <button name="action_generate_lines" type="object" string="Personalliste erzeugen" class="btn-secondary"/>
                     <button name="action_servicepersonal_buchen" type="object" string="Servicepersonal buchen" class="btn-primary"/>
-                    <button name="action_generate_lines" type="object" string="Personalliste erzeugen"/>
-                    <button name="action_auto_assign" type="object" string="Nach Sternen zuteilen"/>
                 </header>
                 <field name="green_check" string="✓"/>
                 <field name="name"/>
@@ -208,10 +210,8 @@
         <field name="arch" type="xml">
             <form string="Serviceschicht">
                 <header>
-                    <button name="action_servicepersonal_buchen" type="object" string="Servicepersonal buchen" class="btn-primary"/>
                     <button name="action_generate_lines" type="object" string="Personalliste erzeugen" class="btn-secondary"/>
-                    <button name="action_auto_assign" type="object" string="Nach Sternen zuteilen" class="btn-secondary"/>
-                    <button name="action_import_sources" type="object" string="Bestehende Events/Projekte einholen" class="btn-secondary"/>
+                    <button name="action_servicepersonal_buchen" type="object" string="Servicepersonal buchen" class="btn-primary"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,booked,confirmed,problem"/>
                 </header>
                 <sheet>
@@ -240,41 +240,7 @@
                         <field name="all_confirmed" readonly="1"/>
                     </group>
                     <notebook>
-                        <page string="Wunschpersonal">
-                            <field name="line_ids" domain="[('role','=','desired')]" context="{'default_role': 'desired'}">
-                                <list editable="bottom" decoration-success="state == 'accepted'" decoration-danger="state in ('declined', 'expired')" decoration-warning="state == 'invited'">
-                                    <field name="member_id"/>
-                                    <field name="state"/>
-                                    <field name="base_rating" readonly="1"/>
-                                    <field name="shift_rating"/>
-                                    <field name="rating_display" readonly="1"/>
-                                    <field name="planned_start_datetime"/>
-                                    <field name="planned_end_datetime"/>
-                                    <field name="invite_deadline" readonly="1"/>
-                                    <button name="action_send_invitation" type="object" string="Einladen" class="btn-primary" invisible="state == 'accepted'"/>
-                                    <button name="action_accept_manual" type="object" string="Zusage" invisible="state == 'accepted'"/>
-                                    <button name="action_decline_manual" type="object" string="Absage" invisible="state in ('declined', 'expired')"/>
-                                </list>
-                            </field>
-                        </page>
-                        <page string="Reservepersonal">
-                            <field name="line_ids" domain="[('role','=','reserve')]" context="{'default_role': 'reserve'}">
-                                <list editable="bottom" decoration-success="state == 'accepted'" decoration-danger="state in ('declined', 'expired')" decoration-warning="state == 'invited'">
-                                    <field name="member_id"/>
-                                    <field name="role"/>
-                                    <field name="state"/>
-                                    <field name="base_rating" readonly="1"/>
-                                    <field name="shift_rating"/>
-                                    <field name="rating_display" readonly="1"/>
-                                    <field name="planned_start_datetime"/>
-                                    <field name="planned_end_datetime"/>
-                                    <button name="action_send_invitation" type="object" string="Einladen" class="btn-primary" invisible="state == 'accepted'"/>
-                                    <button name="action_accept_manual" type="object" string="Zusage" invisible="state == 'accepted'"/>
-                                    <button name="action_decline_manual" type="object" string="Absage" invisible="state in ('declined', 'expired')"/>
-                                </list>
-                            </field>
-                        </page>
-                        <page string="Alle Servicekräfte">
+                        <page string="Servicekräfte">
                             <field name="line_ids" context="{'default_role': 'reserve'}">
                                 <list editable="bottom" decoration-success="state == 'accepted'" decoration-danger="state in ('declined', 'expired')" decoration-warning="state == 'invited'">
                                     <field name="member_id"/>
@@ -287,6 +253,9 @@
                                     <field name="planned_end_datetime"/>
                                     <field name="invite_deadline" readonly="1"/>
                                     <field name="replacement_for_id" readonly="1"/>
+                                    <button name="action_send_invitation" type="object" string="Einladen" class="btn-primary" invisible="state == 'accepted'"/>
+                                    <button name="action_accept_manual" type="object" string="Zusage" invisible="state == 'accepted'"/>
+                                    <button name="action_decline_manual" type="object" string="Absage" invisible="state in ('declined', 'expired')"/>
                                 </list>
                             </field>
                         </page>
@@ -332,10 +301,17 @@
         <field name="code">action = model.action_import_sources()</field>
     </record>
 
+    <record id="action_gl_service_portal_overview" model="ir.actions.act_url">
+        <field name="name">Web-Übersicht öffnen</field>
+        <field name="url">/servicepersonal/overview</field>
+        <field name="target">new</field>
+    </record>
+
     <!-- Menüs -->
     <menuitem id="menu_gl_service_root" name="Servicepersonal" sequence="35" web_icon="gl_service_staff,static/description/icon.png"/>
     <menuitem id="menu_gl_service_shifts" name="Schichten" parent="menu_gl_service_root" action="action_gl_service_shift" sequence="10"/>
     <menuitem id="menu_gl_service_staff" name="Mitarbeiter" parent="menu_gl_service_root" action="action_gl_service_staff_member" sequence="20"/>
     <menuitem id="menu_gl_service_lines" name="Zuteilungen" parent="menu_gl_service_root" action="action_gl_service_shift_line" sequence="30"/>
+    <menuitem id="menu_gl_service_overview" name="Web-Übersicht" parent="menu_gl_service_root" action="action_gl_service_portal_overview" sequence="35"/>
     <menuitem id="menu_gl_service_import" name="Bestehende Events/Projekte einholen" parent="menu_gl_service_root" action="action_gl_service_import_sources" sequence="40"/>
 </odoo>

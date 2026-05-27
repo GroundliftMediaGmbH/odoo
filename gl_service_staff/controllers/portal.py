@@ -38,6 +38,25 @@ class GLServiceStaffPortal(http.Controller):
             'error': error,
         })
 
+
+    @http.route(['/servicepersonal/mitarbeiter/<int:member_id>/<string:pin_code>'], type='http', auth='public', website=True, csrf=False)
+    def service_staff_member_direct(self, member_id, pin_code, **kw):
+        member = request.env['gl.service.staff.member'].sudo().search([
+            ('id', '=', member_id),
+            ('pin_code', '=', pin_code),
+            ('active', '=', True),
+        ], limit=1)
+        if member:
+            request.session['gl_service_staff_member_id'] = member.id
+            return request.redirect('/servicepersonal')
+        request.session.pop('gl_service_staff_member_id', None)
+        return request.render('gl_service_staff.portal_service_staff_response', {
+            'success': False,
+            'title': _('Link ungültig'),
+            'message': _('Diese Mitarbeiter-Webseite konnte nicht geöffnet werden. Bitte den PIN-Code prüfen.'),
+            'line': False,
+        })
+
     @http.route(['/servicepersonal/logout'], type='http', auth='public', website=True, csrf=False)
     def service_staff_logout(self, **kw):
         request.session.pop('gl_service_staff_member_id', None)

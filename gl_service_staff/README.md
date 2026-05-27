@@ -4,6 +4,17 @@ Dieses Modul legt eine neue Odoo-App **Servicepersonal** an.
 
 ## Enthaltene Funktionen
 
+### Update 19.0.1.1.0
+
+- Button-Reihenfolge in Schichten geändert: **Personalliste erzeugen** vor **Servicepersonal buchen**.
+- Der Button **Nach Sternen zuteilen** wurde aus der Oberfläche entfernt; die Bewertung bleibt die Standardlogik.
+- Im Schichtformular gibt es unten nur noch den Tab **Servicekräfte**.
+- **Personalliste erzeugen** erzeugt alle aktiven Servicekräfte und setzt exakt `Benötigtes Servicepersonal` als Wunschpersonal; alle übrigen bleiben Reservepersonal.
+- Bei Absage oder Fristablauf wird die bisherige Person wieder Reservepersonal und der nächste Kandidat wird Wunschpersonal/Nachrücker.
+- Mitarbeiter-Webseiten sind im Backend über **Servicepersonal → Mitarbeiter → Webseite öffnen** erreichbar.
+- Die allgemeine Web-Übersicht ist im Backend über **Servicepersonal → Web-Übersicht** erreichbar.
+
+
 - Servicepersonal-Liste auf Basis von `hr.employee` mit 1–5-Sterne-Bewertung und PIN-Code.
 - Automatische Schichterzeugung für:
   - `project.project`, wenn `stage_id.name == "In Bearbeitung"` und `date_start` gesetzt ist.
