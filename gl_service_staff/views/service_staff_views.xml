@@ -82,7 +82,7 @@
         <field name="name">gl.service.shift.line.list</field>
         <field name="model">gl.service.shift.line</field>
         <field name="arch" type="xml">
-            <list string="Servicepersonal-Zuteilungen" editable="bottom" decoration-success="state == 'accepted'" decoration-danger="state in ('declined', 'expired')" decoration-warning="state == 'invited'">
+            <list string="Servicepersonal-Zuteilungen" editable="bottom" decoration-success="state == 'accepted'" decoration-danger="state in ('declined', 'expired') or time_change_state == 'declined'" decoration-warning="state == 'invited' or time_change_state == 'pending'">
                 <field name="shift_id"/>
                 <field name="member_id"/>
                 <field name="role"/>
@@ -92,6 +92,8 @@
                 <field name="rating_display" readonly="1"/>
                 <field name="planned_start_datetime"/>
                 <field name="planned_end_datetime"/>
+                <field name="time_change_state" readonly="1"/>
+                <field name="time_change_warning" readonly="1"/>
                 <field name="invite_deadline" readonly="1"/>
                 <button name="action_send_invitation" type="object" string="Einladen" class="btn-primary" invisible="state == 'accepted'"/>
                 <button name="action_accept_manual" type="object" string="Manuell zusagen" invisible="state == 'accepted'"/>
@@ -129,12 +131,16 @@
                     <group string="Arbeitszeit">
                         <field name="planned_start_datetime"/>
                         <field name="planned_end_datetime"/>
+                        <field name="time_change_state" readonly="1"/>
+                        <field name="time_change_warning" readonly="1" invisible="not time_change_warning"/>
                     </group>
                     <group string="Einladung / Antwort">
                         <field name="invite_sent_at" readonly="1"/>
                         <field name="invite_deadline" readonly="1"/>
                         <field name="accepted_at" readonly="1"/>
                         <field name="declined_at" readonly="1"/>
+                        <field name="time_change_requested_at" readonly="1"/>
+                        <field name="time_change_answered_at" readonly="1"/>
                         <field name="replacement_for_id" readonly="1"/>
                         <field name="replacement_reason" readonly="1"/>
                     </group>
@@ -242,7 +248,7 @@
                     <notebook>
                         <page string="Servicekräfte">
                             <field name="line_ids" context="{'default_role': 'reserve'}">
-                                <list editable="bottom" decoration-success="state == 'accepted'" decoration-danger="state in ('declined', 'expired')" decoration-warning="state == 'invited'">
+                                <list editable="bottom" decoration-success="state == 'accepted'" decoration-danger="state in ('declined', 'expired') or time_change_state == 'declined'" decoration-warning="state == 'invited' or time_change_state == 'pending'">
                                     <field name="member_id"/>
                                     <field name="role"/>
                                     <field name="state"/>
@@ -251,6 +257,8 @@
                                     <field name="rating_display" readonly="1"/>
                                     <field name="planned_start_datetime"/>
                                     <field name="planned_end_datetime"/>
+                                    <field name="time_change_state" readonly="1"/>
+                                    <field name="time_change_warning" readonly="1"/>
                                     <field name="invite_deadline" readonly="1"/>
                                     <field name="replacement_for_id" readonly="1"/>
                                     <button name="action_send_invitation" type="object" string="Einladen" class="btn-primary" invisible="state == 'accepted'"/>
