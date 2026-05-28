@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_project_project_form_groundlift_checklist" model="ir.ui.view">
+        <field name="name">project.project.form.groundlift.checklist</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <!-- Im Projektformular nach den vorhandenen Seiten einfügen. In der Standardansicht liegen Beschreibung und Einstellungen im Notebook, somit erscheinen diese Tabs direkt daneben. -->
+            <xpath expr="//sheet/notebook" position="inside">
+                <page string="Übersicht" name="gl_checklist_overview">
+                    <div class="alert alert-info" role="alert">
+                        <strong>Groundlift Checkliste</strong><br/>
+                        Die ehemalige Funktion <em>Checkliste öffnen</em> ist hier direkt im Projekt abgebildet: Allgemein, Gastro und Ablauf, Theater, Lounge, Terasse und Notizen.
+                        Die Zeichnungen werden als transparente PNG-Ebenen auf dem jeweiligen Grundriss im Projekt gespeichert.
+                    </div>
+                    <group>
+                        <group string="Schnelle Orientierung">
+                            <label for="gl_check_notes" string="Notizen"/>
+                            <field name="gl_check_notes" nolabel="1" placeholder="Wichtige Punkte für dieses Projekt ..."/>
+                        </group>
+                        <group string="Interne Organisation">
+                            <label for="gl_check_internal_org" string="Stichpunkte"/>
+                            <field name="gl_check_internal_org" nolabel="1" placeholder="Team, Verantwortlichkeiten, Besonderheiten ..."/>
+                        </group>
+                    </group>
+                </page>
+
+                <page string="Allgemein" name="gl_checklist_general">
+                    <group>
+                        <group string="Gäste &amp; Plätze">
+                            <field name="gl_check_guests_adult"/>
+                            <field name="gl_check_guests_child"/>
+                            <field name="gl_check_seats_total"/>
+                            <field name="gl_check_cloakroom"/>
+                        </group>
+                        <group string="Mobiliar">
+                            <field name="gl_check_tables" placeholder="z. B. Anzahl, Position, Tischform ..."/>
+                            <field name="gl_check_hightables"/>
+                            <field name="gl_check_covers"/>
+                            <field name="gl_check_armchairs"/>
+                            <field name="gl_check_couch"/>
+                            <field name="gl_check_benches_chairs"/>
+                            <field name="gl_check_kids_corner"/>
+                        </group>
+                        <group string="Bühne &amp; Technik">
+                            <field name="gl_check_stage" placeholder="z. B. Band, DJ, Rednerpult, Tisch, Backdrop ..."/>
+                            <field name="gl_check_audio" placeholder="Mikros, Zuspieler, Monitoring ..."/>
+                            <field name="gl_check_light" placeholder="Ambiente, Bühne, Sonderwünsche ..."/>
+                            <field name="gl_check_screens" placeholder="Screens, Projektion, Präsentationen ..."/>
+                        </group>
+                    </group>
+                </page>
+
+                <page string="Gastro und Ablauf" name="gl_checklist_gastro_flow">
+                    <group>
+                        <group string="Catering">
+                            <field name="gl_check_caterer"/>
+                            <field name="gl_check_meals_note"/>
+                            <field name="gl_check_allergies"/>
+                            <field name="gl_check_power"/>
+                            <field name="gl_check_tableware"/>
+                            <field name="gl_check_caterer_space"/>
+                            <field name="gl_check_glasses"/>
+                        </group>
+                        <group string="Bar &amp; Empfang">
+                            <field name="gl_check_bar_operator"/>
+                            <field name="gl_check_bar_staff"/>
+                            <field name="gl_check_reception" placeholder="Crémant, Prosecco, -O, alkoholfrei, Aperol, Lillet, Hugo ..."/>
+                            <field name="gl_check_drinkcard_notes" placeholder="Original/Modifiziert, Specials, Cocktails, Spirituosen ..."/>
+                        </group>
+                    </group>
+                    <separator string="Zeitlicher Ablauf"/>
+                    <group class="gl_checklist_schedule">
+                        <group>
+                            <field name="gl_check_time_01" placeholder="18:00"/>
+                            <field name="gl_check_desc_01" placeholder="z. B. Aufbau Groundlift"/>
+                            <field name="gl_check_time_02" placeholder="18:30"/>
+                            <field name="gl_check_desc_02"/>
+                            <field name="gl_check_time_03"/>
+                            <field name="gl_check_desc_03"/>
+                            <field name="gl_check_time_04"/>
+                            <field name="gl_check_desc_04"/>
+                            <field name="gl_check_time_05"/>
+                            <field name="gl_check_desc_05"/>
+                        </group>
+                        <group>
+                            <field name="gl_check_time_06"/>
+                            <field name="gl_check_desc_06"/>
+                            <field name="gl_check_time_07"/>
+                            <field name="gl_check_desc_07"/>
+                            <field name="gl_check_time_08"/>
+                            <field name="gl_check_desc_08"/>
+                            <field name="gl_check_time_09"/>
+                            <field name="gl_check_desc_09"/>
+                            <field name="gl_check_time_10"/>
+                            <field name="gl_check_desc_10"/>
+                        </group>
+                    </group>
+                </page>
+
+                <page string="Theater" name="gl_checklist_theater">
+                    <field name="gl_check_theater_drawing" nolabel="1" widget="gl_drawing_canvas"
+                           options="{'background_url': '/gl_project_checklist/static/src/img/plan_theater.png', 'canvas_width': 566, 'canvas_height': 952, 'title': 'Theater'}"/>
+                </page>
+
+                <page string="Lounge" name="gl_checklist_lounge">
+                    <field name="gl_check_lounge_drawing" nolabel="1" widget="gl_drawing_canvas"
+                           options="{'background_url': '/gl_project_checklist/static/src/img/plan_lounge.png', 'canvas_width': 614, 'canvas_height': 956, 'title': 'Lounge'}"/>
+                </page>
+
+                <page string="Terasse" name="gl_checklist_terasse">
+                    <field name="gl_check_terasse_drawing" nolabel="1" widget="gl_drawing_canvas"
+                           options="{'background_url': '/gl_project_checklist/static/src/img/plan_terasse.png', 'canvas_width': 1013, 'canvas_height': 781, 'title': 'Terasse'}"/>
+                </page>
+
+                <page string="Notizen" name="gl_checklist_notes">
+                    <group>
+                        <group string="Notizen">
+                            <field name="gl_check_notes" nolabel="1" placeholder="Freie Notizen ..."/>
+                        </group>
+                        <group string="Interne Organisation">
+                            <field name="gl_check_internal_org" nolabel="1" placeholder="Stichpunkte für interne Organisation ..."/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

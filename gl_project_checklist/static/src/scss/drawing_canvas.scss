@@ -1,0 +1,97 @@
+.o_gl_drawing_canvas_field {
+    --gl-border: #d8dee9;
+    --gl-bg: #f8fafc;
+
+    .o_gl_drawing_header {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: flex-start;
+        margin-bottom: .75rem;
+    }
+
+    .o_gl_drawing_status {
+        color: #667085;
+        font-size: .875rem;
+        white-space: nowrap;
+    }
+
+    .o_gl_drawing_toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .5rem .75rem;
+        padding: .75rem;
+        margin-bottom: .75rem;
+        border: 1px solid var(--gl-border);
+        border-radius: .75rem;
+        background: var(--gl-bg);
+
+        label {
+            margin: 0;
+            font-weight: 600;
+        }
+
+        input[type="range"] {
+            width: 140px;
+        }
+
+        input[type="color"] {
+            width: 36px;
+            height: 32px;
+            padding: 1px;
+            border: 1px solid var(--gl-border);
+            border-radius: .5rem;
+            background: white;
+        }
+
+        .o_gl_check_label {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+        }
+    }
+
+    .o_gl_swatch {
+        width: 24px;
+        height: 24px;
+        border: 1px solid rgba(0, 0, 0, .22);
+        border-radius: .45rem;
+        padding: 0;
+        cursor: pointer;
+    }
+
+    .o_gl_red { background: #ff3b30; }
+    .o_gl_green { background: #34c759; }
+    .o_gl_blue { background: #0a84ff; }
+    .o_gl_yellow { background: #ffd60a; }
+
+    .o_gl_canvas_scroller {
+        width: 100%;
+        max-height: 76vh;
+        overflow: auto;
+        border: 1px dashed var(--gl-border);
+        border-radius: .75rem;
+        background: #ffffff;
+        padding: .5rem;
+    }
+
+    .o_gl_canvas_scaled_wrapper {
+        position: relative;
+    }
+
+    .o_gl_canvas_holder {
+        transform-origin: top left;
+    }
+
+    canvas {
+        display: block;
+        background-repeat: no-repeat;
+        background-size: 100% 100%;
+        background-position: left top;
+        border: 1px solid #cbd5e1;
+        border-radius: .5rem;
+        touch-action: none;
+        cursor: crosshair;
+    }
+}
