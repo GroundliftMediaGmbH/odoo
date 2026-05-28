@@ -1,6 +1,109 @@
+// Groundlift Projekt-Checkliste – Optik für Formularseiten und Zeichenflächen
+
+.gl_checklist_page {
+    --gl-card-bg: rgba(255, 255, 255, .035);
+    --gl-card-border: rgba(148, 163, 184, .22);
+    --gl-card-border-strong: rgba(226, 93, 197, .36);
+    --gl-input-bg: rgba(15, 23, 42, .28);
+    --gl-input-border: rgba(148, 163, 184, .45);
+    --gl-input-border-focus: rgba(226, 93, 197, .9);
+    --gl-muted: rgba(148, 163, 184, .92);
+
+    padding: 1rem .25rem 1.5rem;
+
+    .gl_checklist_section {
+        margin: 0 0 1.35rem;
+        padding: 1.1rem 1.2rem 1.25rem;
+        border: 1px solid var(--gl-card-border);
+        border-left: 4px solid var(--gl-card-border-strong);
+        border-radius: 1rem;
+        background: linear-gradient(180deg, rgba(255, 255, 255, .052), var(--gl-card-bg));
+        box-shadow: 0 12px 32px rgba(0, 0, 0, .10);
+
+        > h2 {
+            margin: 0 0 1rem;
+            padding-bottom: .65rem;
+            border-bottom: 1px solid var(--gl-card-border);
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: .01em;
+        }
+    }
+
+    .gl_checklist_hint {
+        margin: -.35rem 0 1rem;
+        color: var(--gl-muted);
+        font-size: .92rem;
+    }
+
+    // Eingabefelder deutlich als Eingabefelder markieren – besonders im Dark Mode.
+    .o_field_widget .o_input,
+    .o_field_widget input,
+    .o_field_widget textarea,
+    .o_field_widget select,
+    .o_input {
+        border: 1px solid var(--gl-input-border) !important;
+        border-radius: .7rem !important;
+        background-color: var(--gl-input-bg) !important;
+        min-height: 2.65rem;
+        padding: .55rem .75rem !important;
+        transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+    }
+
+    .o_field_widget textarea,
+    textarea.o_input {
+        min-height: 4.6rem;
+    }
+
+    .o_field_widget .o_input:focus,
+    .o_field_widget input:focus,
+    .o_field_widget textarea:focus,
+    .o_field_widget select:focus,
+    .o_input:focus {
+        border-color: var(--gl-input-border-focus) !important;
+        box-shadow: 0 0 0 .16rem rgba(226, 93, 197, .16) !important;
+    }
+
+    .o_form_label,
+    label.o_form_label {
+        font-weight: 750;
+        margin-bottom: .25rem;
+    }
+
+    .gl_checklist_schedule_table {
+        display: block;
+
+        .o_list_table,
+        table {
+            border: 1px solid var(--gl-card-border);
+            border-radius: .85rem;
+            overflow: hidden;
+        }
+
+        .o_data_row td {
+            vertical-align: middle;
+        }
+    }
+
+    &.gl_checklist_plan_page {
+        padding-top: .6rem;
+    }
+
+    .gl_checklist_notes_section textarea,
+    .gl_checklist_notes_section .o_field_text textarea {
+        min-height: 12rem;
+    }
+}
+
 .o_gl_drawing_canvas_field {
-    --gl-border: #d8dee9;
-    --gl-bg: #f8fafc;
+    --gl-border: rgba(148, 163, 184, .35);
+    --gl-bg: rgba(255, 255, 255, .045);
+    --gl-toolbar-bg: rgba(15, 23, 42, .10);
+
+    border: 1px solid var(--gl-border);
+    border-radius: 1rem;
+    padding: 1rem;
+    background: linear-gradient(180deg, rgba(255, 255, 255, .055), rgba(255, 255, 255, .025));
 
     .o_gl_drawing_header {
         display: flex;
@@ -24,8 +127,8 @@
         padding: .75rem;
         margin-bottom: .75rem;
         border: 1px solid var(--gl-border);
-        border-radius: .75rem;
-        background: var(--gl-bg);
+        border-radius: .85rem;
+        background: var(--gl-toolbar-bg);
 
         label {
             margin: 0;
@@ -52,6 +155,17 @@
         }
     }
 
+    .o_gl_rotation_badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 2rem;
+        padding: .18rem .55rem;
+        border-radius: 999px;
+        border: 1px solid var(--gl-border);
+        font-size: .82rem;
+        opacity: .85;
+    }
+
     .o_gl_swatch {
         width: 24px;
         height: 24px;
@@ -71,7 +185,7 @@
         max-height: 76vh;
         overflow: auto;
         border: 1px dashed var(--gl-border);
-        border-radius: .75rem;
+        border-radius: .85rem;
         background: #ffffff;
         padding: .5rem;
     }
@@ -81,16 +195,29 @@
     }
 
     .o_gl_canvas_holder {
+        position: relative;
         transform-origin: top left;
     }
 
     canvas {
         display: block;
-        background-repeat: no-repeat;
-        background-size: 100% 100%;
-        background-position: left top;
         border: 1px solid #cbd5e1;
         border-radius: .5rem;
+    }
+
+    .o_gl_background_canvas,
+    .o_gl_overlay_canvas {
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+
+    .o_gl_background_canvas {
+        background: #fff;
+        pointer-events: none;
+    }
+
+    .o_gl_overlay_canvas {
         touch-action: none;
         cursor: crosshair;
     }

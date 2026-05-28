@@ -31,6 +31,8 @@
                 <input type="range" min="40" max="300" t-model="state.zoom"/>
                 <span><t t-esc="state.zoom"/>%</span>
 
+                <button type="button" class="btn btn-secondary" t-on-click="rotateClockwise">Rotieren 90°</button>
+                <span class="o_gl_rotation_badge"><t t-esc="rotationLabel"/></span>
                 <button type="button" class="btn btn-primary" t-on-click="saveCanvas">Speichern</button>
                 <button type="button" class="btn btn-secondary" t-on-click="clearCanvas">Zeichnung zurücksetzen</button>
             </div>
@@ -38,7 +40,13 @@
             <div t-ref="scroller" class="o_gl_canvas_scroller">
                 <div class="o_gl_canvas_scaled_wrapper" t-att-style="wrapperStyle">
                     <div t-ref="holder" class="o_gl_canvas_holder" t-att-style="holderStyle">
+                        <canvas t-ref="bgCanvas"
+                                class="o_gl_background_canvas"
+                                t-att-width="canvasWidth"
+                                t-att-height="canvasHeight"
+                                t-att-style="canvasStyle"/>
                         <canvas t-ref="canvas"
+                                class="o_gl_overlay_canvas"
                                 t-att-width="canvasWidth"
                                 t-att-height="canvasHeight"
                                 t-att-style="canvasStyle"
