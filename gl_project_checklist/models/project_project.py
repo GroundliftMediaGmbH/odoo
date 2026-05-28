@@ -39,7 +39,17 @@ class ProjectProject(models.Model):
     gl_check_reception = fields.Text(string="Sektempfang")
     gl_check_drinkcard_notes = fields.Text(string="Getränkekarte")
 
-    # Zeitlicher Ablauf, bewusst als einfache Felder gehalten, damit keine Nebenmodelle/Zugriffsrechte nötig sind.
+    # Neuer dynamischer zeitlicher Ablauf.
+    gl_check_schedule_line_ids = fields.One2many(
+        "gl.project.checklist.schedule.line",
+        "project_id",
+        string="Zeitlicher Ablauf",
+        copy=True,
+    )
+
+    # Alte feste Ablauf-Felder bleiben bewusst im Datenmodell, damit bei einem Update
+    # keine bereits gespeicherten Werte oder Datenbankspalten verloren gehen. In der
+    # Ansicht werden sie nicht mehr verwendet.
     gl_check_time_01 = fields.Char(string="Uhrzeit 1")
     gl_check_desc_01 = fields.Char(string="Beschreibung 1")
     gl_check_time_02 = fields.Char(string="Uhrzeit 2")
@@ -67,17 +77,39 @@ class ProjectProject(models.Model):
         attachment=True,
         help="Transparente PNG-Zeichnung über dem Theater-Grundriss.",
     )
+    gl_check_theater_rotation = fields.Integer(string="Theater-Rotation", default=0)
+
     gl_check_lounge_drawing = fields.Binary(
         string="Lounge-Zeichnung",
         attachment=True,
         help="Transparente PNG-Zeichnung über dem Lounge-Grundriss.",
     )
+    gl_check_lounge_rotation = fields.Integer(string="Lounge-Rotation", default=0)
+
     gl_check_terasse_drawing = fields.Binary(
         string="Terassen-Zeichnung",
         attachment=True,
         help="Transparente PNG-Zeichnung über dem Terassen-Grundriss.",
     )
+    gl_check_terasse_rotation = fields.Integer(string="Terassen-Rotation", default=0)
 
     # Notizen
     gl_check_notes = fields.Text(string="Notizen")
     gl_check_internal_org = fields.Text(string="Interne Organisation")
+
+
+class GroundliftProjectChecklistScheduleLine(models.Model):
+    _name = "gl.project.checklist.schedule.line"
+    _description = "Groundlift Projekt-Checkliste Ablaufpunkt"
+    _order = "sequence, id"
+
+    project_id = fields.Many2one(
+        "project.project",
+        string="Projekt",
+        required=True,
+        ondelete="cascade",
+        index=True,
+    )
+    sequence = fields.Integer(string="Reihenfolge", default=10)
+    time = fields.Char(string="Uhrzeit")
+    description = fields.Char(string="Beschreibung")
