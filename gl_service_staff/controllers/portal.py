@@ -72,15 +72,24 @@ class GLServiceStaffPortal(http.Controller):
                 'message': _('Dieser Antwort-Link ist ungültig oder nicht mehr vorhanden.'),
                 'line': False,
             })
+        is_time_change_response = line.time_change_state == 'pending' and line.state == 'accepted'
         if answer == 'accept':
             line._accept(source='public')
-            title = _('Zusage gespeichert')
-            message = _('Vielen Dank! Deine Zusage wurde gespeichert.')
+            if is_time_change_response:
+                title = _('Zeitänderung bestätigt')
+                message = _('Danke für deine Flexibilität.')
+            else:
+                title = _('Zusage gespeichert')
+                message = _('Vielen Dank! Deine Zusage wurde gespeichert.')
             success = True
         elif answer == 'decline':
             line._decline(source='public')
-            title = _('Absage gespeichert')
-            message = _('Danke für deine Rückmeldung. Deine Absage wurde gespeichert.')
+            if is_time_change_response:
+                title = _('Rückmeldung gespeichert')
+                message = _('Vielen Dank für Deine Rückmeldung.')
+            else:
+                title = _('Absage gespeichert')
+                message = _('Danke für deine Rückmeldung. Deine Absage wurde gespeichert.')
             success = True
         else:
             title = _('Antwort unbekannt')

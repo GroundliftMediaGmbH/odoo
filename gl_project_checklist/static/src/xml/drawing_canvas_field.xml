@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="gl_project_checklist.DrawingCanvasField">
+        <div class="o_gl_drawing_canvas_field">
+            <div class="o_gl_drawing_header">
+                <div>
+                    <strong><t t-esc="title"/></strong>
+                    <div class="text-muted small">Ein Finger/Maus = zeichnen. Zum Verschieben bitte den Scrollbereich verwenden.</div>
+                </div>
+                <div class="o_gl_drawing_status" t-if="state.status"><t t-esc="state.status"/></div>
+            </div>
+
+            <div class="o_gl_drawing_toolbar" t-if="!props.readonly">
+                <label>Stiftstärke</label>
+                <input type="range" min="1" max="32" t-model="state.size"/>
+                <span><t t-esc="state.size"/> px</span>
+
+                <label>Farbe</label>
+                <input type="color" t-model="state.color"/>
+                <button type="button" class="o_gl_swatch o_gl_red" t-on-click="setRed" title="Rot"/>
+                <button type="button" class="o_gl_swatch o_gl_green" t-on-click="setGreen" title="Grün"/>
+                <button type="button" class="o_gl_swatch o_gl_blue" t-on-click="setBlue" title="Blau"/>
+                <button type="button" class="o_gl_swatch o_gl_yellow" t-on-click="setYellow" title="Gelb"/>
+
+                <label class="o_gl_check_label">
+                    <input type="checkbox" t-model="state.eraser"/>
+                    Radierer
+                </label>
+
+                <label>Zoom</label>
+                <input type="range" min="40" max="300" t-model="state.zoom"/>
+                <span><t t-esc="state.zoom"/>%</span>
+
+                <button type="button" class="btn btn-secondary" t-on-click="rotateClockwise">Rotieren 90°</button>
+                <span class="o_gl_rotation_badge"><t t-esc="rotationLabel"/></span>
+                <button type="button" class="btn btn-primary" t-on-click="saveCanvas">Speichern</button>
+                <button type="button" class="btn btn-secondary" t-on-click="clearCanvas">Zeichnung zurücksetzen</button>
+            </div>
+
+            <div t-ref="scroller" class="o_gl_canvas_scroller">
+                <div class="o_gl_canvas_scaled_wrapper" t-att-style="wrapperStyle">
+                    <div t-ref="holder" class="o_gl_canvas_holder" t-att-style="holderStyle">
+                        <canvas t-ref="bgCanvas"
+                                class="o_gl_background_canvas"
+                                t-att-width="canvasWidth"
+                                t-att-height="canvasHeight"
+                                t-att-style="canvasStyle"/>
+                        <canvas t-ref="canvas"
+                                class="o_gl_overlay_canvas"
+                                t-att-width="canvasWidth"
+                                t-att-height="canvasHeight"
+                                t-att-style="canvasStyle"
+                                t-on-pointerdown="startDraw"
+                                t-on-pointermove="moveDraw"
+                                t-on-pointerup="endDraw"
+                                t-on-pointercancel="endDraw"
+                                t-on-pointerleave="endDraw"/>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>

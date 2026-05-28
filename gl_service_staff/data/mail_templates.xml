@@ -154,4 +154,31 @@
             </div>
         </field>
     </record>
+
+    <record id="mail_template_service_time_change" model="mail.template">
+        <field name="name">Servicepersonal: Bestätigung Zeitänderung</field>
+        <field name="model_id" ref="model_gl_service_shift_line"/>
+        <field name="subject">Zeitänderung Service-Schicht: {{ object.shift_id.name }}</field>
+        <field name="email_from">{{ user.email_formatted or company.email_formatted }}</field>
+        <field name="email_to">{{ object.email }}</field>
+        <field name="auto_delete" eval="False"/>
+        <field name="body_html" type="html">
+            <div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.45;color:#222;">
+                <p>Hallo <t t-out="object.member_id.name"/>,</p>
+                <p>bei deiner bereits bestätigten Service-Schicht hat sich die geplante Arbeitszeit geändert. Bitte bestätige kurz, ob die neue Zeit für dich passt.</p>
+                <p>
+                    <strong><t t-out="object.shift_id.name"/></strong><br/>
+                    Neue Arbeitszeit:<br/>
+                    Anfang: <t t-out="format_datetime(object.planned_start_datetime) if object.planned_start_datetime else 'noch offen'"/><br/>
+                    Ende: <t t-out="format_datetime(object.planned_end_datetime) if object.planned_end_datetime else 'noch offen'"/>
+                </p>
+                <p style="margin:24px 0;">
+                    <a t-att-href="object.accept_url" style="background:#1f8f3a;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;margin-right:8px;">Geänderte Zeit passt</a>
+                    <a t-att-href="object.decline_url" style="background:#8f1f1f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;">Geänderte Zeit passt nicht</a>
+                </p>
+                <p>Vielen Dank!</p>
+            </div>
+        </field>
+    </record>
+
 </odoo>
