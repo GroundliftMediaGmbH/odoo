@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_project_project_form_groundlift_checklist" model="ir.ui.view">
+        <field name="name">project.project.form.groundlift.checklist</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <!-- Direkt in das Projekt-Notebook neben Beschreibung/Einstellungen einfügen. -->
+            <xpath expr="//sheet/notebook" position="inside">
+                <page string="Allgemein" name="gl_checklist_general">
+                    <div class="gl_checklist_page">
+                        <div class="gl_checklist_section">
+                            <h2>Gäste &amp; Plätze</h2>
+                            <group col="3" class="gl_checklist_grid">
+                                <field name="gl_check_guests_adult" placeholder="z. B.: 5"/>
+                                <field name="gl_check_guests_child" placeholder="z. B.: 2"/>
+                                <field name="gl_check_seats_total" placeholder="z. B.: 80 sitzend / 120 stehend"/>
+                                <field name="gl_check_cloakroom" placeholder="z. B.: Garderobenständer im Foyer"/>
+                            </group>
+                        </div>
+
+                        <div class="gl_checklist_section">
+                            <h2>Mobiliar</h2>
+                            <group col="3" class="gl_checklist_grid">
+                                <field name="gl_check_tables" placeholder="z. B.: 8 Banketttische, Position siehe Plan"/>
+                                <field name="gl_check_hightables" placeholder="z. B.: 6 Stehtische im Empfangsbereich"/>
+                                <field name="gl_check_covers" placeholder="z. B.: schwarze Hussen, weiße Tischdecken"/>
+                                <field name="gl_check_armchairs" placeholder="z. B.: 4 Sessel für Talk-Setup"/>
+                                <field name="gl_check_couch" placeholder="z. B.: Lounge-Couch links der Bühne"/>
+                                <field name="gl_check_benches_chairs" placeholder="z. B.: 10 Bierbänke / 60 Stühle"/>
+                                <field name="gl_check_kids_corner" placeholder="z. B.: Spielecke im hinteren Bereich"/>
+                            </group>
+                        </div>
+
+                        <div class="gl_checklist_section">
+                            <h2>Bühne &amp; Technik</h2>
+                            <group col="3" class="gl_checklist_grid">
+                                <field name="gl_check_stage" placeholder="z. B.: Band, DJ, Rednerpult, Tisch, Backdrop"/>
+                                <field name="gl_check_audio" placeholder="z. B.: 2 Funkmikros, Zuspieler, Monitoring"/>
+                                <field name="gl_check_light" placeholder="z. B.: Standard-Ambiente, Bühne warm, Logo-Licht"/>
+                                <field name="gl_check_screens" placeholder="z. B.: TV-Screens, Beamer, Präsentation, HDMI"/>
+                            </group>
+                        </div>
+                    </div>
+                </page>
+
+                <page string="Gastro und Ablauf" name="gl_checklist_gastro_flow">
+                    <div class="gl_checklist_page">
+                        <div class="gl_checklist_section">
+                            <h2>Catering</h2>
+                            <group col="3" class="gl_checklist_grid">
+                                <field name="gl_check_caterer" placeholder="z. B.: externer Caterer / Groundlift / Kunde"/>
+                                <field name="gl_check_meals_note" placeholder="z. B.: 35 vegetarisch, 20 Fleisch, 5 vegan"/>
+                                <field name="gl_check_allergies" placeholder="z. B.: Gluten, Nüsse, Laktose, keine bekannt"/>
+                                <field name="gl_check_power" placeholder="z. B.: 16A CEE links Bühne, 230V an Bar"/>
+                                <field name="gl_check_tableware" placeholder="z. B.: Teller, Besteck, Servietten, Buffetbeschriftung"/>
+                                <field name="gl_check_caterer_space" placeholder="z. B.: Buffet im Sudhaus, Vorbereitung im Lager"/>
+                                <field name="gl_check_glasses" placeholder="z. B.: Weingläser, Sektgläser, Longdrink, Wasser"/>
+                            </group>
+                        </div>
+
+                        <div class="gl_checklist_section">
+                            <h2>Bar &amp; Empfang</h2>
+                            <group col="3" class="gl_checklist_grid">
+                                <field name="gl_check_bar_operator" placeholder="z. B.: Groundlift-Bar / externer Barbetrieb"/>
+                                <field name="gl_check_bar_staff" placeholder="z. B.: 2 Personen ab 18:00 Uhr"/>
+                                <field name="gl_check_reception" placeholder="z. B.: Crémant, Prosecco, -O, alkoholfrei, Aperol, Lillet, Hugo"/>
+                                <field name="gl_check_drinkcard_notes" placeholder="z. B.: Originalkarte, reduzierte Karte, Specials, Cocktails"/>
+                            </group>
+                        </div>
+
+                        <div class="gl_checklist_section gl_checklist_schedule_section">
+                            <h2>Zeitlicher Ablauf</h2>
+                            <p class="gl_checklist_hint">Ablaufpunkte direkt in der Tabelle erfassen. Über <strong>Neue Zeile</strong> können jederzeit weitere Punkte ergänzt werden.</p>
+                            <field name="gl_check_schedule_line_ids" nolabel="1" class="gl_checklist_schedule_table">
+                                <list editable="bottom" string="Zeitlicher Ablauf" default_order="sequence">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="time" string="Uhrzeit" placeholder="z. B.: 18:00"/>
+                                    <field name="description" string="Beschreibung" placeholder="z. B.: Einlass Gäste / Aufbau Groundlift / Showbeginn"/>
+                                </list>
+                            </field>
+                        </div>
+                    </div>
+                </page>
+
+                <page string="Theater" name="gl_checklist_theater">
+                    <div class="gl_checklist_page gl_checklist_plan_page">
+                        <field name="gl_check_theater_rotation" invisible="1"/>
+                        <field name="gl_check_theater_drawing" nolabel="1" widget="gl_drawing_canvas"
+                               options="{'background_url': '/gl_project_checklist/static/src/img/plan_theater.png', 'canvas_width': 566, 'canvas_height': 952, 'title': 'Theater', 'rotation_field': 'gl_check_theater_rotation'}"/>
+                    </div>
+                </page>
+
+                <page string="Lounge" name="gl_checklist_lounge">
+                    <div class="gl_checklist_page gl_checklist_plan_page">
+                        <field name="gl_check_lounge_rotation" invisible="1"/>
+                        <field name="gl_check_lounge_drawing" nolabel="1" widget="gl_drawing_canvas"
+                               options="{'background_url': '/gl_project_checklist/static/src/img/plan_lounge.png', 'canvas_width': 614, 'canvas_height': 956, 'title': 'Lounge', 'rotation_field': 'gl_check_lounge_rotation'}"/>
+                    </div>
+                </page>
+
+                <page string="Terasse" name="gl_checklist_terasse">
+                    <div class="gl_checklist_page gl_checklist_plan_page">
+                        <field name="gl_check_terasse_rotation" invisible="1"/>
+                        <field name="gl_check_terasse_drawing" nolabel="1" widget="gl_drawing_canvas"
+                               options="{'background_url': '/gl_project_checklist/static/src/img/plan_terasse.png', 'canvas_width': 1013, 'canvas_height': 781, 'title': 'Terasse', 'rotation_field': 'gl_check_terasse_rotation'}"/>
+                    </div>
+                </page>
+
+                <page string="Notizen" name="gl_checklist_notes">
+                    <div class="gl_checklist_page">
+                        <div class="gl_checklist_section gl_checklist_notes_section">
+                            <h2>Notizen</h2>
+                            <field name="gl_check_notes" nolabel="1" placeholder="Freie Notizen zum Projekt, Kundenwünsche, offene Punkte ..."/>
+                        </div>
+                        <div class="gl_checklist_section gl_checklist_notes_section">
+                            <h2>Interne Organisation</h2>
+                            <field name="gl_check_internal_org" nolabel="1" placeholder="Stichpunkte für Team, Verantwortlichkeiten, Timing, Besonderheiten ..."/>
+                        </div>
+                    </div>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
