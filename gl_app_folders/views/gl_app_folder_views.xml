@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_gl_app_folder_list" model="ir.ui.view">
+        <field name="name">gl.app.folder.list</field>
+        <field name="model">gl.app.folder</field>
+        <field name="arch" type="xml">
+            <list string="Meine App-Ordner">
+                <field name="sequence" widget="handle"/>
+                <field name="icon"/>
+                <field name="name"/>
+                <field name="user_id" groups="base.group_system"/>
+                <field name="app_count"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_app_folder_form" model="ir.ui.view">
+        <field name="name">gl.app.folder.form</field>
+        <field name="model">gl.app.folder</field>
+        <field name="arch" type="xml">
+            <form string="App-Ordner">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="icon"/>
+                        <field name="color"/>
+                        <field name="sequence"/>
+                        <field name="user_id" groups="base.group_system"/>
+                    </group>
+                    <notebook>
+                        <page string="Apps">
+                            <field name="line_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="menu_id"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_app_folder_admin" model="ir.actions.act_window">
+        <field name="name">Meine App-Ordner</field>
+        <field name="res_model">gl.app.folder</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem
+        id="menu_gl_app_folder_admin"
+        name="Meine App-Ordner"
+        parent="base.menu_administration"
+        action="action_gl_app_folder_admin"
+        groups="base.group_user"
+        sequence="95"
+    />
+</odoo>
