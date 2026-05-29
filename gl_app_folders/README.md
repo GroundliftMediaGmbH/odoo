@@ -1,32 +1,31 @@
-# Groundlift App-Folders Desktop für Odoo 19 SH
+# Groundlift App-Folders Desktop für Odoo 19
 
-Dieses Modul stellt einen persönlichen Odoo-Desktop als Client Action bereit.
-Jeder interne Benutzer kann eigene Ordner anlegen, benennen, mit einem Icon versehen und Odoo-Apps per Drag & Drop hineinlegen.
+Persönlicher Odoo Desktop mit App-Ordnern wie bei Android.
 
-## Bedienung
+## Funktionen
 
-1. App **Mein Desktop** öffnen.
-2. **Neuer Ordner** klicken und Bezeichnung/Icon vergeben.
-3. Apps per Drag & Drop auf einen Ordner ziehen.
-4. Eine App auf eine andere App ziehen, um direkt einen neuen Ordner mit beiden Apps zu erzeugen.
-5. Ordner öffnen, um Bezeichnung/Icon zu ändern, Apps zu entfernen oder den Ordner zu löschen.
-6. Optional **Als Startseite setzen** klicken. Dadurch wird die Home Action des aktuellen Benutzers auf diesen Desktop gesetzt.
+- Benutzerindividuelle Ordner für Odoo Apps
+- Ordner mit eigener Bezeichnung und eigenem Icon
+- Apps per Drag & Drop in Ordner verschieben
+- App auf App ziehen, um direkt einen neuen Ordner zu erzeugen
+- Ordner öffnen, bearbeiten, löschen und Apps wieder entfernen
+- Button zum Setzen dieses Desktops als persönliche Startseite
+
+## Version 19.0.1.0.2
+
+Diese Version behebt den CSS/SCSS-Asset-Fehler in Odoo 19:
+
+- Die SCSS-Datei wurde durch eine plain CSS-Datei ersetzt.
+- Sass-problematische CSS-Funktionen wie `min()` und `color-mix()` wurden entfernt.
+- Verschachtelte SCSS-Regeln wurden in normales CSS umgewandelt.
+
+Damit wird der globale Backend-Asset-Build nicht mehr durch den Style des Moduls blockiert.
 
 ## Installation auf Odoo.sh
 
-1. Ordner `gl_app_folders` in dein Custom-Addons-Repository legen.
-2. Committen und auf den gewünschten Odoo.sh-Branch pushen.
+1. Modulordner `gl_app_folders` in das Custom-Addons-Repository legen.
+2. Commit + Push auf den gewünschten Odoo.sh-Branch.
 3. Build abwarten.
-4. In Odoo Apps-Liste aktualisieren.
-5. Modul **Groundlift App-Folders Desktop** installieren.
-
-## Technischer Ansatz
-
-Das Modul patcht nicht den Enterprise-HomeMenu-Code, sondern legt eine eigene stabile OWL-Client-Action an.
-Das ist für Odoo.sh deutlich update-sicherer. Über den Button **Als Startseite setzen** kann jeder Benutzer diese Client Action individuell als persönliche Home Action setzen.
-
-
-## Version 19.0.1.0.1
-
-- Odoo-19-Kompatibilitätsfix: Das nicht gültige Feld `usage` wurde aus der `ir.actions.client`-Action entfernt.
-- Die Action nutzt stattdessen nur die für Client-Actions vorgesehenen Felder `name`, `tag` und `target`.
+4. In Odoo die App-Liste aktualisieren.
+5. Modul installieren oder aktualisieren.
+6. Danach Browser-Cache leeren bzw. Odoo mit `?debug=assets` prüfen, falls alte Asset-Bundles gecacht sind.

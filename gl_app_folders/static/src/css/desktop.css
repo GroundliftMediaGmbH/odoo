@@ -1,0 +1,312 @@
+.gl_app_desktop {
+    min-height: 100%;
+    padding: 28px;
+    background: radial-gradient(circle at top left, rgba(135, 90, 123, 0.18), transparent 34rem), var(--o-view-background-color, #f8f9fa);
+    overflow: auto;
+}
+
+.gl_app_desktop__topbar {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    align-items: flex-start;
+    margin-bottom: 28px;
+}
+
+.gl_app_desktop__topbar h1 {
+    margin: 0;
+    font-size: 30px;
+    font-weight: 700;
+}
+
+.gl_app_desktop__topbar p {
+    margin: 7px 0 0;
+    color: var(--o-main-text-color, #4c4c4c);
+    opacity: 0.74;
+}
+
+.gl_app_desktop__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.gl_app_desktop__search {
+    width: 300px;
+    max-width: 100%;
+    padding: 9px 13px;
+    border: 1px solid rgba(0, 0, 0, 0.16);
+    border-radius: 11px;
+    background: var(--o-input-background-color, #fff);
+    color: var(--o-main-text-color, #111827);
+}
+
+.gl_app_desktop__grid,
+.gl_folder_modal__apps {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+    gap: 18px;
+}
+
+.gl_folder_card,
+.gl_app_card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 118px;
+    padding: 14px 10px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.84);
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.08);
+    color: var(--o-main-text-color, #111827);
+    text-align: center;
+    transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+    cursor: pointer;
+    user-select: none;
+}
+
+.gl_folder_card:hover,
+.gl_folder_card:focus-visible,
+.gl_app_card:hover,
+.gl_app_card:focus-visible {
+    transform: translateY(-2px);
+    border-color: rgba(135, 90, 123, 0.38);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.13);
+    outline: none;
+}
+
+.gl_folder_card {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.86));
+}
+
+.gl_folder_card::before,
+.gl_folder_card::after {
+    content: "";
+    position: absolute;
+    inset: 13px 18px auto 18px;
+    height: 28px;
+    border-radius: 14px 14px 7px 7px;
+    background: var(--gl-folder-color, #875A7B);
+    opacity: 0.18;
+    z-index: 0;
+}
+
+.gl_folder_card::after {
+    top: 28px;
+    height: 54px;
+    border-radius: 15px;
+    opacity: 0.55;
+}
+
+.gl_folder_card > * {
+    position: relative;
+    z-index: 1;
+}
+
+.gl_folder_card__icon {
+    font-size: 34px;
+    line-height: 1;
+    margin-bottom: 8px;
+}
+
+.gl_folder_card__name,
+.gl_app_card__name {
+    width: 100%;
+    font-weight: 650;
+    line-height: 1.18;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.gl_folder_card__count,
+.gl_folder_card__hint {
+    margin-top: 4px;
+    font-size: 12px;
+    opacity: 0.72;
+}
+
+.gl_folder_card__hint {
+    display: none;
+}
+
+.gl_folder_card:hover .gl_folder_card__hint {
+    display: block;
+}
+
+.gl_app_card__icon {
+    width: 54px;
+    height: 54px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: contain;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24);
+}
+
+.gl_app_card__icon i {
+    font-size: 24px;
+}
+
+.gl_app_card--in-folder {
+    min-height: 112px;
+}
+
+.gl_app_card__remove {
+    position: absolute;
+    top: 8px;
+    right: 9px;
+    width: 24px;
+    height: 24px;
+    line-height: 22px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.10);
+    font-size: 20px;
+    font-weight: 500;
+}
+
+.gl_app_card__remove:hover {
+    background: rgba(220, 53, 69, 0.18);
+    color: #dc3545;
+}
+
+.gl_app_desktop__empty {
+    margin: 48px auto;
+    max-width: 420px;
+    padding: 32px;
+    text-align: center;
+    border: 1px dashed rgba(0, 0, 0, 0.16);
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.64);
+}
+
+.gl_app_desktop__empty_icon {
+    font-size: 46px;
+    margin-bottom: 8px;
+}
+
+.gl_folder_modal_backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.42);
+}
+
+.gl_folder_modal {
+    width: 780px;
+    max-width: 100%;
+    max-height: calc(100vh - 48px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 28px;
+    background: var(--o-view-background-color, #fff);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.36);
+}
+
+.gl_folder_modal__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: center;
+    padding: 22px 24px;
+    background: linear-gradient(135deg, rgba(45, 45, 45, 0.32), var(--gl-folder-color, #875A7B));
+    color: #fff;
+}
+
+.gl_folder_modal__header h2 {
+    margin: 0;
+    font-weight: 750;
+}
+
+.gl_folder_modal__header p {
+    margin: 3px 0 0;
+    opacity: 0.82;
+}
+
+.gl_folder_modal__header .btn-close {
+    filter: invert(1) grayscale(100%);
+}
+
+.gl_folder_modal__title {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.gl_folder_modal__icon {
+    font-size: 42px;
+    width: 58px;
+    height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.gl_folder_modal__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.gl_folder_modal__apps {
+    padding: 20px;
+    overflow: auto;
+}
+
+.gl_folder_modal__empty {
+    grid-column: 1 / -1;
+    padding: 38px 20px;
+    text-align: center;
+    border: 1px dashed rgba(0, 0, 0, 0.16);
+    border-radius: 20px;
+    opacity: 0.72;
+}
+
+@media (max-width: 767px) {
+    .gl_app_desktop {
+        padding: 18px;
+    }
+
+    .gl_app_desktop__topbar {
+        display: block;
+    }
+
+    .gl_app_desktop__actions {
+        justify-content: stretch;
+        margin-top: 16px;
+    }
+
+    .gl_app_desktop__actions > * {
+        flex: 1 1 auto;
+    }
+
+    .gl_app_desktop__grid,
+    .gl_folder_modal__apps {
+        grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+        gap: 12px;
+    }
+
+    .gl_folder_card,
+    .gl_app_card {
+        min-height: 104px;
+        border-radius: 20px;
+    }
+}
