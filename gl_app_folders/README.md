@@ -24,3 +24,9 @@ Jeder interne Benutzer kann eigene Ordner anlegen, benennen, mit einem Icon vers
 
 Das Modul patcht nicht den Enterprise-HomeMenu-Code, sondern legt eine eigene stabile OWL-Client-Action an.
 Das ist für Odoo.sh deutlich update-sicherer. Über den Button **Als Startseite setzen** kann jeder Benutzer diese Client Action individuell als persönliche Home Action setzen.
+
+
+## Version 19.0.1.0.1
+
+- Odoo-19-Kompatibilitätsfix: Das nicht gültige Feld `usage` wurde aus der `ir.actions.client`-Action entfernt.
+- Die Action nutzt stattdessen nur die für Client-Actions vorgesehenen Felder `name`, `tag` und `target`.

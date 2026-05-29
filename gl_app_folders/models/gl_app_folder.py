@@ -23,11 +23,6 @@ class GlAppFolder(models.Model):
     line_ids = fields.One2many("gl.app.folder.line", "folder_id", string="Apps")
     app_count = fields.Integer(string="Apps", compute="_compute_app_count")
 
-    _user_name_unique = models.Constraint(
-        "UNIQUE(user_id, name)",
-        "Du hast bereits einen Ordner mit dieser Bezeichnung.",
-    )
-
     @api.depends("line_ids")
     def _compute_app_count(self):
         for folder in self:

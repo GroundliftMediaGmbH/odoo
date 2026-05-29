@@ -13,7 +13,7 @@ Funktionen:
 - Ordner öffnen, bearbeiten, löschen und Apps wieder entfernen
 - Button zum Setzen dieses Desktops als persönliche Startseite
     """,
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.0.1",
     "category": "Productivity",
     "author": "Groundlift / ChatGPT",
     "website": "https://www.groundlift.de",
