@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_gl_app_folder_user,gl.app.folder user,model_gl_app_folder,base.group_user,1,1,1,1
+access_gl_app_folder_line_user,gl.app.folder.line user,model_gl_app_folder_line,base.group_user,1,1,1,1
