@@ -65,3 +65,12 @@ Präzisionsfixes:
 - Apps ohne eigenes Icon behalten die Platzhalterfläche.
 - Der linke obere Odoo-Home-/App-Button öffnet aus normalen Apps heraus den persönlichen „Mein Desktop“. Befindet man sich bereits in „Mein Desktop“, bleibt Odoos Standardverhalten erhalten.
 - Hover-Orbit-Apps zeigen unterhalb des Icons den Appnamen in kleiner Schrift.
+
+
+## Version 19.0.1.2.2
+
+Scroll-Fix:
+
+- „Mein Desktop“ ist jetzt eine eigene Scrollfläche innerhalb der Odoo-Client-Action.
+- Auch bei vielen Apps/Ordnern sind unten liegende Einträge erreichbar.
+- Zusätzlicher unterer Innenabstand verhindert, dass die letzte App-Reihe am Bildschirmrand klebt.

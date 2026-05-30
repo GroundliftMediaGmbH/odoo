@@ -3,13 +3,35 @@
     height: 100%;
     min-height: 100%;
     padding: 24px;
-    overflow-x: visible;
+    overflow-x: hidden;
     overflow-y: auto;
     color: #eef2ff;
     background:
         radial-gradient(circle at top left, rgba(168, 85, 247, 0.24), transparent 34%),
         radial-gradient(circle at top right, rgba(59, 130, 246, 0.18), transparent 28%),
         linear-gradient(180deg, #0f1524 0%, #0b101a 100%);
+}
+
+/* Odoo 19 kann Client-Actions in einem overflow-hidden Container halten.
+   Diese Regel macht „Mein Desktop“ selbst zur Scrollfläche, damit tiefer
+   liegende Apps erreichbar bleiben. */
+.gl_app_desktop.o_action {
+    position: relative;
+    height: calc(100vh - var(--o-navbar-height, 46px));
+    max-height: calc(100vh - var(--o-navbar-height, 46px));
+    min-height: 0;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+}
+
+@supports (height: 100dvh) {
+    .gl_app_desktop.o_action {
+        height: calc(100dvh - var(--o-navbar-height, 46px));
+        max-height: calc(100dvh - var(--o-navbar-height, 46px));
+    }
 }
 
 .gl_app_desktop--glass {
@@ -19,7 +41,7 @@
 .gl_app_desktop__shell {
     max-width: 1440px;
     margin: 0 auto;
-    padding-bottom: 40px;
+    padding-bottom: 120px;
 }
 
 .gl_app_desktop__topbar {
