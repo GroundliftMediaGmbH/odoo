@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="portal_styles" name="Mitarbeiter-Stundenportal Styles">
+        <style>
+            .gl-hours-wrap {
+                max-width: 1040px;
+                margin: 0 auto;
+                padding: 48px 18px 64px;
+                font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            }
+            .gl-hours-card {
+                background: #ffffff;
+                border: 1px solid rgba(17,24,39,.10);
+                border-radius: 22px;
+                box-shadow: 0 18px 55px rgba(17,24,39,.10);
+                padding: 28px;
+            }
+            .gl-hours-header {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 18px;
+                margin-bottom: 24px;
+            }
+            .gl-hours-title {
+                margin: 0;
+                color: #111827;
+                font-size: clamp(1.55rem, 2vw, 2.2rem);
+                font-weight: 800;
+                letter-spacing: -.03em;
+            }
+            .gl-hours-subtitle {
+                margin: 8px 0 0;
+                color: #6b7280;
+                font-size: .98rem;
+            }
+            .gl-hours-nav {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                margin: 18px 0 24px;
+            }
+            .gl-hours-month {
+                font-size: 1.2rem;
+                font-weight: 800;
+                color: #111827;
+                text-align: center;
+                min-width: 170px;
+            }
+            .gl-hours-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 42px;
+                padding: 10px 15px;
+                border-radius: 999px;
+                border: 1px solid rgba(17,24,39,.13);
+                background: #111827;
+                color: #ffffff !important;
+                text-decoration: none !important;
+                font-weight: 700;
+                line-height: 1.1;
+                cursor: pointer;
+            }
+            .gl-hours-btn-secondary {
+                background: #ffffff;
+                color: #111827 !important;
+            }
+            .gl-hours-table-wrap { overflow-x: auto; }
+            .gl-hours-table {
+                width: 100%;
+                border-collapse: separate;
+                border-spacing: 0;
+                overflow: hidden;
+                border: 1px solid rgba(17,24,39,.10);
+                border-radius: 16px;
+                background: #ffffff;
+            }
+            .gl-hours-table th,
+            .gl-hours-table td {
+                padding: 14px 16px;
+                border-bottom: 1px solid rgba(17,24,39,.08);
+                vertical-align: top;
+                color: #111827;
+            }
+            .gl-hours-table th {
+                background: #f9fafb;
+                color: #374151;
+                text-align: left;
+                font-size: .82rem;
+                text-transform: uppercase;
+                letter-spacing: .08em;
+            }
+            .gl-hours-table tr:last-child td { border-bottom: 0; }
+            .gl-hours-total-row td {
+                background: #111827;
+                color: #ffffff;
+                font-size: 1.05rem;
+                font-weight: 800;
+            }
+            .gl-hours-interval {
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+                margin-bottom: 4px;
+            }
+            .gl-hours-muted { color: #6b7280; }
+            .gl-hours-alert {
+                border-radius: 14px;
+                padding: 13px 15px;
+                margin: 14px 0;
+                background: #fff7ed;
+                color: #9a3412;
+                border: 1px solid #fed7aa;
+            }
+            .gl-hours-message-ok {
+                border-radius: 14px;
+                padding: 13px 15px;
+                margin: 14px 0;
+                background: #ecfdf5;
+                color: #065f46;
+                border: 1px solid #a7f3d0;
+            }
+            .gl-hours-message-error {
+                border-radius: 14px;
+                padding: 13px 15px;
+                margin: 14px 0;
+                background: #fef2f2;
+                color: #991b1b;
+                border: 1px solid #fecaca;
+            }
+            .gl-hours-form {
+                max-width: 460px;
+                margin: 0 auto;
+            }
+            .gl-hours-field { margin-bottom: 16px; }
+            .gl-hours-label {
+                display: block;
+                font-weight: 700;
+                color: #111827;
+                margin-bottom: 7px;
+            }
+            .gl-hours-input {
+                width: 100%;
+                min-height: 46px;
+                border-radius: 12px;
+                border: 1px solid rgba(17,24,39,.18);
+                padding: 10px 13px;
+                background: #ffffff;
+                color: #111827;
+            }
+            .gl-hours-actions {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                flex-wrap: wrap;
+                margin-top: 18px;
+            }
+            .gl-hours-link { color: #111827; font-weight: 700; }
+            @media (max-width: 720px) {
+                .gl-hours-card { padding: 20px; border-radius: 18px; }
+                .gl-hours-header, .gl-hours-nav { flex-direction: column; align-items: stretch; }
+                .gl-hours-month { text-align: left; min-width: 0; }
+                .gl-hours-btn { width: 100%; }
+            }
+        </style>
+    </template>
+
+    <template id="template_login" name="Mitarbeiter-Stundenportal Login">
+        <t t-call="website.layout">
+            <t t-call="gl_employee_hours_portal.portal_styles"/>
+            <div class="gl-hours-wrap">
+                <div class="gl-hours-card gl-hours-form">
+                    <h1 class="gl-hours-title">Mitarbeiter-Stundenportal</h1>
+                    <p class="gl-hours-subtitle">Bitte melde dich mit deiner E-Mail-Adresse und deinem Passwort an.</p>
+                    <div t-if="message" class="gl-hours-message-ok" t-esc="message"/>
+                    <div t-if="error" class="gl-hours-message-error" t-esc="error"/>
+                    <form method="post" action="/mitarbeiter/stunden/login">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <div class="gl-hours-field">
+                            <label class="gl-hours-label" for="email">E-Mail</label>
+                            <input class="gl-hours-input" id="email" type="email" name="email" required="required" autocomplete="email"/>
+                        </div>
+                        <div class="gl-hours-field">
+                            <label class="gl-hours-label" for="password">Passwort</label>
+                            <input class="gl-hours-input" id="password" type="password" name="password" required="required" autocomplete="current-password"/>
+                        </div>
+                        <div class="gl-hours-actions">
+                            <button class="gl-hours-btn" type="submit">Einloggen</button>
+                            <a class="gl-hours-link" href="/mitarbeiter/stunden/registrieren">Konto erstellen</a>
+                        </div>
+                        <div class="gl-hours-actions">
+                            <a class="gl-hours-link" href="/mitarbeiter/stunden/passwort-vergessen">Passwort vergessen?</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="template_register" name="Mitarbeiter-Stundenportal Registrierung">
+        <t t-call="website.layout">
+            <t t-call="gl_employee_hours_portal.portal_styles"/>
+            <div class="gl-hours-wrap">
+                <div class="gl-hours-card gl-hours-form">
+                    <h1 class="gl-hours-title">Konto erstellen</h1>
+                    <p class="gl-hours-subtitle">Verwende die Arbeits-E-Mail-Adresse, die bei deinem Mitarbeiterprofil in Odoo hinterlegt ist.</p>
+                    <div t-if="success" class="gl-hours-message-ok" t-esc="success"/>
+                    <div t-if="error" class="gl-hours-message-error" t-esc="error"/>
+                    <form method="post" action="/mitarbeiter/stunden/registrieren">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <div class="gl-hours-field">
+                            <label class="gl-hours-label" for="email">E-Mail</label>
+                            <input class="gl-hours-input" id="email" type="email" name="email" required="required" autocomplete="email"/>
+                        </div>
+                        <div class="gl-hours-field">
+                            <label class="gl-hours-label" for="password">Passwort</label>
+                            <input class="gl-hours-input" id="password" type="password" name="password" required="required" minlength="8" autocomplete="new-password"/>
+                        </div>
+                        <div class="gl-hours-field">
+                            <label class="gl-hours-label" for="password_confirm">Passwort wiederholen</label>
+                            <input class="gl-hours-input" id="password_confirm" type="password" name="password_confirm" required="required" minlength="8" autocomplete="new-password"/>
+                        </div>
+                        <div class="gl-hours-actions">
+                            <button class="gl-hours-btn" type="submit">Registrieren</button>
+                            <a class="gl-hours-link" href="/mitarbeiter/stunden/login">Zur Anmeldung</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="template_hours_page" name="Mitarbeiter-Stundenportal Monatsübersicht">
+        <t t-call="website.layout">
+            <t t-call="gl_employee_hours_portal.portal_styles"/>
+            <div class="gl-hours-wrap">
+                <div class="gl-hours-card">
+                    <div class="gl-hours-header">
+                        <div>
+                            <h1 class="gl-hours-title">Arbeitsstunden</h1>
+                            <p class="gl-hours-subtitle">
+                                <strong t-esc="employee.name"/> · Zeiten in <span t-esc="timezone_name"/>
+                            </p>
+                        </div>
+                        <a class="gl-hours-btn gl-hours-btn-secondary" href="/mitarbeiter/stunden/logout">Logout</a>
+                    </div>
+
+                    <div class="gl-hours-nav">
+                        <a class="gl-hours-btn gl-hours-btn-secondary" t-att-href="previous_url">← Vorheriger Monat</a>
+                        <div class="gl-hours-month" t-esc="month_label"/>
+                        <a class="gl-hours-btn gl-hours-btn-secondary" t-att-href="next_url">Nächster Monat →</a>
+                    </div>
+
+                    <div t-if="has_open_entries" class="gl-hours-alert">
+                        Es gibt mindestens einen offenen Eintrag ohne Endzeit. Diese offenen Einträge werden angezeigt, aber nicht in die Monatssumme eingerechnet.
+                    </div>
+
+                    <div class="gl-hours-table-wrap">
+                        <table class="gl-hours-table">
+                            <thead>
+                                <tr>
+                                    <th>Arbeitstag</th>
+                                    <th>Start / Ende</th>
+                                    <th>Stunden je Eintrag</th>
+                                    <th>Tagessumme</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-if="not days">
+                                    <td colspan="4" class="gl-hours-muted">Für diesen Monat sind keine gearbeiteten Zeiten vorhanden.</td>
+                                </tr>
+                                <tr t-foreach="days" t-as="day">
+                                    <td>
+                                        <strong t-esc="day['weekday']"/> · <span t-esc="day['date_label']"/>
+                                    </td>
+                                    <td>
+                                        <div t-foreach="day['intervals']" t-as="interval" class="gl-hours-interval">
+                                            <span><strong t-esc="interval['start']"/> – <strong t-esc="interval['end']"/></span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div t-foreach="day['intervals']" t-as="interval">
+                                            <span t-esc="interval['duration']"/>
+                                        </div>
+                                    </td>
+                                    <td><strong t-esc="day['total']"/></td>
+                                </tr>
+                                <tr class="gl-hours-total-row">
+                                    <td colspan="3">Summe Monat</td>
+                                    <td t-esc="monthly_total"/>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="template_reset_request" name="Mitarbeiter-Stundenportal Passwort vergessen">
+        <t t-call="website.layout">
+            <t t-call="gl_employee_hours_portal.portal_styles"/>
+            <div class="gl-hours-wrap">
+                <div class="gl-hours-card gl-hours-form">
+                    <h1 class="gl-hours-title">Passwort vergessen</h1>
+                    <p class="gl-hours-subtitle">Trage deine registrierte E-Mail-Adresse ein.</p>
+                    <div t-if="success" class="gl-hours-message-ok" t-esc="success"/>
+                    <div t-if="error" class="gl-hours-message-error" t-esc="error"/>
+                    <form method="post" action="/mitarbeiter/stunden/passwort-vergessen">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <div class="gl-hours-field">
+                            <label class="gl-hours-label" for="email">E-Mail</label>
+                            <input class="gl-hours-input" id="email" type="email" name="email" required="required" autocomplete="email"/>
+                        </div>
+                        <div class="gl-hours-actions">
+                            <button class="gl-hours-btn" type="submit">Link senden</button>
+                            <a class="gl-hours-link" href="/mitarbeiter/stunden/login">Zur Anmeldung</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="template_reset_form" name="Mitarbeiter-Stundenportal Passwort neu setzen">
+        <t t-call="website.layout">
+            <t t-call="gl_employee_hours_portal.portal_styles"/>
+            <div class="gl-hours-wrap">
+                <div class="gl-hours-card gl-hours-form">
+                    <h1 class="gl-hours-title">Neues Passwort setzen</h1>
+                    <div t-if="error" class="gl-hours-message-error" t-esc="error"/>
+                    <form method="post" t-att-action="'/mitarbeiter/stunden/passwort-neu/%s' % token">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <div class="gl-hours-field">
+                            <label class="gl-hours-label" for="password">Neues Passwort</label>
+                            <input class="gl-hours-input" id="password" type="password" name="password" required="required" minlength="8" autocomplete="new-password"/>
+                        </div>
+                        <div class="gl-hours-field">
+                            <label class="gl-hours-label" for="password_confirm">Passwort wiederholen</label>
+                            <input class="gl-hours-input" id="password_confirm" type="password" name="password_confirm" required="required" minlength="8" autocomplete="new-password"/>
+                        </div>
+                        <div class="gl-hours-actions">
+                            <button class="gl-hours-btn" type="submit">Passwort speichern</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="template_message" name="Mitarbeiter-Stundenportal Meldung">
+        <t t-call="website.layout">
+            <t t-call="gl_employee_hours_portal.portal_styles"/>
+            <div class="gl-hours-wrap">
+                <div class="gl-hours-card gl-hours-form">
+                    <h1 class="gl-hours-title" t-esc="title"/>
+                    <p class="gl-hours-subtitle" t-esc="message"/>
+                    <div class="gl-hours-actions">
+                        <a class="gl-hours-btn" t-att-href="button_url" t-esc="button_label"/>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+</odoo>
