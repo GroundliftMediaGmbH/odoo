@@ -99,14 +99,9 @@
             <search string="Kino Spielwochen">
                 <field name="name"/>
                 <field name="week_start"/>
-                <filter name="target_week" string="Aktuelle Prüfwoche" domain="[('target_week_hint', '=', True)]"/>
                 <filter name="not_ready" string="Nicht spielbereit" domain="[('state', '=', 'not_ready')]"/>
                 <filter name="ready" string="Spielbereit" domain="[('state', '=', 'ready')]"/>
-                <filter name="empty" string="Ohne Programm" domain="[('state', '=', 'empty')]"/>
-                <group expand="0" string="Gruppieren">
-                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
-                    <filter name="group_week_start" string="Spielwochenstart" context="{'group_by': 'week_start'}"/>
-                </group>
+                <filter name="empty_program" string="Ohne Programm" domain="[('state', '=', 'empty')]"/>
             </search>
         </field>
     </record>
@@ -141,13 +136,7 @@
                 <filter name="missing_kdm" string="KDM fehlt" domain="[('kdm_ready', '=', False)]"/>
                 <filter name="missing_dcp" string="DCP fehlt" domain="[('dcp_ready', '=', False)]"/>
                 <filter name="ready" string="Fertig" domain="[('row_ready', '=', True)]"/>
-                <separator/>
                 <filter name="archived" string="Archiviert" domain="[('active', '=', False)]"/>
-                <group expand="0" string="Gruppieren">
-                    <filter name="group_week" string="Spielwoche" context="{'group_by': 'week_id'}"/>
-                    <filter name="group_cinema" string="Kino" context="{'group_by': 'cinema'}"/>
-                    <filter name="group_film" string="Film" context="{'group_by': 'display_film_name'}"/>
-                </group>
             </search>
         </field>
     </record>
@@ -157,7 +146,6 @@
         <field name="res_model">gl.kino.week</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_gl_kino_week_search"/>
-        <field name="context">{'search_default_target_week': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">Noch keine Kino-Spielwoche vorhanden.</p>
             <p>Klicke auf „Aktuelles Programm laden“, um das Cinetixx-Programm zu importieren.</p>
