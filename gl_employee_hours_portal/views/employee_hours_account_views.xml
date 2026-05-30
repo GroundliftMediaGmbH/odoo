@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_employee_hours_account_tree" model="ir.ui.view">
+        <field name="name">gl.employee.hours.account.tree</field>
+        <field name="model">gl.employee.hours.account</field>
+        <field name="arch" type="xml">
+            <list string="Mitarbeiter-Stundenportal Konten" decoration-success="state == 'active'" decoration-warning="state == 'pending'" decoration-danger="state == 'blocked'">
+                <field name="employee_id"/>
+                <field name="email"/>
+                <field name="state"/>
+                <field name="last_login"/>
+                <field name="activation_expiration"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_employee_hours_account_form" model="ir.ui.view">
+        <field name="name">gl.employee.hours.account.form</field>
+        <field name="model">gl.employee.hours.account</field>
+        <field name="arch" type="xml">
+            <form string="Mitarbeiter-Stundenportal Konto">
+                <header>
+                    <button name="action_resend_activation_email" string="Aktivierungslink erneut senden" type="object" class="btn-primary" invisible="state == 'active'"/>
+                    <button name="action_block" string="Sperren" type="object" class="btn-secondary" invisible="state == 'blocked'"/>
+                    <button name="action_unblock" string="Entsperren" type="object" class="btn-secondary" invisible="state != 'blocked'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="pending,active,blocked"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="employee_id"/>
+                            <field name="email"/>
+                            <field name="last_login" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="activation_expiration" readonly="1"/>
+                            <field name="reset_expiration" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Technische Werte" groups="base.group_system">
+                        <field name="password_hash" readonly="1" password="True"/>
+                        <field name="activation_token" readonly="1" password="True"/>
+                        <field name="reset_token" readonly="1" password="True"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_gl_employee_hours_account_search" model="ir.ui.view">
+        <field name="name">gl.employee.hours.account.search</field>
+        <field name="model">gl.employee.hours.account</field>
+        <field name="arch" type="xml">
+            <search string="Stundenportal-Konten">
+                <field name="employee_id"/>
+                <field name="email"/>
+                <separator/>
+                <filter name="filter_state_active" string="Aktiv" domain="[('state','=','active')]"/>
+                <filter name="filter_state_pending" string="Wartet auf Bestätigung" domain="[('state','=','pending')]"/>
+                <filter name="filter_state_blocked" string="Gesperrt" domain="[('state','=','blocked')]"/>
+                <separator/>
+                <filter name="group_by_state" string="Status" context="{'group_by': 'state'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_gl_employee_hours_account" model="ir.actions.act_window">
+        <field name="name">Mitarbeiter-Stundenportal</field>
+        <field name="res_model">gl.employee.hours.account</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Noch keine Mitarbeiter-Konten vorhanden.
+            </p>
+            <p>
+                Mitarbeiter erstellen ihren Zugang selbst über /mitarbeiter/stunden/registrieren.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_gl_employee_hours_root" name="Stundenportal" sequence="85" groups="hr.group_hr_manager,base.group_system"/>
+    <menuitem id="menu_gl_employee_hours_account" name="Mitarbeiter-Konten" parent="menu_gl_employee_hours_root" action="action_gl_employee_hours_account" sequence="10" groups="hr.group_hr_manager,base.group_system"/>
+</odoo>

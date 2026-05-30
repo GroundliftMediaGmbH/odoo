@@ -244,8 +244,8 @@ class GlKinoWeek(models.Model):
     def action_open_settings(self):
         return {
             "type": "ir.actions.act_window",
-            "name": _("Kino Einstellungen"),
-            "res_model": "res.config.settings",
+            "name": _("Kino-Einstellungen"),
+            "res_model": "gl.kino.settings.wizard",
             "view_mode": "form",
             "target": "new",
             "views": [(self.env.ref("gl_kino_readiness.view_gl_kino_config_settings_form").id, "form")],

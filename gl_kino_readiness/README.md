@@ -27,7 +27,7 @@ Native Odoo-App für das Kinoprogramm und die Spielbereitschaft des Kino Alte Br
 2. Änderungen committen und in die gewünschte Odoo-SH-Branch pushen.
 3. In Odoo Apps-Liste aktualisieren.
 4. App **GROUNDLIFT Kino Spielbereitschaft** installieren.
-5. Menü **Kino Spielbereitschaft → Einstellungen** öffnen und prüfen:
+5. Menü **Kino Spielbereitschaft → Kino-Einstellungen** öffnen und prüfen:
    - Cinetixx-API-URL
    - Dispo-Mailadresse
    - Mitarbeiter für Dienstagabend-Erinnerung
