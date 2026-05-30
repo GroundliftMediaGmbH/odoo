@@ -4,5 +4,5 @@
     <menuitem id="menu_gl_kino_weeks" name="Spielwochen" parent="menu_gl_kino_root" action="action_gl_kino_week" sequence="10"/>
     <menuitem id="menu_gl_kino_load_program" name="Aktuelles Programm laden" parent="menu_gl_kino_root" action="action_server_gl_kino_load_program" sequence="20"/>
     <menuitem id="menu_gl_kino_shows" name="Alle Vorstellungen" parent="menu_gl_kino_root" action="action_gl_kino_show" sequence="30"/>
-    <menuitem id="menu_gl_kino_settings" name="Einstellungen" parent="menu_gl_kino_root" action="action_gl_kino_config_settings" sequence="90" groups="base.group_system"/>
+    <menuitem id="menu_gl_kino_settings" name="Kino-Einstellungen" parent="menu_gl_kino_root" action="action_gl_kino_config_settings" sequence="90" groups="base.group_system"/>
 </odoo>
