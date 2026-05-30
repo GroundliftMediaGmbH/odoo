@@ -54,12 +54,12 @@
             <search string="Stundenportal-Konten">
                 <field name="employee_id"/>
                 <field name="email"/>
-                <filter name="active" string="Aktiv" domain="[('state','=','active')]"/>
-                <filter name="pending" string="Wartet auf Bestätigung" domain="[('state','=','pending')]"/>
-                <filter name="blocked" string="Gesperrt" domain="[('state','=','blocked')]"/>
-                <group expand="0" string="Gruppieren">
-                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
-                </group>
+                <separator/>
+                <filter name="filter_state_active" string="Aktiv" domain="[('state','=','active')]"/>
+                <filter name="filter_state_pending" string="Wartet auf Bestätigung" domain="[('state','=','pending')]"/>
+                <filter name="filter_state_blocked" string="Gesperrt" domain="[('state','=','blocked')]"/>
+                <separator/>
+                <filter name="group_by_state" string="Status" context="{'group_by': 'state'}"/>
             </search>
         </field>
     </record>
