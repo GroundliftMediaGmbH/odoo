@@ -11,7 +11,7 @@ Persönlicher Odoo Desktop mit App-Ordnern wie bei Android.
 - Ordner öffnen, bearbeiten, löschen und Apps wieder entfernen
 - Button zum Setzen dieses Desktops als persönliche Startseite
 
-## Version 19.0.1.1.0
+## Version 19.0.1.2.0
 
 Diese Version behebt den CSS/SCSS-Asset-Fehler in Odoo 19:
 
@@ -47,3 +47,11 @@ Damit wird der globale Backend-Asset-Build nicht mehr durch den Style des Moduls
 - Optionaler gläserner Dark-Look per Schalter
 - Aufgeräumtere Ordnerkarten: Bezeichnung unten, ohne zusätzliches Ordner-Icon/Count im Kachelkopf
 - Geöffnete Ordner ohne großes Titel-Icon
+
+
+## Hover-Orbit-Update in 19.0.1.2.0
+
+- Ordner zeigen bei Hover direkt anklickbare App-Orbits um die Kachel
+- Glas-Look ist jetzt standardmäßig aktiv, ohne Umschalter
+- Desktop-Überschrift entfernt
+- Scrollbarer Desktop bei vielen Apps/Ordnern

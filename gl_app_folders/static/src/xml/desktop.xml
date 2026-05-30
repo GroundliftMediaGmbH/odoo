@@ -1,19 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
     <t t-name="gl_app_folders.Desktop">
-        <div t-att-class="state.glassMode ? 'gl_app_desktop o_action gl_app_desktop--glass' : 'gl_app_desktop o_action'">
+        <div class="gl_app_desktop gl_app_desktop--glass o_action">
             <div class="gl_app_desktop__shell">
                 <div class="gl_app_desktop__topbar">
-                    <div class="gl_app_desktop__headline">
-                        <div class="gl_app_desktop__eyebrow">GROUNDLIFT DESKTOP</div>
-                        <h1>Mein Odoo Desktop</h1>
-                        <p>Ordner anlegen, Apps sortieren und den Desktop individuell gestalten.</p>
-                    </div>
                     <div class="gl_app_desktop__actions">
-                        <label class="gl_app_desktop__toggle">
-                            <input type="checkbox" t-att-checked="state.glassMode" t-on-change="toggleGlassMode"/>
-                            <span>Glas-Look</span>
-                        </label>
                         <input
                             class="gl_app_desktop__search"
                             type="search"
@@ -32,8 +23,7 @@
 
                 <div class="gl_app_desktop__grid">
                     <t t-foreach="visibleFolders" t-as="folder" t-key="folder.id">
-                        <button
-                            type="button"
+                        <div
                             class="gl_folder_card"
                             draggable="true"
                             t-att-style="folderStyle(folder)"
@@ -59,8 +49,21 @@
                                     </t>
                                 </div>
                             </div>
+                            <div class="gl_folder_card__orbit" t-if="orbitApps(folder).length">
+                                <t t-foreach="orbitApps(folder)" t-as="app" t-key="app.id">
+                                    <button
+                                        type="button"
+                                        class="gl_folder_card__orbit_item"
+                                        t-att-title="app.name"
+                                        t-att-style="orbitItemStyle(app, app_index, orbitApps(folder).length)"
+                                        t-on-click="(ev) => this.openOrbitApp(ev, app)"
+                                    >
+                                        <i t-if="!hasAppIconImage(app)" t-att-class="appIconClass(app)"/>
+                                    </button>
+                                </t>
+                            </div>
                             <span class="gl_folder_card__name" t-esc="folder.name"/>
-                        </button>
+                        </div>
                     </t>
 
                     <t t-foreach="rootApps" t-as="app" t-key="app.id">

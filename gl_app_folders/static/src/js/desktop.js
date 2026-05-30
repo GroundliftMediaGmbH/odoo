@@ -34,28 +34,10 @@ export class GlAppFoldersDesktop extends Component {
             editorName: "",
             editorColor: DEFAULT_FOLDER_COLOR,
             editorAppMenuIds: [],
-            glassMode: this.loadGlassMode(),
         });
         onWillStart(async () => {
             await this.loadData();
         });
-    }
-
-    loadGlassMode() {
-        try {
-            const value = window.localStorage.getItem("gl_app_folders_glass_mode");
-            return value !== "0";
-        } catch {
-            return true;
-        }
-    }
-
-    persistGlassMode() {
-        try {
-            window.localStorage.setItem("gl_app_folders_glass_mode", this.state.glassMode ? "1" : "0");
-        } catch {
-            // ignore storage issues
-        }
     }
 
     async loadData() {
@@ -145,16 +127,29 @@ export class GlAppFoldersDesktop extends Component {
             .filter(Boolean);
     }
 
+    orbitApps(folder) {
+        return this.folderApps(folder).slice(0, 8);
+    }
+
     folderPreviewApps(folder) {
         return this.folderApps(folder).slice(0, 4);
     }
 
     folderPreviewText(folder) {
-        const apps = this.folderApps(folder).slice(0, 4).map((app) => app.name);
+        const apps = this.folderApps(folder).slice(0, 8).map((app) => app.name);
         if (!apps.length) {
             return _t("Leer");
         }
         return apps.join(", ");
+    }
+
+    orbitItemStyle(app, index, total) {
+        const radius = total <= 4 ? 88 : total <= 6 ? 96 : 104;
+        const angle = -90 + (360 / Math.max(total, 1)) * index;
+        const radians = (angle * Math.PI) / 180;
+        const x = Math.round(Math.cos(radians) * radius);
+        const y = Math.round(Math.sin(radians) * radius);
+        return `${this.appIconStyle(app)} --gl-orbit-x:${x}px; --gl-orbit-y:${y}px;`;
     }
 
     folderStyle(folder) {
@@ -212,13 +207,14 @@ export class GlAppFoldersDesktop extends Component {
         this.state.editorColor = color;
     }
 
-    toggleGlassMode(ev) {
-        this.state.glassMode = !!ev.target.checked;
-        this.persistGlassMode();
-    }
-
     async openApp(app) {
         await this.menu.selectMenu(app);
+    }
+
+    async openOrbitApp(ev, app) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        await this.openApp(app);
     }
 
     openFolderModal(folder) {

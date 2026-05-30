@@ -1,65 +1,42 @@
 
 .gl_app_desktop {
+    height: 100%;
     min-height: 100%;
     padding: 24px;
+    overflow-x: visible;
+    overflow-y: auto;
     color: #eef2ff;
-    background:
-        radial-gradient(circle at top left, rgba(168, 85, 247, 0.22), transparent 34%),
-        radial-gradient(circle at top right, rgba(59, 130, 246, 0.16), transparent 28%),
-        linear-gradient(180deg, #121826 0%, #0f1420 52%, #0b1018 100%);
-    overflow: auto;
-}
-
-.gl_app_desktop--glass {
     background:
         radial-gradient(circle at top left, rgba(168, 85, 247, 0.24), transparent 34%),
         radial-gradient(circle at top right, rgba(59, 130, 246, 0.18), transparent 28%),
         linear-gradient(180deg, #0f1524 0%, #0b101a 100%);
 }
 
+.gl_app_desktop--glass {
+    backdrop-filter: blur(14px);
+}
+
 .gl_app_desktop__shell {
     max-width: 1440px;
     margin: 0 auto;
+    padding-bottom: 40px;
 }
 
 .gl_app_desktop__topbar {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 24px;
-    align-items: flex-start;
+    align-items: center;
     margin-bottom: 28px;
-    padding: 22px 24px;
+    padding: 18px 20px;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 26px;
-    background: rgba(10, 14, 24, 0.52);
-    box-shadow: 0 28px 60px rgba(0, 0, 0, 0.22);
-}
-
-.gl_app_desktop--glass .gl_app_desktop__topbar {
+    border-radius: 24px;
     background: rgba(15, 22, 36, 0.42);
+    box-shadow: 0 28px 60px rgba(0, 0, 0, 0.22);
     backdrop-filter: blur(16px);
-}
-
-.gl_app_desktop__eyebrow {
-    margin-bottom: 8px;
-    color: #a78bfa;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-}
-
-.gl_app_desktop__topbar h1 {
-    margin: 0;
-    color: #f8fbff;
-    font-size: 34px;
-    font-weight: 800;
-    line-height: 1.1;
-}
-
-.gl_app_desktop__topbar p {
-    margin: 10px 0 0;
-    color: rgba(226, 232, 240, 0.8);
-    font-size: 15px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
 }
 
 .gl_app_desktop__actions {
@@ -68,6 +45,7 @@
     gap: 10px;
     justify-content: flex-end;
     align-items: center;
+    width: 100%;
 }
 
 .gl_app_desktop__actions .btn {
@@ -75,24 +53,6 @@
     border-radius: 14px;
     font-weight: 600;
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
-}
-
-.gl_app_desktop__toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    min-height: 42px;
-    padding: 0 14px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 14px;
-    background: rgba(255,255,255,0.05);
-    color: #e5edf8;
-    font-size: 14px;
-    cursor: pointer;
-}
-
-.gl_app_desktop__toggle input {
-    accent-color: #a855f7;
 }
 
 .gl_app_desktop__search {
@@ -135,20 +95,14 @@
     padding: 14px 12px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 26px;
-    background: linear-gradient(180deg, rgba(23, 31, 48, 0.96), rgba(13, 19, 31, 0.98));
+    background: linear-gradient(180deg, rgba(20, 29, 45, 0.74), rgba(11, 17, 28, 0.78));
+    backdrop-filter: blur(14px);
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
     color: #f8fafc;
     text-align: center;
     transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, background 140ms ease;
     cursor: pointer;
     user-select: none;
-    overflow: hidden;
-}
-
-.gl_app_desktop--glass .gl_folder_card,
-.gl_app_desktop--glass .gl_app_card {
-    background: linear-gradient(180deg, rgba(20, 29, 45, 0.74), rgba(11, 17, 28, 0.78));
-    backdrop-filter: blur(14px);
 }
 
 .gl_folder_card:hover,
@@ -175,6 +129,11 @@
     justify-content: flex-start;
     align-items: stretch;
     padding: 12px;
+    overflow: visible;
+}
+
+.gl_folder_card:hover {
+    z-index: 20;
 }
 
 .gl_folder_card__cover {
@@ -198,7 +157,8 @@
 }
 
 .gl_folder_card__preview_item,
-.gl_app_card__icon {
+.gl_app_card__icon,
+.gl_folder_card__orbit_item {
     width: 54px;
     height: 54px;
     display: flex;
@@ -220,12 +180,46 @@
 }
 
 .gl_folder_card__preview_item i,
-.gl_app_card__icon i {
+.gl_app_card__icon i,
+.gl_folder_card__orbit_item i {
     font-size: 18px;
 }
 
 .gl_folder_card__preview_item--empty {
     color: rgba(255,255,255,0.78);
+}
+
+.gl_folder_card__orbit {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.gl_folder_card__orbit_item {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin-left: -27px;
+    margin-top: -27px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background-color: rgba(18, 24, 37, 0.96);
+    transform: translate(0, 0) scale(0.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 180ms ease, opacity 180ms ease, box-shadow 180ms ease;
+    z-index: 5;
+}
+
+.gl_folder_card:hover .gl_folder_card__orbit_item {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(var(--gl-orbit-x), var(--gl-orbit-y)) scale(1);
+    box-shadow: 0 14px 26px rgba(0,0,0,0.34);
+}
+
+.gl_folder_card__orbit_item:hover {
+    box-shadow: 0 18px 34px rgba(0,0,0,0.44);
+    border-color: rgba(255,255,255,0.22);
 }
 
 .gl_folder_card__name,
@@ -487,17 +481,11 @@
     }
 
     .gl_app_desktop__topbar {
-        display: block;
-        padding: 18px;
-    }
-
-    .gl_app_desktop__topbar h1 {
-        font-size: 28px;
+        padding: 14px;
     }
 
     .gl_app_desktop__actions {
         justify-content: stretch;
-        margin-top: 16px;
     }
 
     .gl_app_desktop__actions > * {
@@ -527,6 +515,13 @@
 
     .gl_folder_card__preview_item {
         height: 28px;
+    }
+
+    .gl_folder_card__orbit_item {
+        width: 46px;
+        height: 46px;
+        margin-left: -23px;
+        margin-top: -23px;
     }
 
     .gl_editor_colors {
