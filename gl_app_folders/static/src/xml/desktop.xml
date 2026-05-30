@@ -9,6 +9,7 @@
                             class="gl_app_desktop__search"
                             type="search"
                             placeholder="Apps oder Ordner suchen"
+                            t-ref="searchInput"
                             t-att-value="state.search"
                             t-on-input="updateSearch"
                         />

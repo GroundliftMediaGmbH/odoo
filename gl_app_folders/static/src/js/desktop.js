@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, onWillStart, useState } from "@odoo/owl";
+import { Component, onMounted, onWillStart, onWillUnmount, useRef, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { _t } from "@web/core/l10n/translation";
 import { useService } from "@web/core/utils/hooks";
@@ -98,6 +98,8 @@ export class GlAppFoldersDesktop extends Component {
         this.orm = useService("orm");
         this.menu = useService("menu");
         this.notification = useService("notification");
+        this.searchInputRef = useRef("searchInput");
+        this.onDesktopKeydown = this.onDesktopKeydown.bind(this);
         this.state = useState({
             folders: [],
             search: "",
@@ -113,6 +115,12 @@ export class GlAppFoldersDesktop extends Component {
         });
         onWillStart(async () => {
             await this.loadData();
+        });
+        onMounted(() => {
+            document.addEventListener("keydown", this.onDesktopKeydown);
+        });
+        onWillUnmount(() => {
+            document.removeEventListener("keydown", this.onDesktopKeydown);
         });
     }
 
@@ -274,6 +282,62 @@ export class GlAppFoldersDesktop extends Component {
 
     updateSearch(ev) {
         this.state.search = ev.target.value;
+    }
+
+    isEditableKeyboardTarget(target) {
+        if (!(target instanceof Element)) {
+            return false;
+        }
+        return Boolean(target.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']"));
+    }
+
+    focusSearchInput(value) {
+        const input = this.searchInputRef.el;
+        if (!input) {
+            return;
+        }
+        input.focus();
+        input.value = value;
+        const cursorPosition = value.length;
+        if (typeof input.setSelectionRange === "function") {
+            input.setSelectionRange(cursorPosition, cursorPosition);
+        }
+    }
+
+    onDesktopKeydown(ev) {
+        if (
+            ev.defaultPrevented ||
+            ev.ctrlKey ||
+            ev.metaKey ||
+            ev.altKey ||
+            this.state.editorOpen ||
+            this.openFolder ||
+            this.isEditableKeyboardTarget(ev.target)
+        ) {
+            return;
+        }
+
+        if (ev.key && ev.key.length === 1) {
+            ev.preventDefault();
+            const value = `${this.state.search || ""}${ev.key}`;
+            this.state.search = value;
+            this.focusSearchInput(value);
+            return;
+        }
+
+        if (ev.key === "Backspace" && this.state.search) {
+            ev.preventDefault();
+            const value = String(this.state.search).slice(0, -1);
+            this.state.search = value;
+            this.focusSearchInput(value);
+            return;
+        }
+
+        if (ev.key === "Escape" && this.state.search) {
+            ev.preventDefault();
+            this.state.search = "";
+            this.focusSearchInput("");
+        }
     }
 
     updateEditorName(ev) {

@@ -74,3 +74,13 @@ Scroll-Fix:
 - „Mein Desktop“ ist jetzt eine eigene Scrollfläche innerhalb der Odoo-Client-Action.
 - Auch bei vielen Apps/Ordnern sind unten liegende Einträge erreichbar.
 - Zusätzlicher unterer Innenabstand verhindert, dass die letzte App-Reihe am Bildschirmrand klebt.
+
+
+## Version 19.0.1.2.3
+
+Tastatur-Suche:
+
+- In „Mein Desktop“ kann direkt getippt werden, ohne vorher das Suchfeld anzuklicken.
+- Der erste getippte Buchstabe wird sofort in die Suche übernommen.
+- Backspace und Escape funktionieren außerhalb von Eingabefeldern ebenfalls sinnvoll für die Suche.
+- Während Ordner- oder Bearbeiten-Dialoge geöffnet sind, werden Tastatureingaben nicht abgefangen.
