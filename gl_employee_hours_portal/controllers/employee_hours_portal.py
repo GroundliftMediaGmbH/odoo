@@ -64,7 +64,6 @@ class GlEmployeeHoursPortal(http.Controller):
         account = request.env["gl.employee.hours.account"].sudo().browse(int(account_id))
         if not account.exists() or account.state != "active":
             request.session.pop("gl_employee_hours_account_id", None)
-            request.session.modified = True
             return request.env["gl.employee.hours.account"]
         return account
 
@@ -240,7 +239,6 @@ class GlEmployeeHoursPortal(http.Controller):
             account = request.env["gl.employee.hours.account"].sudo().authenticate(email, password)
             if account:
                 request.session["gl_employee_hours_account_id"] = account.id
-                request.session.modified = True
                 return request.redirect("/mitarbeiter/stunden")
             error = "E-Mail oder Passwort ist nicht korrekt, oder der Zugang wurde noch nicht aktiviert."
 
@@ -252,7 +250,6 @@ class GlEmployeeHoursPortal(http.Controller):
     @http.route("/mitarbeiter/stunden/logout", type="http", auth="public", website=True, sitemap=False)
     def logout(self, **kw):
         request.session.pop("gl_employee_hours_account_id", None)
-        request.session.modified = True
         return request.redirect("/mitarbeiter/stunden/login")
 
     @http.route("/mitarbeiter/stunden/registrieren", type="http", auth="public", methods=["GET", "POST"], website=True, sitemap=False)
@@ -303,7 +300,6 @@ class GlEmployeeHoursPortal(http.Controller):
         try:
             account = request.env["gl.employee.hours.account"].sudo().activate_from_token(token)
             request.session["gl_employee_hours_account_id"] = account.id
-            request.session.modified = True
             return request.redirect("/mitarbeiter/stunden")
         except Exception as exc:
             return request.render("gl_employee_hours_portal.template_message", {
@@ -343,7 +339,6 @@ class GlEmployeeHoursPortal(http.Controller):
                     raise UserError("Die beiden Passwörter stimmen nicht überein.")
                 account = request.env["gl.employee.hours.account"].sudo().reset_password_from_token(token, password)
                 request.session["gl_employee_hours_account_id"] = account.id
-                request.session.modified = True
                 return request.redirect("/mitarbeiter/stunden")
             except Exception as exc:
                 error = str(exc)
