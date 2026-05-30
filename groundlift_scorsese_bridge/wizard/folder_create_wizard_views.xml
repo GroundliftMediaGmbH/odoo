@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_scorsese_folder_create_wizard_form" model="ir.ui.view">
+        <field name="name">gl.scorsese.folder.create.wizard.form</field>
+        <field name="model">gl.scorsese.folder.create.wizard</field>
+        <field name="arch" type="xml">
+            <form string="SCORSESE Ordner erstellen">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="record_name" readonly="1"/>
+                            <field name="target_model" invisible="1"/>
+                            <field name="target_res_id" invisible="1"/>
+                            <field name="storage_id"/>
+                            <field name="template_id" domain="['|', ('target_model', '=', target_model), ('target_model', '=', 'both')]"/>
+                        </group>
+                        <group>
+                            <field name="parent_path"/>
+                            <field name="cached_folder_id" domain="[('storage_id', '=', storage_id)]"/>
+                            <field name="folder_name"/>
+                        </group>
+                    </group>
+                    <separator string="Ordnerauswahl über Cache"/>
+                    <p class="text-muted">
+                        Da SCORSESE nicht öffentlich erreichbar sein muss, wird die Ordnerstruktur asynchron über den Agenten geladen. 
+                        Mit „Unterordner laden“ wird ein Browse-Auftrag angelegt. Danach kann ein Cache-Ordner ausgewählt werden.
+                    </p>
+                </sheet>
+                <footer>
+                    <button name="action_enqueue" type="object" string="Ordner erstellen" class="btn-primary"/>
+                    <button name="action_request_browse" type="object" string="Unterordner laden"/>
+                    <button name="action_open_cache" type="object" string="Ordnercache öffnen"/>
+                    <button string="Abbrechen" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

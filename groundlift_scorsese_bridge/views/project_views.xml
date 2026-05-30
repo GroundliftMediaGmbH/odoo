@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_project_form_scorsese_bridge" model="ir.ui.view">
+        <field name="name">project.project.form.scorsese.bridge</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_gl_create_project_folder_wizard" type="object" string="SCORSESE Ordner erstellen" class="btn-primary" invisible="gl_folder_path" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
+                <button name="action_gl_state_in_progress" type="object" string="In Bearbeitung" invisible="not gl_folder_path" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
+                <button name="action_gl_state_done" type="object" string="Fertig" invisible="not gl_folder_path" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
+                <button name="action_gl_state_archive_all" type="object" string="Archivieren inkl Rohmaterial" invisible="not gl_folder_path" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
+                <button name="action_gl_state_archive_mp4" type="object" string="Archivieren Raw → MP4" invisible="not gl_folder_path" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
+                <button name="action_gl_state_archive_master" type="object" string="Archivieren Mixdown/Master behalten" invisible="not gl_folder_path" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
+                <button name="action_gl_state_delete" type="object" string="Löschen" invisible="not gl_folder_path" confirm="Dieser Button markiert den Ordner über das Windows-Icon. Er löscht keine Dateien. Fortfahren?" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
+            </xpath>
+            <xpath expr="//sheet" position="inside">
+                <group string="SCORSESE" groups="groundlift_scorsese_bridge.group_scorsese_user">
+                    <group>
+                        <field name="gl_folder_pending" readonly="1"/>
+                        <field name="gl_folder_status" readonly="1"/>
+                        <field name="gl_folder_state" readonly="1"/>
+                    </group>
+                    <group>
+                        <field name="gl_folder_path" readonly="1"/>
+                        <button name="action_gl_open_jobs" type="object" string="SCORSESE Aufträge öffnen" class="oe_link"/>
+                    </group>
+                </group>
+                <notebook groups="groundlift_scorsese_bridge.group_scorsese_user">
+                    <page string="GROUNDLIFT ToDos">
+                        <field name="gl_todo_ids" context="{'default_gl_project_record_id': id}">
+                            <list editable="bottom">
+                                <field name="name" string="ToDo"/>
+                                <field name="date_deadline" string="Frist"/>
+                                <field name="user_ids" widget="many2many_tags" string="Bearbeiter"/>
+                                <field name="stage_id" string="Status"/>
+                            </list>
+                            <form>
+                                <sheet>
+                                    <group>
+                                        <field name="name"/>
+                                        <field name="gl_project_record_id"/>
+                                        <field name="date_deadline"/>
+                                        <field name="user_ids" widget="many2many_tags"/>
+                                        <field name="stage_id"/>
+                                    </group>
+                                    <field name="description"/>
+                                </sheet>
+                            </form>
+                        </field>
+                    </page>
+                </notebook>
+            </xpath>
+        </field>
+    </record>
+</odoo>

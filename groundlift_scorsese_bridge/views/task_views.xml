@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_task_form2_scorsese_bridge" model="ir.ui.view">
+        <field name="name">project.task.form.scorsese.bridge</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project.view_task_form2"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="GROUNDLIFT Bezug" groups="groundlift_scorsese_bridge.group_scorsese_user">
+                    <field name="gl_origin_type" readonly="1"/>
+                    <field name="gl_origin_name" readonly="1"/>
+                    <field name="gl_event_id"/>
+                    <field name="gl_project_record_id"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_task_list_scorsese_bridge" model="ir.ui.view">
+        <field name="name">project.task.list.scorsese.bridge</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project.view_task_tree2"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="gl_origin_type" optional="show"/>
+                <field name="gl_origin_name" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
