@@ -106,6 +106,11 @@ export class GlAppFoldersDesktop extends Component {
             .filter(Boolean);
     }
 
+
+    folderPreviewApps(folder) {
+        return this.folderApps(folder).slice(0, 4);
+    }
+
     folderPreviewText(folder) {
         const apps = this.folderApps(folder).slice(0, 4).map((app) => app.name);
         if (!apps.length) {

@@ -2,72 +2,86 @@
 <templates xml:space="preserve">
     <t t-name="gl_app_folders.Desktop">
         <div class="gl_app_desktop o_action">
-            <div class="gl_app_desktop__topbar">
-                <div>
-                    <h1>Mein Odoo Desktop</h1>
-                    <p>Apps per Drag &amp; Drop in persönliche Ordner legen.</p>
+            <div class="gl_app_desktop__shell">
+                <div class="gl_app_desktop__topbar">
+                    <div class="gl_app_desktop__headline">
+                        <div class="gl_app_desktop__eyebrow">GROUNDLIFT DESKTOP</div>
+                        <h1>Mein Odoo Desktop</h1>
+                        <p>Apps per Drag &amp; Drop in persönliche Ordner legen – wie auf einem Launcher.</p>
+                    </div>
+                    <div class="gl_app_desktop__actions">
+                        <input
+                            class="gl_app_desktop__search"
+                            type="search"
+                            placeholder="Apps oder Ordner suchen"
+                            t-att-value="state.search"
+                            t-on-input="updateSearch"
+                        />
+                        <button type="button" class="btn btn-primary" t-on-click="createFolder">
+                            <i class="fa fa-folder-plus me-1"/> Neuer Ordner
+                        </button>
+                        <button type="button" class="btn btn-secondary" t-on-click="setAsHome">
+                            Als Startseite setzen
+                        </button>
+                    </div>
                 </div>
-                <div class="gl_app_desktop__actions">
-                    <input
-                        class="gl_app_desktop__search"
-                        type="search"
-                        placeholder="Apps oder Ordner suchen"
-                        t-att-value="state.search"
-                        t-on-input="updateSearch"
-                    />
-                    <button type="button" class="btn btn-primary" t-on-click="createFolder">
-                        <i class="fa fa-folder-plus me-1"/> Neuer Ordner
-                    </button>
-                    <button type="button" class="btn btn-secondary" t-on-click="setAsHome">
-                        Als Startseite setzen
-                    </button>
+
+                <div class="gl_app_desktop__grid">
+                    <t t-foreach="visibleFolders" t-as="folder" t-key="folder.id">
+                        <button
+                            type="button"
+                            class="gl_folder_card"
+                            t-att-style="folderStyle(folder)"
+                            t-att-title="folderPreviewText(folder)"
+                            t-on-click="() => this.openFolderModal(folder)"
+                            t-on-dragover="allowDrop"
+                            t-on-drop="(ev) => this.dropOnFolder(ev, folder)"
+                        >
+                            <span class="gl_folder_card__glow"/>
+                            <div class="gl_folder_card__topline">
+                                <span class="gl_folder_card__badge" t-esc="folder.icon || '📁'"/>
+                                <span class="gl_folder_card__count"><t t-esc="folder.app_menu_ids.length"/> Apps</span>
+                            </div>
+                            <div class="gl_folder_card__preview">
+                                <t t-foreach="folderPreviewApps(folder)" t-as="app" t-key="app.id">
+                                    <span class="gl_folder_card__preview_item" t-att-style="appIconStyle(app)">
+                                        <i t-if="!hasAppIconImage(app)" t-att-class="appIconClass(app)"/>
+                                    </span>
+                                </t>
+                                <span t-if="!folderPreviewApps(folder).length" class="gl_folder_card__preview_item gl_folder_card__preview_item--empty">
+                                    <i class="fa fa-plus"/>
+                                </span>
+                            </div>
+                            <span class="gl_folder_card__name" t-esc="folder.name"/>
+                            <span class="gl_folder_card__hint">Hier App ablegen</span>
+                        </button>
+                    </t>
+
+                    <t t-foreach="rootApps" t-as="app" t-key="app.id">
+                        <button
+                            type="button"
+                            class="gl_app_card"
+                            draggable="true"
+                            t-att-title="app.name"
+                            t-on-click="() => this.openApp(app)"
+                            t-on-dragstart="(ev) => this.dragStartApp(ev, app)"
+                            t-on-dragend="dragEndApp"
+                            t-on-dragover="allowDrop"
+                            t-on-drop="(ev) => this.dropOnApp(ev, app)"
+                        >
+                            <span class="gl_app_card__icon" t-att-style="appIconStyle(app)">
+                                <i t-if="!hasAppIconImage(app)" t-att-class="appIconClass(app)"/>
+                            </span>
+                            <span class="gl_app_card__name" t-esc="app.name"/>
+                        </button>
+                    </t>
                 </div>
-            </div>
 
-            <div class="gl_app_desktop__grid">
-                <t t-foreach="visibleFolders" t-as="folder" t-key="folder.id">
-                    <button
-                        type="button"
-                        class="gl_folder_card"
-                        t-att-style="folderStyle(folder)"
-                        t-att-title="folderPreviewText(folder)"
-                        t-on-click="() => this.openFolderModal(folder)"
-                        t-on-dragover="allowDrop"
-                        t-on-drop="(ev) => this.dropOnFolder(ev, folder)"
-                    >
-                        <span class="gl_folder_card__icon" t-esc="folder.icon || '📁'"/>
-                        <span class="gl_folder_card__name" t-esc="folder.name"/>
-                        <span class="gl_folder_card__count">
-                            <t t-esc="folder.app_menu_ids.length"/> Apps
-                        </span>
-                        <span class="gl_folder_card__hint">Hier App ablegen</span>
-                    </button>
-                </t>
-
-                <t t-foreach="rootApps" t-as="app" t-key="app.id">
-                    <button
-                        type="button"
-                        class="gl_app_card"
-                        draggable="true"
-                        t-att-title="app.name"
-                        t-on-click="() => this.openApp(app)"
-                        t-on-dragstart="(ev) => this.dragStartApp(ev, app)"
-                        t-on-dragend="dragEndApp"
-                        t-on-dragover="allowDrop"
-                        t-on-drop="(ev) => this.dropOnApp(ev, app)"
-                    >
-                        <span class="gl_app_card__icon" t-att-style="appIconStyle(app)">
-                            <i t-if="!hasAppIconImage(app)" t-att-class="appIconClass(app)"/>
-                        </span>
-                        <span class="gl_app_card__name" t-esc="app.name"/>
-                    </button>
-                </t>
-            </div>
-
-            <div t-if="!hasDesktopItems()" class="gl_app_desktop__empty">
-                <div class="gl_app_desktop__empty_icon">📁</div>
-                <h2>Noch keine Treffer</h2>
-                <p>Lege einen Ordner an oder lösche den Suchbegriff.</p>
+                <div t-if="!hasDesktopItems()" class="gl_app_desktop__empty">
+                    <div class="gl_app_desktop__empty_icon">📁</div>
+                    <h2>Noch keine Treffer</h2>
+                    <p>Lege einen Ordner an oder lösche den Suchbegriff.</p>
+                </div>
             </div>
 
             <t t-if="openFolder">
