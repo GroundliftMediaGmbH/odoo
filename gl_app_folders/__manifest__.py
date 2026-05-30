@@ -13,7 +13,7 @@ Funktionen:
 - Ordner öffnen, bearbeiten, löschen und Apps wieder entfernen
 - Button zum Setzen dieses Desktops als persönliche Startseite
     """,
-    "version": "19.0.1.3.0",
+    "version": "19.0.1.2.1",
     "category": "Productivity",
     "author": "Groundlift / ChatGPT",
     "website": "https://www.groundlift.de",
@@ -27,7 +27,6 @@ Funktionen:
     ],
     "assets": {
         "web.assets_backend": [
-            "gl_app_folders/static/src/js/home_redirect.js",
             "gl_app_folders/static/src/js/desktop.js",
             "gl_app_folders/static/src/xml/desktop.xml",
             "gl_app_folders/static/src/css/desktop.css",

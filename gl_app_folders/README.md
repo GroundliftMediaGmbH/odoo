@@ -57,9 +57,11 @@ Damit wird der globale Backend-Asset-Build nicht mehr durch den Style des Moduls
 - Scrollbarer Desktop bei vielen Apps/Ordnern
 
 
-## Fixes in 19.0.1.3.0
+## Version 19.0.1.2.1
 
-- Vorschau-Slots zeigen keinen Platzhalter mehr hinter echten App-Icons
-- Leere/ikonlose Apps zeigen weiterhin einen klaren Platzhalter
-- Kreisförmige Hover-Apps zeigen nun jeweils den App-Namen darunter
-- Klick auf den linken oberen Odoo-Home-/Platzhalter-Button führt aus Apps zum Mein Desktop und aus Mein Desktop zurück zur Standard-Odoo-Ansicht
+Präzisionsfixes:
+
+- App-Icons mit vorhandenem Bild werden ohne zusätzliche Platzhalterfläche angezeigt.
+- Apps ohne eigenes Icon behalten die Platzhalterfläche.
+- Der linke obere Odoo-Home-/App-Button öffnet aus normalen Apps heraus den persönlichen „Mein Desktop“. Befindet man sich bereits in „Mein Desktop“, bleibt Odoos Standardverhalten erhalten.
+- Hover-Orbit-Apps zeigen unterhalb des Icons den Appnamen in kleiner Schrift.

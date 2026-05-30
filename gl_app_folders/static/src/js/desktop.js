@@ -15,6 +15,82 @@ const COLOR_PRESETS = [
     "#EF4444", "#EC4899", "#64748B", "#334155",
 ];
 
+const DESKTOP_APP_XMLID = "gl_app_folders.menu_gl_app_folders_desktop";
+const TOP_LEFT_HOME_SELECTORS = [
+    ".o_main_navbar .o_navbar_apps_menu",
+    ".o_main_navbar .o_menu_toggle",
+    ".o_main_navbar .o_app_menu_toggle",
+    ".o_main_navbar [title='Platzhalter']",
+    ".o_main_navbar [aria-label='Platzhalter']",
+    ".o_main_navbar [data-tooltip='Platzhalter']",
+    "[title='Platzhalter']",
+    "[aria-label='Platzhalter']",
+].join(", ");
+
+function findDesktopApp(menuService) {
+    const apps = typeof menuService.getApps === "function" ? menuService.getApps() : [];
+    return apps.find((app) => app.xmlid === DESKTOP_APP_XMLID || app.name === "Mein Desktop") || null;
+}
+
+function getTopLeftHomeTarget(target) {
+    if (!(target instanceof Element)) {
+        return null;
+    }
+    const element = target.closest(TOP_LEFT_HOME_SELECTORS);
+    if (!element) {
+        return null;
+    }
+    const rect = element.getBoundingClientRect();
+    // Sicherheitsbegrenzung: Nur der echte linke obere Odoo-Home-/App-Button wird umgeleitet.
+    if (rect.top > 88 || rect.left > 160) {
+        return null;
+    }
+    return element;
+}
+
+registry.category("services").add("gl_app_folders.top_left_home_redirect", {
+    dependencies: ["menu"],
+    start(env, { menu }) {
+        const onClick = async (ev) => {
+            const target = getTopLeftHomeTarget(ev.target);
+            if (!target) {
+                return;
+            }
+
+            // In "Mein Desktop" selbst soll Odoo den Klick normal behandeln,
+            // damit man zurück in die Standard-Odoo-App-Übersicht kommt.
+            if (document.querySelector(".gl_app_desktop")) {
+                return;
+            }
+
+            const desktopApp = findDesktopApp(menu);
+            if (!desktopApp) {
+                return;
+            }
+
+            ev.preventDefault();
+            ev.stopPropagation();
+            if (typeof ev.stopImmediatePropagation === "function") {
+                ev.stopImmediatePropagation();
+            }
+
+            try {
+                await menu.selectMenu(desktopApp);
+            } catch (error) {
+                console.error("Groundlift Desktop konnte nicht geöffnet werden.", error);
+            }
+        };
+
+        document.addEventListener("click", onClick, true);
+        return {
+            stop() {
+                document.removeEventListener("click", onClick, true);
+            },
+        };
+    },
+});
+
+
 export class GlAppFoldersDesktop extends Component {
     static template = "gl_app_folders.Desktop";
 
@@ -131,40 +207,8 @@ export class GlAppFoldersDesktop extends Component {
         return this.folderApps(folder).slice(0, 8);
     }
 
-    folderPreviewSlots(folder) {
-        const apps = this.folderApps(folder).slice(0, 4);
-        const slots = [];
-        for (let i = 0; i < 4; i++) {
-            slots.push(apps[i] || null);
-        }
-        return slots;
-    }
-
-    appHasDedicatedIcon(app) {
-        if (!app) {
-            return false;
-        }
-        return Boolean(app.webIconData || app.webIcon);
-    }
-
-    orbitAppHasIcon(app) {
-        return this.appHasDedicatedIcon(app);
-    }
-
-    previewItemClass(app) {
-        if (!app) {
-            return "gl_folder_card__preview_item gl_folder_card__preview_item--empty";
-        }
-        return this.appHasDedicatedIcon(app)
-            ? "gl_folder_card__preview_item gl_folder_card__preview_item--icon"
-            : "gl_folder_card__preview_item gl_folder_card__preview_item--empty";
-    }
-
-    previewItemStyle(app) {
-        if (!app || !this.appHasDedicatedIcon(app)) {
-            return "";
-        }
-        return this.appIconStyle(app);
+    folderPreviewApps(folder) {
+        return this.folderApps(folder).slice(0, 4);
     }
 
     folderPreviewText(folder) {
@@ -207,6 +251,11 @@ export class GlAppFoldersDesktop extends Component {
 
     hasAppIconImage(app) {
         return Boolean(app.webIconData);
+    }
+
+    appIconContainerClass(baseClass, app) {
+        const suffix = this.hasAppIconImage(app) ? "image" : "placeholder";
+        return `${baseClass} ${baseClass}--${suffix}`;
     }
 
     parseWebIcon(app) {

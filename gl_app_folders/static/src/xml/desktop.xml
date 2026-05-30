@@ -36,10 +36,16 @@
                         >
                             <div class="gl_folder_card__cover">
                                 <div class="gl_folder_card__preview">
-                                    <t t-foreach="folderPreviewSlots(folder)" t-as="app" t-key="app ? app.id : 'empty_' + app_index">
-                                        <span t-att-class="previewItemClass(app)" t-att-style="previewItemStyle(app)">
-                                            <i t-if="app and appHasDedicatedIcon(app) and !hasAppIconImage(app)" t-att-class="appIconClass(app)"/>
+                                    <t t-foreach="folderPreviewApps(folder)" t-as="app" t-key="app.id">
+                                        <span t-att-class="appIconContainerClass('gl_folder_card__preview_item', app)" t-att-style="appIconStyle(app)">
+                                            <i t-if="!hasAppIconImage(app)" t-att-class="appIconClass(app)"/>
                                         </span>
+                                    </t>
+                                    <t t-if="!folderPreviewApps(folder).length">
+                                        <span class="gl_folder_card__preview_item gl_folder_card__preview_item--empty"><i class="fa fa-plus"/></span>
+                                        <span class="gl_folder_card__preview_item gl_folder_card__preview_item--empty"><i class="fa fa-plus"/></span>
+                                        <span class="gl_folder_card__preview_item gl_folder_card__preview_item--empty"><i class="fa fa-plus"/></span>
+                                        <span class="gl_folder_card__preview_item gl_folder_card__preview_item--empty"><i class="fa fa-plus"/></span>
                                     </t>
                                 </div>
                             </div>
@@ -47,14 +53,12 @@
                                 <t t-foreach="orbitApps(folder)" t-as="app" t-key="app.id">
                                     <button
                                         type="button"
-                                        class="gl_folder_card__orbit_item"
+                                        t-att-class="appIconContainerClass('gl_folder_card__orbit_item', app)"
                                         t-att-title="app.name"
                                         t-att-style="orbitItemStyle(app, app_index, orbitApps(folder).length)"
                                         t-on-click="(ev) => this.openOrbitApp(ev, app)"
                                     >
-                                        <span t-att-class="orbitAppHasIcon(app) ? 'gl_folder_card__orbit_icon gl_folder_card__orbit_icon--icon' : 'gl_folder_card__orbit_icon gl_folder_card__orbit_icon--empty'" t-att-style="orbitAppHasIcon(app) ? appIconStyle(app) : ''">
-                                            <i t-if="orbitAppHasIcon(app) and !hasAppIconImage(app)" t-att-class="appIconClass(app)"/>
-                                        </span>
+                                        <i t-if="!hasAppIconImage(app)" t-att-class="appIconClass(app)"/>
                                         <span class="gl_folder_card__orbit_label" t-esc="app.name"/>
                                     </button>
                                 </t>
@@ -75,7 +79,7 @@
                             t-on-dragover="allowDrop"
                             t-on-drop="(ev) => this.dropOnApp(ev, app)"
                         >
-                            <span class="gl_app_card__icon" t-att-style="appIconStyle(app)">
+                            <span t-att-class="appIconContainerClass('gl_app_card__icon', app)" t-att-style="appIconStyle(app)">
                                 <i t-if="!hasAppIconImage(app)" t-att-class="appIconClass(app)"/>
                             </span>
                             <span class="gl_app_card__name" t-esc="app.name"/>
@@ -127,7 +131,7 @@
                                     t-on-dragstart="(ev) => this.dragStartApp(ev, app)"
                                     t-on-dragend="dragEndApp"
                                 >
-                                    <span class="gl_app_card__icon" t-att-style="appIconStyle(app)">
+                                    <span t-att-class="appIconContainerClass('gl_app_card__icon', app)" t-att-style="appIconStyle(app)">
                                         <i t-if="!hasAppIconImage(app)" t-att-class="appIconClass(app)"/>
                                     </span>
                                     <span class="gl_app_card__name" t-esc="app.name"/>
