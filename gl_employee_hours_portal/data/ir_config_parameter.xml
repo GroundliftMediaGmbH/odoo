@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="param_gl_employee_hours_portal_timezone" model="ir.config_parameter">
+        <field name="key">gl_employee_hours_portal.timezone</field>
+        <field name="value">Europe/Berlin</field>
+    </record>
+</odoo>
