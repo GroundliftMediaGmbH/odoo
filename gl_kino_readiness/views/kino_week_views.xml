@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_kino_week_list" model="ir.ui.view">
+        <field name="name">gl.kino.week.list</field>
+        <field name="model">gl.kino.week</field>
+        <field name="arch" type="xml">
+            <list string="Kino Spielwochen" decoration-success="state == 'ready'" decoration-danger="state == 'not_ready'" decoration-muted="state == 'empty'">
+                <field name="target_week_hint" string="Aktuelle Prüfwoche"/>
+                <field name="name"/>
+                <field name="week_start"/>
+                <field name="week_end"/>
+                <field name="state"/>
+                <field name="show_count" string="Vorstellungen"/>
+                <field name="missing_kdm_count" string="KDM fehlen"/>
+                <field name="missing_dcp_count" string="DCP fehlen"/>
+                <field name="last_load_at"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_kino_week_form" model="ir.ui.view">
+        <field name="name">gl.kino.week.form</field>
+        <field name="model">gl.kino.week</field>
+        <field name="arch" type="xml">
+            <form string="Kino Spielwoche">
+                <header>
+                    <button name="action_load_current_program" type="object" string="Aktuelles Kinoprogramm laden" class="oe_highlight"/>
+                    <button name="action_send_missing_kdm" type="object" string="Fehlende KDM an Dispo" invisible="missing_kdm_count == 0"/>
+                    <button name="action_send_missing_dcp" type="object" string="Fehlende DCP an Dispo" invisible="missing_dcp_count == 0"/>
+                    <button name="action_notify_tuesday_user" type="object" string="Dienstag-Erinnerung testen" groups="base.group_system"/>
+                    <button name="action_notify_wednesday_users" type="object" string="Mittwoch-Eskalation testen" groups="base.group_system"/>
+                    <button name="action_open_settings" type="object" string="Einstellungen" groups="base.group_system"/>
+                    <field name="state" widget="statusbar" statusbar_visible="empty,not_ready,ready"/>
+                </header>
+                <sheet>
+                    <div class="alert alert-success" role="alert" invisible="state != 'ready'">
+                        <strong>KINO SPIELBEREIT.</strong> Für diese Spielwoche sind alle KDMs und DCPs abgehakt.
+                    </div>
+                    <div class="alert alert-danger" role="alert" invisible="state != 'not_ready'">
+                        <strong>KINO NOCH NICHT SPIELBEREIT.</strong> Es fehlen noch KDMs und/oder DCPs.
+                    </div>
+                    <div class="alert alert-warning" role="alert" invisible="state != 'empty'">
+                        <strong>Noch kein Programm geladen.</strong> Bitte das aktuelle Kinoprogramm laden.
+                    </div>
+                    <div class="oe_button_box" name="button_box">
+                        <button class="oe_stat_button" type="object" name="action_load_current_program" icon="fa-refresh">
+                            <field name="show_count" widget="statinfo" string="Vorstellungen"/>
+                        </button>
+                        <button class="oe_stat_button" type="object" name="action_send_missing_kdm" icon="fa-key" invisible="missing_kdm_count == 0">
+                            <field name="missing_kdm_count" widget="statinfo" string="KDM fehlen"/>
+                        </button>
+                        <button class="oe_stat_button" type="object" name="action_send_missing_dcp" icon="fa-film" invisible="missing_dcp_count == 0">
+                            <field name="missing_dcp_count" widget="statinfo" string="DCP fehlen"/>
+                        </button>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="name" readonly="1"/>
+                            <field name="week_start"/>
+                            <field name="week_end" readonly="1"/>
+                            <field name="target_week_hint" string="Aktuelle operative Prüfwoche" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="last_load_at" readonly="1"/>
+                            <field name="last_reminder_tuesday_at" readonly="1"/>
+                            <field name="last_reminder_wednesday_at" readonly="1"/>
+                            <field name="is_ready" readonly="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Programm und DCP/KDM">
+                            <field name="active_line_ids" nolabel="1" context="{'default_week_id': id}">
+                                <list editable="bottom" create="false" delete="false" decoration-success="row_ready" decoration-danger="not row_ready">
+                                    <field name="show_datetime"/>
+                                    <field name="cinema"/>
+                                    <field name="display_film_name" string="Film" readonly="1"/>
+                                    <field name="film_title" optional="hide"/>
+                                    <field name="version"/>
+                                    <field name="kdm_ready"/>
+                                    <field name="dcp_ready"/>
+                                    <field name="row_ready" string="OK" readonly="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Fehlende Dateien">
+                            <field name="missing_summary" nolabel="1" readonly="1"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_gl_kino_week_search" model="ir.ui.view">
+        <field name="name">gl.kino.week.search</field>
+        <field name="model">gl.kino.week</field>
+        <field name="arch" type="xml">
+            <search string="Kino Spielwochen">
+                <field name="name"/>
+                <field name="week_start"/>
+                <filter name="target_week" string="Aktuelle Prüfwoche" domain="[('target_week_hint', '=', True)]"/>
+                <filter name="not_ready" string="Nicht spielbereit" domain="[('state', '=', 'not_ready')]"/>
+                <filter name="ready" string="Spielbereit" domain="[('state', '=', 'ready')]"/>
+                <filter name="empty" string="Ohne Programm" domain="[('state', '=', 'empty')]"/>
+                <group expand="0" string="Gruppieren">
+                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
+                    <filter name="group_week_start" string="Spielwochenstart" context="{'group_by': 'week_start'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_gl_kino_show_list" model="ir.ui.view">
+        <field name="name">gl.kino.show.list</field>
+        <field name="model">gl.kino.show</field>
+        <field name="arch" type="xml">
+            <list string="Kino Vorstellungen" create="false" delete="false" decoration-success="row_ready" decoration-danger="not row_ready">
+                <field name="week_id"/>
+                <field name="show_datetime"/>
+                <field name="cinema"/>
+                <field name="display_film_name" string="Film" readonly="1"/>
+                <field name="version"/>
+                <field name="kdm_ready"/>
+                <field name="dcp_ready"/>
+                <field name="row_ready" readonly="1"/>
+                <field name="active" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_kino_show_search" model="ir.ui.view">
+        <field name="name">gl.kino.show.search</field>
+        <field name="model">gl.kino.show</field>
+        <field name="arch" type="xml">
+            <search string="Vorstellungen">
+                <field name="film_title"/>
+                <field name="display_film_name"/>
+                <field name="cinema"/>
+                <field name="week_id"/>
+                <filter name="missing_kdm" string="KDM fehlt" domain="[('kdm_ready', '=', False)]"/>
+                <filter name="missing_dcp" string="DCP fehlt" domain="[('dcp_ready', '=', False)]"/>
+                <filter name="ready" string="Fertig" domain="[('row_ready', '=', True)]"/>
+                <separator/>
+                <filter name="archived" string="Archiviert" domain="[('active', '=', False)]"/>
+                <group expand="0" string="Gruppieren">
+                    <filter name="group_week" string="Spielwoche" context="{'group_by': 'week_id'}"/>
+                    <filter name="group_cinema" string="Kino" context="{'group_by': 'cinema'}"/>
+                    <filter name="group_film" string="Film" context="{'group_by': 'display_film_name'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_gl_kino_week" model="ir.actions.act_window">
+        <field name="name">Kino Spielbereitschaft</field>
+        <field name="res_model">gl.kino.week</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_gl_kino_week_search"/>
+        <field name="context">{'search_default_target_week': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Noch keine Kino-Spielwoche vorhanden.</p>
+            <p>Klicke auf „Aktuelles Programm laden“, um das Cinetixx-Programm zu importieren.</p>
+        </field>
+    </record>
+
+    <record id="action_gl_kino_show" model="ir.actions.act_window">
+        <field name="name">Alle Vorstellungen</field>
+        <field name="res_model">gl.kino.show</field>
+        <field name="view_mode">list</field>
+        <field name="search_view_id" ref="view_gl_kino_show_search"/>
+    </record>
+
+    <record id="action_server_gl_kino_load_program" model="ir.actions.server">
+        <field name="name">Aktuelles Kinoprogramm laden</field>
+        <field name="model_id" ref="model_gl_kino_week"/>
+        <field name="state">code</field>
+        <field name="code">model.action_load_current_program_global()</field>
+    </record>
+</odoo>

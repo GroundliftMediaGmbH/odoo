@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_kino_config_settings_form" model="ir.ui.view">
+        <field name="name">gl.kino.config.settings.form</field>
+        <field name="model">res.config.settings</field>
+        <field name="arch" type="xml">
+            <form string="Kino Einstellungen">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>Kino Spielbereitschaft – Einstellungen</h1>
+                    </div>
+                    <group string="Import">
+                        <field name="gl_kino_cinetixx_api_url" placeholder="https://api.cinetixx.de/..."/>
+                    </group>
+                    <group string="Fehlende DCP/KDM">
+                        <field name="gl_kino_dispo_email" placeholder="dispo@neokinos.de"/>
+                    </group>
+                    <group string="Automatische Erinnerungen">
+                        <field name="gl_kino_tuesday_user_id"/>
+                        <field name="gl_kino_wednesday_user_ids" widget="many2many_tags"/>
+                        <div class="text-muted" colspan="2">
+                            Der Scheduler läuft alle 15 Minuten und führt die Aufgaben nur einmal im Berliner Zeitfenster aus:
+                            Montag 17:00 Programm laden, Dienstag 18:00 erste Erinnerung, Mittwoch 12:00 Eskalation.
+                        </div>
+                    </group>
+                </sheet>
+                <footer>
+                    <button string="Speichern" type="object" name="execute" class="btn-primary"/>
+                    <button string="Abbrechen" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_kino_config_settings" model="ir.actions.act_window">
+        <field name="name">Kino Einstellungen</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_gl_kino_config_settings_form"/>
+        <field name="target">new</field>
+    </record>
+</odoo>
