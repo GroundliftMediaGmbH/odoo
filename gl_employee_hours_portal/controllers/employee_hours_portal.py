@@ -41,7 +41,16 @@ class GlEmployeeHoursPortal(http.Controller):
 
     def _timezone(self):
         param = request.env["ir.config_parameter"].sudo().get_param("gl_employee_hours_portal.timezone")
-        company_tz = request.env.company.partner_id.tz if request.env.company.partner_id else False
+
+        # Public website routes run as the Odoo public user. In some databases the
+        # public user is not allowed to read res.partner. Accessing
+        # request.env.company.partner_id.tz without sudo can therefore produce a
+        # 403 on the employee hours page although the employee portal session is
+        # valid. The company timezone is configuration data, so sudo is safe here.
+        company = request.env.company.sudo()
+        company_partner = company.partner_id.sudo() if company.partner_id else False
+        company_tz = company_partner.tz if company_partner else False
+
         tz_name = param or company_tz or "Europe/Berlin"
         try:
             return pytz.timezone(tz_name)
