@@ -6,17 +6,17 @@
         <field name="inherit_id" ref="event.view_event_form"/>
         <field name="arch" type="xml">
             <xpath expr="//header" position="inside">
-                <button name="action_gl_create_event_folder" type="object" string="SCORSESE Ordner" class="btn-primary" invisible="gl_folder_path" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
-                <button name="action_gl_create_event_folder_wizard" type="object" string="SCORSESE Ordner auswählen" invisible="gl_folder_path" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
-                <button name="action_gl_state_in_progress" type="object" string="In Bearbeitung" invisible="not gl_folder_path" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
-                <button name="action_gl_state_done" type="object" string="Fertig" invisible="not gl_folder_path" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
-                <button name="action_gl_state_archive_all" type="object" string="Archivieren inkl Rohmaterial" invisible="not gl_folder_path" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
-                <button name="action_gl_state_archive_mp4" type="object" string="Archivieren Raw → MP4" invisible="not gl_folder_path" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
-                <button name="action_gl_state_archive_master" type="object" string="Archivieren Mixdown/Master behalten" invisible="not gl_folder_path" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
-                <button name="action_gl_state_delete" type="object" string="Löschen" invisible="not gl_folder_path" confirm="Dieser Button markiert den Ordner über das Windows-Icon. Er löscht keine Dateien. Fortfahren?" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
+                <button name="action_gl_create_event_folder" type="object" string="SCORSESE Ordner" class="btn-primary" invisible="gl_folder_path"/>
+                <button name="action_gl_create_event_folder_wizard" type="object" string="SCORSESE Ordner auswählen" invisible="gl_folder_path"/>
+                <button name="action_gl_state_in_progress" type="object" string="In Bearbeitung" invisible="not gl_folder_path"/>
+                <button name="action_gl_state_done" type="object" string="Fertig" invisible="not gl_folder_path"/>
+                <button name="action_gl_state_archive_all" type="object" string="Archivieren inkl Rohmaterial" invisible="not gl_folder_path"/>
+                <button name="action_gl_state_archive_mp4" type="object" string="Archivieren Raw → MP4" invisible="not gl_folder_path"/>
+                <button name="action_gl_state_archive_master" type="object" string="Archivieren Mixdown/Master behalten" invisible="not gl_folder_path"/>
+                <button name="action_gl_state_delete" type="object" string="Löschen" invisible="not gl_folder_path" confirm="Dieser Button markiert den Ordner über das Windows-Icon. Er löscht keine Dateien. Fortfahren?"/>
             </xpath>
             <xpath expr="//sheet" position="inside">
-                <group string="SCORSESE" groups="groundlift_scorsese_bridge.group_scorsese_user">
+                <group string="SCORSESE">
                     <group>
                         <field name="gl_folder_status" readonly="1"/>
                         <field name="gl_folder_state" readonly="1"/>
@@ -26,7 +26,7 @@
                         <button name="action_gl_open_jobs" type="object" string="SCORSESE Aufträge öffnen" class="oe_link"/>
                     </group>
                 </group>
-                <notebook groups="groundlift_scorsese_bridge.group_scorsese_user">
+                <notebook>
                     <page string="GROUNDLIFT ToDos">
                         <field name="gl_todo_ids" context="{'default_gl_event_id': id}">
                             <list editable="bottom">
