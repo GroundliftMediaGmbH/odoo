@@ -131,8 +131,40 @@ export class GlAppFoldersDesktop extends Component {
         return this.folderApps(folder).slice(0, 8);
     }
 
-    folderPreviewApps(folder) {
-        return this.folderApps(folder).slice(0, 4);
+    folderPreviewSlots(folder) {
+        const apps = this.folderApps(folder).slice(0, 4);
+        const slots = [];
+        for (let i = 0; i < 4; i++) {
+            slots.push(apps[i] || null);
+        }
+        return slots;
+    }
+
+    appHasDedicatedIcon(app) {
+        if (!app) {
+            return false;
+        }
+        return Boolean(app.webIconData || app.webIcon);
+    }
+
+    orbitAppHasIcon(app) {
+        return this.appHasDedicatedIcon(app);
+    }
+
+    previewItemClass(app) {
+        if (!app) {
+            return "gl_folder_card__preview_item gl_folder_card__preview_item--empty";
+        }
+        return this.appHasDedicatedIcon(app)
+            ? "gl_folder_card__preview_item gl_folder_card__preview_item--icon"
+            : "gl_folder_card__preview_item gl_folder_card__preview_item--empty";
+    }
+
+    previewItemStyle(app) {
+        if (!app || !this.appHasDedicatedIcon(app)) {
+            return "";
+        }
+        return this.appIconStyle(app);
     }
 
     folderPreviewText(folder) {

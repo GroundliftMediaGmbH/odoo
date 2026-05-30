@@ -55,3 +55,11 @@ Damit wird der globale Backend-Asset-Build nicht mehr durch den Style des Moduls
 - Glas-Look ist jetzt standardmäßig aktiv, ohne Umschalter
 - Desktop-Überschrift entfernt
 - Scrollbarer Desktop bei vielen Apps/Ordnern
+
+
+## Fixes in 19.0.1.3.0
+
+- Vorschau-Slots zeigen keinen Platzhalter mehr hinter echten App-Icons
+- Leere/ikonlose Apps zeigen weiterhin einen klaren Platzhalter
+- Kreisförmige Hover-Apps zeigen nun jeweils den App-Namen darunter
+- Klick auf den linken oberen Odoo-Home-/Platzhalter-Button führt aus Apps zum Mein Desktop und aus Mein Desktop zurück zur Standard-Odoo-Ansicht
