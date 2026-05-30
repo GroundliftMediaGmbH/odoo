@@ -1,3 +1,4 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_gl_kino_week_user,gl.kino.week user,model_gl_kino_week,base.group_user,1,1,1,1
 access_gl_kino_show_user,gl.kino.show user,model_gl_kino_show,base.group_user,1,1,1,1
+access_gl_kino_settings_wizard_system,gl.kino.settings.wizard system,model_gl_kino_settings_wizard,base.group_system,1,1,1,1

@@ -2,7 +2,7 @@
 {
     "name": "GROUNDLIFT Kino Spielbereitschaft",
     "summary": "Kinoprogramm laden, DCP/KDM prüfen und automatische Erinnerungen versenden.",
-    "version": "19.0.1.0.1",
+    "version": "19.0.1.0.2",
     "category": "Operations",
     "author": "GROUNDLIFT / ChatGPT",
     "license": "LGPL-3",
