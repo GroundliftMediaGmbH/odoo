@@ -1,15 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
     <t t-name="gl_app_folders.Desktop">
-        <div class="gl_app_desktop o_action">
+        <div t-att-class="state.glassMode ? 'gl_app_desktop o_action gl_app_desktop--glass' : 'gl_app_desktop o_action'">
             <div class="gl_app_desktop__shell">
                 <div class="gl_app_desktop__topbar">
                     <div class="gl_app_desktop__headline">
                         <div class="gl_app_desktop__eyebrow">GROUNDLIFT DESKTOP</div>
                         <h1>Mein Odoo Desktop</h1>
-                        <p>Apps per Drag &amp; Drop in persönliche Ordner legen – wie auf einem Launcher.</p>
+                        <p>Ordner anlegen, Apps sortieren und den Desktop individuell gestalten.</p>
                     </div>
                     <div class="gl_app_desktop__actions">
+                        <label class="gl_app_desktop__toggle">
+                            <input type="checkbox" t-att-checked="state.glassMode" t-on-change="toggleGlassMode"/>
+                            <span>Glas-Look</span>
+                        </label>
                         <input
                             class="gl_app_desktop__search"
                             type="search"
@@ -31,29 +35,31 @@
                         <button
                             type="button"
                             class="gl_folder_card"
+                            draggable="true"
                             t-att-style="folderStyle(folder)"
                             t-att-title="folderPreviewText(folder)"
                             t-on-click="() => this.openFolderModal(folder)"
+                            t-on-dragstart="(ev) => this.dragStartFolder(ev, folder)"
+                            t-on-dragend="dragEndFolder"
                             t-on-dragover="allowDrop"
                             t-on-drop="(ev) => this.dropOnFolder(ev, folder)"
                         >
-                            <span class="gl_folder_card__glow"/>
-                            <div class="gl_folder_card__topline">
-                                <span class="gl_folder_card__badge" t-esc="folder.icon || '📁'"/>
-                                <span class="gl_folder_card__count"><t t-esc="folder.app_menu_ids.length"/> Apps</span>
-                            </div>
-                            <div class="gl_folder_card__preview">
-                                <t t-foreach="folderPreviewApps(folder)" t-as="app" t-key="app.id">
-                                    <span class="gl_folder_card__preview_item" t-att-style="appIconStyle(app)">
-                                        <i t-if="!hasAppIconImage(app)" t-att-class="appIconClass(app)"/>
-                                    </span>
-                                </t>
-                                <span t-if="!folderPreviewApps(folder).length" class="gl_folder_card__preview_item gl_folder_card__preview_item--empty">
-                                    <i class="fa fa-plus"/>
-                                </span>
+                            <div class="gl_folder_card__cover">
+                                <div class="gl_folder_card__preview">
+                                    <t t-foreach="folderPreviewApps(folder)" t-as="app" t-key="app.id">
+                                        <span class="gl_folder_card__preview_item" t-att-style="appIconStyle(app)">
+                                            <i t-if="!hasAppIconImage(app)" t-att-class="appIconClass(app)"/>
+                                        </span>
+                                    </t>
+                                    <t t-if="!folderPreviewApps(folder).length">
+                                        <span class="gl_folder_card__preview_item gl_folder_card__preview_item--empty"><i class="fa fa-plus"/></span>
+                                        <span class="gl_folder_card__preview_item gl_folder_card__preview_item--empty"><i class="fa fa-plus"/></span>
+                                        <span class="gl_folder_card__preview_item gl_folder_card__preview_item--empty"><i class="fa fa-plus"/></span>
+                                        <span class="gl_folder_card__preview_item gl_folder_card__preview_item--empty"><i class="fa fa-plus"/></span>
+                                    </t>
+                                </div>
                             </div>
                             <span class="gl_folder_card__name" t-esc="folder.name"/>
-                            <span class="gl_folder_card__hint">Hier App ablegen</span>
                         </button>
                     </t>
 
@@ -90,7 +96,6 @@
                     <div class="gl_folder_modal" t-on-click="(ev) => ev.stopPropagation()">
                         <div class="gl_folder_modal__header" t-att-style="folderStyle(folder)">
                             <div class="gl_folder_modal__title">
-                                <span class="gl_folder_modal__icon" t-esc="folder.icon || '📁'"/>
                                 <div>
                                     <h2 t-esc="folder.name"/>
                                     <p><t t-esc="folder.app_menu_ids.length"/> Apps in diesem Ordner</p>
@@ -100,11 +105,8 @@
                         </div>
 
                         <div class="gl_folder_modal__toolbar">
-                            <button type="button" class="btn btn-sm btn-secondary" t-on-click="() => this.renameFolder(folder)">
-                                Bezeichnung ändern
-                            </button>
-                            <button type="button" class="btn btn-sm btn-secondary" t-on-click="() => this.changeFolderIcon(folder)">
-                                Icon ändern
+                            <button type="button" class="btn btn-sm btn-secondary" t-on-click="() => this.openEditFolderModal(folder)">
+                                Ordner bearbeiten
                             </button>
                             <button type="button" class="btn btn-sm btn-outline-danger" t-on-click="() => this.deleteFolder(folder)">
                                 Ordner löschen
@@ -138,6 +140,48 @@
                                     </span>
                                 </button>
                             </t>
+                        </div>
+                    </div>
+                </div>
+            </t>
+
+            <t t-if="state.editorOpen">
+                <div class="gl_editor_modal_backdrop" t-on-click="closeEditorModal">
+                    <div class="gl_editor_modal" t-on-click="(ev) => ev.stopPropagation()">
+                        <div class="gl_editor_modal__header">
+                            <div>
+                                <h2 t-esc="isEditingFolder ? 'Ordner bearbeiten' : 'Neuen Ordner erstellen'"/>
+                                <p>Bezeichnung und Farbe für deinen Ordner festlegen.</p>
+                            </div>
+                            <button type="button" class="btn-close" aria-label="Schließen" t-on-click="closeEditorModal"/>
+                        </div>
+                        <div class="gl_editor_modal__body">
+                            <div class="gl_editor_field">
+                                <label class="gl_editor_field__label">Bezeichnung</label>
+                                <input class="gl_editor_field__input" type="text" maxlength="64" placeholder="z. B. Buchhaltung" t-att-value="state.editorName" t-on-input="updateEditorName"/>
+                            </div>
+                            <div class="gl_editor_field">
+                                <label class="gl_editor_field__label">Ordnerfarbe</label>
+                                <div class="gl_editor_colors">
+                                    <t t-foreach="colorPresets" t-as="color" t-key="color">
+                                        <button
+                                            type="button"
+                                            class="gl_editor_colors__swatch"
+                                            t-att-style="'background:' + color"
+                                            t-att-class="state.editorColor === color ? 'gl_editor_colors__swatch is-active' : 'gl_editor_colors__swatch'"
+                                            t-on-click="() => this.chooseEditorColor(color)"
+                                        />
+                                    </t>
+                                </div>
+                                <div class="gl_editor_colorpicker">
+                                    <input type="color" t-att-value="state.editorColor" t-on-input="updateEditorColor"/>
+                                    <span t-esc="state.editorColor"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="gl_editor_modal__footer">
+                            <button type="button" class="btn btn-secondary" t-on-click="closeEditorModal">Abbrechen</button>
+                            <button type="button" class="btn btn-primary" t-on-click="saveFolderEditor">Speichern</button>
                         </div>
                     </div>
                 </div>

@@ -8,6 +8,12 @@ import { useService } from "@web/core/utils/hooks";
 const DEFAULT_FOLDER_ICON = "📁";
 const DEFAULT_FOLDER_COLOR = "#875A7B";
 const APP_MIME = "application/x-odoo-menu-id";
+const FOLDER_MIME = "application/x-odoo-folder-id";
+const COLOR_PRESETS = [
+    "#875A7B", "#A855F7", "#6366F1", "#3B82F6", "#06B6D4",
+    "#14B8A6", "#22C55E", "#84CC16", "#F59E0B", "#F97316",
+    "#EF4444", "#EC4899", "#64748B", "#334155",
+];
 
 export class GlAppFoldersDesktop extends Component {
     static template = "gl_app_folders.Desktop";
@@ -21,10 +27,35 @@ export class GlAppFoldersDesktop extends Component {
             search: "",
             openFolderId: null,
             draggingMenuId: null,
+            draggingFolderId: null,
+            editorOpen: false,
+            editorMode: "create",
+            editorFolderId: null,
+            editorName: "",
+            editorColor: DEFAULT_FOLDER_COLOR,
+            editorAppMenuIds: [],
+            glassMode: this.loadGlassMode(),
         });
         onWillStart(async () => {
             await this.loadData();
         });
+    }
+
+    loadGlassMode() {
+        try {
+            const value = window.localStorage.getItem("gl_app_folders_glass_mode");
+            return value !== "0";
+        } catch {
+            return true;
+        }
+    }
+
+    persistGlassMode() {
+        try {
+            window.localStorage.setItem("gl_app_folders_glass_mode", this.state.glassMode ? "1" : "0");
+        } catch {
+            // ignore storage issues
+        }
     }
 
     async loadData() {
@@ -79,6 +110,14 @@ export class GlAppFoldersDesktop extends Component {
         return this.state.folders.find((folder) => folder.id === this.state.openFolderId) || null;
     }
 
+    get colorPresets() {
+        return COLOR_PRESETS;
+    }
+
+    get isEditingFolder() {
+        return this.state.editorMode === "edit";
+    }
+
     hasDesktopItems() {
         return this.visibleFolders.length || this.rootApps.length;
     }
@@ -105,7 +144,6 @@ export class GlAppFoldersDesktop extends Component {
             .map((menuId) => appsById.get(Number(menuId)))
             .filter(Boolean);
     }
-
 
     folderPreviewApps(folder) {
         return this.folderApps(folder).slice(0, 4);
@@ -162,6 +200,23 @@ export class GlAppFoldersDesktop extends Component {
         this.state.search = ev.target.value;
     }
 
+    updateEditorName(ev) {
+        this.state.editorName = ev.target.value;
+    }
+
+    updateEditorColor(ev) {
+        this.state.editorColor = ev.target.value;
+    }
+
+    chooseEditorColor(color) {
+        this.state.editorColor = color;
+    }
+
+    toggleGlassMode(ev) {
+        this.state.glassMode = !!ev.target.checked;
+        this.persistGlassMode();
+    }
+
     async openApp(app) {
         await this.menu.selectMenu(app);
     }
@@ -174,12 +229,39 @@ export class GlAppFoldersDesktop extends Component {
         this.state.openFolderId = null;
     }
 
+    openCreateFolderModal(appMenuIds = [], suggestedName = "") {
+        this.state.editorOpen = true;
+        this.state.editorMode = "create";
+        this.state.editorFolderId = null;
+        this.state.editorName = suggestedName || _t("Neuer Ordner");
+        this.state.editorColor = DEFAULT_FOLDER_COLOR;
+        this.state.editorAppMenuIds = [...appMenuIds];
+    }
+
+    openEditFolderModal(folder) {
+        this.state.editorOpen = true;
+        this.state.editorMode = "edit";
+        this.state.editorFolderId = folder.id;
+        this.state.editorName = folder.name || "";
+        this.state.editorColor = folder.color || DEFAULT_FOLDER_COLOR;
+        this.state.editorAppMenuIds = [];
+    }
+
+    closeEditorModal() {
+        this.state.editorOpen = false;
+        this.state.editorFolderId = null;
+        this.state.editorName = "";
+        this.state.editorColor = DEFAULT_FOLDER_COLOR;
+        this.state.editorAppMenuIds = [];
+    }
+
     allowDrop(ev) {
         ev.preventDefault();
     }
 
     dragStartApp(ev, app) {
         this.state.draggingMenuId = Number(app.id);
+        this.state.draggingFolderId = null;
         ev.dataTransfer.effectAllowed = "move";
         ev.dataTransfer.setData(APP_MIME, String(app.id));
         ev.dataTransfer.setData("text/plain", String(app.id));
@@ -189,19 +271,57 @@ export class GlAppFoldersDesktop extends Component {
         this.state.draggingMenuId = null;
     }
 
+    dragStartFolder(ev, folder) {
+        this.state.draggingFolderId = Number(folder.id);
+        this.state.draggingMenuId = null;
+        ev.dataTransfer.effectAllowed = "move";
+        ev.dataTransfer.setData(FOLDER_MIME, String(folder.id));
+        ev.dataTransfer.setData("text/plain", `folder:${folder.id}`);
+    }
+
+    dragEndFolder() {
+        this.state.draggingFolderId = null;
+    }
+
     getDraggedMenuId(ev) {
-        const value = ev.dataTransfer.getData(APP_MIME) || ev.dataTransfer.getData("text/plain") || this.state.draggingMenuId;
+        const value = ev.dataTransfer.getData(APP_MIME) || this.state.draggingMenuId;
+        return Number(value || 0);
+    }
+
+    getDraggedFolderId(ev) {
+        const value = ev.dataTransfer.getData(FOLDER_MIME) || this.state.draggingFolderId;
         return Number(value || 0);
     }
 
     async dropOnFolder(ev, folder) {
         ev.preventDefault();
         ev.stopPropagation();
+
+        const sourceFolderId = this.getDraggedFolderId(ev);
+        if (sourceFolderId && sourceFolderId !== Number(folder.id)) {
+            await this.resequenceFolders(sourceFolderId, Number(folder.id));
+            return;
+        }
+
         const menuId = this.getDraggedMenuId(ev);
         if (!menuId) {
             return;
         }
         await this.orm.call("gl.app.folder", "desktop_add_app", [folder.id, menuId]);
+        await this.loadData();
+    }
+
+    async resequenceFolders(sourceFolderId, targetFolderId) {
+        const folderIds = this.state.folders.map((folder) => Number(folder.id));
+        const sourceIndex = folderIds.indexOf(Number(sourceFolderId));
+        const targetIndex = folderIds.indexOf(Number(targetFolderId));
+        if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) {
+            return;
+        }
+        folderIds.splice(sourceIndex, 1);
+        const insertIndex = folderIds.indexOf(Number(targetFolderId));
+        folderIds.splice(insertIndex, 0, Number(sourceFolderId));
+        await this.orm.call("gl.app.folder", "desktop_resequence", [folderIds]);
         await this.loadData();
     }
 
@@ -213,45 +333,37 @@ export class GlAppFoldersDesktop extends Component {
         if (!sourceMenuId || sourceMenuId === targetMenuId) {
             return;
         }
-        const targetName = targetApp.name || _t("Apps");
-        const folderName = window.prompt(_t("Name für den neuen Ordner"), targetName);
-        if (!folderName) {
-            return;
-        }
-        await this.orm.call("gl.app.folder", "desktop_create_folder", [
-            folderName,
-            DEFAULT_FOLDER_ICON,
-            DEFAULT_FOLDER_COLOR,
-            [sourceMenuId, targetMenuId],
-        ]);
-        await this.loadData();
+        const targetName = targetApp.name || _t("Neuer Ordner");
+        this.openCreateFolderModal([sourceMenuId, targetMenuId], targetName);
     }
 
-    async createFolder() {
-        const name = window.prompt(_t("Bezeichnung des neuen Ordners"), _t("Neuer Ordner"));
+    createFolder() {
+        this.openCreateFolderModal([]);
+    }
+
+    async saveFolderEditor() {
+        const name = (this.state.editorName || "").trim();
         if (!name) {
+            this.notification.add(_t("Bitte gib eine Bezeichnung für den Ordner ein."), { type: "warning" });
             return;
         }
-        const icon = window.prompt(_t("Icon für den Ordner, z. B. 📁, 🎬, ⭐"), DEFAULT_FOLDER_ICON) || DEFAULT_FOLDER_ICON;
-        await this.orm.call("gl.app.folder", "desktop_create_folder", [name, icon, DEFAULT_FOLDER_COLOR, []]);
-        await this.loadData();
-    }
-
-    async renameFolder(folder) {
-        const name = window.prompt(_t("Neue Bezeichnung"), folder.name || "");
-        if (!name) {
-            return;
+        if (this.state.editorMode === "edit") {
+            await this.orm.call("gl.app.folder", "desktop_update_folder", [
+                this.state.editorFolderId,
+                {
+                    name,
+                    color: this.state.editorColor || DEFAULT_FOLDER_COLOR,
+                },
+            ]);
+        } else {
+            await this.orm.call("gl.app.folder", "desktop_create_folder", [
+                name,
+                DEFAULT_FOLDER_ICON,
+                this.state.editorColor || DEFAULT_FOLDER_COLOR,
+                this.state.editorAppMenuIds || [],
+            ]);
         }
-        await this.orm.call("gl.app.folder", "desktop_update_folder", [folder.id, { name }]);
-        await this.loadData();
-    }
-
-    async changeFolderIcon(folder) {
-        const icon = window.prompt(_t("Neues Icon, z. B. 📁, 🎬, ⭐"), folder.icon || DEFAULT_FOLDER_ICON);
-        if (!icon) {
-            return;
-        }
-        await this.orm.call("gl.app.folder", "desktop_update_folder", [folder.id, { icon }]);
+        this.closeEditorModal();
         await this.loadData();
     }
 

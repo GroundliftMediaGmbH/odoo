@@ -155,6 +155,23 @@ class GlAppFolder(models.Model):
             ]).unlink()
         return self.desktop_get_data()
 
+
+    @api.model
+    def desktop_resequence(self, folder_ids):
+        folder_ids = [int(folder_id) for folder_id in (folder_ids or []) if folder_id]
+        if not folder_ids:
+            return self.desktop_get_data()
+
+        sequence = 10
+        for folder_id in folder_ids:
+            folder = self.browse(folder_id).exists()
+            if not folder:
+                continue
+            folder._check_is_current_user_folder()
+            folder.write({"sequence": sequence})
+            sequence += 10
+        return self.desktop_get_data()
+
     @api.model
     def desktop_set_as_home(self):
         action = self.env.ref("gl_app_folders.action_gl_app_folders_desktop")
