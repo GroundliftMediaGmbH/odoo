@@ -32,28 +32,50 @@ def _parse_folder_name(path, fallback_title):
 
 class GlScorseseImportWizard(models.TransientModel):
     _name = 'gl.scorsese.import.wizard'
-    _description = 'SCORSESE Ordner nach Odoo importieren'
+    _description = 'SCORSESE Veranstaltung/Projekt importieren'
 
+    storage_id = fields.Many2one('gl.scorsese.storage', string='Speicher', required=True)
+    cached_folder_id = fields.Many2one('gl.scorsese.path.cache', string='Ordnerpfad', required=True)
+    folder_path = fields.Char(string='Ausgewählter vollständiger Pfad', readonly=True)
     target_model = fields.Selection([
-        ('event.event', 'Nur Veranstaltung'),
-        ('project.project', 'Nur Projekt'),
+        ('project.project', 'Projekt'),
+        ('event.event', 'Veranstaltung'),
         ('both', 'Projekt und Veranstaltung'),
-    ], default='project.project', required=True)
-    storage_id = fields.Many2one('gl.scorsese.storage', string='Speicher')
-    folder_path = fields.Char(required=True, string='Ordnerpfad')
+    ], string='Importieren als', default='project.project', required=True)
     name = fields.Char(string='Titel')
     parsed_date = fields.Date(string='Datum')
     existing_project_id = fields.Many2one('project.project', string='Bestehendes Projekt verknüpfen')
     existing_event_id = fields.Many2one('event.event', string='Bestehende Veranstaltung verknüpfen')
     create_validation_job = fields.Boolean(string='Ordner von SCORSESE validieren lassen', default=False)
 
+    @api.onchange('storage_id')
+    def _onchange_storage_id(self):
+        for rec in self:
+            rec.cached_folder_id = False
+            rec.folder_path = False
+            rec.name = False
+            rec.parsed_date = False
+
+    @api.onchange('cached_folder_id')
+    def _onchange_cached_folder_id(self):
+        for rec in self:
+            if rec.cached_folder_id:
+                rec.folder_path = _clean_scorsese_path(rec.cached_folder_id.child_path)
+                if not rec.storage_id:
+                    rec.storage_id = rec.cached_folder_id.storage_id
+                title, parsed_date = rec._parse_folder_name(rec.folder_path)
+                rec.name = title
+                rec.parsed_date = parsed_date
+            else:
+                rec.folder_path = False
+
     @api.onchange('folder_path')
     def _onchange_folder_path(self):
         for rec in self:
             title, parsed_date = rec._parse_folder_name(rec.folder_path)
-            if not rec.name or rec.name in ('Importiertes Projekt', 'Importierte Veranstaltung'):
+            if rec.folder_path and (not rec.name or rec.name in ('Importiertes Projekt', 'Importierte Veranstaltung')):
                 rec.name = title
-            if not rec.parsed_date:
+            if rec.folder_path and not rec.parsed_date:
                 rec.parsed_date = parsed_date
 
     def _parse_folder_name(self, path):
@@ -101,11 +123,69 @@ class GlScorseseImportWizard(models.TransientModel):
             vals['stage_id'] = stage_id
         return vals
 
+    def _ensure_folder_path_from_cache(self):
+        self.ensure_one()
+        if self.cached_folder_id:
+            self.folder_path = _clean_scorsese_path(self.cached_folder_id.child_path)
+            if not self.storage_id:
+                self.storage_id = self.cached_folder_id.storage_id
+        else:
+            self.folder_path = _clean_scorsese_path(self.folder_path)
+
     def _validate_inputs(self):
         self.ensure_one()
-        self.folder_path = _clean_scorsese_path(self.folder_path)
+        self._ensure_folder_path_from_cache()
+        if not self.storage_id:
+            raise UserError(_('Bitte zuerst einen Speicher auswählen.'))
         if not self.folder_path:
-            raise UserError(_('Bitte einen Ordnerpfad angeben.'))
+            raise UserError(_('Bitte einen Ordner aus dem Ordnerpfad-Dropdown auswählen.'))
+
+    def _queue_browse_job(self, path, message):
+        self.ensure_one()
+        if not self.storage_id:
+            raise UserError(_('Bitte zuerst einen Speicher auswählen.'))
+        path = _clean_scorsese_path(path or self.storage_id.root_path)
+        if not path:
+            raise UserError(_('Der Speicher hat keinen gültigen Root-Pfad.'))
+        self.env['gl.scorsese.job'].create_job(
+            'browse_folder',
+            target_record=None,
+            payload={
+                'storage_id': self.storage_id.id,
+                'storage_name': self.storage_id.name,
+                'storage_root': _clean_scorsese_path(self.storage_id.root_path),
+                'path': path,
+            },
+            priority=20,
+            name=_('Ordnercache aktualisieren – %s') % path,
+        )
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('SCORSESE'),
+                'message': message,
+                'type': 'info',
+                'sticky': False,
+            }
+        }
+
+    def action_browse_storage_root(self):
+        self.ensure_one()
+        return self._queue_browse_job(
+            self.storage_id.root_path,
+            _('SCORSESE lädt die Ordnerstruktur des ausgewählten Speichers. Öffne das Dropdown nach wenigen Sekunden erneut oder lade das Fenster kurz neu.'),
+        )
+
+    def action_browse_selected_folder(self):
+        self.ensure_one()
+        self._ensure_folder_path_from_cache()
+        if not self.folder_path:
+            raise UserError(_('Bitte zuerst einen Ordnerpfad auswählen.'))
+        return self._queue_browse_job(
+            self.folder_path,
+            _('SCORSESE lädt die Unterordner des ausgewählten Ordners. Danach sind sie im Ordnerpfad-Dropdown auswählbar.'),
+        )
 
     def action_import(self):
         self.ensure_one()

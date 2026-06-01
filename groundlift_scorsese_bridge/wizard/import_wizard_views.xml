@@ -4,21 +4,38 @@
         <field name="name">gl.scorsese.import.wizard.form</field>
         <field name="model">gl.scorsese.import.wizard</field>
         <field name="arch" type="xml">
-            <form string="SCORSESE Ordner importieren / verknüpfen">
+            <form string="Veranstaltung/Projekt importieren">
                 <sheet>
+                    <div class="oe_title">
+                        <h1>Veranstaltung/Projekt importieren</h1>
+                    </div>
+
                     <group>
-                        <group string="Quelle">
-                            <field name="target_model" widget="radio"/>
-                            <field name="storage_id"/>
-                            <field name="folder_path" placeholder="\\SERVER\Produktion\2025-03-06 Susanne Kirchland"/>
-                            <field name="create_validation_job"/>
+                        <group string="1. Speicher">
+                            <field name="storage_id" options="{'no_create': True, 'no_open': True}"/>
+                            <button name="action_browse_storage_root" type="object" string="Speicherinhalt laden/aktualisieren" invisible="not storage_id"/>
                         </group>
-                        <group string="Aus Ordnername erkannt">
-                            <field name="name" placeholder="Wird aus YYYY-MM-DD Titel erkannt"/>
+                        <group string="2. Ordnerpfad">
+                            <field name="cached_folder_id" domain="[('storage_id', '=', storage_id)]" options="{'no_create': True}"/>
+                            <field name="folder_path" readonly="1" invisible="not folder_path"/>
+                            <button name="action_browse_selected_folder" type="object" string="Unterordner dieses Ordners laden" invisible="not cached_folder_id"/>
+                        </group>
+                    </group>
+
+                    <group string="3. Importieren als" invisible="not cached_folder_id">
+                        <field name="target_model" widget="radio"/>
+                    </group>
+
+                    <group string="Aus Ordnername erkannt" invisible="not cached_folder_id">
+                        <group>
+                            <field name="name" placeholder="Wird automatisch aus dem Ordnernamen erkannt"/>
+                        </group>
+                        <group>
                             <field name="parsed_date"/>
                         </group>
                     </group>
-                    <group string="Optional mit vorhandenen Datensätzen verknüpfen">
+
+                    <group string="Optional mit vorhandenen Datensätzen verknüpfen" invisible="not cached_folder_id">
                         <group>
                             <field name="existing_project_id"/>
                         </group>
@@ -26,11 +43,10 @@
                             <field name="existing_event_id"/>
                         </group>
                     </group>
-                    <div class="alert alert-info" role="alert">
-                        Bei einem Ordnernamen wie <strong>2025-03-06 Susanne Kirchland</strong> wird der Titel
-                        <strong>Susanne Kirchland</strong> und das Datum <strong>06.03.2025</strong> übernommen.
-                        Importierte Ordner gelten als bereits vorhanden; dadurch erscheint später kein Button zum erneuten Erstellen eines SCORSESE-Ordners.
-                    </div>
+
+                    <group string="Optionen" invisible="not cached_folder_id">
+                        <field name="create_validation_job"/>
+                    </group>
                 </sheet>
                 <footer>
                     <button name="action_import" type="object" string="Importieren / Verknüpfen" class="btn-primary"/>

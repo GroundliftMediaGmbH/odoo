@@ -1,5 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <record id="view_gl_scorsese_dashboard_form" model="ir.ui.view">
+        <field name="name">gl.scorsese.dashboard.form</field>
+        <field name="model">gl.scorsese.dashboard</field>
+        <field name="arch" type="xml">
+            <form string="SCORSESE" create="false" edit="false" delete="false">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>SCORSESE</h1>
+                    </div>
+                    <group>
+                        <group string="Status">
+                            <field name="agent_online" readonly="1"/>
+                            <field name="last_heartbeat" readonly="1"/>
+                            <field name="queued_job_count" readonly="1"/>
+                            <field name="failed_job_count" readonly="1"/>
+                            <field name="path_cache_count" readonly="1"/>
+                        </group>
+                        <group string="Aktionen">
+                            <button name="action_open_import_wizard" type="object" string="Veranstaltung/Projekt importieren" class="btn-primary"/>
+                            <button name="action_open_connection" type="object" string="Verbindung anzeigen"/>
+                            <button name="action_open_jobs" type="object" string="Aufträge anzeigen"/>
+                            <button name="action_open_storage" type="object" string="Speicherpfade" groups="groundlift_scorsese_bridge.group_scorsese_manager"/>
+                            <button name="action_open_templates" type="object" string="Ordnervorlagen" groups="groundlift_scorsese_bridge.group_scorsese_manager"/>
+                        </group>
+                    </group>
+                    <div class="alert alert-info" role="alert">
+                        Der Import erfolgt über den Ordnercache. Wähle im Importfenster zuerst den Speicher aus und dann den gewünschten Ordner aus der geladenen Verzeichnisstruktur.
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_scorsese_dashboard" model="ir.actions.act_window">
+        <field name="name">SCORSESE</field>
+        <field name="res_model">gl.scorsese.dashboard</field>
+        <field name="view_mode">form</field>
+        <field name="res_id" ref="groundlift_scorsese_bridge.dashboard_main"/>
+    </record>
+
     <record id="view_gl_scorsese_storage_list" model="ir.ui.view">
         <field name="name">gl.scorsese.storage.list</field>
         <field name="model">gl.scorsese.storage</field>
@@ -256,16 +296,15 @@
     </record>
 
     <record id="action_gl_scorsese_import_wizard" model="ir.actions.act_window">
-        <field name="name">Ordner importieren</field>
+        <field name="name">Veranstaltung/Projekt importieren</field>
         <field name="res_model">gl.scorsese.import.wizard</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
     </record>
 
-    <menuitem id="menu_gl_scorsese_root" name="SCORSESE" sequence="40" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
+    <menuitem id="menu_gl_scorsese_root" name="SCORSESE" action="action_gl_scorsese_dashboard" sequence="40" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
     <menuitem id="menu_gl_scorsese_status" name="Verbindung" parent="menu_gl_scorsese_root" action="action_gl_scorsese_agent" sequence="10" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
     <menuitem id="menu_gl_scorsese_jobs" name="Aufträge" parent="menu_gl_scorsese_root" action="action_gl_scorsese_job" sequence="20" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
-    <menuitem id="menu_gl_scorsese_import" name="Ordner importieren" parent="menu_gl_scorsese_root" action="action_gl_scorsese_import_wizard" sequence="30" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
     <menuitem id="menu_gl_scorsese_config" name="Konfiguration" parent="menu_gl_scorsese_root" sequence="90" groups="groundlift_scorsese_bridge.group_scorsese_manager"/>
     <menuitem id="menu_gl_scorsese_storage" name="Speicherpfade" parent="menu_gl_scorsese_config" action="action_gl_scorsese_storage" sequence="10" groups="groundlift_scorsese_bridge.group_scorsese_manager"/>
     <menuitem id="menu_gl_scorsese_template" name="Ordnervorlagen" parent="menu_gl_scorsese_config" action="action_gl_scorsese_template" sequence="20" groups="groundlift_scorsese_bridge.group_scorsese_manager"/>

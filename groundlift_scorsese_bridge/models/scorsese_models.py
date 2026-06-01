@@ -36,6 +36,53 @@ def _sanitize_path_vals(vals, fields_to_clean):
     return vals
 
 
+class GlScorseseDashboard(models.Model):
+    _name = 'gl.scorsese.dashboard'
+    _description = 'SCORSESE Dashboard'
+
+    name = fields.Char(default='SCORSESE', required=True)
+    agent_online = fields.Boolean(string='SCORSESE verbunden', compute='_compute_dashboard_values')
+    last_heartbeat = fields.Datetime(string='Letzter Heartbeat', compute='_compute_dashboard_values')
+    queued_job_count = fields.Integer(string='Wartende Aufträge', compute='_compute_dashboard_values')
+    failed_job_count = fields.Integer(string='Fehlgeschlagene Aufträge', compute='_compute_dashboard_values')
+    path_cache_count = fields.Integer(string='Ordner im Cache', compute='_compute_dashboard_values')
+
+    def _compute_dashboard_values(self):
+        Agent = self.env['gl.scorsese.agent'].sudo()
+        Job = self.env['gl.scorsese.job'].sudo()
+        Cache = self.env['gl.scorsese.path.cache'].sudo()
+        agent = Agent.get_default_agent()
+        queued_count = Job.search_count([('state', 'in', ('queued', 'running'))])
+        failed_count = Job.search_count([('state', '=', 'failed')])
+        cache_count = Cache.search_count([])
+        for rec in self:
+            rec.agent_online = bool(agent.is_online)
+            rec.last_heartbeat = agent.last_heartbeat
+            rec.queued_job_count = queued_count
+            rec.failed_job_count = failed_count
+            rec.path_cache_count = cache_count
+
+    def action_open_import_wizard(self):
+        self.ensure_one()
+        return self.env.ref('groundlift_scorsese_bridge.action_gl_scorsese_import_wizard').read()[0]
+
+    def action_open_connection(self):
+        self.ensure_one()
+        return self.env.ref('groundlift_scorsese_bridge.action_gl_scorsese_agent').read()[0]
+
+    def action_open_jobs(self):
+        self.ensure_one()
+        return self.env.ref('groundlift_scorsese_bridge.action_gl_scorsese_job').read()[0]
+
+    def action_open_storage(self):
+        self.ensure_one()
+        return self.env.ref('groundlift_scorsese_bridge.action_gl_scorsese_storage').read()[0]
+
+    def action_open_templates(self):
+        self.ensure_one()
+        return self.env.ref('groundlift_scorsese_bridge.action_gl_scorsese_template').read()[0]
+
+
 class GlScorseseStorage(models.Model):
     _name = 'gl.scorsese.storage'
     _description = 'SCORSESE Speicherpfad'

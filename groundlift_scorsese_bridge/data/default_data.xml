@@ -4,6 +4,9 @@
         <field name="name">SCORSESE</field>
         <field name="online_threshold_minutes">5</field>
     </record>
+    <record id="dashboard_main" model="gl.scorsese.dashboard">
+        <field name="name">SCORSESE</field>
+    </record>
     <function model="ir.config_parameter" name="set_param">
         <value>gl_scorsese.event_announced_stage_names</value>
         <value>Angekündigt,Announced</value>

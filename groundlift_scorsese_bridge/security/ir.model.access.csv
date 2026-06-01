@@ -13,3 +13,6 @@ access_gl_scorsese_path_cache_user,gl.scorsese.path.cache user,model_gl_scorsese
 access_gl_scorsese_path_cache_api,gl.scorsese.path.cache api,model_gl_scorsese_path_cache,groundlift_scorsese_bridge.group_scorsese_agent,1,1,1,1
 access_gl_scorsese_folder_create_wizard_user,gl.scorsese.folder.create.wizard user,model_gl_scorsese_folder_create_wizard,groundlift_scorsese_bridge.group_scorsese_user,1,1,1,1
 access_gl_scorsese_import_wizard_user,gl.scorsese.import.wizard user,model_gl_scorsese_import_wizard,groundlift_scorsese_bridge.group_scorsese_user,1,1,1,1
+
+access_gl_scorsese_dashboard_user,gl.scorsese.dashboard user,model_gl_scorsese_dashboard,groundlift_scorsese_bridge.group_scorsese_user,1,0,0,0
+access_gl_scorsese_dashboard_manager,gl.scorsese.dashboard manager,model_gl_scorsese_dashboard,groundlift_scorsese_bridge.group_scorsese_manager,1,1,1,1
