@@ -108,10 +108,14 @@ class GlScorseseAgent(models.Model):
 class GlScorsesePathCache(models.Model):
     _name = 'gl.scorsese.path.cache'
     _description = 'SCORSESE Ordnercache'
-    _order = 'storage_id, parent_path, child_name'
+    _order = 'storage_id, browse_parent_path, child_name'
 
     storage_id = fields.Many2one('gl.scorsese.storage', required=True, ondelete='cascade')
-    parent_path = fields.Char(required=True)
+    # WICHTIG: Der technische Feldname 'parent_path' ist in Odoo intern reserviert
+    # und darf für normale Fachlogik nicht als Pflichtfeld verwendet werden.
+    # In frueheren Versionen dieses Moduls existierte parent_path als required=True
+    # und fuehrte unter Odoo 19 zu NOT NULL-Fehlern beim Anlegen von Cacheeintraegen.
+    browse_parent_path = fields.Char(string='Parent Path', required=True, index=True)
     child_name = fields.Char(required=True)
     child_path = fields.Char(required=True, index=True)
     is_dir = fields.Boolean(default=True)
@@ -120,6 +124,28 @@ class GlScorsesePathCache(models.Model):
     _sql_constraints = [
         ('gl_path_cache_unique', 'unique(storage_id, child_path)', 'Dieser Pfad ist für den Speicher bereits im Cache.'),
     ]
+
+    def init(self):
+        # Kompatibilitaetsfix fuer fruehe Modulversionen:
+        # Dort gab es eine Spalte parent_path NOT NULL. Dieser Feldname kollidiert
+        # mit Odoos internem Parent-Store-Konzept und kann beim Create auf NULL fallen.
+        # Damit bestehende Staging-Datenbanken nach dem Upgrade nicht blockieren,
+        # wird die alte Spalte, falls vorhanden, entschaerft und in das neue Feld
+        # browse_parent_path migriert.
+        cr = self.env.cr
+        cr.execute("""
+            SELECT 1
+              FROM information_schema.columns
+             WHERE table_name = 'gl_scorsese_path_cache'
+               AND column_name = 'parent_path'
+        """)
+        if cr.fetchone():
+            cr.execute("ALTER TABLE gl_scorsese_path_cache ALTER COLUMN parent_path DROP NOT NULL")
+            cr.execute("""
+                UPDATE gl_scorsese_path_cache
+                   SET browse_parent_path = COALESCE(NULLIF(browse_parent_path, ''), parent_path, '')
+                 WHERE COALESCE(browse_parent_path, '') = ''
+            """)
 
 
 class GlScorseseJob(models.Model):
@@ -361,7 +387,7 @@ class GlScorseseJob(models.Model):
         self.ensure_one()
         payload = _json_loads(self.payload_json)
         storage_id = payload.get('storage_id')
-        parent_path = result.get('parent_path') or payload.get('path')
+        parent_path = result.get('parent_path') or payload.get('path') or payload.get('storage_root')
         entries = result.get('entries') or []
         if not storage_id or not parent_path:
             return
@@ -376,7 +402,7 @@ class GlScorseseJob(models.Model):
             existing = cache_model.search([('storage_id', '=', storage_id), ('child_path', '=', child_path)], limit=1)
             vals = {
                 'storage_id': storage_id,
-                'parent_path': parent_path,
+                'browse_parent_path': parent_path,
                 'child_name': child_name,
                 'child_path': child_path,
                 'is_dir': True,

@@ -222,7 +222,7 @@
         <field name="arch" type="xml">
             <list string="SCORSESE Ordnercache">
                 <field name="storage_id"/>
-                <field name="parent_path"/>
+                <field name="browse_parent_path"/>
                 <field name="child_name"/>
                 <field name="child_path"/>
                 <field name="last_seen"/>
@@ -238,7 +238,7 @@
                 <sheet>
                     <group>
                         <field name="storage_id"/>
-                        <field name="parent_path"/>
+                        <field name="browse_parent_path"/>
                         <field name="child_name"/>
                         <field name="child_path"/>
                         <field name="is_dir"/>

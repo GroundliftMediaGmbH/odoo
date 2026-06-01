@@ -104,7 +104,7 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
         self.ensure_one()
         domain = [('storage_id', '=', self.storage_id.id)]
         if self.parent_path:
-            domain.append(('parent_path', '=', self.parent_path))
+            domain.append(('browse_parent_path', '=', self.parent_path))
         return {
             'type': 'ir.actions.act_window',
             'name': _('SCORSESE Ordnercache'),
