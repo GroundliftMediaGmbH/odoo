@@ -5,16 +5,29 @@
             .gl-hours-wrap {
                 max-width: 1040px;
                 margin: 0 auto;
-                padding: 48px 18px 64px;
+                padding: clamp(28px, 5vw, 56px) 16px 72px;
                 font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                color: #eef2ff;
             }
             .gl-hours-card {
-                background: #ffffff;
-                border: 1px solid rgba(17,24,39,.10);
-                border-radius: 22px;
-                box-shadow: 0 18px 55px rgba(17,24,39,.10);
-                padding: 28px;
+                position: relative;
+                overflow: hidden;
+                background: linear-gradient(145deg, rgba(15,23,42,.98), rgba(2,6,23,.96));
+                border: 1px solid rgba(148,163,184,.18);
+                border-radius: 28px;
+                box-shadow: 0 24px 70px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.06);
+                padding: clamp(22px, 4vw, 34px);
             }
+            .gl-hours-card::before {
+                content: "";
+                position: absolute;
+                inset: -1px;
+                pointer-events: none;
+                background:
+                    radial-gradient(circle at 12% 0%, rgba(168,85,247,.18), transparent 32%),
+                    radial-gradient(circle at 92% 10%, rgba(14,165,233,.12), transparent 34%);
+            }
+            .gl-hours-card > * { position: relative; z-index: 1; }
             .gl-hours-header {
                 display: flex;
                 align-items: flex-start;
@@ -24,131 +37,112 @@
             }
             .gl-hours-title {
                 margin: 0;
-                color: #111827;
-                font-size: clamp(1.55rem, 2vw, 2.2rem);
-                font-weight: 800;
-                letter-spacing: -.03em;
+                color: #f8fafc;
+                font-size: clamp(1.85rem, 4vw, 2.75rem);
+                font-weight: 900;
+                letter-spacing: -.045em;
+                line-height: 1.04;
             }
             .gl-hours-subtitle {
-                margin: 8px 0 0;
-                color: #6b7280;
-                font-size: .98rem;
+                margin: 10px 0 0;
+                color: #94a3b8;
+                font-size: clamp(.95rem, 2.6vw, 1.05rem);
+                line-height: 1.45;
             }
+            .gl-hours-subtitle strong { color: #e5e7eb; }
             .gl-hours-nav {
-                display: flex;
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
                 align-items: center;
-                justify-content: space-between;
-                gap: 12px;
-                margin: 18px 0 24px;
+                gap: 14px;
+                margin: 22px 0 24px;
             }
             .gl-hours-month {
-                font-size: 1.2rem;
-                font-weight: 800;
-                color: #111827;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 48px;
+                padding: 10px 18px;
+                border-radius: 999px;
+                background: rgba(15,23,42,.82);
+                border: 1px solid rgba(148,163,184,.20);
+                box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+                color: #f8fafc;
+                font-size: 1.08rem;
+                font-weight: 900;
                 text-align: center;
-                min-width: 170px;
+                white-space: nowrap;
             }
             .gl-hours-btn {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                min-height: 42px;
-                padding: 10px 15px;
+                min-height: 44px;
+                padding: 11px 17px;
                 border-radius: 999px;
-                border: 1px solid rgba(17,24,39,.13);
-                background: #111827;
-                color: #ffffff !important;
+                border: 1px solid rgba(148,163,184,.22);
+                background: linear-gradient(135deg, #f8fafc, #cbd5e1);
+                color: #020617 !important;
                 text-decoration: none !important;
-                font-weight: 700;
+                font-weight: 850;
                 line-height: 1.1;
                 cursor: pointer;
+                box-shadow: 0 10px 26px rgba(0,0,0,.22);
             }
+            .gl-hours-btn:hover { filter: brightness(1.04); }
             .gl-hours-btn-secondary {
-                background: #ffffff;
-                color: #111827 !important;
+                background: rgba(15,23,42,.70);
+                color: #f8fafc !important;
+                border-color: rgba(148,163,184,.28);
+                box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
             }
-            .gl-hours-table-wrap { overflow-x: auto; }
-            .gl-hours-table {
-                width: 100%;
-                border-collapse: separate;
-                border-spacing: 0;
-                overflow: hidden;
-                border: 1px solid rgba(17,24,39,.10);
-                border-radius: 16px;
-                background: #ffffff;
-            }
-            .gl-hours-table th,
-            .gl-hours-table td {
+            .gl-hours-alert,
+            .gl-hours-message-ok,
+            .gl-hours-message-error {
+                border-radius: 18px;
                 padding: 14px 16px;
-                border-bottom: 1px solid rgba(17,24,39,.08);
-                vertical-align: top;
-                color: #111827;
+                margin: 16px 0;
+                line-height: 1.45;
             }
-            .gl-hours-table th {
-                background: #f9fafb;
-                color: #374151;
-                text-align: left;
-                font-size: .82rem;
-                text-transform: uppercase;
-                letter-spacing: .08em;
-            }
-            .gl-hours-table tr:last-child td { border-bottom: 0; }
-            .gl-hours-total-row td {
-                background: #111827;
-                color: #ffffff;
-                font-size: 1.05rem;
-                font-weight: 800;
-            }
-            .gl-hours-interval {
-                display: flex;
-                gap: 10px;
-                flex-wrap: wrap;
-                margin-bottom: 4px;
-            }
-            .gl-hours-muted { color: #6b7280; }
             .gl-hours-alert {
-                border-radius: 14px;
-                padding: 13px 15px;
-                margin: 14px 0;
-                background: #fff7ed;
-                color: #9a3412;
-                border: 1px solid #fed7aa;
+                background: rgba(251,146,60,.12);
+                color: #fed7aa;
+                border: 1px solid rgba(251,146,60,.32);
             }
             .gl-hours-message-ok {
-                border-radius: 14px;
-                padding: 13px 15px;
-                margin: 14px 0;
-                background: #ecfdf5;
-                color: #065f46;
-                border: 1px solid #a7f3d0;
+                background: rgba(34,197,94,.13);
+                color: #bbf7d0;
+                border: 1px solid rgba(34,197,94,.34);
             }
             .gl-hours-message-error {
-                border-radius: 14px;
-                padding: 13px 15px;
-                margin: 14px 0;
-                background: #fef2f2;
-                color: #991b1b;
-                border: 1px solid #fecaca;
+                background: rgba(248,113,113,.13);
+                color: #fecaca;
+                border: 1px solid rgba(248,113,113,.34);
             }
             .gl-hours-form {
-                max-width: 460px;
+                max-width: 480px;
                 margin: 0 auto;
             }
             .gl-hours-field { margin-bottom: 16px; }
             .gl-hours-label {
                 display: block;
-                font-weight: 700;
-                color: #111827;
-                margin-bottom: 7px;
+                font-weight: 800;
+                color: #e5e7eb;
+                margin-bottom: 8px;
             }
             .gl-hours-input {
                 width: 100%;
-                min-height: 46px;
-                border-radius: 12px;
-                border: 1px solid rgba(17,24,39,.18);
-                padding: 10px 13px;
-                background: #ffffff;
-                color: #111827;
+                min-height: 48px;
+                border-radius: 14px;
+                border: 1px solid rgba(148,163,184,.28);
+                padding: 11px 14px;
+                background: rgba(2,6,23,.68);
+                color: #f8fafc;
+                outline: none;
+            }
+            .gl-hours-input:focus {
+                border-color: rgba(216,180,254,.72);
+                box-shadow: 0 0 0 4px rgba(168,85,247,.16);
             }
             .gl-hours-actions {
                 display: flex;
@@ -158,15 +152,298 @@
                 flex-wrap: wrap;
                 margin-top: 18px;
             }
-            .gl-hours-link { color: #111827; font-weight: 700; }
+            .gl-hours-link {
+                color: #e9d5ff;
+                font-weight: 800;
+                text-decoration: none;
+            }
+            .gl-hours-link:hover { color: #ffffff; }
+            .gl-hours-muted { color: #94a3b8; }
+
+            .gl-hours-list {
+                display: grid;
+                gap: 14px;
+                margin-top: 18px;
+            }
+            .gl-hours-day-card,
+            .gl-hours-empty,
+            .gl-hours-month-total {
+                border: 1px solid rgba(148,163,184,.18);
+                background: rgba(15,23,42,.64);
+                border-radius: 22px;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,.045);
+            }
+            .gl-hours-day-card {
+                padding: 18px;
+            }
+            .gl-hours-day-head {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 14px;
+                margin-bottom: 14px;
+            }
+            .gl-hours-day-name {
+                color: #f8fafc;
+                font-size: 1.16rem;
+                font-weight: 900;
+                letter-spacing: -.025em;
+                line-height: 1.1;
+            }
+            .gl-hours-day-date {
+                color: #94a3b8;
+                font-weight: 700;
+                margin-top: 4px;
+            }
+            .gl-hours-day-sum {
+                min-width: 116px;
+                padding: 10px 12px;
+                border-radius: 16px;
+                background: rgba(2,6,23,.62);
+                border: 1px solid rgba(148,163,184,.16);
+                text-align: right;
+            }
+            .gl-hours-day-sum span {
+                display: block;
+                color: #94a3b8;
+                font-size: .72rem;
+                text-transform: uppercase;
+                letter-spacing: .09em;
+                font-weight: 850;
+            }
+            .gl-hours-day-sum strong {
+                display: block;
+                color: #f8fafc;
+                font-size: 1.32rem;
+                line-height: 1.1;
+                margin-top: 3px;
+            }
+            .gl-hours-entries {
+                display: grid;
+                gap: 10px;
+            }
+            .gl-hours-entry {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 12px;
+                align-items: center;
+                padding: 13px 14px;
+                border-radius: 18px;
+                background: rgba(2,6,23,.50);
+                border: 1px solid rgba(148,163,184,.13);
+            }
+            .gl-entry-label {
+                display: block;
+                color: #64748b;
+                font-size: .70rem;
+                font-weight: 900;
+                text-transform: uppercase;
+                letter-spacing: .10em;
+                margin-bottom: 4px;
+            }
+            .gl-entry-time strong {
+                color: #f8fafc;
+                font-size: 1.05rem;
+                letter-spacing: -.015em;
+            }
+            .gl-entry-duration {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 78px;
+                padding: 9px 12px;
+                border-radius: 999px;
+                background: rgba(248,250,252,.10);
+                color: #f8fafc;
+                font-weight: 900;
+                white-space: nowrap;
+            }
+            .gl-entry-open {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                margin-left: 8px;
+                padding: 4px 8px;
+                border-radius: 999px;
+                background: rgba(251,146,60,.14);
+                color: #fed7aa;
+                border: 1px solid rgba(251,146,60,.25);
+                font-size: .72rem;
+                font-weight: 900;
+                text-transform: uppercase;
+                letter-spacing: .06em;
+                vertical-align: middle;
+            }
+            .gl-hours-empty {
+                padding: 22px;
+                color: #94a3b8;
+            }
+            .gl-hours-month-total {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 16px;
+                margin-top: 16px;
+                padding: 18px 20px;
+                background: linear-gradient(135deg, rgba(168,85,247,.22), rgba(14,165,233,.13)), rgba(15,23,42,.84);
+            }
+            .gl-hours-month-total span {
+                color: #cbd5e1;
+                font-weight: 850;
+                text-transform: uppercase;
+                letter-spacing: .08em;
+                font-size: .78rem;
+            }
+            .gl-hours-month-total strong {
+                color: #ffffff;
+                font-size: clamp(1.55rem, 5vw, 2.2rem);
+                line-height: 1;
+                letter-spacing: -.035em;
+            }
+
+            /* Alte Tabellenklassen bleiben bewusst vorhanden, damit gecachte Templates nicht brechen. */
+            .gl-hours-table-wrap { overflow-x: auto; }
+            .gl-hours-table {
+                width: 100%;
+                border-collapse: separate;
+                border-spacing: 0;
+                overflow: hidden;
+                border: 1px solid rgba(148,163,184,.18);
+                border-radius: 16px;
+                background: rgba(15,23,42,.64);
+            }
+            .gl-hours-table th,
+            .gl-hours-table td {
+                padding: 14px 16px;
+                border-bottom: 1px solid rgba(148,163,184,.12);
+                vertical-align: top;
+                color: #f8fafc;
+            }
+            .gl-hours-table th {
+                background: rgba(2,6,23,.55);
+                color: #cbd5e1;
+                text-align: left;
+                font-size: .82rem;
+                text-transform: uppercase;
+                letter-spacing: .08em;
+            }
+            .gl-hours-table tr:last-child td { border-bottom: 0; }
+            .gl-hours-total-row td {
+                background: rgba(248,250,252,.10);
+                color: #ffffff;
+                font-size: 1.05rem;
+                font-weight: 900;
+            }
+            .gl-hours-interval {
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+                margin-bottom: 4px;
+            }
+
             @media (max-width: 720px) {
-                .gl-hours-card { padding: 20px; border-radius: 18px; }
-                .gl-hours-header, .gl-hours-nav { flex-direction: column; align-items: stretch; }
-                .gl-hours-month { text-align: left; min-width: 0; }
+                .gl-hours-wrap {
+                    padding: 26px 12px 58px;
+                }
+                .gl-hours-card {
+                    padding: 20px;
+                    border-radius: 26px;
+                }
+                .gl-hours-header {
+                    flex-direction: column;
+                    align-items: stretch;
+                    gap: 16px;
+                    margin-bottom: 20px;
+                }
                 .gl-hours-btn { width: 100%; }
+                .gl-hours-nav {
+                    grid-template-columns: 1fr 1fr;
+                    gap: 10px;
+                    margin: 18px 0 20px;
+                }
+                .gl-hours-month {
+                    grid-column: 1 / -1;
+                    grid-row: 1;
+                    width: 100%;
+                    min-height: 52px;
+                    font-size: 1.12rem;
+                }
+                .gl-hours-nav .gl-hours-btn {
+                    min-height: 50px;
+                    padding-left: 10px;
+                    padding-right: 10px;
+                    font-size: .92rem;
+                }
+                .gl-hours-nav .gl-hours-btn:first-child {
+                    grid-column: 1;
+                    grid-row: 2;
+                }
+                .gl-hours-nav .gl-hours-btn:last-child {
+                    grid-column: 2;
+                    grid-row: 2;
+                }
+                .gl-hours-day-card {
+                    padding: 16px;
+                    border-radius: 22px;
+                }
+                .gl-hours-day-head {
+                    align-items: stretch;
+                }
+                .gl-hours-day-sum {
+                    min-width: 98px;
+                    padding: 9px 10px;
+                }
+                .gl-hours-day-sum strong {
+                    font-size: 1.18rem;
+                }
+                .gl-hours-entry {
+                    grid-template-columns: 1fr;
+                    gap: 8px;
+                    padding: 13px;
+                }
+                .gl-entry-duration {
+                    justify-self: start;
+                    min-width: 0;
+                }
+                .gl-hours-month-total {
+                    align-items: flex-start;
+                    flex-direction: column;
+                    border-radius: 22px;
+                }
+                .gl-hours-form .gl-hours-actions {
+                    align-items: stretch;
+                    flex-direction: column;
+                }
+                .gl-hours-form .gl-hours-actions .gl-hours-link {
+                    text-align: center;
+                }
+            }
+
+            @media (max-width: 420px) {
+                .gl-hours-wrap { padding-left: 10px; padding-right: 10px; }
+                .gl-hours-card { padding: 18px; }
+                .gl-hours-day-head {
+                    flex-direction: column;
+                }
+                .gl-hours-day-sum {
+                    width: 100%;
+                    text-align: left;
+                }
+                .gl-hours-nav {
+                    grid-template-columns: 1fr;
+                }
+                .gl-hours-nav .gl-hours-btn:first-child {
+                    grid-column: 1;
+                    grid-row: 2;
+                }
+                .gl-hours-nav .gl-hours-btn:last-child {
+                    grid-column: 1;
+                    grid-row: 3;
+                }
             }
         </style>
     </template>
+
 
     <template id="template_login" name="Mitarbeiter-Stundenportal Login">
         <t t-call="website.layout">
@@ -258,42 +535,41 @@
                         Es gibt mindestens einen offenen Eintrag ohne Endzeit. Diese offenen Einträge werden angezeigt, aber nicht in die Monatssumme eingerechnet.
                     </div>
 
-                    <div class="gl-hours-table-wrap">
-                        <table class="gl-hours-table">
-                            <thead>
-                                <tr>
-                                    <th>Arbeitstag</th>
-                                    <th>Start / Ende</th>
-                                    <th>Stunden je Eintrag</th>
-                                    <th>Tagessumme</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr t-if="not days">
-                                    <td colspan="4" class="gl-hours-muted">Für diesen Monat sind keine gearbeiteten Zeiten vorhanden.</td>
-                                </tr>
-                                <tr t-foreach="days" t-as="day">
-                                    <td>
-                                        <strong t-esc="day['weekday']"/> · <span t-esc="day['date_label']"/>
-                                    </td>
-                                    <td>
-                                        <div t-foreach="day['intervals']" t-as="interval" class="gl-hours-interval">
-                                            <span><strong t-esc="interval['start']"/> – <strong t-esc="interval['end']"/></span>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div t-foreach="day['intervals']" t-as="interval">
-                                            <span t-esc="interval['duration']"/>
-                                        </div>
-                                    </td>
-                                    <td><strong t-esc="day['total']"/></td>
-                                </tr>
-                                <tr class="gl-hours-total-row">
-                                    <td colspan="3">Summe Monat</td>
-                                    <td t-esc="monthly_total"/>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="gl-hours-list">
+                        <div t-if="not days" class="gl-hours-empty">
+                            Für diesen Monat sind keine gearbeiteten Zeiten vorhanden.
+                        </div>
+
+                        <article t-foreach="days" t-as="day" class="gl-hours-day-card">
+                            <div class="gl-hours-day-head">
+                                <div>
+                                    <div class="gl-hours-day-name" t-esc="day['weekday']"/>
+                                    <div class="gl-hours-day-date" t-esc="day['date_label']"/>
+                                </div>
+                                <div class="gl-hours-day-sum">
+                                    <span>Tagessumme</span>
+                                    <strong t-esc="day['total']"/>
+                                </div>
+                            </div>
+
+                            <div class="gl-hours-entries">
+                                <div t-foreach="day['intervals']" t-as="interval" class="gl-hours-entry">
+                                    <div class="gl-entry-time">
+                                        <span class="gl-entry-label">Start / Ende</span>
+                                        <strong t-esc="interval['start']"/>
+                                        <strong> – </strong>
+                                        <strong t-esc="interval['end']"/>
+                                        <span t-if="interval['open']" class="gl-entry-open">offen</span>
+                                    </div>
+                                    <div class="gl-entry-duration" t-esc="interval['duration']"/>
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+
+                    <div class="gl-hours-month-total">
+                        <span>Summe Monat</span>
+                        <strong t-esc="monthly_total"/>
                     </div>
                 </div>
             </div>
