@@ -39,11 +39,22 @@ class ProjectProject(models.Model):
     gl_check_reception = fields.Text(string="Sektempfang")
     gl_check_drinkcard_notes = fields.Text(string="Getränkekarte")
 
-    # Neuer dynamischer zeitlicher Ablauf.
+    # Dynamischer zeitlicher Ablauf im Gastro-Bereich.
     gl_check_schedule_line_ids = fields.One2many(
         "gl.project.checklist.schedule.line",
         "project_id",
         string="Zeitlicher Ablauf",
+        copy=True,
+    )
+
+    # Medientechnik
+    gl_media_audio_notes = fields.Text(string="Audio")
+    gl_media_video_notes = fields.Text(string="Video")
+    gl_media_light_notes = fields.Text(string="Licht")
+    gl_media_rundown_line_ids = fields.One2many(
+        "gl.project.technical.rundown.line",
+        "project_id",
+        string="Technischer Rundown",
         copy=True,
     )
 
@@ -86,12 +97,15 @@ class ProjectProject(models.Model):
     )
     gl_check_lounge_rotation = fields.Integer(string="Lounge-Rotation", default=0)
 
+    # Die Feldnamen enthalten historisch "terasse", damit bestehende Datenbankspalten
+    # und vorhandene Zeichnungen bei einem Modulupdate erhalten bleiben. In der UI wird
+    # korrekt "Terrasse" angezeigt.
     gl_check_terasse_drawing = fields.Binary(
-        string="Terassen-Zeichnung",
+        string="Terrassen-Zeichnung",
         attachment=True,
-        help="Transparente PNG-Zeichnung über dem Terassen-Grundriss.",
+        help="Transparente PNG-Zeichnung über dem Terrassen-Grundriss.",
     )
-    gl_check_terasse_rotation = fields.Integer(string="Terassen-Rotation", default=0)
+    gl_check_terasse_rotation = fields.Integer(string="Terrassen-Rotation", default=0)
 
     # Notizen
     gl_check_notes = fields.Text(string="Notizen")
@@ -113,3 +127,21 @@ class GroundliftProjectChecklistScheduleLine(models.Model):
     sequence = fields.Integer(string="Reihenfolge", default=10)
     time = fields.Char(string="Uhrzeit")
     description = fields.Char(string="Beschreibung")
+
+
+class GroundliftProjectTechnicalRundownLine(models.Model):
+    _name = "gl.project.technical.rundown.line"
+    _description = "Groundlift Projekt-Checkliste Technischer Rundown"
+    _order = "sequence, time, id"
+
+    project_id = fields.Many2one(
+        "project.project",
+        string="Projekt",
+        required=True,
+        ondelete="cascade",
+        index=True,
+    )
+    sequence = fields.Integer(string="Reihenfolge", default=10)
+    time = fields.Char(string="Uhrzeit")
+    todo = fields.Char(string="ToDo")
+    done = fields.Boolean(string="Erledigt")
