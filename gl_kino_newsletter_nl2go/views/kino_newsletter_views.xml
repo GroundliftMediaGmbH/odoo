@@ -21,6 +21,9 @@
                                     <field name="active"/>
                                     <field name="timezone_name"/>
                                     <field name="week_mode"/>
+                                    <field name="film_load_time" widget="float_time"/>
+                                    <field name="newsletter_send_time" widget="float_time"/>
+                                    <field name="press_send_time" widget="float_time"/>
                                     <field name="cinetixx_api_url"/>
                                     <field name="program_url"/>
                                 </group>
@@ -101,6 +104,9 @@
                 <field name="name"/>
                 <field name="active"/>
                 <field name="week_mode"/>
+                <field name="film_load_time" widget="float_time"/>
+                <field name="newsletter_send_time" widget="float_time"/>
+                <field name="press_send_time" widget="float_time"/>
                 <field name="newsletter_auto_send"/>
                 <field name="press_auto_send"/>
                 <field name="press_recipient_count"/>

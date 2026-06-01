@@ -123,8 +123,23 @@ class GlKinoNewsletterConfig(models.Model):
     include_groundlift_event = fields.Boolean(string="Nächste Groundlift-Veranstaltung ergänzen", default=True)
     groundlift_event_count = fields.Integer(string="Anzahl Groundlift-Veranstaltungen", default=1)
 
-    newsletter_auto_send = fields.Boolean(string="Newsletter automatisch montags 18:00 senden", default=True)
-    press_auto_send = fields.Boolean(string="Presse-Mail automatisch montags 18:00 senden", default=True)
+    film_load_time = fields.Float(
+        string="Filme laden um",
+        default=17.0,
+        help="Montags ab dieser lokalen Uhrzeit lädt die Automatik das Kinoprogramm und baut die Vorschau.",
+    )
+    newsletter_send_time = fields.Float(
+        string="Newsletter senden um",
+        default=18.0,
+        help="Montags ab dieser lokalen Uhrzeit wird der Newsletter automatisch an Newsletter2Go übergeben.",
+    )
+    press_send_time = fields.Float(
+        string="Presse-Mail senden um",
+        default=18.0,
+        help="Montags ab dieser lokalen Uhrzeit wird die Presse-Mail automatisch über Odoo verschickt.",
+    )
+    newsletter_auto_send = fields.Boolean(string="Newsletter automatisch senden", default=True)
+    press_auto_send = fields.Boolean(string="Presse-Mail automatisch senden", default=True)
 
     nl2go_api_base_url = fields.Char(string="Newsletter2Go API Basis-URL", default=DEFAULT_NL2GO_API_BASE, required=True)
     nl2go_auth_key = fields.Char(string="Newsletter2Go Auth-Key")
@@ -195,6 +210,20 @@ class GlKinoNewsletterConfig(models.Model):
     def _compute_press_recipient_count(self):
         for rec in self:
             rec.press_recipient_count = len(rec.press_recipient_ids.filtered(lambda line: line.active and line.email))
+
+    @api.constrains("film_load_time", "newsletter_send_time", "press_send_time")
+    def _check_schedule_times(self):
+        for rec in self:
+            for field_name, label in [
+                ("film_load_time", _("Filme laden um")),
+                ("newsletter_send_time", _("Newsletter senden um")),
+                ("press_send_time", _("Presse-Mail senden um")),
+            ]:
+                value = rec[field_name]
+                if value is None or value is False:
+                    continue
+                if value < 0 or value >= 24:
+                    raise ValidationError(_("%(label)s muss zwischen 00:00 und 23:59 liegen.") % {"label": label})
 
     @api.model
     def get_config(self):
@@ -441,6 +470,8 @@ class GlKinoNewsletterIssue(models.Model):
     prepared_at = fields.Datetime(string="Vorschau erstellt am", readonly=True)
     cron_check_done_date = fields.Date(string="Cron Check erledigt am", readonly=True)
     cron_send_done_date = fields.Date(string="Cron Versand erledigt am", readonly=True)
+    cron_newsletter_send_done_date = fields.Date(string="Cron Newsletter-Versand erledigt am", readonly=True)
+    cron_press_send_done_date = fields.Date(string="Cron Presse-Versand erledigt am", readonly=True)
 
     @api.model
     def default_get(self, fields_list):
@@ -481,6 +512,37 @@ class GlKinoNewsletterIssue(models.Model):
     def _local_now(self, config):
         tz = pytz.timezone(config.timezone_name or DEFAULT_TIMEZONE)
         return datetime.now(tz)
+
+    @api.model
+    def _float_time_to_hour_minute(self, value, fallback_hour=0):
+        if value is None or value is False:
+            value = float(fallback_hour)
+        value = max(0.0, min(float(value), 23.99))
+        hour = int(value)
+        minute = int(round((value - hour) * 60))
+        if minute >= 60:
+            hour += 1
+            minute -= 60
+        if hour >= 24:
+            hour = 23
+            minute = 59
+        return hour, minute
+
+    @api.model
+    def _is_monday_schedule_due(self, now_local, schedule_value, done_date, fallback_hour=0):
+        """True, sobald die konfigurierte lokale Montags-Uhrzeit erreicht ist.
+
+        Die technischen Cronjobs laufen bewusst weiterhin alle 30 Minuten. Dadurch
+        werden auch Uhrzeiten wie 17:15 zuverlässig ausgeführt: Der erste Cronlauf
+        nach der eingestellten Uhrzeit erledigt den Schritt genau einmal pro Tag.
+        """
+        if now_local.weekday() != 0:
+            return False
+        if done_date == now_local.date():
+            return False
+        hour, minute = self._float_time_to_hour_minute(schedule_value, fallback_hour=fallback_hour)
+        scheduled = now_local.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        return now_local >= scheduled
 
     @api.model
     def _get_week_range(self, ref_date, config):
@@ -810,11 +872,31 @@ class GlKinoNewsletterIssue(models.Model):
         if "{{PROGRAMM_BLOCK}}" not in template:
             raise UserError(_("Im Newsletter-Template fehlt der Platzhalter {{PROGRAMM_BLOCK}}."))
 
+        template = self._activate_groundlift_event_placeholder(template)
         program_html = self._build_program_block(shows)
         event_html = self._build_groundlift_events_block(shows) if self.config_id.include_groundlift_event else ""
-        html_final = template.replace("{{PROGRAMM_BLOCK}}", program_html)
+        program_replacement = program_html
+        if event_html and "{{GROUNDLIFT_EVENTS_BLOCK}}" not in template:
+            program_replacement += event_html
+        html_final = template.replace("{{PROGRAMM_BLOCK}}", program_replacement)
         html_final = html_final.replace("{{GROUNDLIFT_EVENTS_BLOCK}}", event_html or "")
         return html_final
+
+    @api.model
+    def _activate_groundlift_event_placeholder(self, template):
+        """Macht einen versehentlich auskommentierten Event-Platzhalter wieder sichtbar.
+
+        In älteren Newsletter-Templates lag {{GROUNDLIFT_EVENTS_BLOCK}} innerhalb
+        eines HTML-Kommentars. Die Generierung hat den Block zwar ersetzt, der
+        Mail-Client hat ihn aber weiter als Kommentar verborgen. Deshalb werden
+        ausschließlich Kommentare entpackt, die genau diesen Platzhalter enthalten.
+        """
+        def repl(match):
+            inner = match.group(1)
+            if "{{GROUNDLIFT_EVENTS_BLOCK}}" in inner:
+                return inner.strip()
+            return match.group(0)
+        return re.sub(r"<!--(.*?)-->", repl, template or "", flags=re.DOTALL)
 
     def _build_program_block(self, shows):
         self.ensure_one()
@@ -942,9 +1024,7 @@ class GlKinoNewsletterIssue(models.Model):
                 continue
             event_url = getattr(event, "website_url", False) or "/event/%s" % event.id
             event_url = urljoin(base_url + "/", event_url)
-            image_url = ""
-            if "image_1920" in event._fields and event.image_1920:
-                image_url = "%s/web/image/event.event/%s/image_1920" % (base_url, event.id)
+            image_url = self._get_event_image_url(event, base_url)
             desc = ""
             for field_name in ["x_studio_event_kurzbeschreibung", "subtitle", "description"]:
                 if field_name in event._fields and event[field_name]:
@@ -968,6 +1048,20 @@ class GlKinoNewsletterIssue(models.Model):
             if added >= (self.config_id.groundlift_event_count or 1):
                 break
         return "".join(parts) if added else ""
+
+    @api.model
+    def _get_event_image_url(self, event, base_url):
+        """Ermittelt bevorzugt das öffentlich nutzbare Bild der Odoo-Veranstaltung."""
+        for field_name in [
+            "image_1920",
+            "image_1024",
+            "image_512",
+            "x_studio_website_header",
+            "x_studio_x_studio_binary_field_4ut_1jl7us7lt",
+        ]:
+            if field_name in event._fields and event[field_name]:
+                return "%s/web/image/event.event/%s/%s" % (base_url, event.id, field_name)
+        return ""
 
     @api.model
     def _build_event_card(self, title, date_text, category, desc, event_url, image_url):
@@ -1162,6 +1256,8 @@ class GlKinoNewsletterIssue(models.Model):
             "prepared_at": False,
             "cron_check_done_date": False,
             "cron_send_done_date": False,
+            "cron_newsletter_send_done_date": False,
+            "cron_press_send_done_date": False,
         })
         return {
             "type": "ir.actions.act_window",
@@ -1175,11 +1271,8 @@ class GlKinoNewsletterIssue(models.Model):
     def cron_prepare_monday_newsletter(self):
         config = self.env["gl.kino.newsletter.config"].sudo().get_config()
         now_local = self._local_now(config)
-        # Montag zwischen 17:00 und 17:59 lokaler Zeit. Die Cron darf häufiger laufen.
-        if now_local.weekday() != 0 or now_local.hour != 17:
-            return True
         issue = self.sudo()._get_or_create_current_issue(config=config, ref_date=now_local.date())
-        if issue.cron_check_done_date == now_local.date():
+        if not self._is_monday_schedule_due(now_local, config.film_load_time, issue.cron_check_done_date, fallback_hour=17):
             return True
         issue._fetch_and_generate()
         issue.write({"cron_check_done_date": now_local.date()})
@@ -1189,31 +1282,58 @@ class GlKinoNewsletterIssue(models.Model):
     def cron_send_monday_newsletter(self):
         config = self.env["gl.kino.newsletter.config"].sudo().get_config()
         now_local = self._local_now(config)
-        # Montag zwischen 18:00 und 18:59 lokaler Zeit. Die Cron darf häufiger laufen.
-        if now_local.weekday() != 0 or now_local.hour != 18:
-            return True
         issue = self.sudo()._get_or_create_current_issue(config=config, ref_date=now_local.date())
-        if issue.cron_send_done_date == now_local.date():
+
+        newsletter_due = self._is_monday_schedule_due(
+            now_local,
+            config.newsletter_send_time,
+            issue.cron_newsletter_send_done_date,
+            fallback_hour=18,
+        )
+        press_due = self._is_monday_schedule_due(
+            now_local,
+            config.press_send_time,
+            issue.cron_press_send_done_date,
+            fallback_hour=18,
+        )
+        if not newsletter_due and not press_due:
             return True
+
         if not issue.newsletter_html and not issue.press_body:
             issue._fetch_and_generate()
         if issue.show_count <= 0:
             issue.message_post(body=_("Automatischer Versand übersprungen: keine Vorstellungen für diese Woche."))
-            issue.write({"cron_send_done_date": now_local.date()})
+            vals = {}
+            if newsletter_due:
+                vals["cron_newsletter_send_done_date"] = now_local.date()
+            if press_due:
+                vals["cron_press_send_done_date"] = now_local.date()
+            if vals:
+                issue.write(vals)
             return True
+
         errors = []
-        if issue.auto_newsletter_send and not issue.newsletter_sent_at:
-            try:
-                issue._send_newsletter(send_at=now_local)
-            except Exception as exc:
-                errors.append(_("Newsletter: %s") % exc)
-        if issue.auto_press_send and not issue.press_sent_at:
-            try:
-                issue._send_press_mail()
-            except Exception as exc:
-                errors.append(_("Presse: %s") % exc)
+        done_vals = {}
+        if newsletter_due:
+            if issue.auto_newsletter_send and not issue.newsletter_sent_at:
+                try:
+                    issue._send_newsletter(send_at=now_local)
+                except Exception as exc:
+                    errors.append(_("Newsletter: %s") % exc)
+            done_vals["cron_newsletter_send_done_date"] = now_local.date()
+        if press_due:
+            if issue.auto_press_send and not issue.press_sent_at:
+                try:
+                    issue._send_press_mail()
+                except Exception as exc:
+                    errors.append(_("Presse: %s") % exc)
+            done_vals["cron_press_send_done_date"] = now_local.date()
+
         if errors:
             issue.write({"state": "failed", "last_error": "\n".join(map(str, errors))})
             issue.message_post(body=_("Automatischer Versand mit Fehlern: %s") % tools.html_escape(" | ".join(map(str, errors))))
-        issue.write({"cron_send_done_date": now_local.date()})
+        if done_vals:
+            if done_vals.get("cron_newsletter_send_done_date") and done_vals.get("cron_press_send_done_date"):
+                done_vals["cron_send_done_date"] = now_local.date()
+            issue.write(done_vals)
         return True

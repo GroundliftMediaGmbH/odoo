@@ -4,13 +4,13 @@ Odoo-19-SH-Modul für den Kino-Stegen-Wochennewsletter und die sachliche Presse-
 
 ## Funktionen
 
-- Lädt montags um 17:00 Uhr lokaler Zeit das Wochenprogramm aus der Cinetixx-API.
+- Lädt montags ab der in den Einstellungen hinterlegten Uhrzeit das Wochenprogramm aus der Cinetixx-API.
 - Erzeugt eine Odoo-Vorschau für den Kinonewsletter auf Basis von `newsletter_template.html`.
 - Fügt pro Vorstellung einen Button **Film ansehen** mit Link auf `https://www.kino-stegen.de/index.php/de/programm` ein.
 - Verwendet Film-Bilder aus Cinetixx (`ARTWORK`, `ARTWORK_BIG`, `IMAGE_1` usw.), sofern die API Bildfelder liefert.
 - Ergänzt optional die nächste Groundlift-Veranstaltung aus `event.event` inklusive Bild, Datum, Kurzbeschreibung und Link.
-- Sendet den Newsletter per Newsletter2Go-REST-API automatisch montags um 18:00 Uhr oder manuell per Button.
-- Erstellt und versendet die Presse-Mail direkt über Odoo `mail.mail` an die aus dem Projektmanagement übernommenen Presse-Adressen.
+- Sendet den Newsletter per Newsletter2Go-REST-API automatisch montags ab der einstellbaren Newsletter-Uhrzeit oder manuell per Button.
+- Erstellt und versendet die Presse-Mail direkt über Odoo `mail.mail` zur separat einstellbaren Presse-Uhrzeit an die aus dem Projektmanagement übernommenen Presse-Adressen.
 - Presse-Adressen werden in den Einstellungen als editierbare Tabelle gepflegt.
 - Der HTML-Newsletter nutzt eine kompakte Filmkarten-Ansicht mit Bild, Kurzinfo, Spielzeiten und Button.
 - Beide Automatiken sind pro Ausgabe per Haken steuerbar.
@@ -35,17 +35,19 @@ Der Montag-17:00-Schritt kann jederzeit manuell ausgeführt werden:
    - Newsletter2Go Listen-ID
    - Absender- und Reply-Adresse
    - Presse-Verteiler in der Tabelle prüfen/ergänzen
+   - Automatik-Uhrzeiten für Filme laden, Newsletter und Presse-Mail prüfen/anpassen
 5. Button **Newsletter2Go Auth testen** ausführen.
 6. Menü **Kino Newsletter → Ausgaben** öffnen und testweise **Cinetixx prüfen & Vorschau bauen** klicken.
 
 ## Automatik
 
-Die Cronjobs laufen alle 30 Minuten, handeln aber nur in den gewünschten lokalen Zeitfenstern:
+Die Cronjobs laufen alle 30 Minuten, handeln aber nur, sobald die in den Einstellungen hinterlegten lokalen Uhrzeiten erreicht sind:
 
-- Montag 17:00–17:59: Cinetixx prüfen und Vorschau erstellen.
-- Montag 18:00–18:59: Newsletter und/oder Presse-Mail senden, wenn die jeweiligen Haken aktiv sind.
+- **Filme laden um**: Cinetixx prüfen und Vorschau erstellen.
+- **Newsletter senden um**: Newsletter automatisch an Newsletter2Go übergeben, wenn der Haken aktiv ist.
+- **Presse-Mail senden um**: Presse-Mail automatisch über Odoo senden, wenn der Haken aktiv ist.
 
-Die Zeitzone steht standardmäßig auf `Europe/Berlin`.
+Die Zeitzone steht standardmäßig auf `Europe/Berlin`. Uhrzeiten werden in Odoo mit dem `float_time`-Widget gepflegt, also z. B. `17:00`, `17:30` oder `18:15`.
 
 ## Cinetixx-Interpretation
 
