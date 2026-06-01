@@ -11,6 +11,8 @@
                         <field name="target_res_id" invisible="1"/>
                         <field name="storage_root_path" invisible="1"/>
                         <field name="root_folder_path" invisible="1"/>
+                        <field name="available_root_cache_ids" invisible="1"/>
+                        <field name="available_subfolder_cache_ids" invisible="1"/>
                         <field name="record_name" readonly="1"/>
                     </group>
 
@@ -20,12 +22,12 @@
                             <field name="storage_id" string="1) Speicher wählen"/>
                             <field name="root_folder_cache_id"
                                    string="2) Ordner wählen"
-                                   domain="[('storage_id', '=', storage_id), ('browse_parent_path', '=', storage_root_path)]"
-                                   context="{'default_storage_id': storage_id}"/>
+                                   domain="[('id', 'in', available_root_cache_ids)]"
+                                   context="{'default_storage_id': storage_id}" options="{'no_create': True, 'no_open': True}"/>
                             <field name="subfolder_cache_id"
                                    string="3) Unterordner wählen"
-                                   domain="[('storage_id', '=', storage_id), ('browse_parent_path', '=', root_folder_path)]"
-                                   context="{'default_storage_id': storage_id}"/>
+                                   domain="[('id', 'in', available_subfolder_cache_ids)]"
+                                   context="{'default_storage_id': storage_id}" options="{'no_create': True, 'no_open': True}"/>
                         </group>
                         <group>
                             <field name="parent_path" string="Zielpfad" readonly="1"/>
@@ -51,12 +53,12 @@
                     </group>
 
                     <p class="text-muted">
-                        Die Ordnerauswahl basiert auf dem SCORSESE-Ordnercache. Mit „Ausgewählten Ordner laden/aktualisieren“ wird die nächste Ebene geladen, falls sie noch nicht im Dropdown erscheint.
+                        Die Ordnerauswahl basiert auf dem SCORSESE-Ordnercache. Wenn nach der Speicherwahl noch nichts erscheint, bitte „Speicher/ausgewählten Ordner laden“ klicken. Sobald der Agent den Cache aktualisiert hat, erscheinen die Ordnernamen im Dropdown.
                     </p>
                 </sheet>
                 <footer>
                     <button name="action_enqueue" type="object" string="Ordner erstellen" class="btn-primary"/>
-                    <button name="action_request_browse" type="object" string="Ausgewählten Ordner laden/aktualisieren"/>
+                    <button name="action_request_browse" type="object" string="Speicher/ausgewählten Ordner laden"/>
                     <button name="action_open_cache" type="object" string="Ordnercache öffnen"/>
                     <button string="Abbrechen" class="btn-secondary" special="cancel"/>
                 </footer>

@@ -27,6 +27,32 @@ def _join_path(root, child):
     return root + sep + child
 
 
+def _norm_path_for_compare(value):
+    """Normalize SCORSESE paths for robust comparisons inside Odoo domains.
+
+    Cache entries may contain Windows paths with backslashes, UNC paths or paths
+    that came from JSON with forward slashes. Exact XML-domain comparisons are
+    therefore fragile. The wizard computes candidate IDs in Python and uses an
+    ID-domain in the view.
+    """
+    value = _clean_scorsese_path(value)
+    value = value.replace('/', '\\')
+    while '\\\\' in value and not value.startswith('\\\\'):
+        value = value.replace('\\\\', '\\')
+    return value.rstrip('\\').casefold()
+
+
+def _same_path(left, right):
+    return _norm_path_for_compare(left) == _norm_path_for_compare(right)
+
+
+def _path_parent(value):
+    value = _clean_scorsese_path(value).replace('/', '\\').rstrip('\\')
+    if '\\' not in value:
+        return ''
+    return value.rsplit('\\', 1)[0]
+
+
 class GlScorseseFolderCreateWizard(models.TransientModel):
     _name = 'gl.scorsese.folder.create.wizard'
     _description = 'SCORSESE Ordner erstellen Wizard'
@@ -49,6 +75,22 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
         'gl.scorsese.path.cache',
         string='Unterordner wählen',
         help='Optionaler Unterordner innerhalb des gewählten Ordners.',
+    )
+    available_root_cache_ids = fields.Many2many(
+        'gl.scorsese.path.cache',
+        'gl_scorsese_folder_create_root_cache_rel',
+        'wizard_id',
+        'cache_id',
+        string='Verfügbare Hauptordner',
+        compute='_compute_available_cache_ids',
+    )
+    available_subfolder_cache_ids = fields.Many2many(
+        'gl.scorsese.path.cache',
+        'gl_scorsese_folder_create_sub_cache_rel',
+        'wizard_id',
+        'cache_id',
+        string='Verfügbare Unterordner',
+        compute='_compute_available_cache_ids',
     )
     parent_path = fields.Char(string='Zielpfad', readonly=True, help='Hier wird der neue Ordner erstellt.')
 
@@ -123,6 +165,59 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
             return record._gl_folder_name()
         return _clean_folder_title(record.display_name or record.name)
 
+    @api.depends('storage_id', 'storage_root_path', 'root_folder_cache_id', 'root_folder_path')
+    def _compute_available_cache_ids(self):
+        Cache = self.env['gl.scorsese.path.cache'].sudo()
+        for rec in self:
+            rec.available_root_cache_ids = Cache.browse()
+            rec.available_subfolder_cache_ids = Cache.browse()
+            if not rec.storage_id:
+                continue
+
+            storage_root = _clean_scorsese_path(rec.storage_root_path or rec.storage_id.root_path)
+            cache_entries = Cache.search([
+                ('storage_id', '=', rec.storage_id.id),
+                ('is_dir', '=', True),
+            ])
+            if not cache_entries:
+                continue
+
+            # Normalfall: SCORSESE hat den Speicher-Root gebrowst und alle
+            # direkten Kinder stehen mit browse_parent_path == storage_root im Cache.
+            root_children = cache_entries.filtered(lambda item: _same_path(item.browse_parent_path, storage_root))
+
+            # Fallback 1: Falls alte Cache-Einträge nur child_path enthalten oder
+            # browse_parent_path mit anderer Slash-Schreibweise gespeichert wurde,
+            # berechnen wir direkte Kinder anhand des vollständigen Pfads.
+            if not root_children:
+                root_children = cache_entries.filtered(lambda item: _same_path(_path_parent(item.child_path), storage_root))
+
+            # Fallback 2: Wenn der Speicher-Root selbst nie gebrowst wurde, aber
+            # Unterordner bereits im Cache existieren, zeigen wir diese trotzdem an.
+            # So bleibt der Wizard nutzbar und man muss keine Pfade kopieren.
+            if not root_children:
+                root_children = cache_entries
+
+            rec.available_root_cache_ids = root_children
+
+            selected_parent = _clean_scorsese_path(
+                rec.root_folder_path or rec.root_folder_cache_id.child_path or False
+            )
+            if selected_parent:
+                subfolders = cache_entries.filtered(lambda item: _same_path(item.browse_parent_path, selected_parent))
+                if not subfolders:
+                    subfolders = cache_entries.filtered(lambda item: _same_path(_path_parent(item.child_path), selected_parent))
+                rec.available_subfolder_cache_ids = subfolders
+
+    def _folder_cache_domain_result(self):
+        self.ensure_one()
+        return {
+            'domain': {
+                'root_folder_cache_id': [('id', 'in', self.available_root_cache_ids.ids)],
+                'subfolder_cache_id': [('id', 'in', self.available_subfolder_cache_ids.ids)],
+            }
+        }
+
     @api.onchange('storage_id')
     def _onchange_storage_id(self):
         for rec in self:
@@ -136,6 +231,9 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
             else:
                 rec.storage_root_path = False
                 rec.parent_path = False
+        if len(self) == 1:
+            return self._folder_cache_domain_result()
+        return {}
 
     @api.onchange('root_folder_cache_id')
     def _onchange_root_folder_cache_id(self):
@@ -148,6 +246,9 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
             else:
                 rec.root_folder_path = False
                 rec.parent_path = _clean_scorsese_path(rec.storage_id.root_path) if rec.storage_id else False
+        if len(self) == 1:
+            return self._folder_cache_domain_result()
+        return {}
 
     @api.onchange('subfolder_cache_id')
     def _onchange_subfolder_cache_id(self):
