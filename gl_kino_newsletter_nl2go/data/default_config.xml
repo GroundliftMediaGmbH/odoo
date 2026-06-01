@@ -4,6 +4,9 @@
         <record id="gl_kino_newsletter_default_config" model="gl.kino.newsletter.config">
             <field name="name">Kino Stegen Newsletter</field>
             <field name="active">True</field>
+            <field name="film_load_time">17.0</field>
+            <field name="newsletter_send_time">18.0</field>
+            <field name="press_send_time">18.0</field>
         </record>
     </data>
     <function model="gl.kino.newsletter.config" name="_ensure_all_press_recipient_lines"/>
