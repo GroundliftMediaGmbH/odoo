@@ -35,6 +35,16 @@ class GlScorseseImportWizard(models.TransientModel):
     _description = 'SCORSESE Veranstaltung/Projekt importieren'
 
     storage_id = fields.Many2one('gl.scorsese.storage', string='Speicher', required=True)
+    show_unlinked_only = fields.Boolean(
+        string='Nur nicht verknüpfte Ordner anzeigen',
+        default=True,
+        help='Wenn aktiv, werden im Ordnerpfad-Dropdown nur Cache-Ordner angezeigt, die noch mit keinem Projekt und keiner Veranstaltung verknüpft sind.',
+    )
+    available_cache_ids = fields.Many2many(
+        'gl.scorsese.path.cache',
+        string='Verfügbare Cache-Ordner',
+        compute='_compute_available_cache_ids',
+    )
     cached_folder_id = fields.Many2one('gl.scorsese.path.cache', string='Ordnerpfad', required=True)
     folder_path = fields.Char(string='Ausgewählter vollständiger Pfad', readonly=True)
     target_model = fields.Selection([
@@ -48,6 +58,63 @@ class GlScorseseImportWizard(models.TransientModel):
     existing_event_id = fields.Many2one('event.event', string='Bestehende Veranstaltung verknüpfen')
     create_validation_job = fields.Boolean(string='Ordner von SCORSESE validieren lassen', default=False)
 
+    def _linked_folder_paths(self):
+        """Return normalized SCORSESE folder paths already linked to projects/events.
+
+        This is intentionally computed at wizard runtime instead of stored on the
+        cache entries, because projects/events may be linked, unlinked, imported
+        or modified outside the cache model.
+        """
+        paths = set()
+        for model_name in ('project.project', 'event.event'):
+            Model = self.env[model_name].sudo()
+            if 'gl_folder_path' not in Model._fields:
+                continue
+            for rec in Model.search([('gl_folder_path', '!=', False)]):
+                path = _clean_scorsese_path(rec.gl_folder_path)
+                if path:
+                    paths.add(path.casefold())
+        return paths
+
+    @api.depends('storage_id', 'show_unlinked_only')
+    def _compute_available_cache_ids(self):
+        Cache = self.env['gl.scorsese.path.cache'].sudo()
+        linked_paths = self._linked_folder_paths() if any(self.mapped('show_unlinked_only')) else set()
+        for rec in self:
+            if not rec.storage_id:
+                rec.available_cache_ids = Cache.browse()
+                continue
+            cache_entries = Cache.search([
+                ('storage_id', '=', rec.storage_id.id),
+                ('is_dir', '=', True),
+            ])
+            if rec.show_unlinked_only and linked_paths:
+                cache_entries = cache_entries.filtered(
+                    lambda item: _clean_scorsese_path(item.child_path).casefold() not in linked_paths
+                )
+            rec.available_cache_ids = cache_entries
+
+    def _domain_cached_folder_id(self):
+        self.ensure_one()
+        return [('id', 'in', self.available_cache_ids.ids)]
+
+    @api.onchange('storage_id', 'show_unlinked_only')
+    def _onchange_storage_filter(self):
+        for rec in self:
+            if rec.cached_folder_id and rec.cached_folder_id not in rec.available_cache_ids:
+                rec.cached_folder_id = False
+                rec.folder_path = False
+                rec.name = False
+                rec.parsed_date = False
+            elif not rec.storage_id:
+                rec.cached_folder_id = False
+                rec.folder_path = False
+                rec.name = False
+                rec.parsed_date = False
+        if len(self) == 1:
+            return {'domain': {'cached_folder_id': self._domain_cached_folder_id()}}
+        return {}
+
     @api.onchange('storage_id')
     def _onchange_storage_id(self):
         for rec in self:
@@ -55,6 +122,8 @@ class GlScorseseImportWizard(models.TransientModel):
             rec.folder_path = False
             rec.name = False
             rec.parsed_date = False
+        if len(self) == 1:
+            return {'domain': {'cached_folder_id': self._domain_cached_folder_id()}}
 
     @api.onchange('cached_folder_id')
     def _onchange_cached_folder_id(self):

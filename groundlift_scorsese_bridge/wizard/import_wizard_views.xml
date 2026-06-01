@@ -16,7 +16,9 @@
                             <button name="action_browse_storage_root" type="object" string="Speicherinhalt laden/aktualisieren" invisible="not storage_id"/>
                         </group>
                         <group string="2. Ordnerpfad">
-                            <field name="cached_folder_id" domain="[('storage_id', '=', storage_id)]" options="{'no_create': True}"/>
+                            <field name="available_cache_ids" invisible="1"/>
+                            <field name="show_unlinked_only"/>
+                            <field name="cached_folder_id" domain="[('id', 'in', available_cache_ids)]" options="{'no_create': True}"/>
                             <field name="folder_path" readonly="1" invisible="not folder_path"/>
                             <button name="action_browse_selected_folder" type="object" string="Unterordner dieses Ordners laden" invisible="not cached_folder_id"/>
                         </group>
