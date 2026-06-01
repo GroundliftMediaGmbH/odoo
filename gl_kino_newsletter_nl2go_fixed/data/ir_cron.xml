@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="ir_cron_gl_kino_newsletter_prepare" model="ir.cron">
+        <field name="name">Kino Newsletter: Filme laden nach Einstellung</field>
+        <field name="model_id" ref="model_gl_kino_newsletter_issue"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_prepare_monday_newsletter()</field>
+        <field name="interval_number">30</field>
+        <field name="interval_type">minutes</field>
+        <field name="active">True</field>
+    </record>
+    <record id="ir_cron_gl_kino_newsletter_send" model="ir.cron">
+        <field name="name">Kino Newsletter: Newsletter/Presse nach Einstellung senden</field>
+        <field name="model_id" ref="model_gl_kino_newsletter_issue"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_send_monday_newsletter()</field>
+        <field name="interval_number">30</field>
+        <field name="interval_type">minutes</field>
+        <field name="active">True</field>
+    </record>
+</odoo>

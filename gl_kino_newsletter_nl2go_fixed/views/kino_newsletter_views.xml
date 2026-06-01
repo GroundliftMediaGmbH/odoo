@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_kino_newsletter_config_form" model="ir.ui.view">
+        <field name="name">gl.kino.newsletter.config.form</field>
+        <field name="model">gl.kino.newsletter.config</field>
+        <field name="arch" type="xml">
+            <form string="Kino Newsletter Einstellungen">
+                <header>
+                    <button name="action_load_films_current_week" type="object" string="Filme laden" class="oe_highlight"/>
+                    <button name="action_test_nl2go_auth" type="object" string="Newsletter2Go Auth testen"/>
+                    <button name="action_sync_press_recipients_from_text" type="object" string="Presse-Verteiler prüfen"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <notebook>
+                        <page string="Allgemein">
+                            <group>
+                                <group string="Zeiten &amp; Cinetixx">
+                                    <field name="active"/>
+                                    <field name="timezone_name"/>
+                                    <field name="week_mode"/>
+                                    <field name="film_load_time" widget="float_time"/>
+                                    <field name="newsletter_send_time" widget="float_time"/>
+                                    <field name="press_send_time" widget="float_time"/>
+                                    <field name="cinetixx_api_url"/>
+                                    <field name="program_url"/>
+                                </group>
+                                <group string="Automatik">
+                                    <field name="newsletter_auto_send"/>
+                                    <field name="press_auto_send"/>
+                                    <field name="include_groundlift_event"/>
+                                    <field name="groundlift_event_count"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Newsletter2Go">
+                            <group>
+                                <group string="API">
+                                    <field name="nl2go_api_base_url"/>
+                                    <field name="nl2go_auth_key" password="True"/>
+                                    <field name="nl2go_username"/>
+                                    <field name="nl2go_password" password="True"/>
+                                    <field name="nl2go_list_id"/>
+                                    <field name="nl2go_group_ids" placeholder="Optional: eine Segment-/Gruppen-ID pro Zeile"/>
+                                </group>
+                                <group string="Absender">
+                                    <field name="sender_email"/>
+                                    <field name="sender_name"/>
+                                    <field name="reply_email"/>
+                                    <field name="reply_name"/>
+                                    <field name="newsletter_subject"/>
+                                </group>
+                            </group>
+                            <group string="Letzter API-Test">
+                                <field name="last_auth_test" readonly="1"/>
+                                <field name="last_auth_message" readonly="1"/>
+                            </group>
+                        </page>
+                        <page string="Presse-Mail">
+                            <group>
+                                <group>
+                                    <field name="press_visible_to"/>
+                                    <field name="press_sender_email"/>
+                                    <field name="press_subject"/>
+                                </group>
+                                <group>
+                                    <field name="press_notice_line"/>
+                                    <field name="press_recipient_count" readonly="1"/>
+                                </group>
+                            </group>
+                            <group string="Presse-Verteiler">
+                                <p class="text-muted">Aktive Zeilen werden einzeln angeschrieben, sodass Empfänger sich gegenseitig nicht sehen.</p>
+                                <field name="press_recipient_ids" nolabel="1" context="{'default_config_id': id}">
+                                    <list editable="bottom">
+                                        <field name="sequence" widget="handle"/>
+                                        <field name="active"/>
+                                        <field name="name"/>
+                                        <field name="email"/>
+                                        <field name="note"/>
+                                    </list>
+                                </field>
+                            </group>
+                            <group string="Import / Altbestand" invisible="1">
+                                <field name="press_recipients" nolabel="1"/>
+                            </group>
+                        </page>
+                        <page string="HTML-Template">
+                            <p class="text-muted">Pflichtplatzhalter: {{PROGRAMM_BLOCK}}. Optional: {{GROUNDLIFT_EVENTS_BLOCK}}.</p>
+                            <field name="newsletter_template_html" widget="html" nolabel="1" options="{'sanitize': false}"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_gl_kino_newsletter_config_list" model="ir.ui.view">
+        <field name="name">gl.kino.newsletter.config.list</field>
+        <field name="model">gl.kino.newsletter.config</field>
+        <field name="arch" type="xml">
+            <list string="Kino Newsletter Einstellungen">
+                <field name="name"/>
+                <field name="active"/>
+                <field name="week_mode"/>
+                <field name="film_load_time" widget="float_time"/>
+                <field name="newsletter_send_time" widget="float_time"/>
+                <field name="press_send_time" widget="float_time"/>
+                <field name="newsletter_auto_send"/>
+                <field name="press_auto_send"/>
+                <field name="press_recipient_count"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_gl_kino_newsletter_config" model="ir.actions.act_window">
+        <field name="name">Einstellungen</field>
+        <field name="res_model">gl.kino.newsletter.config</field>
+        <field name="view_mode">list,form</field>
+        <field name="target">current</field>
+    </record>
+
+    <record id="view_gl_kino_newsletter_issue_search" model="ir.ui.view">
+        <field name="name">gl.kino.newsletter.issue.search</field>
+        <field name="model">gl.kino.newsletter.issue</field>
+        <field name="arch" type="xml">
+            <search string="Kino Newsletter">
+                <field name="name"/>
+                <field name="week_start"/>
+                <field name="state"/>
+                <filter name="ready" string="Vorschau bereit" domain="[('state','=','ready')]"/>
+                <filter name="failed" string="Fehler" domain="[('state','=','failed')]"/>
+                <filter name="sent" string="Gesendet" domain="[('state','=','sent')]"/>
+                <separator/>
+                <group>
+                    <filter name="group_state" string="Status" context="{'group_by':'state'}"/>
+                    <filter name="group_week" string="Woche" context="{'group_by':'week_start'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_gl_kino_newsletter_issue_list" model="ir.ui.view">
+        <field name="name">gl.kino.newsletter.issue.list</field>
+        <field name="model">gl.kino.newsletter.issue</field>
+        <field name="arch" type="xml">
+            <list string="Kino Newsletter" decoration-danger="state == 'failed'" decoration-success="state == 'sent'">
+                <field name="name"/>
+                <field name="week_start"/>
+                <field name="week_end"/>
+                <field name="state"/>
+                <field name="show_count"/>
+                <field name="movie_count"/>
+                <field name="auto_newsletter_send"/>
+                <field name="auto_press_send"/>
+                <field name="prepared_at"/>
+                <field name="newsletter_sent_at"/>
+                <field name="press_sent_at"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_kino_newsletter_issue_form" model="ir.ui.view">
+        <field name="name">gl.kino.newsletter.issue.form</field>
+        <field name="model">gl.kino.newsletter.issue</field>
+        <field name="arch" type="xml">
+            <form string="Kino Newsletter">
+                <header>
+                    <button name="action_load_films" type="object" string="Filme laden" class="oe_highlight"/>
+                    <button name="action_fetch_and_generate" type="object" string="Cinetixx prüfen &amp; Vorschau bauen"/>
+                    <button name="action_open_preview" type="object" string="Vorschau öffnen"/>
+                    <button name="action_send_newsletter_now" type="object" string="Newsletter sofort senden" class="btn-primary"/>
+                    <button name="action_send_press_now" type="object" string="Presse-Mail sofort senden"/>
+                    <button name="action_duplicate_for_next_week" type="object" string="Für nächste Woche duplizieren"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,ready,sent,failed"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group string="Woche">
+                            <field name="config_id"/>
+                            <field name="week_start"/>
+                            <field name="week_end"/>
+                            <field name="show_count" readonly="1"/>
+                            <field name="movie_count" readonly="1"/>
+                        </group>
+                        <group string="Automatik">
+                            <field name="auto_newsletter_send"/>
+                            <field name="auto_press_send"/>
+                            <field name="prepared_at" readonly="1"/>
+                            <field name="newsletter_sent_at" readonly="1"/>
+                            <field name="press_sent_at" readonly="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Newsletter Vorschau">
+                            <group>
+                                <field name="newsletter_subject"/>
+                                <field name="nl2go_newsletter_id" readonly="1"/>
+                            </group>
+                            <field name="newsletter_html" widget="html" nolabel="1" options="{'sanitize': false}"/>
+                        </page>
+                        <page string="Presse-Mail">
+                            <group>
+                                <field name="press_subject"/>
+                                <field name="press_send_count" readonly="1"/>
+                            </group>
+                            <field name="press_body" nolabel="1" placeholder="Wird aus Cinetixx erzeugt."/>
+                        </page>
+                        <page string="Cinetixx Rohdaten">
+                            <field name="show_json" nolabel="1" readonly="1"/>
+                        </page>
+                        <page string="API / Fehler">
+                            <group>
+                                <field name="cron_check_done_date" readonly="1"/>
+                                <field name="cron_send_done_date" readonly="1"/>
+                            </group>
+                            <group string="Newsletter2Go Antwort">
+                                <field name="nl2go_response" nolabel="1" readonly="1"/>
+                            </group>
+                            <group string="Letzter Fehler">
+                                <field name="last_error" nolabel="1" readonly="1"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_kino_newsletter_issue" model="ir.actions.act_window">
+        <field name="name">Kino Newsletter</field>
+        <field name="res_model">gl.kino.newsletter.issue</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_gl_kino_newsletter_issue_search"/>
+        <field name="context">{}</field>
+    </record>
+
+    <menuitem id="menu_gl_kino_newsletter_root" name="Kino Newsletter" sequence="35" web_icon="gl_kino_newsletter_nl2go,static/description/icon.png"/>
+    <menuitem id="menu_gl_kino_newsletter_issue" name="Ausgaben" parent="menu_gl_kino_newsletter_root" action="action_gl_kino_newsletter_issue" sequence="10"/>
+    <menuitem id="menu_gl_kino_newsletter_config" name="Einstellungen" parent="menu_gl_kino_newsletter_root" action="action_gl_kino_newsletter_config" sequence="90"/>
+</odoo>
