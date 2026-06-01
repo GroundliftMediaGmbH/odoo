@@ -161,7 +161,13 @@ class GlScorseseRecordMixin(models.AbstractModel):
         for candidate in Storage.search([('active', '=', True)]):
             name = normalized_stage_name(candidate.name or '')
             code = normalized_stage_name(candidate.code or '')
-            if ('oeffentliche' in name and 'veranstalt' in name) or ('public' in code and 'event' in code):
+            path = normalized_stage_name(candidate.root_path or '')
+            if (
+                ('oeffentliche' in name and 'veranstalt' in name)
+                or ('oeffentliche' in path and 'veranstalt' in path)
+                or ('05 oeffentliche veranstaltungen' in path)
+                or ('public' in code and 'event' in code)
+            ):
                 return candidate
         return self._gl_default_storage('production')
 

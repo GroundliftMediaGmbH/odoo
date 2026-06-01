@@ -53,6 +53,17 @@ def _path_parent(value):
     return value.rsplit('\\', 1)[0]
 
 
+def _looks_like_public_event_folder(value):
+    value = (value or '').casefold()
+    value = value.replace('ä', 'ae').replace('ö', 'oe').replace('ü', 'ue').replace('ß', 'ss')
+    return (
+        ('oeffentliche' in value and 'veranstalt' in value)
+        or ('öffentliche' in value and 'veranstalt' in value)
+        or ('public' in value and 'event' in value)
+        or '05 oeffentliche veranstaltungen' in value
+    )
+
+
 class GlScorseseFolderCreateWizard(models.TransientModel):
     _name = 'gl.scorsese.folder.create.wizard'
     _description = 'SCORSESE Ordner erstellen Wizard'
@@ -129,6 +140,13 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
                         res['storage_id'] = storage.id
                         res['storage_root_path'] = _clean_scorsese_path(storage.root_path)
                         res['parent_path'] = _clean_scorsese_path(storage.root_path)
+                        if target_model == 'event.event':
+                            root_children = self._root_children_for_storage(storage)
+                            public_root = root_children.filtered(lambda item: _looks_like_public_event_folder(item.child_name) or _looks_like_public_event_folder(item.child_path))[:1]
+                            if public_root:
+                                res['root_folder_cache_id'] = public_root.id
+                                res['root_folder_path'] = _clean_scorsese_path(public_root.child_path)
+                                res['parent_path'] = res['root_folder_path']
                 if not res.get('template_id'):
                     template = record._gl_default_template(target_model) if hasattr(record, '_gl_default_template') else False
                     if template:
@@ -165,6 +183,39 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
             return record._gl_folder_name()
         return _clean_folder_title(record.display_name or record.name)
 
+    def _cache_entries_for_storage(self, storage):
+        storage = storage or self.storage_id
+        if not storage:
+            return self.env['gl.scorsese.path.cache'].sudo().browse()
+        return self.env['gl.scorsese.path.cache'].sudo().search([
+            ('storage_id', '=', storage.id),
+            ('is_dir', '=', True),
+        ])
+
+    def _root_children_for_storage(self, storage):
+        entries = self._cache_entries_for_storage(storage)
+        if not storage or not entries:
+            return entries.browse()
+        storage_root = _clean_scorsese_path(storage.root_path)
+        root_children = entries.filtered(lambda item: _same_path(item.browse_parent_path, storage_root))
+        if not root_children:
+            root_children = entries.filtered(lambda item: _same_path(_path_parent(item.child_path), storage_root))
+        return root_children
+
+    def _find_public_event_root_cache(self, storage):
+        root_children = self._root_children_for_storage(storage)
+        return root_children.filtered(lambda item: _looks_like_public_event_folder(item.child_name) or _looks_like_public_event_folder(item.child_path))[:1]
+
+    def _preselect_public_event_root_if_possible(self):
+        for rec in self:
+            if rec.target_model != 'event.event' or not rec.storage_id or rec.root_folder_cache_id:
+                continue
+            public_root = rec._find_public_event_root_cache(rec.storage_id)
+            if public_root:
+                rec.root_folder_cache_id = public_root.id
+                rec.root_folder_path = _clean_scorsese_path(public_root.child_path)
+                rec.parent_path = rec.root_folder_path
+
     @api.depends('storage_id', 'storage_root_path', 'root_folder_cache_id', 'root_folder_path')
     def _compute_available_cache_ids(self):
         Cache = self.env['gl.scorsese.path.cache'].sudo()
@@ -175,24 +226,15 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
                 continue
 
             storage_root = _clean_scorsese_path(rec.storage_root_path or rec.storage_id.root_path)
-            cache_entries = Cache.search([
-                ('storage_id', '=', rec.storage_id.id),
-                ('is_dir', '=', True),
-            ])
+            cache_entries = rec._cache_entries_for_storage(rec.storage_id)
             if not cache_entries:
                 continue
 
             # Normalfall: SCORSESE hat den Speicher-Root gebrowst und alle
             # direkten Kinder stehen mit browse_parent_path == storage_root im Cache.
-            root_children = cache_entries.filtered(lambda item: _same_path(item.browse_parent_path, storage_root))
+            root_children = rec._root_children_for_storage(rec.storage_id)
 
-            # Fallback 1: Falls alte Cache-Einträge nur child_path enthalten oder
-            # browse_parent_path mit anderer Slash-Schreibweise gespeichert wurde,
-            # berechnen wir direkte Kinder anhand des vollständigen Pfads.
-            if not root_children:
-                root_children = cache_entries.filtered(lambda item: _same_path(_path_parent(item.child_path), storage_root))
-
-            # Fallback 2: Wenn der Speicher-Root selbst nie gebrowst wurde, aber
+            # Fallback: Wenn der Speicher-Root selbst nie gebrowst wurde, aber
             # Unterordner bereits im Cache existieren, zeigen wir diese trotzdem an.
             # So bleibt der Wizard nutzbar und man muss keine Pfade kopieren.
             if not root_children:
@@ -231,6 +273,7 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
             else:
                 rec.storage_root_path = False
                 rec.parent_path = False
+        self._preselect_public_event_root_if_possible()
         if len(self) == 1:
             return self._folder_cache_domain_result()
         return {}
@@ -331,7 +374,27 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
             else:
                 self._create_project_from_event(record)
 
-        parent_path = _clean_scorsese_path(self.parent_path or self.storage_id.root_path)
+        storage_root = _clean_scorsese_path(self.storage_id.root_path)
+        parent_path = _clean_scorsese_path(self.parent_path or storage_root)
+        if _same_path(parent_path, storage_root) and not self.root_folder_cache_id and not self.subfolder_cache_id:
+            browse_job = self.env['gl.scorsese.job'].create_job(
+                'browse_folder',
+                target_record=None,
+                payload={
+                    'storage_id': self.storage_id.id,
+                    'storage_name': self.storage_id.name,
+                    'storage_root': storage_root,
+                    'path': storage_root,
+                },
+                priority=20,
+                name=_('Ordnercache aktualisieren – %s') % storage_root,
+            )
+            raise UserError(_(
+                'Bitte zuerst unter „Ordner wählen“ einen Zielordner auswählen. '
+                'Der Speicher-Root selbst wird aus Sicherheitsgründen nicht mehr als Ziel verwendet. '
+                'Da noch kein Ordner ausgewählt war, wurde ein Cache-Auftrag angelegt: %s. '
+                'Bitte kurz warten, den Wizard erneut öffnen und dann den Ordner im Dropdown wählen.'
+            ) % browse_job.display_name)
         job = record._gl_queue_create_folder(
             self.storage_id,
             self.template_id,
