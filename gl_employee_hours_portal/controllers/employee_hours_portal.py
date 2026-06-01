@@ -41,7 +41,16 @@ class GlEmployeeHoursPortal(http.Controller):
 
     def _timezone(self):
         param = request.env["ir.config_parameter"].sudo().get_param("gl_employee_hours_portal.timezone")
-        company_tz = request.env.company.partner_id.tz if request.env.company.partner_id else False
+
+        # Public website routes run as the Odoo public user. In some databases the
+        # public user is not allowed to read res.partner. Accessing
+        # request.env.company.partner_id.tz without sudo can therefore produce a
+        # 403 on the employee hours page although the employee portal session is
+        # valid. The company timezone is configuration data, so sudo is safe here.
+        company = request.env.company.sudo()
+        company_partner = company.partner_id.sudo() if company.partner_id else False
+        company_tz = company_partner.tz if company_partner else False
+
         tz_name = param or company_tz or "Europe/Berlin"
         try:
             return pytz.timezone(tz_name)
@@ -55,7 +64,6 @@ class GlEmployeeHoursPortal(http.Controller):
         account = request.env["gl.employee.hours.account"].sudo().browse(int(account_id))
         if not account.exists() or account.state != "active":
             request.session.pop("gl_employee_hours_account_id", None)
-            request.session.modified = True
             return request.env["gl.employee.hours.account"]
         return account
 
@@ -231,7 +239,6 @@ class GlEmployeeHoursPortal(http.Controller):
             account = request.env["gl.employee.hours.account"].sudo().authenticate(email, password)
             if account:
                 request.session["gl_employee_hours_account_id"] = account.id
-                request.session.modified = True
                 return request.redirect("/mitarbeiter/stunden")
             error = "E-Mail oder Passwort ist nicht korrekt, oder der Zugang wurde noch nicht aktiviert."
 
@@ -243,7 +250,6 @@ class GlEmployeeHoursPortal(http.Controller):
     @http.route("/mitarbeiter/stunden/logout", type="http", auth="public", website=True, sitemap=False)
     def logout(self, **kw):
         request.session.pop("gl_employee_hours_account_id", None)
-        request.session.modified = True
         return request.redirect("/mitarbeiter/stunden/login")
 
     @http.route("/mitarbeiter/stunden/registrieren", type="http", auth="public", methods=["GET", "POST"], website=True, sitemap=False)
@@ -294,7 +300,6 @@ class GlEmployeeHoursPortal(http.Controller):
         try:
             account = request.env["gl.employee.hours.account"].sudo().activate_from_token(token)
             request.session["gl_employee_hours_account_id"] = account.id
-            request.session.modified = True
             return request.redirect("/mitarbeiter/stunden")
         except Exception as exc:
             return request.render("gl_employee_hours_portal.template_message", {
@@ -334,7 +339,6 @@ class GlEmployeeHoursPortal(http.Controller):
                     raise UserError("Die beiden Passwörter stimmen nicht überein.")
                 account = request.env["gl.employee.hours.account"].sudo().reset_password_from_token(token, password)
                 request.session["gl_employee_hours_account_id"] = account.id
-                request.session.modified = True
                 return request.redirect("/mitarbeiter/stunden")
             except Exception as exc:
                 error = str(exc)
