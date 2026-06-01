@@ -4,28 +4,37 @@
         <field name="name">gl.scorsese.import.wizard.form</field>
         <field name="model">gl.scorsese.import.wizard</field>
         <field name="arch" type="xml">
-            <form string="SCORSESE Ordner importieren">
+            <form string="SCORSESE Ordner importieren / verknüpfen">
                 <sheet>
                     <group>
-                        <group>
-                            <field name="target_model"/>
+                        <group string="Quelle">
+                            <field name="target_model" widget="radio"/>
                             <field name="storage_id"/>
-                            <field name="folder_path" placeholder="\\SERVER\Produktion\2026-09-28 Hans Sigl Talk Fast Forward"/>
-                        </group>
-                        <group>
-                            <field name="name"/>
-                            <field name="parsed_date"/>
+                            <field name="folder_path" placeholder="\\SERVER\Produktion\2025-03-06 Susanne Kirchland"/>
                             <field name="create_validation_job"/>
                         </group>
+                        <group string="Aus Ordnername erkannt">
+                            <field name="name" placeholder="Wird aus YYYY-MM-DD Titel erkannt"/>
+                            <field name="parsed_date"/>
+                        </group>
                     </group>
-                    <p class="text-muted">
-                        Ordner im Format „YYYY-MM-DD Titel“ werden automatisch in Datum und Titel aufgeteilt. 
-                        Der Import erstellt nur den Odoo-Datensatz und verknüpft den bestehenden Ordner.
-                    </p>
+                    <group string="Optional mit vorhandenen Datensätzen verknüpfen">
+                        <group>
+                            <field name="existing_project_id"/>
+                        </group>
+                        <group>
+                            <field name="existing_event_id"/>
+                        </group>
+                    </group>
+                    <div class="alert alert-info" role="alert">
+                        Bei einem Ordnernamen wie <strong>2025-03-06 Susanne Kirchland</strong> wird der Titel
+                        <strong>Susanne Kirchland</strong> und das Datum <strong>06.03.2025</strong> übernommen.
+                        Importierte Ordner gelten als bereits vorhanden; dadurch erscheint später kein Button zum erneuten Erstellen eines SCORSESE-Ordners.
+                    </div>
                 </sheet>
                 <footer>
-                    <button name="action_import" type="object" string="Importieren" class="btn-primary"/>
-                    <button string="Abbrechen" class="btn-secondary" special="cancel"/>
+                    <button name="action_import" type="object" string="Importieren / Verknüpfen" class="btn-primary"/>
+                    <button string="Abbrechen" special="cancel"/>
                 </footer>
             </form>
         </field>

@@ -9,6 +9,47 @@ from odoo.exceptions import UserError
 FORBIDDEN_WINDOWS_CHARS = r'<>:"/\\|?*'
 
 
+PROJECT_STAGE_ICON_MAP = {
+    'to-do': 'todo',
+    'to do': 'todo',
+    'todo': 'todo',
+    'in bearbeitung': 'in_progress',
+    'in progress': 'in_progress',
+    'vor ort erledigt': 'vor_ort_erledigt',
+    'postproduktion': 'postproduktion',
+    'post production': 'postproduktion',
+    'abnahme und korrekturschleifen': 'abnahme_korrekturschleifen',
+    'abnahme & korrekturschleifen': 'abnahme_korrekturschleifen',
+    'an kunden geliefert und abgeschlossen': 'an_kunden_geliefert_abgeschlossen',
+    'archivierbar - master behalten': 'archivierbar_master_behalten',
+    'archivierbar master behalten': 'archivierbar_master_behalten',
+    'archivierbar - rohdaten behalten': 'archivierbar_rohdaten_behalten',
+    'archivierbar rohdaten behalten': 'archivierbar_rohdaten_behalten',
+    'archivierbar - mp4en': 'archivierbar_mp4en',
+    'archivierbar mp4en': 'archivierbar_mp4en',
+    'auf server loeschen': 'auf_server_loeschen',
+    'auf server löschen': 'auf_server_loeschen',
+    'auf server geloescht': 'auf_server_geloescht',
+    'auf server gelöscht': 'auf_server_geloescht',
+    'abgebrochen': 'abgebrochen',
+}
+
+EVENT_STAGE_ICON_MAP = {
+    'neu': 'event_neu',
+    'new': 'event_neu',
+    'gebucht': 'event_gebucht',
+    'booked': 'event_gebucht',
+    'angekuendigt': 'event_angekuendigt',
+    'angekündigt': 'event_angekuendigt',
+    'announced': 'event_angekuendigt',
+    'abrechnung': 'event_abrechnung',
+    'invoicing': 'event_abrechnung',
+    'beendet': 'event_beendet',
+    'ended': 'event_beendet',
+    'done': 'event_beendet',
+}
+
+
 def clean_folder_name(value, max_len=160):
     value = value or 'Ohne Titel'
     value = ''.join('-' if c in FORBIDDEN_WINDOWS_CHARS else c for c in value)
@@ -17,14 +58,34 @@ def clean_folder_name(value, max_len=160):
     return (value or 'Ohne Titel')[:max_len]
 
 
+def normalized_stage_name(value):
+    value = (value or '').strip().casefold()
+    value = value.replace('ä', 'ae').replace('ö', 'oe').replace('ü', 'ue').replace('ß', 'ss')
+    value = re.sub(r'\s+', ' ', value)
+    return value
+
+
 def stage_name_matches(stage_name, configured_names):
     if not stage_name:
         return False
-    names = [x.strip().casefold() for x in (configured_names or '').split(',') if x.strip()]
-    return stage_name.strip().casefold() in names
+    needle = normalized_stage_name(stage_name)
+    names = [normalized_stage_name(x) for x in (configured_names or '').split(',') if x.strip()]
+    return needle in names
 
 
-class GlScorseseEventMixin(models.AbstractModel):
+def stage_to_icon_key(model_name, stage_name):
+    if not stage_name:
+        return False
+    direct = (stage_name or '').strip().casefold()
+    norm = normalized_stage_name(stage_name)
+    if model_name == 'project.project':
+        return PROJECT_STAGE_ICON_MAP.get(direct) or PROJECT_STAGE_ICON_MAP.get(norm)
+    if model_name == 'event.event':
+        return EVENT_STAGE_ICON_MAP.get(direct) or EVENT_STAGE_ICON_MAP.get(norm)
+    return False
+
+
+class GlScorseseRecordMixin(models.AbstractModel):
     _name = 'gl.scorsese.record.mixin'
     _description = 'SCORSESE Record Helper Mixin'
 
@@ -33,10 +94,30 @@ class GlScorseseEventMixin(models.AbstractModel):
         ('missing', 'Nicht angelegt'),
         ('queued', 'Auftrag wartet'),
         ('created', 'Ordner angelegt'),
+        ('linked', 'Vorhandener Ordner verknüpft'),
         ('error', 'Fehler'),
     ], default='missing', string='Ordnerstatus', copy=False, tracking=True)
     gl_folder_state = fields.Selection([
+        # aktuelle Projektphasen
+        ('todo', 'To-do'),
         ('in_progress', 'In Bearbeitung'),
+        ('vor_ort_erledigt', 'Vor Ort erledigt'),
+        ('postproduktion', 'Postproduktion'),
+        ('abnahme_korrekturschleifen', 'Abnahme und Korrekturschleifen'),
+        ('an_kunden_geliefert_abgeschlossen', 'An Kunden geliefert und abgeschlossen'),
+        ('archivierbar_master_behalten', 'Archivierbar - MASTER behalten'),
+        ('archivierbar_rohdaten_behalten', 'Archivierbar - ROHDATEN behalten'),
+        ('archivierbar_mp4en', 'Archivierbar - MP4en'),
+        ('auf_server_loeschen', 'Auf Server löschen'),
+        ('auf_server_geloescht', 'Auf Server gelöscht'),
+        ('abgebrochen', 'Abgebrochen'),
+        # aktuelle Veranstaltungsphasen
+        ('event_neu', 'Veranstaltung: Neu'),
+        ('event_gebucht', 'Veranstaltung: Gebucht'),
+        ('event_angekuendigt', 'Veranstaltung: Angekündigt'),
+        ('event_abrechnung', 'Veranstaltung: Abrechnung'),
+        ('event_beendet', 'Veranstaltung: Beendet'),
+        # alte Kompatibilitätswerte aus früheren Modulversionen
         ('done', 'Fertig'),
         ('archive_all', 'Archivieren inkl. Rohmaterial'),
         ('archive_mp4', 'Archivieren Raw → MP4'),
@@ -63,6 +144,24 @@ class GlScorseseEventMixin(models.AbstractModel):
         if not storage:
             raise UserError(_('Bitte zuerst mindestens einen SCORSESE Speicherpfad konfigurieren.'))
         return storage
+
+    def _gl_public_event_storage(self):
+        Storage = self.env['gl.scorsese.storage']
+        storage = Storage.search([('active', '=', True), ('storage_type', '=', 'public_events')], limit=1)
+        if storage:
+            return storage
+        storage = Storage.search([
+            ('active', '=', True),
+            ('code', 'in', ['public_events', 'public_event', 'oeffentliche_veranstaltungen', 'öffentliche_veranstaltungen']),
+        ], limit=1)
+        if storage:
+            return storage
+        for candidate in Storage.search([('active', '=', True)]):
+            name = normalized_stage_name(candidate.name or '')
+            code = normalized_stage_name(candidate.code or '')
+            if ('oeffentliche' in name and 'veranstalt' in name) or ('public' in code and 'event' in code):
+                return candidate
+        return self._gl_default_storage('production')
 
     def _gl_default_template(self, target_model):
         Template = self.env['gl.scorsese.template']
@@ -129,9 +228,26 @@ class GlScorseseEventMixin(models.AbstractModel):
         self.write({'gl_folder_status': 'queued'})
         return job
 
-    def _gl_queue_icon_state(self, state_key):
+    def _gl_current_stage_icon_key(self):
         self.ensure_one()
-        self._gl_scorsese_status_or_error()
+        stage = getattr(self, 'stage_id', False) if 'stage_id' in self._fields else False
+        return stage_to_icon_key(self._name, stage.name if stage else False)
+
+    def _gl_queue_current_stage_icon(self, check_connection=False):
+        self.ensure_one()
+        if not self.gl_folder_path:
+            return False
+        state_key = self._gl_current_stage_icon_key()
+        if not state_key:
+            return False
+        if self.gl_folder_state == state_key:
+            return False
+        return self._gl_queue_icon_state(state_key, check_connection=check_connection)
+
+    def _gl_queue_icon_state(self, state_key, check_connection=True):
+        self.ensure_one()
+        if check_connection:
+            self._gl_scorsese_status_or_error()
         if not self.gl_folder_path:
             raise UserError(_('Es ist noch kein SCORSESE Ordnerpfad hinterlegt.'))
         label = dict(self._fields['gl_folder_state'].selection).get(state_key, state_key)
@@ -161,6 +277,7 @@ class GlScorseseEventMixin(models.AbstractModel):
             }
         }
 
+    # Alte Button-Methoden bleiben aus Kompatibilitätsgründen bestehen, werden aber nicht mehr in den Views angezeigt.
     def action_gl_state_in_progress(self):
         return self._gl_queue_icon_state('in_progress')
 
@@ -195,6 +312,7 @@ class EventEvent(models.Model):
     _inherit = ['event.event', 'gl.scorsese.record.mixin']
 
     gl_todo_ids = fields.One2many('project.task', 'gl_event_id', string='GROUNDLIFT ToDos')
+    gl_scorsese_project_id = fields.Many2one('project.project', string='Verknüpftes SCORSESE Projekt', copy=False)
 
     def write(self, vals):
         res = super().write(vals)
@@ -205,18 +323,34 @@ class EventEvent(models.Model):
             for rec in self:
                 if rec.stage_id and stage_name_matches(rec.stage_id.name, configured) and not rec.gl_folder_path:
                     try:
-                        storage = rec._gl_default_storage('production')
+                        storage = rec._gl_public_event_storage()
                         template = rec._gl_default_template('event.event')
-                        rec._gl_queue_create_folder(storage, template, check_connection=False)
+                        rec._gl_queue_create_folder(storage, template, parent_path=storage.root_path, check_connection=False)
                     except Exception as exc:
-                        rec.message_post(body=_('SCORSESE konnte keinen automatischen Ordnerauftrag anlegen: %s') % exc)
+                        rec.message_post(body=_('SCORSESE konnte keinen automatischen Veranstaltungsordner anlegen: %s') % exc)
+                elif rec.gl_folder_path:
+                    try:
+                        rec._gl_queue_current_stage_icon(check_connection=False)
+                    except Exception as exc:
+                        rec.message_post(body=_('SCORSESE konnte keinen Icon-Auftrag für die Veranstaltungsphase anlegen: %s') % exc)
+        if 'gl_scorsese_project_id' in vals:
+            for rec in self:
+                project = rec.gl_scorsese_project_id
+                if project:
+                    updates = {}
+                    if not rec.gl_folder_path and project.gl_folder_path:
+                        updates.update({'gl_folder_path': project.gl_folder_path, 'gl_folder_status': project.gl_folder_status or 'linked'})
+                    if project.gl_scorsese_event_id.id != rec.id:
+                        project.sudo().write({'gl_scorsese_event_id': rec.id})
+                    if updates:
+                        rec.sudo().write(updates)
         return res
 
     def action_gl_create_event_folder(self):
         self.ensure_one()
-        storage = self._gl_default_storage('production')
+        storage = self._gl_public_event_storage()
         template = self._gl_default_template('event.event')
-        job = self._gl_queue_create_folder(storage, template, check_connection=True)
+        job = self._gl_queue_create_folder(storage, template, parent_path=storage.root_path, check_connection=True)
         return self._gl_notification(_('Ordnerauftrag wurde angelegt: %s') % job.display_name, 'success')
 
     def action_gl_create_event_folder_wizard(self):
@@ -240,6 +374,7 @@ class ProjectProject(models.Model):
 
     gl_folder_pending = fields.Boolean(string='SCORSESE Ordner muss angelegt werden', copy=False)
     gl_todo_ids = fields.One2many('project.task', 'gl_project_record_id', string='GROUNDLIFT ToDos')
+    gl_scorsese_event_id = fields.Many2one('event.event', string='Verknüpfte SCORSESE Veranstaltung', copy=False)
 
     def write(self, vals):
         res = super().write(vals)
@@ -250,11 +385,33 @@ class ProjectProject(models.Model):
             for rec in self:
                 stage = rec.stage_id if 'stage_id' in rec._fields else False
                 if stage and stage_name_matches(stage.name, configured) and not rec.gl_folder_path:
-                    rec.write({'gl_folder_pending': True})
-                    if hasattr(rec, 'message_post'):
-                        rec.message_post(body=_(
-                            'Projekt ist „In Bearbeitung“. Bitte über den Button „SCORSESE Ordner erstellen“ Speicherpfad und Vorlage auswählen.'
-                        ))
+                    try:
+                        storage = rec._gl_default_storage('postproduction')
+                        template = rec._gl_default_template('project.project')
+                        rec._gl_queue_create_folder(storage, template, parent_path=storage.root_path, check_connection=False)
+                        if hasattr(rec, 'message_post'):
+                            rec.message_post(body=_('SCORSESE Projektordner wurde automatisch beauftragt, weil das Projekt in „In Bearbeitung“ geschoben wurde.'))
+                    except Exception as exc:
+                        rec.write({'gl_folder_pending': True})
+                        if hasattr(rec, 'message_post'):
+                            rec.message_post(body=_('SCORSESE konnte keinen automatischen Projektordner anlegen: %s') % exc)
+                elif rec.gl_folder_path:
+                    try:
+                        rec._gl_queue_current_stage_icon(check_connection=False)
+                    except Exception as exc:
+                        if hasattr(rec, 'message_post'):
+                            rec.message_post(body=_('SCORSESE konnte keinen Icon-Auftrag für die Projektphase anlegen: %s') % exc)
+        if 'gl_scorsese_event_id' in vals:
+            for rec in self:
+                event = rec.gl_scorsese_event_id
+                if event:
+                    updates = {}
+                    if not rec.gl_folder_path and event.gl_folder_path:
+                        updates.update({'gl_folder_path': event.gl_folder_path, 'gl_folder_status': event.gl_folder_status or 'linked'})
+                    if event.gl_scorsese_project_id.id != rec.id:
+                        event.sudo().write({'gl_scorsese_project_id': rec.id})
+                    if updates:
+                        rec.sudo().write(updates)
         return res
 
     def action_gl_create_project_folder_wizard(self):

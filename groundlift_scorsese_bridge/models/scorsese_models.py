@@ -31,6 +31,7 @@ class GlScorseseStorage(models.Model):
     code = fields.Char(help='Kurzer technischer Code, z. B. produktion, postproduktion, archiv_1')
     root_path = fields.Char(required=True, help='UNC- oder lokaler Windows-Pfad, z. B. \\SERVER\\Produktion oder D:\\Produktion')
     storage_type = fields.Selection([
+        ('public_events', 'Öffentliche Veranstaltungen'),
         ('production', 'Produktion'),
         ('postproduction', 'Postproduktion'),
         ('archive', 'Archiv'),
@@ -367,6 +368,12 @@ class GlScorseseJob(models.Model):
                     record.sudo().write(values)
                 if hasattr(record, 'message_post'):
                     record.message_post(body=_('SCORSESE Ordner wurde erstellt: <code>%s</code>') % target_path)
+                if hasattr(record, '_gl_queue_current_stage_icon'):
+                    try:
+                        record._gl_queue_current_stage_icon(check_connection=False)
+                    except Exception as exc:
+                        if hasattr(record, 'message_post'):
+                            record.message_post(body=_('SCORSESE konnte nach der Ordnererstellung kein Phasen-Icon beauftragen: %s') % exc)
 
     def _apply_icon_result(self, result):
         self.ensure_one()

@@ -28,8 +28,11 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
                 if 'folder_name' in fields_list or not res.get('folder_name'):
                     res['folder_name'] = record._gl_folder_name() if hasattr(record, '_gl_folder_name') else record.display_name
                 if not res.get('storage_id'):
-                    storage_type = 'production' if target_model == 'event.event' else 'postproduction'
-                    storage = record._gl_default_storage(storage_type) if hasattr(record, '_gl_default_storage') else False
+                    if target_model == 'event.event' and hasattr(record, '_gl_public_event_storage'):
+                        storage = record._gl_public_event_storage()
+                    else:
+                        storage_type = 'production' if target_model == 'event.event' else 'postproduction'
+                        storage = record._gl_default_storage(storage_type) if hasattr(record, '_gl_default_storage') else False
                     if storage:
                         res['storage_id'] = storage.id
                 if not res.get('template_id'):
