@@ -862,6 +862,26 @@ class GlKinoNewsletterIssue(models.Model):
             return ""
         return urljoin(base or DEFAULT_PROGRAM_URL, value)
 
+    @api.model
+    def _plain_text_for_newsletter(self, value):
+        """Bereinigt Odoo-/Website-HTML für die Textausgabe im Newsletter.
+
+        Studio- und Website-Felder können auch dann HTML enthalten, wenn sie in
+        Odoo wie eine Kurzbeschreibung wirken. Der Newsletter darf diese Tags
+        nicht sichtbar ausgeben, sondern nur lesbaren Fließtext.
+        """
+        if not value:
+            return ""
+        text = "%s" % value
+        if re.search(r"<[^>]+>", text):
+            text = tools.html2plaintext(text)
+        text = html.unescape(text)
+        text = text.replace("\xa0", " ")
+        text = re.sub(r"[\t\r\f\v]+", " ", text)
+        text = re.sub(r"\s*\n\s*", " ", text)
+        text = re.sub(r" {2,}", " ", text)
+        return text.strip()
+
     def _build_newsletter_html(self, shows):
         self.ensure_one()
         # Odoo liefert fields.Html teils als Markup-Objekt. Markup.replace() escaped
@@ -935,7 +955,7 @@ class GlKinoNewsletterIssue(models.Model):
         main = movie_shows[0]
         title = self._format_film(main)
         image_url = main.get("image_url") or ""
-        desc = (main.get("description") or "").strip()
+        desc = self._plain_text_for_newsletter(main.get("description"))
         if len(desc) > 250:
             desc = desc[:247].rsplit(" ", 1)[0] + " …"
 
@@ -1028,8 +1048,7 @@ class GlKinoNewsletterIssue(models.Model):
             desc = ""
             for field_name in ["x_studio_event_kurzbeschreibung", "subtitle", "description"]:
                 if field_name in event._fields and event[field_name]:
-                    raw_desc = event[field_name]
-                    desc = tools.html2plaintext(raw_desc) if field_name == "description" else str(raw_desc)
+                    desc = self._plain_text_for_newsletter(event[field_name])
                     break
             if len(desc) > 240:
                 desc = desc[:237].rsplit(" ", 1)[0] + " …"
