@@ -375,8 +375,16 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
                 self._create_project_from_event(record)
 
         storage_root = _clean_scorsese_path(self.storage_id.root_path)
-        parent_path = _clean_scorsese_path(self.parent_path or storage_root)
-        if _same_path(parent_path, storage_root) and not self.root_folder_cache_id and not self.subfolder_cache_id:
+
+        # Zielordner niemals aus dem frei editierbaren/readonly parent_path ableiten.
+        # parent_path ist nur Anzeige. Verbindlich ist die konkrete Cache-Auswahl.
+        # So verhindern wir, dass versehentlich direkt im Speicher-Root ein
+        # Projekt-/Veranstaltungsordner erzeugt wird.
+        if self.subfolder_cache_id:
+            parent_path = _clean_scorsese_path(self.subfolder_cache_id.child_path)
+        elif self.root_folder_cache_id:
+            parent_path = _clean_scorsese_path(self.root_folder_cache_id.child_path)
+        else:
             browse_job = self.env['gl.scorsese.job'].create_job(
                 'browse_folder',
                 target_record=None,
@@ -391,10 +399,17 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
             )
             raise UserError(_(
                 'Bitte zuerst unter „Ordner wählen“ einen Zielordner auswählen. '
-                'Der Speicher-Root selbst wird aus Sicherheitsgründen nicht mehr als Ziel verwendet. '
-                'Da noch kein Ordner ausgewählt war, wurde ein Cache-Auftrag angelegt: %s. '
+                'Der Speicher-Root selbst wird nicht als Ziel verwendet. '
+                'Ich habe gerade den Cache-Ladeauftrag %s angelegt. '
                 'Bitte kurz warten, den Wizard erneut öffnen und dann den Ordner im Dropdown wählen.'
             ) % browse_job.display_name)
+
+        if not parent_path or _same_path(parent_path, storage_root):
+            raise UserError(_(
+                'Der Speicher-Root selbst darf nicht als Zielordner verwendet werden. '
+                'Bitte einen Ordner innerhalb des Speichers auswählen.'
+            ))
+
         job = record._gl_queue_create_folder(
             self.storage_id,
             self.template_id,
