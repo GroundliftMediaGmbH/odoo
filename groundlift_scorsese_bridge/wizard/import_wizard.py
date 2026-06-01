@@ -6,8 +6,15 @@ from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 
 
+def _clean_scorsese_path(value):
+    value = (value or '').strip()
+    while len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+        value = value[1:-1].strip()
+    return value.strip().strip('\"').strip("'").strip().rstrip('\\/')
+
+
 def _clean_path_basename(path):
-    path = (path or '').strip().rstrip('\\/')
+    path = _clean_scorsese_path(path)
     return re.split(r'[\\/]+', path)[-1].strip()
 
 
@@ -96,7 +103,7 @@ class GlScorseseImportWizard(models.TransientModel):
 
     def _validate_inputs(self):
         self.ensure_one()
-        self.folder_path = (self.folder_path or '').strip().rstrip('\\/')
+        self.folder_path = _clean_scorsese_path(self.folder_path)
         if not self.folder_path:
             raise UserError(_('Bitte einen Ordnerpfad angeben.'))
 

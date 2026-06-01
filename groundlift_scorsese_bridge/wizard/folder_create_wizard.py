@@ -3,6 +3,13 @@ from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 
 
+def _clean_scorsese_path(value):
+    value = (value or '').strip()
+    while len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+        value = value[1:-1].strip()
+    return value.strip().strip('\"').strip("'").strip().rstrip('\\/')
+
+
 class GlScorseseFolderCreateWizard(models.TransientModel):
     _name = 'gl.scorsese.folder.create.wizard'
     _description = 'SCORSESE Ordner erstellen Wizard'
@@ -45,13 +52,13 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
     def _onchange_storage_id(self):
         for rec in self:
             if rec.storage_id and not rec.parent_path:
-                rec.parent_path = rec.storage_id.root_path
+                rec.parent_path = _clean_scorsese_path(rec.storage_id.root_path)
 
     @api.onchange('cached_folder_id')
     def _onchange_cached_folder_id(self):
         for rec in self:
             if rec.cached_folder_id:
-                rec.parent_path = rec.cached_folder_id.child_path
+                rec.parent_path = _clean_scorsese_path(rec.cached_folder_id.child_path)
 
     def _get_target_record(self):
         self.ensure_one()
@@ -68,7 +75,7 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
         job = record._gl_queue_create_folder(
             self.storage_id,
             self.template_id,
-            parent_path=self.parent_path or self.storage_id.root_path,
+            parent_path=_clean_scorsese_path(self.parent_path or self.storage_id.root_path),
             folder_name=self.folder_name,
             check_connection=True,
         )
@@ -76,13 +83,13 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
 
     def action_request_browse(self):
         self.ensure_one()
-        path = self.parent_path or self.storage_id.root_path
+        path = _clean_scorsese_path(self.parent_path or self.storage_id.root_path)
         if not self.storage_id:
             raise UserError(_('Bitte zuerst einen Speicher auswählen.'))
         payload = {
             'storage_id': self.storage_id.id,
             'storage_name': self.storage_id.name,
-            'storage_root': self.storage_id.root_path,
+            'storage_root': _clean_scorsese_path(self.storage_id.root_path),
             'path': path,
         }
         self.env['gl.scorsese.job'].create_job(
@@ -106,8 +113,9 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
     def action_open_cache(self):
         self.ensure_one()
         domain = [('storage_id', '=', self.storage_id.id)]
-        if self.parent_path:
-            domain.append(('browse_parent_path', '=', self.parent_path))
+        parent_path = _clean_scorsese_path(self.parent_path)
+        if parent_path:
+            domain.append(('browse_parent_path', '=', parent_path))
         return {
             'type': 'ir.actions.act_window',
             'name': _('SCORSESE Ordnercache'),

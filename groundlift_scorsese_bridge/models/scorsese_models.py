@@ -21,6 +21,21 @@ def _json_loads(value):
     return json.loads(value)
 
 
+def clean_scorsese_path(value):
+    """Entfernt versehentlich mitgespeicherte Anführungszeichen an Windows-Pfaden."""
+    value = (value or '').strip()
+    while len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+        value = value[1:-1].strip()
+    return value.strip().strip('\"').strip("'").strip().rstrip('\\/')
+
+
+def _sanitize_path_vals(vals, fields_to_clean):
+    for field in fields_to_clean:
+        if field in vals and vals.get(field):
+            vals[field] = clean_scorsese_path(vals[field])
+    return vals
+
+
 class GlScorseseStorage(models.Model):
     _name = 'gl.scorsese.storage'
     _description = 'SCORSESE Speicherpfad'
@@ -39,6 +54,16 @@ class GlScorseseStorage(models.Model):
     ], default='custom', required=True)
     active = fields.Boolean(default=True)
     notes = fields.Text()
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            _sanitize_path_vals(vals, ['root_path'])
+        return super().create(vals_list)
+
+    def write(self, vals):
+        _sanitize_path_vals(vals, ['root_path'])
+        return super().write(vals)
 
     _sql_constraints = [
         ('gl_storage_code_unique', 'unique(code)', 'Der technische Code des Speicherpfads muss eindeutig sein.'),
@@ -62,6 +87,16 @@ class GlScorseseTemplate(models.Model):
     is_default_event = fields.Boolean(string='Standard für Veranstaltungen')
     is_default_project = fields.Boolean(string='Standard für Projekte')
     notes = fields.Text()
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            _sanitize_path_vals(vals, ['template_path'])
+        return super().create(vals_list)
+
+    def write(self, vals):
+        _sanitize_path_vals(vals, ['template_path'])
+        return super().write(vals)
 
     @api.constrains('is_default_event', 'is_default_project', 'target_model')
     def _check_single_default(self):
@@ -353,7 +388,7 @@ class GlScorseseJob(models.Model):
 
     def _apply_create_folder_result(self, result):
         self.ensure_one()
-        target_path = result.get('target_path') or _json_loads(self.payload_json).get('target_path')
+        target_path = clean_scorsese_path(result.get('target_path') or _json_loads(self.payload_json).get('target_path'))
         if self.target_model and self.target_res_id and target_path:
             record = self.env[self.target_model].sudo().browse(self.target_res_id)
             if record.exists():
@@ -394,7 +429,7 @@ class GlScorseseJob(models.Model):
         self.ensure_one()
         payload = _json_loads(self.payload_json)
         storage_id = payload.get('storage_id')
-        parent_path = result.get('parent_path') or payload.get('path') or payload.get('storage_root')
+        parent_path = clean_scorsese_path(result.get('parent_path') or payload.get('path') or payload.get('storage_root'))
         entries = result.get('entries') or []
         if not storage_id or not parent_path:
             return
@@ -402,7 +437,7 @@ class GlScorseseJob(models.Model):
         for entry in entries:
             if not entry.get('is_dir', True):
                 continue
-            child_path = entry.get('path')
+            child_path = clean_scorsese_path(entry.get('path'))
             child_name = entry.get('name')
             if not child_path or not child_name:
                 continue
@@ -434,8 +469,8 @@ class GlScorseseJob(models.Model):
 
     @api.model
     def join_path(self, root, child):
-        root = (root or '').rstrip('\\/')
-        child = (child or '').strip('\\/')
+        root = clean_scorsese_path(root)
+        child = (child or '').strip().strip('\"').strip("'").strip('\\/')
         if not root:
             return child
         sep = '\\' if ('\\' in root or (len(root) > 1 and root[1] == ':')) else '/'

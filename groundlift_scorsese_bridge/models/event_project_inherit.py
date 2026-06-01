@@ -5,6 +5,8 @@ from datetime import timedelta
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 
+from .scorsese_models import clean_scorsese_path
+
 
 FORBIDDEN_WINDOWS_CHARS = r'<>:"/\\|?*'
 
@@ -205,15 +207,17 @@ class GlScorseseRecordMixin(models.AbstractModel):
         if self.gl_folder_path:
             raise UserError(_('Es ist bereits ein SCORSESE Ordnerpfad gesetzt:\n%s') % self.gl_folder_path)
         folder_name = folder_name or self._gl_folder_name()
-        parent_path = parent_path or storage.root_path
+        parent_path = clean_scorsese_path(parent_path or storage.root_path)
+        storage_root = clean_scorsese_path(storage.root_path)
+        template_path = clean_scorsese_path(template.template_path)
         target_path = self.env['gl.scorsese.job'].join_path(parent_path, folder_name)
         payload = {
             'storage_id': storage.id,
             'storage_name': storage.name,
-            'storage_root': storage.root_path,
+            'storage_root': storage_root,
             'template_id': template.id,
             'template_name': template.name,
-            'template_path': template.template_path,
+            'template_path': template_path,
             'parent_path': parent_path,
             'folder_name': folder_name,
             'target_path': target_path,
@@ -252,7 +256,7 @@ class GlScorseseRecordMixin(models.AbstractModel):
             raise UserError(_('Es ist noch kein SCORSESE Ordnerpfad hinterlegt.'))
         label = dict(self._fields['gl_folder_state'].selection).get(state_key, state_key)
         payload = {
-            'folder_path': self.gl_folder_path,
+            'folder_path': clean_scorsese_path(self.gl_folder_path),
             'state_key': state_key,
             'state_label': label,
         }
