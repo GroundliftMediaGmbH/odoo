@@ -79,7 +79,22 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
             folder_name=self.folder_name,
             check_connection=True,
         )
-        return record._gl_notification(_('Ordnerauftrag wurde angelegt: %s') % job.display_name, 'success')
+        # Der eigentliche Ordner wird asynchron durch den SCORSESE-Agenten erstellt.
+        # Der Wizard schließt sich sofort, damit der Benutzer nicht in einem "hängenden"
+        # Dialog bleibt. Die finale Bestätigung nach erfolgreicher Erstellung wird
+        # zusätzlich im Chatter des Projekts/der Veranstaltung durch _apply_create_folder_result gepostet.
+        target_label = _('Projektordner') if self.target_model == 'project.project' else _('Veranstaltungsordner')
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('SCORSESE'),
+                'message': _('%s wurde an SCORSESE übergeben. Das Fenster wird geschlossen. Die Bestätigung „%s wurde erstellt“ erscheint im Chatter, sobald der Agent fertig ist. Auftrag: %s') % (target_label, target_label, job.display_name),
+                'type': 'success',
+                'sticky': False,
+                'next': {'type': 'ir.actions.act_window_close'},
+            }
+        }
 
     def action_request_browse(self):
         self.ensure_one()

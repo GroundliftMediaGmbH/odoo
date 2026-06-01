@@ -144,6 +144,7 @@ class GlScorseseAgent(models.Model):
 class GlScorsesePathCache(models.Model):
     _name = 'gl.scorsese.path.cache'
     _description = 'SCORSESE Ordnercache'
+    _rec_name = 'child_name'
     _order = 'storage_id, browse_parent_path, child_name'
 
     storage_id = fields.Many2one('gl.scorsese.storage', required=True, ondelete='cascade')
@@ -402,7 +403,12 @@ class GlScorseseJob(models.Model):
                 if values:
                     record.sudo().write(values)
                 if hasattr(record, 'message_post'):
-                    record.message_post(body=_('SCORSESE Ordner wurde erstellt: <code>%s</code>') % target_path)
+                    if record._name == 'project.project':
+                        record.message_post(body=_('✅ SCORSESE Projektordner wurde erstellt: <code>%s</code>') % target_path)
+                    elif record._name == 'event.event':
+                        record.message_post(body=_('✅ SCORSESE Veranstaltungsordner wurde erstellt: <code>%s</code>') % target_path)
+                    else:
+                        record.message_post(body=_('✅ SCORSESE Ordner wurde erstellt: <code>%s</code>') % target_path)
                 if hasattr(record, '_gl_queue_current_stage_icon'):
                     try:
                         record._gl_queue_current_stage_icon(check_connection=False)
