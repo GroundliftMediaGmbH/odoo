@@ -361,7 +361,7 @@ class EventEvent(models.Model):
         self.ensure_one()
         return {
             'type': 'ir.actions.act_window',
-            'name': _('SCORSESE Veranstaltungsordner erstellen'),
+            'name': _('Ordner auf Server erstellen'),
             'res_model': 'gl.scorsese.folder.create.wizard',
             'view_mode': 'form',
             'target': 'new',
@@ -422,7 +422,7 @@ class ProjectProject(models.Model):
         self.ensure_one()
         return {
             'type': 'ir.actions.act_window',
-            'name': _('SCORSESE Projektordner erstellen'),
+            'name': _('Ordner auf Server erstellen'),
             'res_model': 'gl.scorsese.folder.create.wizard',
             'view_mode': 'form',
             'target': 'new',

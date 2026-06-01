@@ -440,28 +440,43 @@ class GlScorseseJob(models.Model):
         if self.target_model and self.target_res_id and target_path:
             record = self.env[self.target_model].sudo().browse(self.target_res_id)
             if record.exists():
-                values = {}
-                if 'gl_folder_path' in record._fields:
-                    values['gl_folder_path'] = target_path
-                if 'gl_folder_status' in record._fields:
-                    values['gl_folder_status'] = 'created'
-                if 'gl_folder_pending' in record._fields:
-                    values['gl_folder_pending'] = False
-                if values:
-                    record.sudo().write(values)
+                self._apply_folder_path_to_record(record, target_path, primary=True)
+
+                # Falls Veranstaltung und Projekt miteinander verknüpft sind, bekommt der
+                # jeweils andere Datensatz denselben SCORSESE-Ordnerpfad. Dadurch kann ein
+                # Serverordner sauber zu Veranstaltung UND Projekt gehören.
+                linked_records = []
+                if record._name == 'event.event' and 'gl_scorsese_project_id' in record._fields and record.gl_scorsese_project_id:
+                    linked_records.append(record.gl_scorsese_project_id)
+                elif record._name == 'project.project' and 'gl_scorsese_event_id' in record._fields and record.gl_scorsese_event_id:
+                    linked_records.append(record.gl_scorsese_event_id)
+                for linked in linked_records:
+                    self._apply_folder_path_to_record(linked.sudo(), target_path, primary=False)
+
+    def _apply_folder_path_to_record(self, record, target_path, primary=False):
+        values = {}
+        if 'gl_folder_path' in record._fields:
+            values['gl_folder_path'] = target_path
+        if 'gl_folder_status' in record._fields:
+            values['gl_folder_status'] = 'created' if primary else (record.gl_folder_status or 'linked')
+        if 'gl_folder_pending' in record._fields:
+            values['gl_folder_pending'] = False
+        if values:
+            record.sudo().write(values)
+        if hasattr(record, 'message_post'):
+            if record._name == 'project.project':
+                message = _('✅ SCORSESE Projektordner wurde erstellt: <code>%s</code>') if primary else _('✅ SCORSESE Projekt wurde mit dem Ordner verknüpft: <code>%s</code>')
+            elif record._name == 'event.event':
+                message = _('✅ SCORSESE Veranstaltungsordner wurde erstellt: <code>%s</code>') if primary else _('✅ SCORSESE Veranstaltung wurde mit dem Ordner verknüpft: <code>%s</code>')
+            else:
+                message = _('✅ SCORSESE Ordner wurde erstellt: <code>%s</code>')
+            record.message_post(body=message % target_path)
+        if hasattr(record, '_gl_queue_current_stage_icon'):
+            try:
+                record._gl_queue_current_stage_icon(check_connection=False)
+            except Exception as exc:
                 if hasattr(record, 'message_post'):
-                    if record._name == 'project.project':
-                        record.message_post(body=_('✅ SCORSESE Projektordner wurde erstellt: <code>%s</code>') % target_path)
-                    elif record._name == 'event.event':
-                        record.message_post(body=_('✅ SCORSESE Veranstaltungsordner wurde erstellt: <code>%s</code>') % target_path)
-                    else:
-                        record.message_post(body=_('✅ SCORSESE Ordner wurde erstellt: <code>%s</code>') % target_path)
-                if hasattr(record, '_gl_queue_current_stage_icon'):
-                    try:
-                        record._gl_queue_current_stage_icon(check_connection=False)
-                    except Exception as exc:
-                        if hasattr(record, 'message_post'):
-                            record.message_post(body=_('SCORSESE konnte nach der Ordnererstellung kein Phasen-Icon beauftragen: %s') % exc)
+                    record.message_post(body=_('SCORSESE konnte nach der Ordnererstellung kein Phasen-Icon beauftragen: %s') % exc)
 
     def _apply_icon_result(self, result):
         self.ensure_one()

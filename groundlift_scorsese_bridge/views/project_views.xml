@@ -6,7 +6,7 @@
         <field name="inherit_id" ref="project.edit_project"/>
         <field name="arch" type="xml">
             <xpath expr="//header" position="inside">
-                <button name="action_gl_create_project_folder_wizard" type="object" string="SCORSESE Ordner erstellen" class="btn-primary" invisible="gl_folder_path"/>
+                <button name="action_gl_create_project_folder_wizard" type="object" string="Ordner auf Server erstellen" class="btn-primary" invisible="gl_folder_path"/>
             </xpath>
             <xpath expr="//sheet" position="inside">
                 <group string="SCORSESE">

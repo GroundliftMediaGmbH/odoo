@@ -4,31 +4,59 @@
         <field name="name">gl.scorsese.folder.create.wizard.form</field>
         <field name="model">gl.scorsese.folder.create.wizard</field>
         <field name="arch" type="xml">
-            <form string="SCORSESE Ordner erstellen">
+            <form string="Ordner auf Server erstellen">
                 <sheet>
                     <group>
+                        <field name="target_model" invisible="1"/>
+                        <field name="target_res_id" invisible="1"/>
+                        <field name="storage_root_path" invisible="1"/>
+                        <field name="root_folder_path" invisible="1"/>
+                        <field name="record_name" readonly="1"/>
+                    </group>
+
+                    <separator string="Ziel auf dem Server"/>
+                    <group>
                         <group>
-                            <field name="record_name" readonly="1"/>
-                            <field name="target_model" invisible="1"/>
-                            <field name="target_res_id" invisible="1"/>
-                            <field name="storage_id"/>
-                            <field name="template_id" domain="['|', ('target_model', '=', target_model), ('target_model', '=', 'both')]"/>
+                            <field name="storage_id" string="1) Speicher wählen"/>
+                            <field name="root_folder_cache_id"
+                                   string="2) Ordner wählen"
+                                   domain="[('storage_id', '=', storage_id), ('browse_parent_path', '=', storage_root_path)]"
+                                   context="{'default_storage_id': storage_id}"/>
+                            <field name="subfolder_cache_id"
+                                   string="3) Unterordner wählen"
+                                   domain="[('storage_id', '=', storage_id), ('browse_parent_path', '=', root_folder_path)]"
+                                   context="{'default_storage_id': storage_id}"/>
                         </group>
                         <group>
-                            <field name="parent_path"/>
-                            <field name="cached_folder_id" domain="[('storage_id', '=', storage_id)]"/>
-                            <field name="folder_name"/>
+                            <field name="parent_path" string="Zielpfad" readonly="1"/>
+                            <field name="template_id"
+                                   string="4) Vorlage wählen"
+                                   domain="['|', ('target_model', '=', target_model), ('target_model', '=', 'both')]"/>
+                            <field name="folder_name" string="Neuer Ordnername"/>
                         </group>
                     </group>
-                    <separator string="Ordnerauswahl über Cache"/>
+
+                    <group invisible="target_model != 'event.event'">
+                        <field name="create_project_from_event" string="5) Projekt daraus erzeugen"/>
+                    </group>
+
+                    <separator string="Projektzeitraum" invisible="target_model != 'project.project' and not create_project_from_event"/>
+                    <group invisible="target_model != 'project.project' and not create_project_from_event">
+                        <group>
+                            <field name="project_date_start" string="Datum von"/>
+                        </group>
+                        <group>
+                            <field name="project_date_end" string="Datum bis"/>
+                        </group>
+                    </group>
+
                     <p class="text-muted">
-                        Da SCORSESE nicht öffentlich erreichbar sein muss, wird die Ordnerstruktur asynchron über den Agenten geladen. 
-                        Mit „Unterordner laden“ wird ein Browse-Auftrag angelegt. Danach kann ein Cache-Ordner ausgewählt werden.
+                        Die Ordnerauswahl basiert auf dem SCORSESE-Ordnercache. Mit „Ausgewählten Ordner laden/aktualisieren“ wird die nächste Ebene geladen, falls sie noch nicht im Dropdown erscheint.
                     </p>
                 </sheet>
                 <footer>
                     <button name="action_enqueue" type="object" string="Ordner erstellen" class="btn-primary"/>
-                    <button name="action_request_browse" type="object" string="Unterordner laden"/>
+                    <button name="action_request_browse" type="object" string="Ausgewählten Ordner laden/aktualisieren"/>
                     <button name="action_open_cache" type="object" string="Ordnercache öffnen"/>
                     <button string="Abbrechen" class="btn-secondary" special="cancel"/>
                 </footer>
