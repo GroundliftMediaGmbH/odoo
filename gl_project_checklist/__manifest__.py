@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Groundlift Projekt-Checkliste",
-    "summary": "Checklisten-Tabs mit Plan-Zeichnungen direkt im Odoo-Projekt",
-    "version": "19.0.1.1.0",
+    "summary": "Checklisten-Tabs mit Plan-Zeichnungen und Medientechnik direkt im Odoo-Projekt",
+    "version": "19.0.1.2.0",
     "category": "Project",
     "author": "Groundlift Media GmbH",
     "website": "https://www.groundlift.de",

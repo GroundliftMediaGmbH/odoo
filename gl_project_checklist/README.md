@@ -4,12 +4,15 @@ Odoo-19-SH-Modul für Checklisten direkt im Projektformular.
 
 ## Funktionen
 
-- Zusätzliche Projekt-Tabs: Allgemein, Gastro und Ablauf, Theater, Lounge, Terasse, Notizen
-- Allgemein mit Gäste & Plätze, Mobiliar sowie Bühne & Technik
-- Gastro und Ablauf mit optisch getrennten Bereichen und dynamischer Ablauf-Tabelle
-- Theater/Lounge/Terasse mit Zeichenfläche auf dem jeweiligen Grundriss
-- Rotieren-Button in den Plan-Tabs, jeweils 90° pro Klick
-- Notizen und interne Organisation als freie Textbereiche
+- Neuer Obertab **Gastro** im Projektformular
+  - Untertabs: Allgemein, Gastro und Ablauf, Theater, Lounge, Terrasse, Notizen
+  - Bestehende Gastro-/Plan-/Notizfelder bleiben erhalten
+  - Theater/Lounge/Terrasse weiterhin mit Zeichenfläche auf dem jeweiligen Grundriss
+- Neuer Obertab **Medientechnik** im Projektformular
+  - Untertabs: Audio, Video, Licht, Technischer Rundown
+  - Audio/Video/Licht jeweils mit großem Notizfeld
+  - Technischer Rundown als dynamische Tabelle mit Uhrzeit, ToDo und Erledigt-Checkbox
+- Bestehende Datenfelder werden nicht entfernt, damit vorhandene Projektwerte bei Updates erhalten bleiben
 
 ## Installation in Odoo SH
 
@@ -18,4 +21,4 @@ Odoo-19-SH-Modul für Checklisten direkt im Projektformular.
 3. Apps-Liste aktualisieren.
 4. Modul **Groundlift Projekt-Checkliste** installieren oder aktualisieren.
 
-Bei einem Update von Version 19.0.1.0.0 auf 19.0.1.1.0 bitte das Modul in Odoo aktualisieren, damit das neue Ablaufmodell und die neuen Rotationsfelder angelegt werden.
+Bei einem Update bitte das Modul in Odoo aktualisieren, damit die neuen Medientechnik-Felder und das neue Rundown-Modell angelegt werden.

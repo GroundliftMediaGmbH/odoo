@@ -90,8 +90,10 @@
     }
 
     .gl_checklist_notes_section textarea,
-    .gl_checklist_notes_section .o_field_text textarea {
-        min-height: 12rem;
+    .gl_checklist_notes_section .o_field_text textarea,
+    .gl_checklist_media_notes_section textarea,
+    .gl_checklist_media_notes_section .o_field_text textarea {
+        min-height: 18rem;
     }
 }
 
