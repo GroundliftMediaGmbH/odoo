@@ -19,6 +19,9 @@
                     <field name="gl_fonio_event_id" readonly="1"/>
                     <field name="gl_fonio_guestlist_line_id" readonly="1"/>
                     <field name="gl_fonio_processed_at" readonly="1"/>
+                    <field name="gl_fonio_match_score" readonly="1"/>
+                    <field name="gl_fonio_match_reason" readonly="1" invisible="not gl_fonio_match_reason"/>
+                    <field name="gl_fonio_payload_preview" readonly="1" invisible="not gl_fonio_payload_preview"/>
                     <field name="gl_fonio_error" readonly="1" invisible="not gl_fonio_error"/>
                 </group>
             </xpath>
