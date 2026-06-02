@@ -17,18 +17,22 @@
                         </group>
                         <group string="2. Ordnerpfad">
                             <field name="available_cache_ids" invisible="1"/>
+                            <field name="available_root_cache_ids" invisible="1"/>
+                            <field name="available_subfolder_cache_ids" invisible="1"/>
                             <field name="show_unlinked_only"/>
-                            <field name="cached_folder_id" domain="[('id', 'in', available_cache_ids)]" options="{'no_create': True}"/>
+                            <field name="root_folder_cache_id" domain="[('id', 'in', available_root_cache_ids)]" options="{'no_create': True, 'no_open': True}"/>
+                            <field name="subfolder_cache_id" domain="[('id', 'in', available_subfolder_cache_ids)]" options="{'no_create': True, 'no_open': True}" invisible="not root_folder_cache_id"/>
+                            <field name="cached_folder_id" invisible="1"/>
                             <field name="folder_path" readonly="1" invisible="not folder_path"/>
-                            <button name="action_browse_selected_folder" type="object" string="Unterordner dieses Ordners laden" invisible="not cached_folder_id"/>
+                            <button name="action_browse_selected_folder" type="object" string="Ausgewählten Ordner laden/aktualisieren" invisible="not storage_id"/>
                         </group>
                     </group>
 
-                    <group string="3. Importieren als" invisible="not cached_folder_id">
+                    <group string="3. Importieren als" invisible="not folder_path">
                         <field name="target_model" widget="radio"/>
                     </group>
 
-                    <group string="Aus Ordnername erkannt" invisible="not cached_folder_id">
+                    <group string="Aus Ordnername erkannt" invisible="not folder_path">
                         <group>
                             <field name="name" placeholder="Wird automatisch aus dem Ordnernamen erkannt"/>
                         </group>
@@ -37,7 +41,7 @@
                         </group>
                     </group>
 
-                    <group string="Optional mit vorhandenen Datensätzen verknüpfen" invisible="not cached_folder_id">
+                    <group string="Optional mit vorhandenen Datensätzen verknüpfen" invisible="not folder_path">
                         <group>
                             <field name="existing_project_id"/>
                         </group>
@@ -46,7 +50,7 @@
                         </group>
                     </group>
 
-                    <group string="Optionen" invisible="not cached_folder_id">
+                    <group string="Optionen" invisible="not folder_path">
                         <field name="create_validation_job"/>
                     </group>
                 </sheet>

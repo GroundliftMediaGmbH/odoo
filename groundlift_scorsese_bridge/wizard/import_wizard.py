@@ -18,6 +18,25 @@ def _clean_path_basename(path):
     return re.split(r'[\\/]+', path)[-1].strip()
 
 
+def _norm_path_for_compare(value):
+    value = _clean_scorsese_path(value)
+    value = value.replace('/', '\\')
+    while '\\\\' in value and not value.startswith('\\\\'):
+        value = value.replace('\\\\', '\\')
+    return value.rstrip('\\').casefold()
+
+
+def _same_path(left, right):
+    return _norm_path_for_compare(left) == _norm_path_for_compare(right)
+
+
+def _path_parent(value):
+    value = _clean_scorsese_path(value).replace('/', '\\').rstrip('\\')
+    if '\\' not in value:
+        return ''
+    return value.rsplit('\\', 1)[0]
+
+
 def _parse_folder_name(path, fallback_title):
     basename = _clean_path_basename(path)
     match = re.match(r'^(\d{4})-(\d{2})-(\d{2})\s+(.+)$', basename)
@@ -42,10 +61,43 @@ class GlScorseseImportWizard(models.TransientModel):
     )
     available_cache_ids = fields.Many2many(
         'gl.scorsese.path.cache',
+        'gl_scorsese_import_available_cache_rel',
+        'wizard_id',
+        'cache_id',
         string='Verfügbare Cache-Ordner',
         compute='_compute_available_cache_ids',
     )
-    cached_folder_id = fields.Many2one('gl.scorsese.path.cache', string='Ordnerpfad', required=True)
+    available_root_cache_ids = fields.Many2many(
+        'gl.scorsese.path.cache',
+        'gl_scorsese_import_root_cache_rel',
+        'wizard_id',
+        'cache_id',
+        string='Verfügbare Hauptordner',
+        compute='_compute_available_cache_ids',
+    )
+    available_subfolder_cache_ids = fields.Many2many(
+        'gl.scorsese.path.cache',
+        'gl_scorsese_import_sub_cache_rel',
+        'wizard_id',
+        'cache_id',
+        string='Verfügbare Unterordner',
+        compute='_compute_available_cache_ids',
+    )
+    cached_folder_id = fields.Many2one(
+        'gl.scorsese.path.cache',
+        string='Ordnerpfad',
+        help='Interner/finaler ausgewählter Cacheordner. Wird automatisch aus Ordner oder Unterordner gesetzt.',
+    )
+    root_folder_cache_id = fields.Many2one(
+        'gl.scorsese.path.cache',
+        string='Ordner wählen',
+        help='Erste Ordnerebene innerhalb des gewählten Speichers.',
+    )
+    subfolder_cache_id = fields.Many2one(
+        'gl.scorsese.path.cache',
+        string='Unterordner wählen',
+        help='Optionaler Unterordner innerhalb des gewählten Ordners.',
+    )
     folder_path = fields.Char(string='Ausgewählter vollständiger Pfad', readonly=True)
     target_model = fields.Selection([
         ('project.project', 'Projekt'),
@@ -76,68 +128,130 @@ class GlScorseseImportWizard(models.TransientModel):
                     paths.add(path.casefold())
         return paths
 
-    @api.depends('storage_id', 'show_unlinked_only')
+    def _cache_entries_for_storage(self, storage):
+        storage = storage or self.storage_id
+        if not storage:
+            return self.env['gl.scorsese.path.cache'].sudo().browse()
+        return self.env['gl.scorsese.path.cache'].sudo().search([
+            ('storage_id', '=', storage.id),
+            ('is_dir', '=', True),
+        ])
+
+    def _root_children_for_storage(self, storage, entries=False):
+        entries = entries or self._cache_entries_for_storage(storage)
+        if not storage or not entries:
+            return entries.browse()
+        storage_root = _clean_scorsese_path(storage.root_path)
+        root_children = entries.filtered(lambda item: _same_path(item.browse_parent_path, storage_root))
+        if not root_children:
+            root_children = entries.filtered(lambda item: _same_path(_path_parent(item.child_path), storage_root))
+        # Fallback: Wenn nur Unterebenen gecacht wurden, zeigen wir die vorhandenen Einträge trotzdem an.
+        return root_children or entries
+
+    def _filter_unlinked_cache_entries(self, cache_entries, linked_paths):
+        if not linked_paths:
+            return cache_entries
+        return cache_entries.filtered(
+            lambda item: _clean_scorsese_path(item.child_path).casefold() not in linked_paths
+        )
+
+    @api.depends('storage_id', 'show_unlinked_only', 'root_folder_cache_id', 'root_folder_cache_id.child_path')
     def _compute_available_cache_ids(self):
         Cache = self.env['gl.scorsese.path.cache'].sudo()
         linked_paths = self._linked_folder_paths() if any(self.mapped('show_unlinked_only')) else set()
         for rec in self:
+            rec.available_cache_ids = Cache.browse()
+            rec.available_root_cache_ids = Cache.browse()
+            rec.available_subfolder_cache_ids = Cache.browse()
             if not rec.storage_id:
-                rec.available_cache_ids = Cache.browse()
                 continue
-            cache_entries = Cache.search([
-                ('storage_id', '=', rec.storage_id.id),
-                ('is_dir', '=', True),
-            ])
-            if rec.show_unlinked_only and linked_paths:
-                cache_entries = cache_entries.filtered(
-                    lambda item: _clean_scorsese_path(item.child_path).casefold() not in linked_paths
-                )
+            cache_entries = rec._cache_entries_for_storage(rec.storage_id)
+            if not cache_entries:
+                continue
+            if rec.show_unlinked_only:
+                cache_entries = rec._filter_unlinked_cache_entries(cache_entries, linked_paths)
             rec.available_cache_ids = cache_entries
+            rec.available_root_cache_ids = rec._root_children_for_storage(rec.storage_id, cache_entries)
+            selected_parent = _clean_scorsese_path(
+                rec.root_folder_cache_id.child_path if rec.root_folder_cache_id else False
+            )
+            if selected_parent:
+                subfolders = cache_entries.filtered(lambda item: _same_path(item.browse_parent_path, selected_parent))
+                if not subfolders:
+                    subfolders = cache_entries.filtered(lambda item: _same_path(_path_parent(item.child_path), selected_parent))
+                rec.available_subfolder_cache_ids = subfolders
 
-    def _domain_cached_folder_id(self):
+    def _domain_result(self):
         self.ensure_one()
-        return [('id', 'in', self.available_cache_ids.ids)]
+        return {
+            'domain': {
+                'root_folder_cache_id': [('id', 'in', self.available_root_cache_ids.ids)],
+                'subfolder_cache_id': [('id', 'in', self.available_subfolder_cache_ids.ids)],
+                'cached_folder_id': [('id', 'in', self.available_cache_ids.ids)],
+            }
+        }
 
-    @api.onchange('storage_id', 'show_unlinked_only')
-    def _onchange_storage_filter(self):
+    def _set_final_folder_from_selection(self):
         for rec in self:
-            if rec.cached_folder_id and rec.cached_folder_id not in rec.available_cache_ids:
-                rec.cached_folder_id = False
-                rec.folder_path = False
-                rec.name = False
-                rec.parsed_date = False
-            elif not rec.storage_id:
-                rec.cached_folder_id = False
-                rec.folder_path = False
-                rec.name = False
-                rec.parsed_date = False
-        if len(self) == 1:
-            return {'domain': {'cached_folder_id': self._domain_cached_folder_id()}}
-        return {}
-
-    @api.onchange('storage_id')
-    def _onchange_storage_id(self):
-        for rec in self:
-            rec.cached_folder_id = False
-            rec.folder_path = False
-            rec.name = False
-            rec.parsed_date = False
-        if len(self) == 1:
-            return {'domain': {'cached_folder_id': self._domain_cached_folder_id()}}
-
-    @api.onchange('cached_folder_id')
-    def _onchange_cached_folder_id(self):
-        for rec in self:
-            if rec.cached_folder_id:
-                rec.folder_path = _clean_scorsese_path(rec.cached_folder_id.child_path)
+            final_cache = rec.subfolder_cache_id or rec.root_folder_cache_id or rec.cached_folder_id
+            rec.cached_folder_id = final_cache
+            if final_cache:
+                rec.folder_path = _clean_scorsese_path(final_cache.child_path)
                 if not rec.storage_id:
-                    rec.storage_id = rec.cached_folder_id.storage_id
+                    rec.storage_id = final_cache.storage_id
                 title, parsed_date = rec._parse_folder_name(rec.folder_path)
                 rec.name = title
                 rec.parsed_date = parsed_date
             else:
                 rec.folder_path = False
 
+    @api.onchange('storage_id', 'show_unlinked_only')
+    def _onchange_storage_filter(self):
+        for rec in self:
+            rec.cached_folder_id = False
+            rec.root_folder_cache_id = False
+            rec.subfolder_cache_id = False
+            rec.folder_path = False
+            rec.name = False
+            rec.parsed_date = False
+        if len(self) == 1:
+            return self._domain_result()
+        return {}
+
+    @api.onchange('storage_id')
+    def _onchange_storage_id(self):
+        for rec in self:
+            rec.cached_folder_id = False
+            rec.root_folder_cache_id = False
+            rec.subfolder_cache_id = False
+            rec.folder_path = False
+            rec.name = False
+            rec.parsed_date = False
+        if len(self) == 1:
+            return self._domain_result()
+        return {}
+
+    @api.onchange('root_folder_cache_id')
+    def _onchange_root_folder_cache_id(self):
+        for rec in self:
+            rec.subfolder_cache_id = False
+        self._set_final_folder_from_selection()
+        if len(self) == 1:
+            return self._domain_result()
+        return {}
+
+    @api.onchange('subfolder_cache_id')
+    def _onchange_subfolder_cache_id(self):
+        self._set_final_folder_from_selection()
+        if len(self) == 1:
+            return self._domain_result()
+        return {}
+
+    @api.onchange('cached_folder_id')
+    def _onchange_cached_folder_id(self):
+        # Rückwärtskompatibilität für ältere Views/Bookmarks: Falls das alte finale Feld direkt gesetzt wird,
+        # übernehmen wir es weiterhin als ausgewählten Pfad.
+        self._set_final_folder_from_selection()
     @api.onchange('folder_path')
     def _onchange_folder_path(self):
         for rec in self:
@@ -194,10 +308,12 @@ class GlScorseseImportWizard(models.TransientModel):
 
     def _ensure_folder_path_from_cache(self):
         self.ensure_one()
-        if self.cached_folder_id:
-            self.folder_path = _clean_scorsese_path(self.cached_folder_id.child_path)
+        final_cache = self.subfolder_cache_id or self.root_folder_cache_id or self.cached_folder_id
+        if final_cache:
+            self.cached_folder_id = final_cache
+            self.folder_path = _clean_scorsese_path(final_cache.child_path)
             if not self.storage_id:
-                self.storage_id = self.cached_folder_id.storage_id
+                self.storage_id = final_cache.storage_id
         else:
             self.folder_path = _clean_scorsese_path(self.folder_path)
 
@@ -248,12 +364,20 @@ class GlScorseseImportWizard(models.TransientModel):
 
     def action_browse_selected_folder(self):
         self.ensure_one()
-        self._ensure_folder_path_from_cache()
-        if not self.folder_path:
-            raise UserError(_('Bitte zuerst einen Ordnerpfad auswählen.'))
+        # Gezielt den aktuell markierten Ordner laden: erst Unterordner, sonst Hauptordner, sonst Speicher-Root.
+        if self.subfolder_cache_id:
+            path = self.subfolder_cache_id.child_path
+        elif self.root_folder_cache_id:
+            path = self.root_folder_cache_id.child_path
+        elif self.cached_folder_id:
+            path = self.cached_folder_id.child_path
+        else:
+            path = self.storage_id.root_path if self.storage_id else False
+        if not path:
+            raise UserError(_('Bitte zuerst einen Speicher oder Ordner auswählen.'))
         return self._queue_browse_job(
-            self.folder_path,
-            _('SCORSESE lädt die Unterordner des ausgewählten Ordners. Danach sind sie im Ordnerpfad-Dropdown auswählbar.'),
+            path,
+            _('SCORSESE lädt die nächste Ordnerebene. Danach sind Unterordner im Dropdown sichtbar.'),
         )
 
     def action_import(self):
