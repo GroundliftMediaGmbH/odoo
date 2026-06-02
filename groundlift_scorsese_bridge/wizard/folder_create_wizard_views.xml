@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_scorsese_folder_create_wizard_form" model="ir.ui.view">
+        <field name="name">gl.scorsese.folder.create.wizard.form</field>
+        <field name="model">gl.scorsese.folder.create.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Ordner auf Server erstellen">
+                <sheet>
+                    <group>
+                        <field name="target_model" invisible="1"/>
+                        <field name="target_res_id" invisible="1"/>
+                        <field name="storage_root_path" invisible="1"/>
+                        <field name="root_folder_path" invisible="1"/>
+                        <field name="available_root_cache_ids" invisible="1"/>
+                        <field name="available_subfolder_cache_ids" invisible="1"/>
+                        <field name="record_name" readonly="1"/>
+                    </group>
+
+                    <separator string="Ziel auf dem Server"/>
+                    <group>
+                        <group>
+                            <field name="storage_id" string="1) Speicher wählen"/>
+                            <field name="root_folder_cache_id"
+                                   string="2) Ordner wählen"
+                                   domain="[('id', 'in', available_root_cache_ids)]"
+                                   context="{'default_storage_id': storage_id}" options="{'no_create': True, 'no_open': True}"/>
+                            <field name="subfolder_cache_id"
+                                   string="3) Unterordner wählen"
+                                   domain="[('id', 'in', available_subfolder_cache_ids)]"
+                                   context="{'default_storage_id': storage_id}" options="{'no_create': True, 'no_open': True}"/>
+                        </group>
+                        <group>
+                            <field name="parent_path" string="Zielpfad" readonly="1"/>
+                            <field name="template_id"
+                                   string="4) Vorlage wählen"
+                                   domain="['|', ('target_model', '=', target_model), ('target_model', '=', 'both')]"/>
+                            <field name="folder_name" string="Neuer Ordnername"/>
+                        </group>
+                    </group>
+
+                    <group invisible="target_model != 'event.event'">
+                        <field name="create_project_from_event" string="5) Projekt daraus erzeugen"/>
+                    </group>
+
+                    <separator string="Projektzeitraum" invisible="target_model != 'project.project' and not create_project_from_event"/>
+                    <group invisible="target_model != 'project.project' and not create_project_from_event">
+                        <group>
+                            <field name="project_date_start" string="Datum von"/>
+                        </group>
+                        <group>
+                            <field name="project_date_end" string="Datum bis"/>
+                        </group>
+                    </group>
+
+                    <p class="text-muted">
+                        Die Ordnerauswahl basiert auf dem SCORSESE-Ordnercache. Wenn nach der Speicherwahl noch nichts erscheint, bitte „Speicher/ausgewählten Ordner laden“ klicken. Sobald der Agent den Cache aktualisiert hat, erscheinen die Ordnernamen im Dropdown.
+                    </p>
+                </sheet>
+                <footer>
+                    <button name="action_enqueue" type="object" string="Ordner erstellen" class="btn-primary"/>
+                    <button name="action_request_browse" type="object" string="Speicher/ausgewählten Ordner laden"/>
+                    <button name="action_open_cache" type="object" string="Ordnercache öffnen"/>
+                    <button string="Abbrechen" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
