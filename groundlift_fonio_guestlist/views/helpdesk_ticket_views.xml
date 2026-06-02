@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_helpdesk_ticket_form_fonio_guestlist" model="ir.ui.view">
+        <field name="name">helpdesk.ticket.form.fonio.guestlist</field>
+        <field name="model">helpdesk.ticket</field>
+        <field name="inherit_id" ref="helpdesk.helpdesk_ticket_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_gl_fonio_retry_guestlist_processing"
+                        type="object"
+                        string="Fonio erneut verarbeiten"
+                        class="btn-secondary"
+                        invisible="not gl_fonio_request_id and gl_fonio_processing_state != 'error'"/>
+            </xpath>
+            <xpath expr="//sheet" position="inside">
+                <group string="Fonio Gästeliste" groups="base.group_system">
+                    <field name="gl_fonio_processing_state" readonly="1"/>
+                    <field name="gl_fonio_request_id" readonly="1"/>
+                    <field name="gl_fonio_event_id" readonly="1"/>
+                    <field name="gl_fonio_guestlist_line_id" readonly="1"/>
+                    <field name="gl_fonio_processed_at" readonly="1"/>
+                    <field name="gl_fonio_error" readonly="1" invisible="not gl_fonio_error"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

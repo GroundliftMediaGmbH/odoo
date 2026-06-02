@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo noupdate="1">
+    <record id="param_team_name" model="ir.config_parameter">
+        <field name="key">groundlift_fonio_guestlist.team_name</field>
+        <field name="value">Kartenreservierung</field>
+    </record>
+    <record id="param_solved_stage_name" model="ir.config_parameter">
+        <field name="key">groundlift_fonio_guestlist.solved_stage_name</field>
+        <field name="value">Gelöst</field>
+    </record>
+    <record id="param_timezone" model="ir.config_parameter">
+        <field name="key">groundlift_fonio_guestlist.timezone</field>
+        <field name="value">Europe/Berlin</field>
+    </record>
+    <record id="param_event_match_threshold" model="ir.config_parameter">
+        <field name="key">groundlift_fonio_guestlist.event_match_threshold</field>
+        <field name="value">0.62</field>
+    </record>
+</odoo>
