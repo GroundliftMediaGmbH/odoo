@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Groundlift Fonio Gästeliste',
-    'version': '19.0.2.0.0',
+    'version': '19.0.3.0.0',
     'category': 'Services/Helpdesk',
     'summary': 'Überträgt Fonio-Kartenreservierungen robust aus Kundendiensttickets auf die Event-Gästeliste',
     'description': """
@@ -14,7 +14,7 @@ Kundendienstticket im Team "Kartenreservierung" eingehen.
 Aus den Fonio-Daten in der Ticketbeschreibung werden automatisch VVK-Plätze
 im vorhandenen Groundlift-Gästelistenmodul erzeugt. Die Veranstaltung wird
 robust über Titel, Datum, Zusammenfassung, Token- und phonetisches Matching
-erkannt. Optional kann ein OpenAI-Fallback für unklare Telefontranskripte
+erkannt. Zusätzlich werden E-Mail-/Chatter-Nachrichten als Datenquelle gelesen. Optional kann ein OpenAI-Fallback für unklare Telefontranskripte
 aktiviert werden.
     """,
     'author': 'Groundlift Media GmbH',

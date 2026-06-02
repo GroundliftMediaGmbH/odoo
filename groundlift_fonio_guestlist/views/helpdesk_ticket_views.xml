@@ -10,7 +10,7 @@
                         type="object"
                         string="Fonio erneut verarbeiten"
                         class="btn-secondary"
-                        invisible="not gl_fonio_request_id and gl_fonio_processing_state != 'error'"/>
+                        invisible="gl_fonio_processing_state == 'done'"/>
             </xpath>
             <xpath expr="//sheet" position="inside">
                 <group string="Fonio Gästeliste" groups="base.group_system">

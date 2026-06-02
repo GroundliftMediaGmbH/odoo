@@ -2,9 +2,12 @@
 """Groundlift Fonio → Gästeliste automation.
 
 Robustly parses Fonio reservation tickets from Helpdesk and creates guestlist
-entries for the matching event. The matching deliberately stays local and
-explainable by default; an optional OpenAI fallback can be enabled via system
-parameters if the local resolver is ambiguous.
+entries for the matching event.
+
+Version 3 additionally reads the original e-mail/chatter messages because Odoo
+Helpdesk can store an incoming mail body in the discussion thread while the
+``description`` field shown on the form is rendered differently. This is the
+main reason why a visible Fonio text can still stay in state "not_fonio".
 """
 
 import json
@@ -49,6 +52,14 @@ FONIO_KNOWN_FIELDS = {
     'caller_email', 'title', 'event_title', 'film_title', 'number_of_seats',
     'number_of_tickets', 'seats', 'summary', 'message', 'show_id', 'event_id',
 }
+
+FONIO_DETECTION_TOKENS = (
+    'reservation_request',
+    'event_reservation_request',
+    'Neue Fonio-Anfrage',
+    'Reservierungswunsch',
+    'FONIO-',
+)
 
 DATE_NUMERIC_PATTERN = re.compile(
     r'\b(?P<day>\d{1,2})\.\s*(?P<month>\d{1,2})\.\s*(?P<year>\d{2,4})\b'
@@ -167,11 +178,24 @@ class HelpdeskTicket(models.Model):
             _logger.warning('Fonio Gästeliste: Kundendienstteam "%s" wurde nicht gefunden.', team_name)
             return False
 
-        tickets = self.sudo().search([
-            ('team_id', 'in', teams.ids),
-            ('gl_fonio_processing_state', 'not in', ['done', 'error']),
-            ('description', 'ilike', 'reservation_request'),
-        ], order='create_date asc, id asc', limit=limit)
+        # Do not rely only on description ilike reservation_request. In Odoo 19
+        # incoming mail content may be primarily visible through chatter messages,
+        # while the ticket title still contains "Fonio Anfrage". We therefore
+        # collect a broader but still team-limited candidate set and let the
+        # parser decide.
+        search_domain = expression.AND([
+            [('team_id', 'in', teams.ids)],
+            [('gl_fonio_processing_state', 'not in', ['done', 'error'])],
+            expression.OR([
+                [('description', 'ilike', 'reservation_request')],
+                [('description', 'ilike', 'Reservierungswunsch')],
+                [('description', 'ilike', 'Fonio')],
+                [('name', 'ilike', 'FONIO-')],
+                [('name', 'ilike', 'Fonio Anfrage')],
+                [('name', 'ilike', 'Reservierung')],
+            ]),
+        ])
+        tickets = self.sudo().search(search_domain, order='create_date asc, id asc', limit=limit)
         tickets._gl_fonio_process_if_needed(force=False)
         return True
 
@@ -211,13 +235,24 @@ class HelpdeskTicket(models.Model):
 
         payload = self._gl_fonio_parse_payload()
         if not payload:
-            if not force:
+            # When the user presses the retry button, make the reason visible
+            # instead of silently keeping "Keine Fonio-Reservierung".
+            if force and self._gl_fonio_probably_contains_fonio_text():
+                self._gl_fonio_mark_error(_(
+                    'Fonio-Text wurde vermutet, aber die strukturierten Felder konnten nicht gelesen werden. '
+                    'Bitte prüfen, ob die E-Mail nur im Chatter liegt oder das Format stark abweicht.'
+                ))
+            elif not force:
                 self.with_context(gl_fonio_skip_auto_process=True).write({
                     'gl_fonio_processing_state': 'not_fonio',
                 })
             return False
 
         if payload.get('action') != 'reservation_request' or payload.get('request_type') != 'event_reservation_request':
+            if force:
+                self._gl_fonio_mark_error(_(
+                    'Fonio-Daten erkannt, aber action/request_type passt nicht: action=%s, request_type=%s'
+                ) % (payload.get('action'), payload.get('request_type')))
             return False
 
         payload = self._gl_fonio_postprocess_payload(payload)
@@ -281,7 +316,7 @@ class HelpdeskTicket(models.Model):
     def _gl_fonio_parse_payload(self):
         self.ensure_one()
         text = self._gl_fonio_ticket_text()
-        if not text or 'reservation_request' not in text:
+        if not text or 'reservation_request' not in text.lower():
             return {}
 
         payload = {}
@@ -324,12 +359,53 @@ class HelpdeskTicket(models.Model):
 
     def _gl_fonio_ticket_text(self):
         self.ensure_one()
-        raw = self.description or ''
+        parts = []
+
+        def add_text(raw):
+            raw = raw or ''
+            if not raw:
+                return
+            try:
+                text = html2plaintext(raw) if '<' in raw and '>' in raw else raw
+            except Exception:  # noqa: BLE001
+                text = raw
+            text = (text or '').replace('\xa0', ' ').replace('\r\n', '\n').replace('\r', '\n').strip()
+            if text:
+                parts.append(text)
+
+        add_text(self.description or '')
+
+        # Critical for Odoo Helpdesk mail routing: depending on the incoming
+        # alias/template, the full mail body can live in mail.message instead of
+        # being reliably parseable from helpdesk.ticket.description. The user may
+        # still see it on the form, but the automation only read description in
+        # earlier versions.
         try:
-            text = html2plaintext(raw) if '<' in raw and '>' in raw else raw
+            messages = self.message_ids.sorted(lambda m: (m.date or fields.Datetime.now(), m.id))
         except Exception:  # noqa: BLE001
-            text = raw
-        return (text or '').replace('\xa0', ' ').replace('\r\n', '\n').replace('\r', '\n').strip()
+            messages = self.message_ids
+        for message in messages:
+            body = message.body or ''
+            subject = message.subject or ''
+            probe = (body + ' ' + subject)
+            if any(token.lower() in probe.lower() for token in FONIO_DETECTION_TOKENS):
+                add_text(subject)
+                add_text(body)
+
+        # Deduplicate identical blocks while preserving order.
+        seen = set()
+        unique_parts = []
+        for part in parts:
+            key = re.sub(r'\s+', ' ', part).strip()
+            if key and key not in seen:
+                seen.add(key)
+                unique_parts.append(part)
+        return '\n'.join(unique_parts).strip()
+
+    def _gl_fonio_probably_contains_fonio_text(self):
+        self.ensure_one()
+        probe = ' '.join([self.name or '', self.description or '', self._gl_fonio_ticket_text() or ''])
+        return any(token.lower() in probe.lower() for token in FONIO_DETECTION_TOKENS)
 
     def _gl_fonio_payload_preview(self, payload):
         safe = {
