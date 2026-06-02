@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data noupdate="0">
+        <record id="action_groundlift_google_analytics_dashboard" model="ir.actions.act_url">
+            <field name="name">Google Analytics</field>
+            <field name="url">/groundlift/google-analytics</field>
+            <field name="target">self</field>
+        </record>
+
+        <menuitem
+            id="menu_groundlift_google_analytics_root"
+            name="Google Analytics"
+            sequence="80"
+            action="action_groundlift_google_analytics_dashboard"
+            web_icon="groundlift_google_analytics,static/description/icon.png"/>
+    </data>
+</odoo>
