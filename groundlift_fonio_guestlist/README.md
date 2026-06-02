@@ -1,6 +1,14 @@
-# Groundlift Fonio Gästeliste 19.0.2.0.0
+# Groundlift Fonio Gästeliste 19.0.3.0.0
 
 Dieses Odoo-19-SH-Modul verarbeitet ankommende Fonio-Reservierungswünsche aus Kundendiensttickets im Team **Kartenreservierung** und trägt sie automatisch als **VVK / Fonio** in die bestehende Groundlift-Gästeliste ein.
+
+
+## Neu in Version 3
+
+- Liest nicht nur `helpdesk.ticket.description`, sondern zusätzlich passende `mail.message`-/Chatter-Inhalte. Das ist wichtig, weil Odoo Helpdesk eingehende E-Mails je nach Routing sichtbar im Ticket zeigt, der Automationscode den Text aber sonst nicht zuverlässig im Feld `description` findet.
+- Der Cron sucht Tickets breiter über Titel/Beschreibung (`FONIO-`, `Fonio Anfrage`, `Reservierungswunsch`) und lässt anschließend den Parser entscheiden.
+- Der Button **Fonio erneut verarbeiten** ist jetzt bei nicht erledigten Tickets sichtbar, damit ein bereits als „Keine Fonio-Reservierung“ markiertes Ticket manuell neu verarbeitet werden kann.
+- Bei manuellem Retry wird ein echter Fehlertext geschrieben, wenn Fonio-Text vermutet wird, aber keine strukturierten Felder gelesen werden konnten.
 
 ## Unterstützte Fonio-Beschreibungen
 
