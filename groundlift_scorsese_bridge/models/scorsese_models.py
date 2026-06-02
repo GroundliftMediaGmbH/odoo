@@ -353,6 +353,43 @@ class GlScorseseJob(models.Model):
         return {'ok': True, 'server_time': fields.Datetime.now()}
 
     @api.model
+    def agent_get_stage_icon_config(self):
+        """Called by SCORSESE. Returns current Odoo project/event phases for dynamic icon configuration."""
+        def collect(record_model_name, prefix, label_prefix):
+            result = []
+            Model = self.env[record_model_name].sudo()
+            field = Model._fields.get('stage_id')
+            if not field or not getattr(field, 'comodel_name', False):
+                return result
+            Stage = self.env[field.comodel_name].sudo()
+            domain = []
+            if 'active' in Stage._fields:
+                domain = ['|', ('active', '=', True), ('active', '=', False)]
+            order = 'sequence, name, id' if 'sequence' in Stage._fields else 'name, id'
+            for stage in Stage.search(domain, order=order):
+                name = stage.display_name or getattr(stage, 'name', False) or str(stage.id)
+                result.append({
+                    'model_name': record_model_name,
+                    'stage_model': field.comodel_name,
+                    'stage_id': stage.id,
+                    'stage_name': getattr(stage, 'name', name),
+                    'key': '%s_stage_%s' % (prefix, stage.id),
+                    'label': '%s: %s' % (label_prefix, name),
+                    'sequence': getattr(stage, 'sequence', 0) or 0,
+                })
+            return result
+
+        stages = []
+        stages += collect('project.project', 'project', _('Projekt'))
+        stages += collect('event.event', 'event', _('Veranstaltung'))
+        return {
+            'ok': True,
+            'stages': stages,
+            'stage_count': len(stages),
+            'server_time': fields.Datetime.now(),
+        }
+
+    @api.model
     def agent_claim_jobs(self, agent_name='SCORSESE', limit=3):
         """Called by SCORSESE. Returns queued jobs and marks them running.
 
@@ -482,16 +519,19 @@ class GlScorseseJob(models.Model):
         self.ensure_one()
         payload = _json_loads(self.payload_json)
         state_key = result.get('state_key') or payload.get('state_key')
+        state_label = result.get('state_label') or payload.get('state_label') or state_key
         if self.target_model and self.target_res_id and state_key:
             record = self.env[self.target_model].sudo().browse(self.target_res_id)
             if record.exists():
                 values = {}
                 if 'gl_folder_state' in record._fields:
                     values['gl_folder_state'] = state_key
+                if 'gl_folder_state_label' in record._fields:
+                    values['gl_folder_state_label'] = state_label
                 if values:
                     record.sudo().write(values)
                 if hasattr(record, 'message_post'):
-                    record.message_post(body=_('SCORSESE Ordnericon wurde gesetzt: %s') % state_key)
+                    record.message_post(body=_('SCORSESE Ordnericon wurde gesetzt: %s') % state_label)
 
     def _apply_browse_folder_result(self, result):
         self.ensure_one()

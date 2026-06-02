@@ -12,7 +12,8 @@
                 <group string="SCORSESE">
                     <group>
                         <field name="gl_folder_status" readonly="1"/>
-                        <field name="gl_folder_state" readonly="1"/>
+                        <field name="gl_folder_state_label" readonly="1" string="Ordner-Markierung"/>
+                        <field name="gl_folder_state" readonly="1" invisible="1"/>
                         <field name="gl_scorsese_project_id"/>
                     </group>
                     <group>

@@ -75,16 +75,27 @@ def stage_name_matches(stage_name, configured_names):
     return needle in names
 
 
-def stage_to_icon_key(model_name, stage_name):
-    if not stage_name:
+def stage_to_icon_key(model_name, stage):
+    """Erzeugt einen stabilen dynamischen Icon-Key aus der echten Odoo-Phase.
+
+    Dadurch muss der Agent keine fest codierten Phasennamen mehr kennen. Wenn
+    Odoo-Phasen umbenannt oder erweitert werden, bleibt die Zuordnung über die
+    Stage-ID stabil.
+    """
+    if not stage:
         return False
-    direct = (stage_name or '').strip().casefold()
-    norm = normalized_stage_name(stage_name)
     if model_name == 'project.project':
-        return PROJECT_STAGE_ICON_MAP.get(direct) or PROJECT_STAGE_ICON_MAP.get(norm)
+        return 'project_stage_%s' % stage.id
     if model_name == 'event.event':
-        return EVENT_STAGE_ICON_MAP.get(direct) or EVENT_STAGE_ICON_MAP.get(norm)
+        return 'event_stage_%s' % stage.id
     return False
+
+
+def stage_to_icon_label(model_name, stage):
+    if not stage:
+        return False
+    prefix = _('Projekt') if model_name == 'project.project' else _('Veranstaltung')
+    return '%s: %s' % (prefix, stage.display_name or stage.name)
 
 
 class GlScorseseRecordMixin(models.AbstractModel):
@@ -99,33 +110,8 @@ class GlScorseseRecordMixin(models.AbstractModel):
         ('linked', 'Vorhandener Ordner verknüpft'),
         ('error', 'Fehler'),
     ], default='missing', string='Ordnerstatus', copy=False, tracking=True)
-    gl_folder_state = fields.Selection([
-        # aktuelle Projektphasen
-        ('todo', 'To-do'),
-        ('in_progress', 'In Bearbeitung'),
-        ('vor_ort_erledigt', 'Vor Ort erledigt'),
-        ('postproduktion', 'Postproduktion'),
-        ('abnahme_korrekturschleifen', 'Abnahme und Korrekturschleifen'),
-        ('an_kunden_geliefert_abgeschlossen', 'An Kunden geliefert und abgeschlossen'),
-        ('archivierbar_master_behalten', 'Archivierbar - MASTER behalten'),
-        ('archivierbar_rohdaten_behalten', 'Archivierbar - ROHDATEN behalten'),
-        ('archivierbar_mp4en', 'Archivierbar - MP4en'),
-        ('auf_server_loeschen', 'Auf Server löschen'),
-        ('auf_server_geloescht', 'Auf Server gelöscht'),
-        ('abgebrochen', 'Abgebrochen'),
-        # aktuelle Veranstaltungsphasen
-        ('event_neu', 'Veranstaltung: Neu'),
-        ('event_gebucht', 'Veranstaltung: Gebucht'),
-        ('event_angekuendigt', 'Veranstaltung: Angekündigt'),
-        ('event_abrechnung', 'Veranstaltung: Abrechnung'),
-        ('event_beendet', 'Veranstaltung: Beendet'),
-        # alte Kompatibilitätswerte aus früheren Modulversionen
-        ('done', 'Fertig'),
-        ('archive_all', 'Archivieren inkl. Rohmaterial'),
-        ('archive_mp4', 'Archivieren Raw → MP4'),
-        ('archive_master', 'Archivieren Mixdown/Master behalten'),
-        ('delete', 'Löschen'),
-    ], string='Ordner-Markierung', copy=False, tracking=True)
+    gl_folder_state = fields.Char(string='Letzte SCORSESE Icon-Phase', copy=False, tracking=True)
+    gl_folder_state_label = fields.Char(string='Letzte SCORSESE Icon-Beschriftung', copy=False, tracking=True)
 
     def _gl_scorsese_status_or_error(self):
         status = self.env['gl.scorsese.job'].get_connection_status()
@@ -241,7 +227,12 @@ class GlScorseseRecordMixin(models.AbstractModel):
     def _gl_current_stage_icon_key(self):
         self.ensure_one()
         stage = getattr(self, 'stage_id', False) if 'stage_id' in self._fields else False
-        return stage_to_icon_key(self._name, stage.name if stage else False)
+        return stage_to_icon_key(self._name, stage)
+
+    def _gl_current_stage_icon_label(self):
+        self.ensure_one()
+        stage = getattr(self, 'stage_id', False) if 'stage_id' in self._fields else False
+        return stage_to_icon_label(self._name, stage)
 
     def _gl_queue_current_stage_icon(self, check_connection=False):
         self.ensure_one()
@@ -252,15 +243,15 @@ class GlScorseseRecordMixin(models.AbstractModel):
             return False
         if self.gl_folder_state == state_key:
             return False
-        return self._gl_queue_icon_state(state_key, check_connection=check_connection)
+        return self._gl_queue_icon_state(state_key, check_connection=check_connection, state_label=self._gl_current_stage_icon_label())
 
-    def _gl_queue_icon_state(self, state_key, check_connection=True):
+    def _gl_queue_icon_state(self, state_key, check_connection=True, state_label=None):
         self.ensure_one()
         if check_connection:
             self._gl_scorsese_status_or_error()
         if not self.gl_folder_path:
             raise UserError(_('Es ist noch kein SCORSESE Ordnerpfad hinterlegt.'))
-        label = dict(self._fields['gl_folder_state'].selection).get(state_key, state_key)
+        label = state_label or state_key
         payload = {
             'folder_path': clean_scorsese_path(self.gl_folder_path),
             'state_key': state_key,
