@@ -148,6 +148,20 @@ class GlScorseseImportWizard(models.TransientModel):
         # Fallback: Wenn nur Unterebenen gecacht wurden, zeigen wir die vorhandenen Einträge trotzdem an.
         return root_children or entries
 
+    def _navigation_entries_for_storage(self, storage, entries=False):
+        """Return all cached folders that may be used as the current navigation point.
+
+        Earlier versions separated the selector into first-level folder and one
+        optional subfolder. That limited the UI to two directory levels. The
+        selector now keeps the same visible fields, but treats the first field as
+        the current folder: choosing an item in the subfolder field promotes that
+        folder to the current folder, so the next level can be selected.
+        """
+        entries = entries or self._cache_entries_for_storage(storage)
+        if not storage or not entries:
+            return entries.browse()
+        return entries
+
     def _filter_unlinked_cache_entries(self, cache_entries, linked_paths):
         if not linked_paths:
             return cache_entries
@@ -171,7 +185,7 @@ class GlScorseseImportWizard(models.TransientModel):
             if rec.show_unlinked_only:
                 cache_entries = rec._filter_unlinked_cache_entries(cache_entries, linked_paths)
             rec.available_cache_ids = cache_entries
-            rec.available_root_cache_ids = rec._root_children_for_storage(rec.storage_id, cache_entries)
+            rec.available_root_cache_ids = rec._navigation_entries_for_storage(rec.storage_id, cache_entries)
             selected_parent = _clean_scorsese_path(
                 rec.root_folder_cache_id.child_path if rec.root_folder_cache_id else False
             )
@@ -242,6 +256,14 @@ class GlScorseseImportWizard(models.TransientModel):
 
     @api.onchange('subfolder_cache_id')
     def _onchange_subfolder_cache_id(self):
+        # Eine Auswahl im Unterordner-Dropdown wird sofort zum aktuellen Ordner.
+        # Dadurch kann man beliebig tief navigieren: Unterordner wählen -> der
+        # gewählte Unterordner wird oben als aktueller Ordner gesetzt -> dessen
+        # Unterordner erscheinen wieder im Unterordner-Dropdown.
+        for rec in self:
+            if rec.subfolder_cache_id:
+                rec.root_folder_cache_id = rec.subfolder_cache_id
+                rec.subfolder_cache_id = False
         self._set_final_folder_from_selection()
         if len(self) == 1:
             return self._domain_result()

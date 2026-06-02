@@ -206,6 +206,16 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
         root_children = self._root_children_for_storage(storage)
         return root_children.filtered(lambda item: _looks_like_public_event_folder(item.child_name) or _looks_like_public_event_folder(item.child_path))[:1]
 
+    def _navigation_entries_for_storage(self, storage):
+        """Return all cached folders that may be used as the current folder.
+
+        The visible wizard stays intentionally simple: "Ordner wählen" is the
+        current folder and "Unterordner wählen" is the next level. Whenever a
+        subfolder is chosen, it is promoted to the current folder. This enables
+        unlimited folder depth without adding an arbitrary number of fields.
+        """
+        return self._cache_entries_for_storage(storage)
+
     def _preselect_public_event_root_if_possible(self):
         for rec in self:
             if rec.target_model != 'event.event' or not rec.storage_id or rec.root_folder_cache_id:
@@ -230,17 +240,10 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
             if not cache_entries:
                 continue
 
-            # Normalfall: SCORSESE hat den Speicher-Root gebrowst und alle
-            # direkten Kinder stehen mit browse_parent_path == storage_root im Cache.
-            root_children = rec._root_children_for_storage(rec.storage_id)
-
-            # Fallback: Wenn der Speicher-Root selbst nie gebrowst wurde, aber
-            # Unterordner bereits im Cache existieren, zeigen wir diese trotzdem an.
-            # So bleibt der Wizard nutzbar und man muss keine Pfade kopieren.
-            if not root_children:
-                root_children = cache_entries
-
-            rec.available_root_cache_ids = root_children
+            # "Ordner wählen" ist nun der aktuelle Navigationsordner und darf
+            # deshalb jedes gecachte Verzeichnis innerhalb des Speichers sein. So
+            # kann man nach Auswahl eines Unterordners beliebig tief weitergehen.
+            rec.available_root_cache_ids = rec._navigation_entries_for_storage(rec.storage_id)
 
             selected_parent = _clean_scorsese_path(
                 rec.root_folder_path or rec.root_folder_cache_id.child_path or False
@@ -297,11 +300,20 @@ class GlScorseseFolderCreateWizard(models.TransientModel):
     def _onchange_subfolder_cache_id(self):
         for rec in self:
             if rec.subfolder_cache_id:
-                rec.parent_path = _clean_scorsese_path(rec.subfolder_cache_id.child_path)
+                # Der gewählte Unterordner wird zum aktuellen Zielordner. Danach
+                # zeigt das Unterordner-Dropdown die nächste Ebene dieses Ordners.
+                rec.root_folder_cache_id = rec.subfolder_cache_id
+                rec.subfolder_cache_id = False
+                path = _clean_scorsese_path(rec.root_folder_cache_id.child_path)
+                rec.root_folder_path = path
+                rec.parent_path = path
             elif rec.root_folder_cache_id:
                 rec.parent_path = _clean_scorsese_path(rec.root_folder_cache_id.child_path)
             elif rec.storage_id:
                 rec.parent_path = _clean_scorsese_path(rec.storage_id.root_path)
+        if len(self) == 1:
+            return self._folder_cache_domain_result()
+        return {}
 
     @api.onchange('project_date_start')
     def _onchange_project_date_start(self):
