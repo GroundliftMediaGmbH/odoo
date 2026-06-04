@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_scorsese_import_wizard_form" model="ir.ui.view">
+        <field name="name">gl.scorsese.import.wizard.form</field>
+        <field name="model">gl.scorsese.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Veranstaltung/Projekt importieren">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>Veranstaltung/Projekt importieren</h1>
+                    </div>
+
+                    <group>
+                        <group string="1. Speicher">
+                            <field name="storage_id" options="{'no_create': True, 'no_open': True}"/>
+                            <button name="action_browse_storage_root" type="object" string="Speicherinhalt laden/aktualisieren" invisible="not storage_id"/>
+                        </group>
+                        <group string="2. Ordnerpfad">
+                            <field name="available_cache_ids" invisible="1"/>
+                            <field name="available_root_cache_ids" invisible="1"/>
+                            <field name="available_subfolder_cache_ids" invisible="1"/>
+                            <field name="show_unlinked_only"/>
+                            <field name="root_folder_cache_id" domain="[('id', 'in', available_root_cache_ids)]" options="{'no_create': True, 'no_open': True}"/>
+                            <field name="subfolder_cache_id" domain="[('id', 'in', available_subfolder_cache_ids)]" options="{'no_create': True, 'no_open': True}" invisible="not root_folder_cache_id"/>
+                            <field name="cached_folder_id" invisible="1"/>
+                            <field name="folder_path" readonly="1" invisible="not folder_path"/>
+                            <button name="action_browse_selected_folder" type="object" string="Ausgewählten Ordner laden/aktualisieren" invisible="not storage_id"/>
+                        </group>
+                    </group>
+
+                    <group string="3. Importieren als" invisible="not folder_path">
+                        <field name="target_model" widget="radio"/>
+                    </group>
+
+                    <group string="Aus Ordnername erkannt" invisible="not folder_path">
+                        <group>
+                            <field name="name" placeholder="Wird automatisch aus dem Ordnernamen erkannt"/>
+                        </group>
+                        <group>
+                            <field name="parsed_date"/>
+                        </group>
+                    </group>
+
+                    <group string="Optional mit vorhandenen Datensätzen verknüpfen" invisible="not folder_path">
+                        <group>
+                            <field name="existing_project_id"/>
+                        </group>
+                        <group>
+                            <field name="existing_event_id"/>
+                        </group>
+                    </group>
+
+                    <group string="Optionen" invisible="not folder_path">
+                        <field name="create_validation_job"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_import" type="object" string="Importieren / Verknüpfen" class="btn-primary"/>
+                    <button string="Abbrechen" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
