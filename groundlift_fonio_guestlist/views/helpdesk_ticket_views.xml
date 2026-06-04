@@ -10,7 +10,7 @@
                         type="object"
                         string="Fonio erneut verarbeiten"
                         class="btn-secondary"
-                        invisible="not gl_fonio_request_id and gl_fonio_processing_state != 'error'"/>
+                        invisible="gl_fonio_processing_state == 'done'"/>
             </xpath>
             <xpath expr="//sheet" position="inside">
                 <group string="Fonio Gästeliste" groups="base.group_system">
@@ -19,6 +19,9 @@
                     <field name="gl_fonio_event_id" readonly="1"/>
                     <field name="gl_fonio_guestlist_line_id" readonly="1"/>
                     <field name="gl_fonio_processed_at" readonly="1"/>
+                    <field name="gl_fonio_match_score" readonly="1"/>
+                    <field name="gl_fonio_match_reason" readonly="1" invisible="not gl_fonio_match_reason"/>
+                    <field name="gl_fonio_payload_preview" readonly="1" invisible="not gl_fonio_payload_preview"/>
                     <field name="gl_fonio_error" readonly="1" invisible="not gl_fonio_error"/>
                 </group>
             </xpath>

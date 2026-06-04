@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_scorsese_dashboard_form" model="ir.ui.view">
+        <field name="name">gl.scorsese.dashboard.form</field>
+        <field name="model">gl.scorsese.dashboard</field>
+        <field name="arch" type="xml">
+            <form string="SCORSESE" create="false" edit="false" delete="false">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>SCORSESE</h1>
+                    </div>
+                    <group>
+                        <group string="Status">
+                            <field name="agent_online" readonly="1"/>
+                            <field name="last_heartbeat" readonly="1"/>
+                            <field name="queued_job_count" readonly="1"/>
+                            <field name="failed_job_count" readonly="1"/>
+                            <field name="path_cache_count" readonly="1"/>
+                        </group>
+                        <group string="Aktionen">
+                            <button name="action_open_import_wizard" type="object" string="Veranstaltung/Projekt importieren" class="btn-primary"/>
+                            <button name="action_open_connection" type="object" string="Verbindung anzeigen"/>
+                            <button name="action_open_jobs" type="object" string="Aufträge anzeigen"/>
+                            <button name="action_open_storage" type="object" string="Speicherpfade" groups="groundlift_scorsese_bridge.group_scorsese_manager"/>
+                            <button name="action_open_templates" type="object" string="Ordnervorlagen" groups="groundlift_scorsese_bridge.group_scorsese_manager"/>
+                        </group>
+                    </group>
+                    <div class="alert alert-info" role="alert">
+                        Der Import erfolgt über den Ordnercache. Wähle im Importfenster zuerst den Speicher aus und dann den gewünschten Ordner aus der geladenen Verzeichnisstruktur.
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_scorsese_dashboard" model="ir.actions.act_window">
+        <field name="name">SCORSESE</field>
+        <field name="res_model">gl.scorsese.dashboard</field>
+        <field name="view_mode">form</field>
+        <field name="res_id" ref="groundlift_scorsese_bridge.dashboard_main"/>
+    </record>
+
+    <record id="view_gl_scorsese_storage_list" model="ir.ui.view">
+        <field name="name">gl.scorsese.storage.list</field>
+        <field name="model">gl.scorsese.storage</field>
+        <field name="arch" type="xml">
+            <list string="SCORSESE Speicherpfade">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="storage_type"/>
+                <field name="root_path"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_scorsese_storage_form" model="ir.ui.view">
+        <field name="name">gl.scorsese.storage.form</field>
+        <field name="model">gl.scorsese.storage</field>
+        <field name="arch" type="xml">
+            <form string="SCORSESE Speicherpfad">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="storage_type"/>
+                            <field name="sequence"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="root_path" placeholder="\\SERVER\Produktion"/>
+                            <field name="notes"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_scorsese_storage" model="ir.actions.act_window">
+        <field name="name">Speicherpfade</field>
+        <field name="res_model">gl.scorsese.storage</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_gl_scorsese_template_list" model="ir.ui.view">
+        <field name="name">gl.scorsese.template.list</field>
+        <field name="model">gl.scorsese.template</field>
+        <field name="arch" type="xml">
+            <list string="SCORSESE Vorlagen">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="target_model"/>
+                <field name="template_path"/>
+                <field name="is_default_event"/>
+                <field name="is_default_project"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_scorsese_template_form" model="ir.ui.view">
+        <field name="name">gl.scorsese.template.form</field>
+        <field name="model">gl.scorsese.template</field>
+        <field name="arch" type="xml">
+            <form string="SCORSESE Vorlage">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="target_model"/>
+                            <field name="sequence"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="template_path" placeholder="\\SERVER\Vorlagen\Vorlage Öffentliche Veranstaltungen"/>
+                            <field name="is_default_event"/>
+                            <field name="is_default_project"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="notes"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_scorsese_template" model="ir.actions.act_window">
+        <field name="name">Ordnervorlagen</field>
+        <field name="res_model">gl.scorsese.template</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_gl_scorsese_agent_list" model="ir.ui.view">
+        <field name="name">gl.scorsese.agent.list</field>
+        <field name="model">gl.scorsese.agent</field>
+        <field name="arch" type="xml">
+            <list string="SCORSESE Verbindung">
+                <field name="name"/>
+                <field name="is_online" widget="boolean_toggle"/>
+                <field name="last_heartbeat"/>
+                <field name="machine"/>
+                <field name="version"/>
+                <field name="last_message"/>
+                <field name="online_threshold_minutes"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_scorsese_agent_form" model="ir.ui.view">
+        <field name="name">gl.scorsese.agent.form</field>
+        <field name="model">gl.scorsese.agent</field>
+        <field name="arch" type="xml">
+            <form string="SCORSESE Verbindung">
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="is_online"/>
+                            <field name="last_heartbeat"/>
+                            <field name="online_threshold_minutes"/>
+                        </group>
+                        <group>
+                            <field name="machine"/>
+                            <field name="version"/>
+                            <field name="last_message"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_scorsese_agent" model="ir.actions.act_window">
+        <field name="name">Verbindung zu SCORSESE</field>
+        <field name="res_model">gl.scorsese.agent</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_gl_scorsese_job_list" model="ir.ui.view">
+        <field name="name">gl.scorsese.job.list</field>
+        <field name="model">gl.scorsese.job</field>
+        <field name="arch" type="xml">
+            <list string="SCORSESE Aufträge" decoration-success="state == 'done'" decoration-danger="state == 'failed'" decoration-info="state == 'running'">
+                <field name="priority"/>
+                <field name="name"/>
+                <field name="job_type"/>
+                <field name="state"/>
+                <field name="target_display_name"/>
+                <field name="agent_name"/>
+                <field name="attempts"/>
+                <field name="create_date"/>
+                <field name="claimed_at"/>
+                <field name="completed_at"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_scorsese_job_form" model="ir.ui.view">
+        <field name="name">gl.scorsese.job.form</field>
+        <field name="model">gl.scorsese.job</field>
+        <field name="arch" type="xml">
+            <form string="SCORSESE Auftrag">
+                <header>
+                    <button name="action_retry" type="object" string="Erneut versuchen" invisible="state not in ('failed', 'cancelled')" class="btn-primary"/>
+                    <button name="action_cancel" type="object" string="Abbrechen" invisible="state not in ('queued', 'running')"/>
+                    <button name="action_open_target" type="object" string="Zieldatensatz öffnen" invisible="not target_model or not target_res_id"/>
+                    <field name="state" widget="statusbar" statusbar_visible="queued,running,done,failed"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="job_type"/>
+                            <field name="priority"/>
+                            <field name="target_model"/>
+                            <field name="target_res_id"/>
+                            <field name="target_display_name"/>
+                        </group>
+                        <group>
+                            <field name="agent_name"/>
+                            <field name="attempts"/>
+                            <field name="max_attempts"/>
+                            <field name="claimed_at"/>
+                            <field name="completed_at"/>
+                            <field name="requested_by"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Payload">
+                            <field name="payload_pretty" nolabel="1" readonly="1" widget="text"/>
+                        </page>
+                        <page string="Ergebnis">
+                            <field name="result_pretty" nolabel="1" readonly="1" widget="text"/>
+                        </page>
+                        <page string="Fehler">
+                            <field name="last_error" nolabel="1" readonly="1"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_scorsese_job" model="ir.actions.act_window">
+        <field name="name">Aufträge</field>
+        <field name="res_model">gl.scorsese.job</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_gl_scorsese_path_cache_list" model="ir.ui.view">
+        <field name="name">gl.scorsese.path.cache.list</field>
+        <field name="model">gl.scorsese.path.cache</field>
+        <field name="arch" type="xml">
+            <list string="SCORSESE Ordnercache">
+                <field name="storage_id"/>
+                <field name="browse_parent_path"/>
+                <field name="child_name"/>
+                <field name="child_path"/>
+                <field name="last_seen"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_scorsese_path_cache_form" model="ir.ui.view">
+        <field name="name">gl.scorsese.path.cache.form</field>
+        <field name="model">gl.scorsese.path.cache</field>
+        <field name="arch" type="xml">
+            <form string="SCORSESE Ordnercache">
+                <sheet>
+                    <group>
+                        <field name="storage_id"/>
+                        <field name="browse_parent_path"/>
+                        <field name="child_name"/>
+                        <field name="child_path"/>
+                        <field name="is_dir"/>
+                        <field name="last_seen"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_scorsese_path_cache" model="ir.actions.act_window">
+        <field name="name">Ordnercache</field>
+        <field name="res_model">gl.scorsese.path.cache</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_gl_scorsese_import_wizard" model="ir.actions.act_window">
+        <field name="name">Veranstaltung/Projekt importieren</field>
+        <field name="res_model">gl.scorsese.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_gl_scorsese_root" name="SCORSESE" action="action_gl_scorsese_dashboard" sequence="40" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
+    <menuitem id="menu_gl_scorsese_status" name="Verbindung" parent="menu_gl_scorsese_root" action="action_gl_scorsese_agent" sequence="10" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
+    <menuitem id="menu_gl_scorsese_jobs" name="Aufträge" parent="menu_gl_scorsese_root" action="action_gl_scorsese_job" sequence="20" groups="groundlift_scorsese_bridge.group_scorsese_user"/>
+    <menuitem id="menu_gl_scorsese_config" name="Konfiguration" parent="menu_gl_scorsese_root" sequence="90" groups="groundlift_scorsese_bridge.group_scorsese_manager"/>
+    <menuitem id="menu_gl_scorsese_storage" name="Speicherpfade" parent="menu_gl_scorsese_config" action="action_gl_scorsese_storage" sequence="10" groups="groundlift_scorsese_bridge.group_scorsese_manager"/>
+    <menuitem id="menu_gl_scorsese_template" name="Ordnervorlagen" parent="menu_gl_scorsese_config" action="action_gl_scorsese_template" sequence="20" groups="groundlift_scorsese_bridge.group_scorsese_manager"/>
+    <menuitem id="menu_gl_scorsese_path_cache" name="Ordnercache" parent="menu_gl_scorsese_config" action="action_gl_scorsese_path_cache" sequence="30" groups="groundlift_scorsese_bridge.group_scorsese_manager"/>
+</odoo>

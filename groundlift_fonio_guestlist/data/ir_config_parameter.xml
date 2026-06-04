@@ -14,6 +14,46 @@
     </record>
     <record id="param_event_match_threshold" model="ir.config_parameter">
         <field name="key">groundlift_fonio_guestlist.event_match_threshold</field>
-        <field name="value">0.62</field>
+        <field name="value">0.70</field>
+    </record>
+    <record id="param_event_match_ambiguity_delta" model="ir.config_parameter">
+        <field name="key">groundlift_fonio_guestlist.event_match_ambiguity_delta</field>
+        <field name="value">0.08</field>
+    </record>
+    <record id="param_allow_past_event_days" model="ir.config_parameter">
+        <field name="key">groundlift_fonio_guestlist.allow_past_event_days</field>
+        <field name="value">1</field>
+    </record>
+    <record id="param_max_auto_seats" model="ir.config_parameter">
+        <field name="key">groundlift_fonio_guestlist.max_auto_seats</field>
+        <field name="value">200</field>
+    </record>
+    <record id="param_guestlist_vvk_value" model="ir.config_parameter">
+        <field name="key">groundlift_fonio_guestlist.guestlist_vvk_value</field>
+        <field name="value">VVK</field>
+    </record>
+    <record id="param_guestlist_note" model="ir.config_parameter">
+        <field name="key">groundlift_fonio_guestlist.guestlist_note</field>
+        <field name="value">Fonio / VVK</field>
+    </record>
+    <record id="param_openai_enabled" model="ir.config_parameter">
+        <field name="key">groundlift_fonio_guestlist.openai_enabled</field>
+        <field name="value">False</field>
+    </record>
+    <record id="param_openai_model" model="ir.config_parameter">
+        <field name="key">groundlift_fonio_guestlist.openai_model</field>
+        <field name="value">gpt-4.1-mini</field>
+    </record>
+    <record id="param_openai_timeout_seconds" model="ir.config_parameter">
+        <field name="key">groundlift_fonio_guestlist.openai_timeout_seconds</field>
+        <field name="value">6</field>
+    </record>
+    <record id="param_openai_min_confidence" model="ir.config_parameter">
+        <field name="key">groundlift_fonio_guestlist.openai_min_confidence</field>
+        <field name="value">0.78</field>
+    </record>
+    <record id="param_openai_api_key" model="ir.config_parameter">
+        <field name="key">groundlift_fonio_guestlist.openai_api_key</field>
+        <field name="value"></field>
     </record>
 </odoo>

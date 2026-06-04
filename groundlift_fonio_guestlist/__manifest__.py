@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Groundlift Fonio Gästeliste',
-    'version': '19.0.1.0.0',
+    'version': '19.0.3.0.0',
     'category': 'Services/Helpdesk',
-    'summary': 'Überträgt Fonio-Kartenreservierungen automatisch aus Kundendiensttickets auf die Event-Gästeliste',
+    'summary': 'Überträgt Fonio-Kartenreservierungen robust aus Kundendiensttickets auf die Event-Gästeliste',
     'description': """
 Groundlift Fonio Gästeliste
 ===========================
@@ -11,9 +11,11 @@ Groundlift Fonio Gästeliste
 Dieses Modul verarbeitet Fonio-Reservierungsanfragen, die per E-Mail als
 Kundendienstticket im Team "Kartenreservierung" eingehen.
 
-Aus den Fonio-Daten in der Ticketbeschreibung werden automatisch Gästelistenplätze
-im vorhandenen Groundlift-Gästelistenmodul erzeugt. Danach wird das Ticket in die
-Phase "Gelöst" verschoben.
+Aus den Fonio-Daten in der Ticketbeschreibung werden automatisch VVK-Plätze
+im vorhandenen Groundlift-Gästelistenmodul erzeugt. Die Veranstaltung wird
+robust über Titel, Datum, Zusammenfassung, Token- und phonetisches Matching
+erkannt. Zusätzlich werden E-Mail-/Chatter-Nachrichten als Datenquelle gelesen. Optional kann ein OpenAI-Fallback für unklare Telefontranskripte
+aktiviert werden.
     """,
     'author': 'Groundlift Media GmbH',
     'website': 'https://www.groundlift.de',

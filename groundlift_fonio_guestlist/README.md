@@ -1,66 +1,120 @@
-# Groundlift Fonio Gästeliste
+# Groundlift Fonio Gästeliste 19.0.3.0.0
 
-Odoo 19 SH Modul für die automatische Verarbeitung von Fonio-Kartenreservierungen aus Kundendiensttickets.
+Dieses Odoo-19-SH-Modul verarbeitet ankommende Fonio-Reservierungswünsche aus Kundendiensttickets im Team **Kartenreservierung** und trägt sie automatisch als **VVK / Fonio** in die bestehende Groundlift-Gästeliste ein.
 
-## Zweck
 
-Wenn Fonio per E-Mail ein Kundendienstticket im Team **Kartenreservierung** erzeugt, liest das Modul die strukturierte Ticketbeschreibung aus, sucht die passende Veranstaltung und trägt die gewünschte Anzahl Plätze in die bestehende Groundlift-Gästeliste ein.
+## Neu in Version 3
 
-Beispiel-Fonio-Daten:
+- Liest nicht nur `helpdesk.ticket.description`, sondern zusätzlich passende `mail.message`-/Chatter-Inhalte. Das ist wichtig, weil Odoo Helpdesk eingehende E-Mails je nach Routing sichtbar im Ticket zeigt, der Automationscode den Text aber sonst nicht zuverlässig im Feld `description` findet.
+- Der Cron sucht Tickets breiter über Titel/Beschreibung (`FONIO-`, `Fonio Anfrage`, `Reservierungswunsch`) und lässt anschließend den Parser entscheiden.
+- Der Button **Fonio erneut verarbeiten** ist jetzt bei nicht erledigten Tickets sichtbar, damit ein bereits als „Keine Fonio-Reservierung“ markiertes Ticket manuell neu verarbeitet werden kann.
+- Bei manuellem Retry wird ein echter Fehlertext geschrieben, wenn Fonio-Text vermutet wird, aber keine strukturierten Felder gelesen werden konnten.
+
+## Unterstützte Fonio-Beschreibungen
+
+Das Modul verarbeitet z. B. diese Formate:
 
 ```text
+Neue Fonio-Anfrage / Reservierungswunsch
+ID: FONIO-20260602-211804-b0d3
+Zeit: 02.06.2026 21:18:04
+
 action: reservation_request
 request_type: event_reservation_request
 caller_name: Julius Drescher
-caller_phone: 015734442352
-title: Martin Kälberer - RAUM hoch 2 am 26. Juni 2026 um 20 Uhr
+caller_phone: 0-1-5-7-3-4-4-4-2-3-5-2
+title: Z E P - A Tribute to LED Zeppelin
 number_of_seats: 2
+summary: Reservierung von 2 Karten für das Konzert Z E P - A Tribute to LED Zeppelin am 12. Juni 2026
 ```
+
+```text
+title: Mensch, Otto! - Zu Gast: Tijen Onaran
+caller_phone: 0 157344 42352
+```
+
+```text
+title: Martin Kälberer - RAUM hoch 2 am 26. Juni 2026 um 20 Uhr
+```
+
+## Was Version 2 verbessert
+
+- Robuster Parser für Fonio-Felder, auch wenn Formatierung oder Zeilenumbrüche leicht variieren.
+- Telefonnummern werden normalisiert, z. B. `0-1-5-7-...` → `0157...`.
+- Veranstaltungssuche nutzt:
+  - Titelzeile
+  - Summary
+  - Datum aus Titel oder Summary
+  - bereinigten Titel ohne `am 26. Juni 2026 um 20 Uhr`
+  - Token-Matching
+  - phonetische Treffer, z. B. `Sepp`/`Sep`/`ZEP`
+  - automatisch erzeugte Aliasnamen, z. B. `Z E P` → `ZEP`, `A Tribute to LED Zeppelin` → `LED Zeppelin`
+- Keine manuelle Alias-Pflege nötig.
+- Sichere Verarbeitung: Bei mehrdeutigen Treffern wird **kein falscher Gästelisteneintrag** erzeugt, sondern das Ticket auf Fehler gesetzt.
+- Duplikatschutz über Fonio-ID und Ticket-ID.
+- VVK-Zuordnung wird über den Systemparameter `groundlift_fonio_guestlist.guestlist_vvk_value` gesteuert.
+- Optionaler OpenAI-Fallback, standardmäßig deaktiviert.
 
 ## Automatik
 
-1. Ticket muss im Kundendienstteam **Kartenreservierung** liegen.
+1. Ticket muss im Kundendienstteam `Kartenreservierung` liegen.
 2. `action` muss `reservation_request` sein.
 3. `request_type` muss `event_reservation_request` sein.
-4. Aus `title` wird die Veranstaltung erkannt. Datums- und Uhrzeit-Zusätze wie `am 26. Juni 2026 um 20 Uhr` werden für die Suche berücksichtigt, stören aber den Namensvergleich nicht.
-5. Es wird ein Datensatz in `gl.event.guestlist.line` erzeugt:
+4. `caller_name`, `caller_phone`, `title`, `number_of_seats` und `ID` müssen vorhanden sein.
+5. Die passende `event.event` wird robust gesucht.
+6. Es wird ein Datensatz in `gl.event.guestlist.line` erzeugt:
    - Veranstaltung: erkannte Veranstaltung
-   - Vor-/Nachname: `caller_name`
+   - Name: `caller_name`
    - Anzahl: `number_of_seats`
-   - Bestellt per: Telefon
-   - Kontaktdaten: `caller_phone`
-   - Bemerkung: `Fonio`
-6. Danach wird das Ticket in die Phase **Gelöst** verschoben.
+   - Kontaktdaten: normalisierte Telefonnummer
+   - Eintragung: VVK, sofern das Gästelistenmodul ein passendes Auswahlfeld hat
+   - Bemerkung: `Fonio / VVK` plus Summary und Fonio-ID
+7. Das Ticket wird in die Phase `Gelöst` verschoben.
 
-## Duplikatschutz
+## Systemparameter
 
-Das Modul speichert die Fonio-ID sowohl am Ticket als auch am Gästelisteneintrag. Wenn dasselbe Fonio-Ticket erneut verarbeitet wird, wird kein zweiter Gästelisteneintrag erzeugt.
+Unter **Einstellungen → Technisch → Systemparameter**:
 
-## Fallback-Cron
+```text
+groundlift_fonio_guestlist.team_name = Kartenreservierung
+groundlift_fonio_guestlist.solved_stage_name = Gelöst
+groundlift_fonio_guestlist.timezone = Europe/Berlin
+groundlift_fonio_guestlist.event_match_threshold = 0.70
+groundlift_fonio_guestlist.event_match_ambiguity_delta = 0.08
+groundlift_fonio_guestlist.allow_past_event_days = 1
+groundlift_fonio_guestlist.max_auto_seats = 200
+groundlift_fonio_guestlist.guestlist_vvk_value = VVK
+groundlift_fonio_guestlist.guestlist_note = Fonio / VVK
+```
 
-Zusätzlich zu `create`/`write` läuft alle 5 Minuten ein Cronjob, der unverarbeitete Fonio-Tickets im Team **Kartenreservierung** nachzieht. Das ist wichtig, falls E-Mail-Inhalt oder Team-Zuordnung erst nachträglich am Ticket gesetzt werden.
+Optionaler OpenAI-Fallback:
 
-## Konfigurationsparameter
+```text
+groundlift_fonio_guestlist.openai_enabled = False
+groundlift_fonio_guestlist.openai_api_key = 
+groundlift_fonio_guestlist.openai_model = gpt-4.1-mini
+groundlift_fonio_guestlist.openai_timeout_seconds = 6
+groundlift_fonio_guestlist.openai_min_confidence = 0.78
+```
 
-Unter Technisch → Systemparameter können diese Werte angepasst werden:
+OpenAI bitte erst aktivieren, wenn die lokale Verarbeitung läuft. Der API-Key gehört ausschließlich in die Odoo-Systemparameter, nicht in Git.
 
-- `groundlift_fonio_guestlist.team_name` = `Kartenreservierung`
-- `groundlift_fonio_guestlist.solved_stage_name` = `Gelöst`
-- `groundlift_fonio_guestlist.timezone` = `Europe/Berlin`
-- `groundlift_fonio_guestlist.event_match_threshold` = `0.62`
+## Installation / Update auf Odoo SH
 
-## Installation auf Odoo SH
+1. Ordner `groundlift_fonio_guestlist` in das Odoo-SH-Repository kopieren.
+2. Commit + Push auf Staging.
+3. Apps-Liste aktualisieren.
+4. Modul **Groundlift Fonio Gästeliste** installieren oder aktualisieren.
+5. Ein Testticket im Team `Kartenreservierung` anlegen.
+6. Im Ticket prüfen:
+   - Fonio-Status
+   - erkannte Veranstaltung
+   - Match-Score
+   - Match-Begründung
+   - Gästelisteneintrag
 
-1. Den Ordner `groundlift_fonio_guestlist` in den Addons-Pfad bzw. das Odoo-SH-Repository legen.
-2. Sicherstellen, dass das vorhandene Modul `gl_event_guestlist` installiert ist.
-3. Commit + Push auf Staging.
-4. Apps-Liste aktualisieren.
-5. Modul **Groundlift Fonio Gästeliste** installieren.
-6. Ein Testticket mit Fonio-Inhalt im Team **Kartenreservierung** erstellen oder eine echte Fonio-Mail abwarten.
+## Wichtiger Hinweis zu VVK
 
-## Abhängigkeiten
+Das Modul versucht, den Wert `VVK` in einem vorhandenen Auswahlfeld des Gästelistenmoduls zu setzen. Standardmäßig wird zuerst `ordered_by` geprüft. Falls euer Gästelistenmodul einen anderen Feldnamen oder einen anderen Selection-Key nutzt, kann der Systemparameter `groundlift_fonio_guestlist.guestlist_vvk_value` angepasst werden.
 
-- `helpdesk`
-- `gl_event_guestlist`
-
-Das Modul erstellt bewusst kein eigenes App-Menü und kein Desktop-Icon.
+Falls `VVK` als Auswahlwert im Gästelistenmodul noch nicht existiert, muss dieser dort vorhanden sein oder die Gästeliste muss einen Default-Wert haben.
