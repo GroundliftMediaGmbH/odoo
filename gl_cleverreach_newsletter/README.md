@@ -152,3 +152,21 @@ Wenn eine hochgeladene CleverReach-Vorlage die Überschrift hart codiert enthäl
 - In den CleverReach-Einstellungen gibt es einen neuen Button **„Manueller Konzert-Newsletter“**. Dort wird genau eine Veranstaltung gewählt, daraus eine Vorschau erzeugt und über **„Abschicken“** sofort versendet.
 - Für den manuellen Einzel-Event-Newsletter kann ein **ChatGPT API Key** in der Konfiguration hinterlegt werden. Die API erzeugt Betreff, Preheader, Intro, Kurztext und Stichwörter aus den Odoo-Veranstaltungsdaten. Ohne API-Key erzeugt das Modul einen sicheren Fallbacktext aus den vorhandenen Eventdaten.
 - Die Kontextzeile wird automatisch aus dem Termin abgeleitet: **„Für Kurzentschlossene“** bei morgen/übermorgen, **„Diese Woche in der Groundlift Creative World“** bei Terminen in der laufenden Woche, sonst **„Ganz neu in unserem Eventkalender“**.
+
+## Änderung in Version 19.0.1.4.0 – übersichtliche Newsletter-Planung
+
+Diese Version strukturiert die Einstellungen neu in die Reiter:
+
+1. **2-wöchiger Newsletter** – Standard: Montag 17:00 Uhr, Tag/Uhrzeit änderbar, mit Voransicht.
+2. **Diese Woche bei Groundlift** – Standard: Mittwoch 17:00 Uhr, Tag/Uhrzeit änderbar, versendet nur, wenn in der laufenden Woche noch Veranstaltungen stattfinden. Der Zeitraum läuft bis einschließlich Sonntag.
+3. **Spontane Newsletter** – Warteschlange für neu angekündigte Veranstaltungen, Überschrift „Ganz neu in unserem Eventkalender“, mit Voransicht.
+4. **Planungsübersicht** – kommende Newsletter als Liste mit Button **Voransicht** und **Sofort senden**.
+5. **Einstellungen** – CleverReach, ChatGPT, Event-Felder, Absender, Watchdog und Listen gebündelt.
+
+Zusätzlich wurde ein Duplikatschutz ergänzt:
+
+- Newsletter mit identischem Veranstaltungsinhalt werden nicht erneut erzeugt.
+- Wenn in einem Zeitraum keine Veranstaltungen gefunden werden, wird kein leerer Newsletter erstellt.
+- Der Diese-Woche-Newsletter wird pro Kalenderwoche und identischem Event-Set nur einmal erzeugt.
+- Der 2-wöchige Newsletter wird nicht erneut gesendet, wenn sich der Veranstaltungsinhalt gegenüber einem bereits geplanten oder versendeten Newsletter nicht geändert hat.
+

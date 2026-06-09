@@ -25,6 +25,18 @@ PLACEHOLDER_EVENTS = "{{EVENTS_BLOCK}}"
 PLACEHOLDER_HEADING = "{{NEWSLETTER_HEADING}}"
 PLACEHOLDER_PREHEADER = "{{PREHEADER}}"
 NEW_EVENT_HEADING = "Ganz neu in unserem Eventkalender"
+WEEKLY_HEADING = "Diese Woche bei Groundlift"
+BIWEEKLY_HEADING = "UNSERE KOMMENDEN VERANSTALTUNGEN"
+
+WEEKDAY_SELECTION = [
+    ("0", "Montag"),
+    ("1", "Dienstag"),
+    ("2", "Mittwoch"),
+    ("3", "Donnerstag"),
+    ("4", "Freitag"),
+    ("5", "Samstag"),
+    ("6", "Sonntag"),
+]
 
 DARKMODE_LOCK_CSS = """
 <meta name="color-scheme" content="light only">
@@ -180,6 +192,22 @@ class CleverReachEventQueue(models.Model):
                 raise UserError(_("Bitte in der CleverReach-Konfiguration zuerst eine globale Empfängerliste wählen."))
 
             job = queue.newsletter_id.sudo() if queue.newsletter_id else False
+            content_key = config._content_key("new_events", queue.event_id)
+            duplicate = config._duplicate_content_job("new_events", content_key)
+            if duplicate and (not job or duplicate.id != job.id):
+                queue.write({
+                    "state": "used",
+                    "newsletter_id": duplicate.id,
+                    "note": _("Nicht erneut erzeugt: derselbe Event-Newsletter existiert bereits."),
+                })
+                return {
+                    "type": "ir.actions.act_window",
+                    "name": _("Bestehender Newsletter"),
+                    "res_model": "gl.cleverreach.newsletter.job",
+                    "view_mode": "form",
+                    "res_id": duplicate.id,
+                    "target": "current",
+                }
             if job and job.state == "sent":
                 raise UserError(_("Für dieses angekündigte Event wurde bereits ein Newsletter versendet: %s") % job.name)
 
@@ -188,6 +216,7 @@ class CleverReachEventQueue(models.Model):
                 job = Job.create({
                     "config_id": config.id,
                     "newsletter_type": "new_events",
+                    "content_key": content_key,
                     "name": _("Sofort: Neue Veranstaltung %s") % event_name,
                     "subject": _(NEW_EVENT_HEADING),
                     "heading": _(NEW_EVENT_HEADING),
@@ -292,11 +321,27 @@ class CleverReachNewsletterConfig(models.Model):
 
     create_time_hour = fields.Integer(default=6, string="Erstellungszeit lokal: Stunde")
     default_send_hour = fields.Integer(default=10, string="Standard-Versandzeit lokal: Stunde")
-    min_days_between_any_newsletters = fields.Integer(default=1, string="Mindestabstand aller Newsletter in Tagen")
-    min_days_between_new_event_newsletters = fields.Integer(default=7, string="Mindestabstand neuer Eventnewsletter in Tagen")
-    biweekly_enabled = fields.Boolean(default=True, string="14-tägigen Eventnewsletter aktivieren")
-    biweekly_next_due_date = fields.Date(string="Nächster 14-Tage-Newsletter fällig am")
-    max_upcoming_events = fields.Integer(default=7)
+    min_days_between_any_newsletters = fields.Integer(default=0, string="Mindestabstand aller Newsletter in Tagen")
+    min_days_between_new_event_newsletters = fields.Integer(default=7, string="Mindestabstand spontaner Newsletter in Tagen")
+
+    biweekly_enabled = fields.Boolean(default=True, string="2-wöchigen Newsletter aktivieren")
+    biweekly_weekday = fields.Selection(WEEKDAY_SELECTION, default="0", required=True, string="Sendetag")
+    biweekly_send_hour = fields.Integer(default=17, string="Stunde")
+    biweekly_send_minute = fields.Integer(default=0, string="Minute")
+    biweekly_next_due_date = fields.Date(string="Nächster 2-Wochen-Newsletter fällig am")
+    max_upcoming_events = fields.Integer(default=7, string="Max. Veranstaltungen")
+
+    weekly_enabled = fields.Boolean(default=True, string="Diese-Woche-Newsletter aktivieren")
+    weekly_weekday = fields.Selection(WEEKDAY_SELECTION, default="2", required=True, string="Sendetag")
+    weekly_send_hour = fields.Integer(default=17, string="Stunde")
+    weekly_send_minute = fields.Integer(default=0, string="Minute")
+    weekly_next_due_date = fields.Date(string="Nächster Diese-Woche-Newsletter fällig am")
+
+    job_ids = fields.One2many("gl.cleverreach.newsletter.job", "config_id", string="Newsletter-Planung")
+    queue_ids = fields.One2many("gl.cleverreach.event.queue", "config_id", string="Spontane Event-Warteschlange")
+    biweekly_preview_html = fields.Html(string="Voransicht 2-wöchiger Newsletter", compute="_compute_newsletter_previews", sanitize=False)
+    weekly_preview_html = fields.Html(string="Voransicht Diese Woche bei Groundlift", compute="_compute_newsletter_previews", sanitize=False)
+    spontaneous_preview_html = fields.Html(string="Voransicht spontane Newsletter", compute="_compute_newsletter_previews", sanitize=False)
 
     last_watchdog_run = fields.Datetime(readonly=True)
     last_group_sync = fields.Datetime(readonly=True)
@@ -327,16 +372,22 @@ class CleverReachNewsletterConfig(models.Model):
     def create(self, vals_list):
         records = super().create(vals_list)
         for rec in records:
+            today = rec._local_today()
             if not rec.biweekly_next_due_date:
-                rec.biweekly_next_due_date = rec._local_today()
+                rec.biweekly_next_due_date = rec._next_weekday_date(today, rec.biweekly_weekday or "0")
+            if not rec.weekly_next_due_date:
+                rec.weekly_next_due_date = rec._next_weekday_date(today, rec.weekly_weekday or "2")
             rec.init_default_template()
         return records
 
     @api.model
     def default_get(self, fields_list):
         vals = super().default_get(fields_list)
+        today = fields.Date.context_today(self)
         if "biweekly_next_due_date" in fields_list and not vals.get("biweekly_next_due_date"):
-            vals["biweekly_next_due_date"] = fields.Date.context_today(self)
+            vals["biweekly_next_due_date"] = today
+        if "weekly_next_due_date" in fields_list and not vals.get("weekly_next_due_date"):
+            vals["weekly_next_due_date"] = today
         return vals
 
     def _tz(self):
@@ -370,6 +421,54 @@ class CleverReachNewsletterConfig(models.Model):
         hour = self.default_send_hour if hour is None else hour
         local_dt = datetime.combine(local_date, time(max(0, min(int(hour or 0), 23)), int(minute or 0)), tzinfo=self._tz())
         return local_dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+    def _local_range_to_utc_domain(self, start_local, end_local):
+        self.ensure_one()
+        if start_local.tzinfo is None:
+            start_local = start_local.replace(tzinfo=self._tz())
+        if end_local.tzinfo is None:
+            end_local = end_local.replace(tzinfo=self._tz())
+        return (
+            start_local.astimezone(timezone.utc).replace(tzinfo=None),
+            end_local.astimezone(timezone.utc).replace(tzinfo=None),
+        )
+
+    def _next_weekday_date(self, from_date, weekday):
+        target = int(weekday or 0)
+        delta = (target - from_date.weekday()) % 7
+        return from_date + timedelta(days=delta)
+
+    def _scheduled_local_datetime(self, local_date, hour, minute):
+        self.ensure_one()
+        return datetime.combine(
+            local_date,
+            time(max(0, min(int(hour or 0), 23)), max(0, min(int(minute or 0), 59))),
+            tzinfo=self._tz(),
+        )
+
+    def _scheduled_utc_naive(self, local_date, hour, minute):
+        return self._scheduled_local_datetime(local_date, hour, minute).astimezone(timezone.utc).replace(tzinfo=None)
+
+    def _advance_due_date(self, due_date, interval_days, weekday, hour, minute):
+        self.ensure_one()
+        today = self._local_today()
+        if not due_date:
+            due_date = self._next_weekday_date(today, weekday)
+        # If a due date is extremely stale, catch up in interval steps instead of
+        # creating a backlog of obsolete newsletters.
+        while due_date + timedelta(days=interval_days) < today:
+            due_date += timedelta(days=interval_days)
+        return due_date
+
+    def _is_due_now(self, due_date, hour, minute):
+        self.ensure_one()
+        return self._local_now() >= self._scheduled_local_datetime(due_date, hour, minute)
+
+    def _info_preview_html(self, title, message):
+        return f'''<div style="background:#101010;color:#f3f3f3;padding:24px;border-radius:14px;border:1px solid #2a2a2a;font-family:Verdana,Arial,sans-serif;">
+  <div style="color:#d94122;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">{escape(title or '')}</div>
+  <div style="font-size:14px;line-height:1.5;">{escape(message or '')}</div>
+</div>'''
 
     def _is_creation_window(self):
         return self._local_now().hour >= int(self.create_time_hour or 6)
@@ -727,6 +826,15 @@ class CleverReachNewsletterConfig(models.Model):
         return True
 
     @api.model
+    def _cron_weekly_newsletters(self):
+        for config in self.search([("active", "=", True), ("weekly_enabled", "=", True)]):
+            try:
+                config._run_weekly_newsletter_cron()
+            except Exception:
+                _logger.exception("CleverReach weekly newsletter cron failed for config %s", config.id)
+        return True
+
+    @api.model
     def _cron_watchdog(self):
         for config in self.search([("active", "=", True)]):
             try:
@@ -767,7 +875,12 @@ class CleverReachNewsletterConfig(models.Model):
 
     def action_run_biweekly_now(self):
         for rec in self:
-            rec._create_biweekly_newsletter(force=True)
+            rec._create_biweekly_newsletter(force=True, scheduled_dt=fields.Datetime.now())
+        return True
+
+    def action_run_weekly_now(self):
+        for rec in self:
+            rec._create_weekly_newsletter(force=True, scheduled_dt=fields.Datetime.now())
         return True
 
     def action_open_single_event_newsletter_wizard(self):
@@ -780,6 +893,106 @@ class CleverReachNewsletterConfig(models.Model):
             "target": "new",
             "context": {"default_config_id": self.id},
         }
+
+    def action_open_planning_overview(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Planungsübersicht Newsletter"),
+            "res_model": "gl.cleverreach.newsletter.job",
+            "view_mode": "list,form",
+            "domain": [("config_id", "=", self.id), ("state", "in", ["draft", "ready", "scheduled"])],
+            "context": {"default_config_id": self.id, "search_default_upcoming": 1},
+            "target": "current",
+        }
+
+    def action_refresh_previews(self):
+        return True
+
+    @api.depends(
+        "newsletter_template_id", "max_upcoming_events", "announced_stage_name",
+        "short_description_field_names", "ticket_url_field_names", "image_field_name",
+        "biweekly_next_due_date", "weekly_next_due_date",
+    )
+    def _compute_newsletter_previews(self):
+        for rec in self:
+            rec.biweekly_preview_html = rec._safe_preview_html("biweekly")
+            rec.weekly_preview_html = rec._safe_preview_html("weekly_this_week")
+            rec.spontaneous_preview_html = rec._safe_preview_html("new_events")
+
+    def _safe_preview_html(self, newsletter_type):
+        self.ensure_one()
+        try:
+            if newsletter_type == "biweekly":
+                events, note = self._select_upcoming_events_for_biweekly()
+                if not events:
+                    return self._info_preview_html(_("2-wöchiger Newsletter"), _("Aktuell wurden keine passenden kommenden Veranstaltungen gefunden. Es wird kein Newsletter erzeugt."))
+                return self._render_newsletter_html(_(BIWEEKLY_HEADING), events, note=note)
+            if newsletter_type == "weekly_this_week":
+                events, period_key, _start, _end = self._select_events_for_this_week()
+                if not events:
+                    return self._info_preview_html(_(WEEKLY_HEADING), _("In dieser Woche wurden keine noch kommenden Veranstaltungen gefunden. Es wird kein Newsletter erzeugt."))
+                return self._render_newsletter_html(_(WEEKLY_HEADING), events, note=False)
+            if newsletter_type == "new_events":
+                queues = self.env["gl.cleverreach.event.queue"].sudo().search([
+                    ("config_id", "=", self.id),
+                    ("state", "=", "pending"),
+                ], order="announced_at asc, id asc")
+                events = queues.mapped("event_id").exists()
+                if not events:
+                    return self._info_preview_html(_(NEW_EVENT_HEADING), _("Aktuell stehen keine spontanen neuen Veranstaltungen in der Warteschlange."))
+                return self._render_newsletter_html(_(NEW_EVENT_HEADING), events, note=False)
+        except Exception as exc:
+            return self._info_preview_html(_("Voransicht nicht verfügbar"), str(exc))
+        return ""
+
+    def _event_ids_key(self, events):
+        ids = sorted([int(x) for x in events.ids]) if events else []
+        return "-".join(str(x) for x in ids) or "none"
+
+    def _content_key(self, newsletter_type, events, period_key=None):
+        parts = [newsletter_type]
+        if period_key:
+            parts.append(str(period_key))
+        parts.append(self._event_ids_key(events))
+        return ":".join(parts)
+
+    def _duplicate_content_job(self, newsletter_type, content_key):
+        if not content_key:
+            return False
+        Job = self.env["gl.cleverreach.newsletter.job"].sudo()
+        duplicate = Job.search([
+            ("config_id", "=", self.id),
+            ("newsletter_type", "=", newsletter_type),
+            ("content_key", "=", content_key),
+            ("state", "in", ["draft", "ready", "scheduled", "sent", "error"]),
+        ], order="scheduled_datetime desc, id desc", limit=1)
+        if duplicate:
+            return duplicate
+        # Migration safety: older jobs from previous module versions do not have
+        # content_key. Compare the event set so old scheduled/sent newsletters are
+        # still respected and not sent again with identical content.
+        event_part = str(content_key).rsplit(":", 1)[-1]
+        candidates = Job.search([
+            ("config_id", "=", self.id),
+            ("newsletter_type", "=", newsletter_type),
+            ("state", "in", ["draft", "ready", "scheduled", "sent", "error"]),
+        ], order="scheduled_datetime desc, id desc", limit=80)
+        for job in candidates:
+            if not job.content_key and self._event_ids_key(job.event_ids) == event_part:
+                return job
+        return False
+
+    def _create_job_if_not_duplicate(self, vals, force=False):
+        self.ensure_one()
+        content_key = vals.get("content_key")
+        duplicate = self._duplicate_content_job(vals.get("newsletter_type"), content_key) if content_key else False
+        if duplicate:
+            _logger.info("CleverReach Newsletter duplicate suppressed: type=%s key=%s existing=%s", vals.get("newsletter_type"), content_key, duplicate.id)
+            return False
+        job = self.env["gl.cleverreach.newsletter.job"].sudo().create(vals)
+        job.action_render_and_schedule()
+        return job
 
     def _run_announced_newsletter_cron(self, ignore_time=False):
         self.ensure_one()
@@ -801,9 +1014,15 @@ class CleverReachNewsletterConfig(models.Model):
         if not events:
             queues.write({"state": "skipped", "note": "Event existiert nicht mehr."})
             return False
+        content_key = self._content_key("new_events", events)
+        duplicate = self._duplicate_content_job("new_events", content_key)
+        if duplicate:
+            queues.write({"state": "used", "newsletter_id": duplicate.id, "note": _("Nicht erneut erzeugt: derselbe Newsletter existiert bereits.")})
+            return False
         job = self.env["gl.cleverreach.newsletter.job"].sudo().create({
             "config_id": self.id,
             "newsletter_type": "new_events",
+            "content_key": content_key,
             "name": _("Neue Veranstaltungen %s") % today.strftime("%d.%m.%Y"),
             "subject": _(NEW_EVENT_HEADING),
             "heading": _(NEW_EVENT_HEADING),
@@ -816,30 +1035,78 @@ class CleverReachNewsletterConfig(models.Model):
 
     def _run_biweekly_newsletter_cron(self):
         self.ensure_one()
-        if not self.biweekly_enabled or not self._is_creation_window():
+        if not self.biweekly_enabled:
             return False
-        today = self._local_today()
-        due = self.biweekly_next_due_date or today
-        if today < due:
+        due = self._advance_due_date(self.biweekly_next_due_date, 14, self.biweekly_weekday, self.biweekly_send_hour, self.biweekly_send_minute)
+        if not self._is_due_now(due, self.biweekly_send_hour, self.biweekly_send_minute):
+            self.biweekly_next_due_date = due
             return False
-        job = self._create_biweekly_newsletter(force=False)
-        self.biweekly_next_due_date = max(today, due) + timedelta(days=14)
+        scheduled_dt = self._scheduled_utc_naive(due, self.biweekly_send_hour, self.biweekly_send_minute)
+        job = self._create_biweekly_newsletter(force=False, scheduled_dt=scheduled_dt)
+        self.biweekly_next_due_date = due + timedelta(days=14)
         return job
 
-    def _create_biweekly_newsletter(self, force=False):
+    def _run_weekly_newsletter_cron(self):
+        self.ensure_one()
+        if not self.weekly_enabled:
+            return False
+        due = self._advance_due_date(self.weekly_next_due_date, 7, self.weekly_weekday, self.weekly_send_hour, self.weekly_send_minute)
+        if not self._is_due_now(due, self.weekly_send_hour, self.weekly_send_minute):
+            self.weekly_next_due_date = due
+            return False
+        scheduled_dt = self._scheduled_utc_naive(due, self.weekly_send_hour, self.weekly_send_minute)
+        job = self._create_weekly_newsletter(force=False, scheduled_dt=scheduled_dt, due_date=due)
+        self.weekly_next_due_date = due + timedelta(days=7)
+        return job
+
+    def _create_biweekly_newsletter(self, force=False, scheduled_dt=False):
         self.ensure_one()
         events, note = self._select_upcoming_events_for_biweekly()
-        if not events and not force:
+        if not events:
+            if force:
+                raise UserError(_("Es wurden keine passenden kommenden Veranstaltungen gefunden. Der 2-wöchige Newsletter wurde nicht erzeugt."))
+            return False
+        content_key = self._content_key("biweekly", events)
+        if self._duplicate_content_job("biweekly", content_key):
+            if force:
+                raise UserError(_("Dieser 2-wöchige Newsletter existiert mit identischem Veranstaltungsinhalt bereits. Es wurde kein Duplikat erzeugt."))
             return False
         today = self._local_today()
         job = self.env["gl.cleverreach.newsletter.job"].sudo().create({
             "config_id": self.id,
             "newsletter_type": "biweekly",
-            "name": _("Kommende Veranstaltungen %s") % today.strftime("%d.%m.%Y"),
+            "content_key": content_key,
+            "name": _("2-wöchiger Newsletter %s") % today.strftime("%d.%m.%Y"),
             "subject": _("Unsere kommenden Veranstaltungen"),
-            "heading": _("UNSERE KOMMENDEN VERANSTALTUNGEN"),
-            "event_ids": [(6, 0, events.ids if events else [])],
+            "heading": _(BIWEEKLY_HEADING),
+            "scheduled_datetime": scheduled_dt or False,
+            "event_ids": [(6, 0, events.ids)],
             "note": note or False,
+        })
+        job.action_render_and_schedule()
+        return job
+
+    def _create_weekly_newsletter(self, force=False, scheduled_dt=False, due_date=False):
+        self.ensure_one()
+        events, period_key, _start, _end = self._select_events_for_this_week(reference_date=due_date)
+        if not events:
+            if force:
+                raise UserError(_("In dieser Woche wurden keine noch kommenden Veranstaltungen gefunden. Der Diese-Woche-Newsletter wurde nicht erzeugt."))
+            return False
+        content_key = self._content_key("weekly_this_week", events, period_key=period_key)
+        if self._duplicate_content_job("weekly_this_week", content_key):
+            if force:
+                raise UserError(_("Der Diese-Woche-Newsletter für diese Kalenderwoche existiert bereits. Es wurde kein Duplikat erzeugt."))
+            return False
+        job = self.env["gl.cleverreach.newsletter.job"].sudo().create({
+            "config_id": self.id,
+            "newsletter_type": "weekly_this_week",
+            "content_key": content_key,
+            "name": _("Diese Woche bei Groundlift %s") % period_key,
+            "subject": _(WEEKLY_HEADING),
+            "heading": _(WEEKLY_HEADING),
+            "scheduled_datetime": scheduled_dt or False,
+            "event_ids": [(6, 0, events.ids)],
         })
         job.action_render_and_schedule()
         return job
@@ -847,15 +1114,9 @@ class CleverReachNewsletterConfig(models.Model):
     def _select_upcoming_events_for_biweekly(self):
         self.ensure_one()
         Event = self.env["event.event"].sudo()
-        domain = []
+        domain = self._base_event_domain()
         if "date_begin" in Event._fields:
             domain.append(("date_begin", ">=", fields.Datetime.now()))
-        if "stage_id" in Event._fields and self.announced_stage_name:
-            stage = self.env["event.stage"].sudo().search([("name", "=ilike", self.announced_stage_name)], limit=1)
-            if stage:
-                domain.append(("stage_id", "=", stage.id))
-        if "website_published" in Event._fields:
-            domain.append(("website_published", "=", True))
         candidates = Event.search(domain, order="date_begin asc, id asc", limit=40)
         normal = Event.browse()
         tours = Event.browse()
@@ -872,6 +1133,35 @@ class CleverReachNewsletterConfig(models.Model):
                 note = _("Wir freuen uns auf Ihren Besuch unserer anderen Führungen!")
         events = (normal | selected_tour).sorted(key=lambda e: (e.date_begin or datetime.max, e.id))[: max(1, int(self.max_upcoming_events or 7))]
         return events, note
+
+    def _base_event_domain(self):
+        self.ensure_one()
+        Event = self.env["event.event"].sudo()
+        domain = []
+        if "stage_id" in Event._fields and self.announced_stage_name:
+            stage = self.env["event.stage"].sudo().search([("name", "=ilike", self.announced_stage_name)], limit=1)
+            if stage:
+                domain.append(("stage_id", "=", stage.id))
+        if "website_published" in Event._fields:
+            domain.append(("website_published", "=", True))
+        return domain
+
+    def _select_events_for_this_week(self, reference_date=False):
+        self.ensure_one()
+        Event = self.env["event.event"].sudo()
+        today = reference_date or self._local_today()
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=7)
+        now_local = self._local_now()
+        start_local = max(datetime.combine(week_start, time(0, 0), tzinfo=self._tz()), now_local)
+        end_local = datetime.combine(week_end, time(0, 0), tzinfo=self._tz())
+        start_utc, end_utc = self._local_range_to_utc_domain(start_local, end_local)
+        domain = self._base_event_domain()
+        if "date_begin" in Event._fields:
+            domain += [("date_begin", ">=", start_utc), ("date_begin", "<", end_utc)]
+        events = Event.search(domain, order="date_begin asc, id asc")
+        iso = today.isocalendar()
+        return events, "%04d-W%02d" % (iso[0], iso[1]), week_start, week_end - timedelta(days=1)
 
     def _is_tour_event(self, event):
         needles = [str(event.name or "").lower()]
@@ -1336,7 +1626,12 @@ class CleverReachNewsletterJob(models.Model):
     name = fields.Char(required=True)
     config_id = fields.Many2one("gl.cleverreach.newsletter.config", required=True, ondelete="cascade")
     newsletter_type = fields.Selection(
-        [("new_events", "Neue Veranstaltungen"), ("biweekly", "14-tägige kommende Veranstaltungen"), ("single_event", "Manueller Konzert-Newsletter")],
+        [
+            ("biweekly", "2-wöchiger Newsletter"),
+            ("weekly_this_week", "Diese Woche bei Groundlift"),
+            ("new_events", "Spontan / Eventkalender"),
+            ("single_event", "Manueller Konzert-Newsletter"),
+        ],
         required=True,
         default="new_events",
         index=True,
@@ -1349,6 +1644,7 @@ class CleverReachNewsletterJob(models.Model):
     )
     subject = fields.Char(required=True)
     heading = fields.Char(required=True)
+    content_key = fields.Char(string="Duplikat-Schlüssel", index=True, copy=False, readonly=True)
     html_body = fields.Text(string="HTML")
     scheduled_datetime = fields.Datetime(index=True)
     sent_datetime = fields.Datetime(string="Tatsächlich versendet am", readonly=True, copy=False)
@@ -1366,15 +1662,21 @@ class CleverReachNewsletterJob(models.Model):
             config = job.config_id
             if not config.recipient_group_id:
                 raise UserError(_("Bitte in der CleverReach-Konfiguration zuerst eine globale Empfängerliste wählen."))
-            html = config._render_newsletter_html(job.heading, job.event_ids, note=job.note or "")
+            if job.newsletter_type == "single_event" and job.html_body:
+                html = config._normalize_newsletter_html(job.html_body)
+            else:
+                html = config._render_newsletter_html(job.heading, job.event_ids, note=job.note or "")
             scheduled_dt = job.scheduled_datetime or config._next_allowed_send_datetime(job.newsletter_type)
-            job.write({
+            vals = {
                 "html_body": html,
                 "scheduled_datetime": scheduled_dt,
                 "group_id": config.recipient_group_id.id,
                 "state": "ready",
                 "error_message": False,
-            })
+            }
+            if not job.content_key and job.newsletter_type != "single_event":
+                vals["content_key"] = config._content_key(job.newsletter_type, job.event_ids)
+            job.write(vals)
             job._create_or_update_calendar_event()
             if config.auto_push_to_cleverreach:
                 job.action_push_to_cleverreach()
@@ -1444,8 +1746,12 @@ class CleverReachNewsletterJob(models.Model):
             vals["group_id"] = config.recipient_group_id.id
         if not self.html_body:
             vals["html_body"] = config._render_newsletter_html(self.heading, self.event_ids, note=self.note or "")
+        elif self.newsletter_type == "single_event":
+            vals["html_body"] = config._normalize_newsletter_html(self.html_body)
         if not self.scheduled_datetime:
             vals["scheduled_datetime"] = config._next_allowed_send_datetime(self.newsletter_type)
+        if not self.content_key and self.newsletter_type != "single_event":
+            vals["content_key"] = config._content_key(self.newsletter_type, self.event_ids)
         if vals:
             self.write(vals)
         return True
@@ -1660,6 +1966,15 @@ class CleverReachNewsletterJob(models.Model):
                 cal = self.env["calendar.event"].sudo().create(vals)
                 job.calendar_event_id = cal.id
         return True
+
+    def action_preview(self):
+        self.ensure_one()
+        self._ensure_rendered_and_grouped()
+        return {
+            "type": "ir.actions.act_url",
+            "url": "/gl_cleverreach/newsletter/%s/preview" % self.id,
+            "target": "new",
+        }
 
     def action_open_calendar_event(self):
         self.ensure_one()

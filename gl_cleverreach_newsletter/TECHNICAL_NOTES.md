@@ -109,3 +109,33 @@ CleverReachSingleEventWizard.action_send_newsletter()
 ```
 
 Der Dark-/Bright-Mode-Fix läuft nicht nur über die statische HTML-Datei, sondern zusätzlich in `_normalize_newsletter_html()`. Damit werden auch bestehende, bereits in Odoo gespeicherte Vorlagen beim Rendern korrigiert.
+
+## Version 19.0.1.4.0 – Planung, Vorschau und Duplikatschutz
+
+Neue Felder auf `gl.cleverreach.newsletter.config`:
+
+- `biweekly_weekday`, `biweekly_send_hour`, `biweekly_send_minute`
+- `weekly_enabled`, `weekly_weekday`, `weekly_send_hour`, `weekly_send_minute`, `weekly_next_due_date`
+- `job_ids`, `queue_ids`
+- computed HTML previews für 2-wöchig, Diese Woche und spontane Newsletter
+
+Neue Newsletter-Art:
+
+- `weekly_this_week` für „Diese Woche bei Groundlift“.
+
+Neue Duplikatlogik:
+
+- `gl.cleverreach.newsletter.job.content_key`
+- `CleverReachNewsletterConfig._content_key()`
+- `CleverReachNewsletterConfig._duplicate_content_job()`
+
+Der Duplikatschutz vergleicht zusätzlich alte Jobs ohne `content_key` über deren Event-ID-Set, damit auch vor dem Update bereits geplante oder versendete Newsletter nicht erneut erzeugt werden.
+
+Neue Vorschau-Route:
+
+- `/gl_cleverreach/newsletter/<job_id>/preview`
+
+Neuer Cron:
+
+- `model._cron_weekly_newsletters()` für „Diese Woche bei Groundlift“.
+
