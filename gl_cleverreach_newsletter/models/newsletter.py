@@ -372,11 +372,7 @@ class CleverReachNewsletterConfig(models.Model):
     def create(self, vals_list):
         records = super().create(vals_list)
         for rec in records:
-            today = rec._local_today()
-            if not rec.biweekly_next_due_date:
-                rec.biweekly_next_due_date = rec._next_weekday_date(today, rec.biweekly_weekday or "0")
-            if not rec.weekly_next_due_date:
-                rec.weekly_next_due_date = rec._next_weekday_date(today, rec.weekly_weekday or "2")
+            rec._ensure_schedule_defaults()
             rec.init_default_template()
         return records
 
@@ -384,11 +380,39 @@ class CleverReachNewsletterConfig(models.Model):
     def default_get(self, fields_list):
         vals = super().default_get(fields_list)
         today = fields.Date.context_today(self)
+        # Python weekday: Monday=0, Wednesday=2. Existing records are additionally
+        # normalised by _ensure_schedule_defaults(), because default values do not
+        # backfill when an existing module installation is upgraded.
         if "biweekly_next_due_date" in fields_list and not vals.get("biweekly_next_due_date"):
-            vals["biweekly_next_due_date"] = today
+            vals["biweekly_next_due_date"] = today + timedelta(days=(0 - today.weekday()) % 7)
         if "weekly_next_due_date" in fields_list and not vals.get("weekly_next_due_date"):
-            vals["weekly_next_due_date"] = today
+            vals["weekly_next_due_date"] = today + timedelta(days=(2 - today.weekday()) % 7)
         return vals
+
+    def _ensure_schedule_defaults(self):
+        """Backfill schedule defaults on existing installations after module upgrades."""
+        for rec in self:
+            today = rec._local_today()
+            vals = {}
+            if not rec.biweekly_weekday:
+                vals["biweekly_weekday"] = "0"
+            if rec.biweekly_send_hour in (False, None):
+                vals["biweekly_send_hour"] = 17
+            if rec.biweekly_send_minute in (False, None):
+                vals["biweekly_send_minute"] = 0
+            if not rec.biweekly_next_due_date:
+                vals["biweekly_next_due_date"] = rec._next_weekday_date(today, vals.get("biweekly_weekday") or rec.biweekly_weekday or "0")
+            if not rec.weekly_weekday:
+                vals["weekly_weekday"] = "2"
+            if rec.weekly_send_hour in (False, None):
+                vals["weekly_send_hour"] = 17
+            if rec.weekly_send_minute in (False, None):
+                vals["weekly_send_minute"] = 0
+            if not rec.weekly_next_due_date:
+                vals["weekly_next_due_date"] = rec._next_weekday_date(today, vals.get("weekly_weekday") or rec.weekly_weekday or "2")
+            if vals:
+                rec.sudo().write(vals)
+        return True
 
     def _tz(self):
         self.ensure_one()
@@ -454,10 +478,10 @@ class CleverReachNewsletterConfig(models.Model):
         today = self._local_today()
         if not due_date:
             due_date = self._next_weekday_date(today, weekday)
-        # If a due date is extremely stale, catch up in interval steps instead of
-        # creating a backlog of obsolete newsletters.
-        while due_date + timedelta(days=interval_days) < today:
-            due_date += timedelta(days=interval_days)
+        # Never create a backlog of missed newsletters after quiet weeks or a paused
+        # Odoo.sh deployment. A stale due date is advanced to the next valid cycle.
+        while due_date < today:
+            due_date += timedelta(days=max(1, int(interval_days or 1)))
         return due_date
 
     def _is_due_now(self, due_date, hour, minute):
@@ -875,11 +899,13 @@ class CleverReachNewsletterConfig(models.Model):
 
     def action_run_biweekly_now(self):
         for rec in self:
+            rec._ensure_schedule_defaults()
             rec._create_biweekly_newsletter(force=True, scheduled_dt=fields.Datetime.now())
         return True
 
     def action_run_weekly_now(self):
         for rec in self:
+            rec._ensure_schedule_defaults()
             rec._create_weekly_newsletter(force=True, scheduled_dt=fields.Datetime.now())
         return True
 
@@ -916,6 +942,7 @@ class CleverReachNewsletterConfig(models.Model):
     )
     def _compute_newsletter_previews(self):
         for rec in self:
+            rec._ensure_schedule_defaults()
             rec.biweekly_preview_html = rec._safe_preview_html("biweekly")
             rec.weekly_preview_html = rec._safe_preview_html("weekly_this_week")
             rec.spontaneous_preview_html = rec._safe_preview_html("new_events")
@@ -1035,6 +1062,7 @@ class CleverReachNewsletterConfig(models.Model):
 
     def _run_biweekly_newsletter_cron(self):
         self.ensure_one()
+        self._ensure_schedule_defaults()
         if not self.biweekly_enabled:
             return False
         due = self._advance_due_date(self.biweekly_next_due_date, 14, self.biweekly_weekday, self.biweekly_send_hour, self.biweekly_send_minute)
@@ -1048,6 +1076,7 @@ class CleverReachNewsletterConfig(models.Model):
 
     def _run_weekly_newsletter_cron(self):
         self.ensure_one()
+        self._ensure_schedule_defaults()
         if not self.weekly_enabled:
             return False
         due = self._advance_due_date(self.weekly_next_due_date, 7, self.weekly_weekday, self.weekly_send_hour, self.weekly_send_minute)

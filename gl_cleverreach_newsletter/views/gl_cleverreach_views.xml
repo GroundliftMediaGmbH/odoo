@@ -121,68 +121,57 @@
                         </page>
 
                         <page string="Einstellungen">
-                            <notebook>
-                                <page string="CleverReach API">
-                                    <group>
-                                        <group>
-                                            <field name="client_id"/>
-                                            <field name="client_secret" password="True"/>
-                                            <field name="api_base_url"/>
-                                            <field name="oauth_token_url"/>
-                                            <field name="oauth_authorize_url"/>
-                                            <field name="oauth_redirect_uri"/>
-                                            <field name="oauth_authorization_code" password="True"/>
-                                            <button name="action_exchange_oauth_code" type="object" string="OAuth-Code einlösen" class="btn-secondary"/>
-                                        </group>
-                                        <group>
-                                            <field name="token_valid_until" readonly="1"/>
-                                            <field name="oauth_refresh_token" readonly="1" password="True"/>
-                                            <field name="oauth_scope" readonly="1"/>
-                                            <field name="last_api_message" readonly="1" nolabel="1"/>
-                                        </group>
-                                    </group>
-                                </page>
-                                <page string="ChatGPT API">
-                                    <group>
-                                        <field name="openai_api_key" password="True"/>
-                                        <field name="openai_model"/>
-                                        <field name="openai_api_url"/>
-                                    </group>
-                                </page>
-                                <page string="Event-Felder">
-                                    <group>
-                                        <field name="public_base_url"/>
-                                        <field name="image_field_name"/>
-                                        <field name="short_description_field_names"/>
-                                        <field name="ticket_url_field_names"/>
-                                    </group>
-                                </page>
-                                <page string="Absender">
-                                    <group>
-                                        <field name="sender_name"/>
-                                        <field name="sender_email"/>
-                                        <field name="reply_to"/>
-                                    </group>
-                                </page>
-                                <page string="Watchdog / Duplikate">
-                                    <group>
-                                        <field name="remote_watchdog_active"/>
-                                        <field name="min_days_between_any_newsletters"/>
-                                        <field name="last_watchdog_run" readonly="1"/>
-                                    </group>
-                                </page>
-                                <page string="Importierte Listen">
-                                    <field name="group_ids">
-                                        <list editable="bottom">
-                                            <field name="name"/>
-                                            <field name="external_id"/>
-                                            <field name="receiver_count"/>
-                                            <field name="active"/>
-                                            <field name="last_sync"/>
-                                        </list>
-                                    </field>
-                                </page>
-                            </notebook>
+                            <group string="CleverReach API">
+                                <group>
+                                    <field name="client_id"/>
+                                    <field name="client_secret" password="True"/>
+                                    <field name="api_base_url"/>
+                                    <field name="oauth_token_url"/>
+                                    <field name="oauth_authorize_url"/>
+                                    <field name="oauth_redirect_uri"/>
+                                    <field name="oauth_authorization_code" password="True"/>
+                                    <button name="action_exchange_oauth_code" type="object" string="OAuth-Code einlösen" class="btn-secondary"/>
+                                </group>
+                                <group>
+                                    <field name="token_valid_until" readonly="1"/>
+                                    <field name="oauth_refresh_token" readonly="1" password="True"/>
+                                    <field name="oauth_scope" readonly="1"/>
+                                    <field name="last_api_message" readonly="1" nolabel="1"/>
+                                </group>
+                            </group>
+                            <group string="ChatGPT API">
+                                <group>
+                                    <field name="openai_api_key" password="True"/>
+                                    <field name="openai_model"/>
+                                    <field name="openai_api_url"/>
+                                </group>
+                            </group>
+                            <group string="Event-Felder">
+                                <group>
+                                    <field name="public_base_url"/>
+                                    <field name="image_field_name"/>
+                                    <field name="short_description_field_names"/>
+                                    <field name="ticket_url_field_names"/>
+                                </group>
+                                <group string="Absender / Watchdog">
+                                    <field name="sender_name"/>
+                                    <field name="sender_email"/>
+                                    <field name="reply_to"/>
+                                    <field name="remote_watchdog_active"/>
+                                    <field name="min_days_between_any_newsletters"/>
+                                    <field name="last_watchdog_run" readonly="1"/>
+                                </group>
+                            </group>
+                            <separator string="Importierte CleverReach-Listen"/>
+                            <field name="group_ids">
+                                <list editable="bottom">
+                                    <field name="name"/>
+                                    <field name="external_id"/>
+                                    <field name="receiver_count"/>
+                                    <field name="active"/>
+                                    <field name="last_sync"/>
+                                </list>
+                            </field>
                         </page>
                     </notebook>
                 </sheet>
