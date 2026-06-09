@@ -144,3 +144,11 @@ Wenn eine hochgeladene CleverReach-Vorlage die Überschrift hart codiert enthäl
 - Kurzbeschreibung: bevorzugt `x_studio_event_kurzbeschreibung`, dann `subtitle`, dann `description`
 - Eventbild: standardmäßig `image_1920`, ggf. auf `x_studio_website_header` ändern
 - Ticketlink: versucht `x_studio_ticket_link`, `x_studio_event_ticketlink`, dann `website_url`
+
+## Änderung in Version 19.0.1.3.0 – Dark-/Bright-Mode-Fix und manueller Einzel-Event-Newsletter
+
+- Die HTML-Ausgabe wird beim Rendern jetzt nachträglich normalisiert: alte `bgcolor`-Attribute, weiße CleverReach-Innencontainer und bekannte Hellmodus-Hintergründe werden auf die Groundlift-Dark-Optik festgeschrieben. Dadurch bleiben die Newsletter in unterstützten Clients in Light Mode und Dark Mode visuell möglichst identisch.
+- Die automatische Überschrift für neu angekündigte Events lautet jetzt **„Ganz neu in unserem Eventkalender“**.
+- In den CleverReach-Einstellungen gibt es einen neuen Button **„Manueller Konzert-Newsletter“**. Dort wird genau eine Veranstaltung gewählt, daraus eine Vorschau erzeugt und über **„Abschicken“** sofort versendet.
+- Für den manuellen Einzel-Event-Newsletter kann ein **ChatGPT API Key** in der Konfiguration hinterlegt werden. Die API erzeugt Betreff, Preheader, Intro, Kurztext und Stichwörter aus den Odoo-Veranstaltungsdaten. Ohne API-Key erzeugt das Modul einen sicheren Fallbacktext aus den vorhandenen Eventdaten.
+- Die Kontextzeile wird automatisch aus dem Termin abgeleitet: **„Für Kurzentschlossene“** bei morgen/übermorgen, **„Diese Woche in der Groundlift Creative World“** bei Terminen in der laufenden Woche, sonst **„Ganz neu in unserem Eventkalender“**.

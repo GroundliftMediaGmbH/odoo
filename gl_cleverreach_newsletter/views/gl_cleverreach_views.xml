@@ -28,6 +28,7 @@
                     <button name="action_sync_groups" type="object" string="Listen importieren" class="btn-primary"/>
                     <button name="action_run_announced_now" type="object" string="Neue Events jetzt prüfen" class="btn-secondary"/>
                     <button name="action_run_biweekly_now" type="object" string="14-Tage-Newsletter jetzt erstellen" class="btn-secondary"/>
+                    <button name="action_open_single_event_newsletter_wizard" type="object" string="Manueller Konzert-Newsletter" class="btn-primary"/>
                 </header>
                 <sheet>
                     <group>
@@ -55,6 +56,10 @@
                                     <field name="oauth_authorize_url"/>
                                     <field name="oauth_redirect_uri"/>
                                     <field name="oauth_authorization_code" password="True"/>
+                                    <separator string="ChatGPT API für Einzel-Newsletter"/>
+                                    <field name="openai_api_key" password="True"/>
+                                    <field name="openai_model"/>
+                                    <field name="openai_api_url"/>
                                 </group>
                                 <group>
                                     <field name="token_valid_until" readonly="1"/>
@@ -271,9 +276,56 @@
         <field name="view_mode">list,form</field>
     </record>
 
+    
+
+    <record id="view_gl_cr_single_event_wizard_form" model="ir.ui.view">
+        <field name="name">gl.cleverreach.single.event.wizard.form</field>
+        <field name="model">gl.cleverreach.single.event.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Manueller Konzert-Newsletter">
+                <header>
+                    <button name="action_generate_preview" type="object" string="Vorschau erzeugen" class="btn-secondary"/>
+                    <button name="action_send_newsletter" type="object" string="Abschicken" class="btn-primary" confirm="Diesen Newsletter jetzt sofort über CleverReach abschicken?"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="config_id"/>
+                            <field name="event_id"/>
+                            <field name="recipient_group_id" domain="[('config_id', '=', config_id)]"/>
+                            <field name="generated_with_ai" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="subject"/>
+                            <field name="heading"/>
+                            <field name="preheader"/>
+                            <field name="job_id" readonly="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Vorschau">
+                            <field name="html_preview" nolabel="1" readonly="1" widget="html"/>
+                        </page>
+                        <page string="Hinweis / Fehler">
+                            <field name="error_message" nolabel="1" readonly="1"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_cr_single_event_wizard" model="ir.actions.act_window">
+        <field name="name">Manueller Konzert-Newsletter</field>
+        <field name="res_model">gl.cleverreach.single.event.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
     <menuitem id="menu_gl_cr_root" name="CleverReach Newsletter" sequence="60" groups="base.group_system"/>
     <menuitem id="menu_gl_cr_config" name="Einstellungen" parent="menu_gl_cr_root" action="action_gl_cr_config" sequence="10" groups="base.group_system"/>
     <menuitem id="menu_gl_cr_jobs" name="Newsletter-Aufträge" parent="menu_gl_cr_root" action="action_gl_cr_job" sequence="20" groups="base.group_system"/>
+    <menuitem id="menu_gl_cr_single_event" name="Manueller Konzert-Newsletter" parent="menu_gl_cr_root" action="action_gl_cr_single_event_wizard" sequence="25" groups="base.group_system"/>
     <menuitem id="menu_gl_cr_queue" name="Angekündigte Events" parent="menu_gl_cr_root" action="action_gl_cr_queue" sequence="30" groups="base.group_system"/>
     <menuitem id="menu_gl_cr_templates" name="Newsletter-Vorlagen" parent="menu_gl_cr_root" action="action_gl_cr_template" sequence="40" groups="base.group_system"/>
 </odoo>

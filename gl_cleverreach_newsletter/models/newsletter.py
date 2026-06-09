@@ -24,6 +24,42 @@ except Exception:  # pragma: no cover
 PLACEHOLDER_EVENTS = "{{EVENTS_BLOCK}}"
 PLACEHOLDER_HEADING = "{{NEWSLETTER_HEADING}}"
 PLACEHOLDER_PREHEADER = "{{PREHEADER}}"
+NEW_EVENT_HEADING = "Ganz neu in unserem Eventkalender"
+
+DARKMODE_LOCK_CSS = """
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light only">
+<style id="gl-cr-darkmode-lock">
+:root { color-scheme: light only !important; supported-color-schemes: light only !important; }
+html, body { background-color:#000000 !important; color:#ffffff !important; }
+body, .gl-bg, .gl-dark, .gl-section { background-color:#000000 !important; color:#ffffff !important; }
+.gl-card, .gl-card td { background-color:#181513 !important; color:#ffffff !important; }
+.gl-single-bg { background-color:#1b1b1b !important; color:#f3f3f3 !important; }
+.gl-single-card { background-color:#101010 !important; color:#f3f3f3 !important; }
+.gl-text, .gl-text p, .gl-text span, .gl-text div { color:#ffffff !important; }
+.gl-muted { color:#cccccc !important; }
+.gl-red { color:#d94122 !important; }
+.gl-btn, .gl-btn a { background-color:#d94122 !important; color:#ffffff !important; }
+@media (prefers-color-scheme: dark) {
+  html, body, .gl-bg, .gl-dark, .gl-section { background-color:#000000 !important; color:#ffffff !important; }
+  .gl-card, .gl-card td { background-color:#181513 !important; color:#ffffff !important; }
+  .gl-single-bg { background-color:#1b1b1b !important; color:#f3f3f3 !important; }
+  .gl-single-card { background-color:#101010 !important; color:#f3f3f3 !important; }
+  .gl-text, .gl-text p, .gl-text span, .gl-text div { color:#ffffff !important; }
+  .gl-muted { color:#cccccc !important; }
+  .gl-red { color:#d94122 !important; }
+  .gl-btn, .gl-btn a { background-color:#d94122 !important; color:#ffffff !important; }
+}
+[data-ogsc] body, [data-ogsc] .gl-bg, [data-ogsc] .gl-dark, [data-ogsc] .gl-section { background-color:#000000 !important; color:#ffffff !important; }
+[data-ogsc] .gl-card, [data-ogsc] .gl-card td { background-color:#181513 !important; color:#ffffff !important; }
+[data-ogsc] .gl-single-bg { background-color:#1b1b1b !important; color:#f3f3f3 !important; }
+[data-ogsc] .gl-single-card { background-color:#101010 !important; color:#f3f3f3 !important; }
+[data-ogsc] .gl-text, [data-ogsc] .gl-text p, [data-ogsc] .gl-text span, [data-ogsc] .gl-text div { color:#ffffff !important; }
+[data-ogsc] .gl-muted { color:#cccccc !important; }
+[data-ogsc] .gl-red { color:#d94122 !important; }
+[data-ogsc] .gl-btn, [data-ogsc] .gl-btn a { background-color:#d94122 !important; color:#ffffff !important; }
+</style>
+"""
 
 
 def _strip_html(value):
@@ -153,8 +189,8 @@ class CleverReachEventQueue(models.Model):
                     "config_id": config.id,
                     "newsletter_type": "new_events",
                     "name": _("Sofort: Neue Veranstaltung %s") % event_name,
-                    "subject": _("Jetzt neu bei Groundlift"),
-                    "heading": _("Jetzt neu bei Groundlift"),
+                    "subject": _(NEW_EVENT_HEADING),
+                    "heading": _(NEW_EVENT_HEADING),
                     "scheduled_datetime": fields.Datetime.now(),
                     "event_ids": [(6, 0, [queue.event_id.id])],
                     "queue_ids": [(6, 0, [queue.id])],
@@ -244,6 +280,10 @@ class CleverReachNewsletterConfig(models.Model):
     reply_to = fields.Char(default="info@groundlift.de")
     auto_push_to_cleverreach = fields.Boolean(default=True, string="Mailings automatisch an CleverReach vorbereiten")
     remote_watchdog_active = fields.Boolean(default=True, string="CleverReach-Warteschlange im Watchdog berücksichtigen")
+
+    openai_api_key = fields.Char(string="ChatGPT API Key", copy=False, help="Optional. Wird für den manuellen Einzel-Event-Newsletter verwendet. Ohne Key erzeugt Odoo einen sicheren Fallbacktext aus den Eventdaten.")
+    openai_model = fields.Char(string="ChatGPT Modell", default="gpt-4o-mini")
+    openai_api_url = fields.Char(string="ChatGPT API URL", default="https://api.openai.com/v1/chat/completions")
 
     image_field_name = fields.Char(default="x_studio_website_header", help="Standard: x_studio_website_header. Fallback: image_1920, falls kein Website-Header vorhanden ist.")
     short_description_field_names = fields.Char(default="x_studio_event_kurzbeschreibung, subtitle, description")
@@ -730,6 +770,17 @@ class CleverReachNewsletterConfig(models.Model):
             rec._create_biweekly_newsletter(force=True)
         return True
 
+    def action_open_single_event_newsletter_wizard(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Manueller Konzert-Newsletter"),
+            "res_model": "gl.cleverreach.single.event.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_config_id": self.id},
+        }
+
     def _run_announced_newsletter_cron(self, ignore_time=False):
         self.ensure_one()
         if not ignore_time and not self._is_creation_window():
@@ -754,8 +805,8 @@ class CleverReachNewsletterConfig(models.Model):
             "config_id": self.id,
             "newsletter_type": "new_events",
             "name": _("Neue Veranstaltungen %s") % today.strftime("%d.%m.%Y"),
-            "subject": _("Jetzt neu bei Groundlift"),
-            "heading": _("Jetzt neu bei Groundlift"),
+            "subject": _(NEW_EVENT_HEADING),
+            "heading": _(NEW_EVENT_HEADING),
             "event_ids": [(6, 0, events.ids)],
             "queue_ids": [(6, 0, queues.ids)],
         })
@@ -909,10 +960,30 @@ class CleverReachNewsletterConfig(models.Model):
             html,
             flags=re.IGNORECASE,
         )
-        # Some email clients do not inherit the body color reliably. For the
-        # generated dark Groundlift sections, force text containers to white.
+        # Some mobile email clients apply their own light/dark treatment when legacy
+        # bgcolor attributes or white inner CleverReach containers are present. Keep
+        # the Groundlift layout explicitly dark at attribute and inline-style level,
+        # including old templates that are already stored in the database.
+        html = re.sub(r'bgcolor=("|\')#F1F5F7\1', 'bgcolor="#000000"', html, flags=re.IGNORECASE)
+        html = re.sub(r'bgcolor=("|\')#(?:fff|ffffff)\1', 'bgcolor="#181513"', html, flags=re.IGNORECASE)
+        html = re.sub(r'background-color\s*:\s*#F1F5F7\b', 'background-color: #000000', html, flags=re.IGNORECASE)
+        html = re.sub(r'background\s*:\s*#F1F5F7\b', 'background: #000000', html, flags=re.IGNORECASE)
+        html = re.sub(r'background-color\s*:\s*#(?:fff|ffffff)\b', 'background-color: #181513', html, flags=re.IGNORECASE)
+        html = re.sub(r'background\s*:\s*#(?:fff|ffffff)\b', 'background: #181513', html, flags=re.IGNORECASE)
+        html = html.replace('class="bgcolor1"', 'class="bgcolor1 gl-bg"')
+        html = html.replace('class="bgcolor2"', 'class="bgcolor2 gl-card"')
+        html = html.replace('class="cr-text', 'class="gl-text cr-text')
         html = html.replace("color: inherit; padding:", "color: #ffffff; padding:")
         html = html.replace("color: inherit !important;", "color: #ffffff !important;")
+        html = html.replace("Ganz neu im Groundlift", NEW_EVENT_HEADING)
+        html = html.replace("Ganz neu bei Groundlift", NEW_EVENT_HEADING)
+        html = html.replace("Jetzt neu im Groundlift", NEW_EVENT_HEADING)
+        html = html.replace("Jetzt neu bei Groundlift", NEW_EVENT_HEADING)
+        if "gl-cr-darkmode-lock" not in html:
+            if "</head>" in html:
+                html = html.replace("</head>", DARKMODE_LOCK_CSS + "\n</head>", 1)
+            else:
+                html = DARKMODE_LOCK_CSS + html
         return html
 
     def _render_events_block(self, events, note=""):
@@ -1031,6 +1102,232 @@ class CleverReachNewsletterConfig(models.Model):
         return "Weitere Informationen zur Veranstaltung finden Sie über den Button."
 
 
+    def _event_local_begin(self, event):
+        begin = fields.Datetime.to_datetime(_field_value(event, "date_begin", default=False))
+        if not begin:
+            return False
+        if begin.tzinfo is None:
+            begin = begin.replace(tzinfo=timezone.utc)
+        return begin.astimezone(self._tz())
+
+    def _single_event_context_heading(self, event):
+        begin_local = self._event_local_begin(event)
+        if not begin_local:
+            return _("Neu in der Groundlift Creative World")
+        today = self._local_today()
+        event_date = begin_local.date()
+        delta_days = (event_date - today).days
+        if delta_days == 0:
+            return _("Heute in der Groundlift Creative World")
+        if delta_days in (1, 2):
+            return _("Für Kurzentschlossene")
+        if event_date.isocalendar()[:2] == today.isocalendar()[:2]:
+            return _("Diese Woche in der Groundlift Creative World")
+        return _("Ganz neu in unserem Eventkalender")
+
+    def _event_full_description(self, event):
+        candidates = []
+        for field_name in ("description", "website_description", "x_studio_event_beschreibung", "x_studio_event_langbeschreibung"):
+            if field_name in event._fields and event[field_name]:
+                candidates.append(_strip_html(event[field_name]))
+        short = self._event_teaser(event)
+        if short:
+            candidates.insert(0, short)
+        return _truncate(" ".join([c for c in candidates if c]), 1800)
+
+    def _event_keywords(self, event):
+        words = []
+        category = self._event_category(event)
+        if category and category != "VERANSTALTUNG":
+            words.append(category.title())
+        if "tag_ids" in event._fields:
+            words += [t.name for t in event.tag_ids if t.name]
+        public_category = self._event_field_display_value(event, "groundlift_public_category") or self._event_field_display_value(event, "x_studio_groundlift_public_category")
+        if public_category:
+            words.append(public_category.title())
+        clean = []
+        for word in words:
+            word = _truncate(_strip_html(word), 40)
+            if word and word.lower() not in [w.lower() for w in clean]:
+                clean.append(word)
+        return clean[:6]
+
+    def _openai_key(self):
+        self.ensure_one()
+        return (self.openai_api_key or self.env["ir.config_parameter"].sudo().get_param("gl_cleverreach.openai_api_key") or "").strip()
+
+    def _build_single_event_copy(self, event, context_heading=None):
+        self.ensure_one()
+        context_heading = context_heading or self._single_event_context_heading(event)
+        fallback = self._build_single_event_copy_fallback(event, context_heading=context_heading)
+        api_key = self._openai_key()
+        if not api_key:
+            fallback["generated_with_ai"] = False
+            return fallback
+
+        event_payload = {
+            "title": event.name or "",
+            "date_line": self._event_date_line(event),
+            "category": self._event_category(event),
+            "teaser": self._event_teaser(event),
+            "description": self._event_full_description(event),
+            "keywords": self._event_keywords(event),
+            "context_heading": context_heading,
+            "ticket_url": self._event_link(event),
+        }
+        system_prompt = (
+            "Du schreibst hochwertige, kurze Event-Newsletter für die Groundlift Creative World. "
+            "Ton: wertig, direkt, neugierig machend, kein Marketing-Geschwafel. "
+            "Nutze ausschließlich die gelieferten Eventdaten. Erfinde keine Künstler, Zeiten, Preise oder Fakten. "
+            "Antworte ausschließlich als JSON-Objekt mit den Feldern: subject, preheader, top_label, headline, intro, body, keywords, cta_label. "
+            "keywords ist ein Array mit 3 bis 6 kurzen Stichwörtern. Alle Texte auf Deutsch."
+        )
+        payload = {
+            "model": self.openai_model or "gpt-4o-mini",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": json.dumps(event_payload, ensure_ascii=False)},
+            ],
+            "temperature": 0.55,
+            "max_tokens": 900,
+            "response_format": {"type": "json_object"},
+        }
+        headers = {"Authorization": "Bearer %s" % api_key, "Content-Type": "application/json"}
+        url = (self.openai_api_url or "https://api.openai.com/v1/chat/completions").strip()
+        try:
+            response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=60)
+            if response.status_code >= 400 and "response_format" in payload:
+                payload.pop("response_format", None)
+                response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=60)
+        except requests.RequestException as exc:
+            raise UserError(_("ChatGPT API konnte nicht erreicht werden: %s") % exc)
+        if response.status_code >= 400:
+            raise UserError(_("ChatGPT API Fehler %s: %s") % (response.status_code, response.text[:1000]))
+        try:
+            data = response.json()
+            content = data["choices"][0]["message"]["content"]
+        except Exception as exc:
+            raise UserError(_("ChatGPT API Antwort konnte nicht gelesen werden: %s") % exc)
+        try:
+            match = re.search(r"\{.*\}", content, flags=re.DOTALL)
+            parsed = json.loads(match.group(0) if match else content)
+        except Exception as exc:
+            raise UserError(_("ChatGPT API lieferte kein gültiges JSON: %s") % exc)
+        copy = dict(fallback)
+        for key in ("subject", "preheader", "top_label", "headline", "intro", "body", "cta_label"):
+            if parsed.get(key):
+                copy[key] = _truncate(_strip_html(str(parsed.get(key))), 500 if key in ("intro", "body") else 140)
+        if isinstance(parsed.get("keywords"), list):
+            kws = [_truncate(_strip_html(str(x)), 40) for x in parsed.get("keywords") if _strip_html(str(x))]
+            if kws:
+                copy["keywords"] = kws[:6]
+        copy["generated_with_ai"] = True
+        return copy
+
+    def _build_single_event_copy_fallback(self, event, context_heading=None):
+        context_heading = context_heading or self._single_event_context_heading(event)
+        teaser = self._event_teaser(event)
+        category = self._event_category(event).title()
+        title = event.name or _("Groundlift Event")
+        keywords = self._event_keywords(event) or [category, "Live", "Groundlift"]
+        return {
+            "subject": "%s: %s" % (context_heading, title),
+            "preheader": teaser or _("Ein besonderer Abend in der Groundlift Creative World."),
+            "top_label": " · ".join([x for x in [category, "Live", "Groundlift"] if x]),
+            "headline": title,
+            "context_heading": context_heading,
+            "intro": teaser or _("Ein Eventabend in besonderer Atmosphäre – live in der Groundlift Creative World."),
+            "body": _("Sichern Sie sich jetzt Ihre Plätze und erleben Sie diesen Abend in der besonderen Atmosphäre der Alten Brauerei Stegen."),
+            "keywords": keywords[:6],
+            "cta_label": _("Tickets & Infos"),
+            "generated_with_ai": False,
+        }
+
+    def _render_single_event_newsletter_html(self, event, copy):
+        self.ensure_one()
+        title = escape(copy.get("headline") or event.name or "")
+        context_heading = escape(copy.get("context_heading") or self._single_event_context_heading(event))
+        preheader = escape(copy.get("preheader") or copy.get("intro") or "")
+        top_label = escape(copy.get("top_label") or self._event_category(event).title())
+        intro = escape(copy.get("intro") or self._event_teaser(event))
+        body = escape(copy.get("body") or "")
+        date_line = escape(self._event_date_line(event).replace(" | TICKETS ONLINE ODER AN DER ABENDKASSE", ""))
+        category = escape(self._event_category(event).title())
+        keyword_line = escape(" · ".join([x for x in (copy.get("keywords") or []) if x]))
+        cta = escape(copy.get("cta_label") or _("Tickets & Infos"))
+        link = escape(self._event_link(event))
+        img_url = escape(self._event_image_url(event))
+        logo_url = "https://files.crsend.com/244000/244084/images/header_nl_GL_schwarz.png"
+        html = f'''<!doctype html>
+<html lang="de" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+  <meta name="color-scheme" content="light only">
+  <meta name="supported-color-schemes" content="light only">
+  <title>{title}</title>
+  <style>
+    :root {{ color-scheme: light only !important; supported-color-schemes: light only !important; }}
+    html, body {{ margin:0 !important; padding:0 !important; width:100% !important; background:#1b1b1b !important; color:#f3f3f3 !important; }}
+    table, td {{ border-collapse:collapse !important; mso-table-lspace:0pt !important; mso-table-rspace:0pt !important; }}
+    img {{ border:0; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; display:block; max-width:100%; }}
+    a {{ text-decoration:none; }}
+    .gl-single-bg {{ background-color:#1b1b1b !important; color:#f3f3f3 !important; }}
+    .gl-single-card {{ background-color:#101010 !important; color:#f3f3f3 !important; }}
+    .gl-text {{ color:#f3f3f3 !important; }}
+    .gl-muted {{ color:#cccccc !important; }}
+    .gl-red {{ color:#d94122 !important; }}
+    .gl-btn, .gl-btn a {{ background-color:#d94122 !important; color:#ffffff !important; }}
+    @media (prefers-color-scheme: dark) {{
+      body, .gl-single-bg {{ background-color:#1b1b1b !important; color:#f3f3f3 !important; }}
+      .gl-single-card {{ background-color:#101010 !important; color:#f3f3f3 !important; }}
+      .gl-text {{ color:#f3f3f3 !important; }} .gl-muted {{ color:#cccccc !important; }} .gl-red {{ color:#d94122 !important; }}
+      .gl-btn, .gl-btn a {{ background-color:#d94122 !important; color:#ffffff !important; }}
+    }}
+    [data-ogsc] body, [data-ogsc] .gl-single-bg {{ background-color:#1b1b1b !important; color:#f3f3f3 !important; }}
+    [data-ogsc] .gl-single-card {{ background-color:#101010 !important; color:#f3f3f3 !important; }}
+    [data-ogsc] .gl-text {{ color:#f3f3f3 !important; }} [data-ogsc] .gl-muted {{ color:#cccccc !important; }} [data-ogsc] .gl-red {{ color:#d94122 !important; }}
+    @media only screen and (max-width:700px) {{ .container {{ width:100% !important; max-width:100% !important; }} .px {{ padding-left:22px !important; padding-right:22px !important; }} .hero-title {{ font-size:34px !important; line-height:39px !important; }} .stack {{ display:block !important; width:100% !important; }} .mobile-full {{ width:100% !important; }} }}
+  </style>
+</head>
+<body class="gl-single-bg" bgcolor="#1b1b1b" style="margin:0; padding:0; background-color:#1b1b1b !important; color:#f3f3f3 !important;">
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#1b1b1b; opacity:0;">{preheader}</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1b1b1b" class="gl-single-bg" style="width:100%; background-color:#1b1b1b !important; color:#f3f3f3 !important;">
+    <tr><td align="center" bgcolor="#1b1b1b" class="gl-single-bg" style="background-color:#1b1b1b !important; padding:0;">
+      <table role="presentation" class="container gl-single-bg" width="680" cellpadding="0" cellspacing="0" border="0" bgcolor="#1b1b1b" style="width:680px; max-width:680px; background-color:#1b1b1b !important;">
+        <tr><td align="center" class="px" style="padding:34px 34px 20px 34px; background-color:#1b1b1b !important;"><a href="https://groundlift.de" target="_blank"><img src="{logo_url}" width="320" alt="GROUNDLIFT" style="width:320px; max-width:82%; height:auto; display:block; margin:0 auto;"></a></td></tr>
+        <tr><td align="center" class="px" style="padding:0 34px 18px 34px; background-color:#1b1b1b !important;"><div class="gl-red" style="font-family:Verdana,Arial,sans-serif; font-size:12px; line-height:18px; color:#d94122 !important; font-weight:700; text-transform:uppercase; letter-spacing:2.2px;">{top_label}</div></td></tr>
+        <tr><td class="px" style="padding:0 24px 24px 24px; background-color:#1b1b1b !important;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#101010" class="gl-single-card" style="width:100%; background-color:#101010 !important; border:1px solid #2a2a2a; border-radius:22px; overflow:hidden;">
+            <tr><td style="padding:0; background-color:#101010 !important;"><a href="{link}" target="_blank"><img src="{img_url}" width="680" alt="{title}" style="width:100%; height:auto; display:block;"></a></td></tr>
+            <tr><td class="px gl-single-card" style="padding:38px 42px 22px 42px; background-color:#101010 !important; color:#f3f3f3 !important;">
+              <div class="gl-text" style="font-family:Verdana,Arial,sans-serif; font-size:13px; line-height:20px; color:#ffffff !important; font-weight:700; text-transform:uppercase; letter-spacing:1.4px;">{date_line}</div>
+              <h1 class="hero-title gl-text" style="margin:14px 0 14px 0; font-family:Verdana,Arial,sans-serif; font-size:46px; line-height:52px; font-weight:700; text-transform:uppercase; letter-spacing:1.6px; color:#ffffff !important;">{title}</h1>
+              <div class="gl-red" style="font-family:Verdana,Arial,sans-serif; font-size:15px; line-height:23px; color:#d94122 !important; font-weight:700; text-transform:uppercase; letter-spacing:1.3px;">{context_heading}</div>
+            </td></tr>
+            <tr><td class="px gl-single-card" style="padding:0 42px 34px 42px; background-color:#101010 !important; color:#f3f3f3 !important;">
+              <p class="gl-text" style="margin:0 0 18px 0; font-family:Verdana,Arial,sans-serif; font-size:17px; line-height:28px; color:#f3f3f3 !important;">{intro}</p>
+              <p class="gl-muted" style="margin:0; font-family:Verdana,Arial,sans-serif; font-size:14px; line-height:24px; color:#cccccc !important;">{body}</p>
+            </td></tr>
+            <tr><td class="px gl-single-card" style="padding:0 42px 30px 42px; background-color:#101010 !important;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td class="stack" style="font-family:Verdana,Arial,sans-serif; font-size:12px; line-height:20px; color:#cccccc !important; text-transform:uppercase; letter-spacing:1.4px; padding-bottom:16px;">{category}<br><span class="gl-red" style="color:#d94122 !important;">{keyword_line}</span></td>
+              </tr></table>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="mobile-full"><tr><td bgcolor="#d94122" class="gl-btn" style="background-color:#d94122 !important; border-radius:2px;"><a href="{link}" target="_blank" style="display:inline-block; padding:16px 24px; font-family:Verdana,Arial,sans-serif; font-size:13px; line-height:18px; font-weight:700; color:#ffffff !important; background-color:#d94122 !important; text-transform:uppercase; letter-spacing:1.2px;">{cta}</a></td></tr></table>
+            </td></tr>
+          </table>
+        </td></tr>
+        <tr><td class="px gl-single-bg" style="padding:18px 34px 40px 34px; background-color:#1b1b1b !important; color:#cccccc !important; text-align:center;"><div class="gl-muted" style="font-family:Verdana,Arial,sans-serif; font-size:11px; line-height:18px; color:#cccccc !important;">Groundlift Creative World · Alte Brauerei Stegen am Ammersee</div></td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>'''
+        return self._normalize_newsletter_html(html)
+
+
 class CleverReachNewsletterJob(models.Model):
     _name = "gl.cleverreach.newsletter.job"
     _description = "CleverReach Newsletter-Auftrag"
@@ -1039,7 +1336,7 @@ class CleverReachNewsletterJob(models.Model):
     name = fields.Char(required=True)
     config_id = fields.Many2one("gl.cleverreach.newsletter.config", required=True, ondelete="cascade")
     newsletter_type = fields.Selection(
-        [("new_events", "Neue Veranstaltungen"), ("biweekly", "14-tägige kommende Veranstaltungen")],
+        [("new_events", "Neue Veranstaltungen"), ("biweekly", "14-tägige kommende Veranstaltungen"), ("single_event", "Manueller Konzert-Newsletter")],
         required=True,
         default="new_events",
         index=True,
@@ -1369,3 +1666,123 @@ class CleverReachNewsletterJob(models.Model):
         if not self.calendar_event_id:
             raise UserError(_("Für diesen Newsletter existiert noch kein Kalendereintrag."))
         return {"type": "ir.actions.act_window", "res_model": "calendar.event", "view_mode": "form", "res_id": self.calendar_event_id.id, "target": "current"}
+
+class CleverReachSingleEventWizard(models.TransientModel):
+    _name = "gl.cleverreach.single.event.wizard"
+    _description = "Manueller Groundlift Konzert-Newsletter"
+
+    config_id = fields.Many2one("gl.cleverreach.newsletter.config", required=True, string="CleverReach-Konfiguration")
+    event_id = fields.Many2one("event.event", required=True, string="Veranstaltung")
+    recipient_group_id = fields.Many2one("gl.cleverreach.group", string="Empfängerliste")
+    subject = fields.Char(string="Betreff")
+    heading = fields.Char(string="Newsletter-Zeile")
+    preheader = fields.Char(string="Preheader")
+    generated_with_ai = fields.Boolean(string="Text mit ChatGPT erzeugt", readonly=True)
+    html_preview = fields.Html(string="Vorschau", sanitize=False)
+    error_message = fields.Text(string="Hinweis / Fehler", readonly=True)
+    job_id = fields.Many2one("gl.cleverreach.newsletter.job", readonly=True)
+
+    @api.model
+    def default_get(self, fields_list):
+        vals = super().default_get(fields_list)
+        Config = self.env["gl.cleverreach.newsletter.config"].sudo()
+        config = False
+        default_config_id = self.env.context.get("default_config_id") or self.env.context.get("active_id")
+        if default_config_id:
+            config = Config.browse(default_config_id).exists()
+        if not config:
+            config = Config.search([("active", "=", True)], limit=1) or Config.search([], limit=1)
+        if config:
+            vals.setdefault("config_id", config.id)
+            if config.recipient_group_id:
+                vals.setdefault("recipient_group_id", config.recipient_group_id.id)
+        return vals
+
+    @api.onchange("config_id")
+    def _onchange_config_id(self):
+        for wizard in self:
+            if wizard.config_id and not wizard.recipient_group_id:
+                wizard.recipient_group_id = wizard.config_id.recipient_group_id
+
+    @api.onchange("event_id", "config_id")
+    def _onchange_event_or_config(self):
+        for wizard in self:
+            if wizard.event_id and wizard.config_id:
+                heading = wizard.config_id._single_event_context_heading(wizard.event_id)
+                wizard.heading = heading
+                wizard.subject = "%s: %s" % (heading, wizard.event_id.name or "")
+                wizard.preheader = wizard.config_id._event_teaser(wizard.event_id)
+                wizard.html_preview = False
+                wizard.generated_with_ai = False
+                wizard.error_message = False
+
+    def action_generate_preview(self):
+        self.ensure_one()
+        if not self.config_id.recipient_group_id and not self.recipient_group_id:
+            raise UserError(_("Bitte zuerst eine CleverReach-Empfängerliste wählen."))
+        heading = self.heading or self.config_id._single_event_context_heading(self.event_id)
+        copy = self.config_id._build_single_event_copy(self.event_id, context_heading=heading)
+        html = self.config_id._render_single_event_newsletter_html(self.event_id, copy)
+        self.write({
+            "subject": copy.get("subject") or "%s: %s" % (heading, self.event_id.name or ""),
+            "heading": copy.get("context_heading") or heading,
+            "preheader": copy.get("preheader") or copy.get("intro") or "",
+            "generated_with_ai": bool(copy.get("generated_with_ai")),
+            "html_preview": html,
+            "error_message": False if copy.get("generated_with_ai") else _("Fallbacktext verwendet: Kein ChatGPT API Key hinterlegt."),
+        })
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Manueller Konzert-Newsletter"),
+            "res_model": self._name,
+            "view_mode": "form",
+            "res_id": self.id,
+            "target": "new",
+        }
+
+    def action_send_newsletter(self):
+        self.ensure_one()
+        html_to_send = self.html_preview
+        if not html_to_send:
+            heading = self.heading or self.config_id._single_event_context_heading(self.event_id)
+            copy = self.config_id._build_single_event_copy(self.event_id, context_heading=heading)
+            html_to_send = self.config_id._render_single_event_newsletter_html(self.event_id, copy)
+            self.write({
+                "subject": copy.get("subject") or "%s: %s" % (heading, self.event_id.name or ""),
+                "heading": copy.get("context_heading") or heading,
+                "preheader": copy.get("preheader") or copy.get("intro") or "",
+                "generated_with_ai": bool(copy.get("generated_with_ai")),
+                "html_preview": html_to_send,
+                "error_message": False if copy.get("generated_with_ai") else _("Fallbacktext verwendet: Kein ChatGPT API Key hinterlegt."),
+            })
+        group = self.recipient_group_id or self.config_id.recipient_group_id
+        if not group:
+            raise UserError(_("Bitte zuerst eine CleverReach-Empfängerliste wählen."))
+        Job = self.env["gl.cleverreach.newsletter.job"].sudo()
+        job = Job.create({
+            "config_id": self.config_id.id,
+            "newsletter_type": "single_event",
+            "name": _("Manueller Konzert-Newsletter: %s") % (self.event_id.display_name or self.event_id.name or self.event_id.id),
+            "subject": self.subject or (self.event_id.name or _("Groundlift Veranstaltung")),
+            "heading": self.heading or self.config_id._single_event_context_heading(self.event_id),
+            "html_body": self.config_id._normalize_newsletter_html(html_to_send or ""),
+            "scheduled_datetime": fields.Datetime.now(),
+            "group_id": group.id,
+            "event_ids": [(6, 0, [self.event_id.id])],
+            "note": _("Manuell aus dem Einzel-Event-Newsletter-Wizard erstellt."),
+            "state": "ready",
+        })
+        job._send_to_cleverreach_now(update_planned_datetime=True)
+        self.job_id = job.id
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Newsletter verschickt"),
+                "message": _("Der manuelle Konzert-Newsletter wurde an CleverReach übergeben und sofort abgeschickt."),
+                "type": "success",
+                "sticky": False,
+                "next": {"type": "ir.actions.act_window_close"},
+            },
+        }
+

@@ -81,3 +81,31 @@ Als Fallback bleiben ein um 60 Sekunden nach vorne gesetzter Timestamp, Query-Pa
 ## Version 19.0.1.2.3 – Sofortversand aus Queue-Eintrag
 
 Ergänzt wurde `CleverReachEventQueue.action_send_now()`. Die Methode wird über den Button **Sofort senden** im Formular `gl.cleverreach.event.queue` ausgelöst. Sie erstellt bei Bedarf einen `gl.cleverreach.newsletter.job` vom Typ `new_events` für genau den geöffneten Queue-Eintrag, rendert ihn, bereitet ihn bei CleverReach vor und ruft anschließend den bestehenden Versandpfad `CleverReachNewsletterJob.action_send_now()` auf. Damit bleiben OAuth, Mailing-Erstellung, Release-Endpoint und Fehlerbehandlung zentral im vorhandenen Newsletter-Job implementiert.
+
+## Version 19.0.1.3.0 – technische Ergänzungen
+
+Neue Felder auf `gl.cleverreach.newsletter.config`:
+
+- `openai_api_key`
+- `openai_model`
+- `openai_api_url`
+
+Neues Transient Model:
+
+- `gl.cleverreach.single.event.wizard`
+
+Neue Newsletter-Art:
+
+- `single_event` auf `gl.cleverreach.newsletter.job.newsletter_type`
+
+Wichtige Methoden:
+
+```python
+CleverReachNewsletterConfig._normalize_newsletter_html()
+CleverReachNewsletterConfig._build_single_event_copy()
+CleverReachNewsletterConfig._render_single_event_newsletter_html()
+CleverReachSingleEventWizard.action_generate_preview()
+CleverReachSingleEventWizard.action_send_newsletter()
+```
+
+Der Dark-/Bright-Mode-Fix läuft nicht nur über die statische HTML-Datei, sondern zusätzlich in `_normalize_newsletter_html()`. Damit werden auch bestehende, bereits in Odoo gespeicherte Vorlagen beim Rendern korrigiert.
