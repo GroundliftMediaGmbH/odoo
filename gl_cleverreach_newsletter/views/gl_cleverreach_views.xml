@@ -268,25 +268,6 @@
         <field name="view_mode">list,form</field>
     </record>
 
-    <record id="view_gl_cr_job_search" model="ir.ui.view">
-        <field name="name">gl.cleverreach.newsletter.job.search</field>
-        <field name="model">gl.cleverreach.newsletter.job</field>
-        <field name="arch" type="xml">
-            <search string="Newsletter suchen">
-                <field name="name"/>
-                <field name="subject"/>
-                <field name="newsletter_type"/>
-                <field name="state"/>
-                <filter name="upcoming" string="Kommend / nicht versendet" domain="[('state','in',['draft','ready','scheduled'])]"/>
-                <filter name="sent" string="Versendet" domain="[('state','=','sent')]"/>
-                <group expand="0" string="Gruppieren nach">
-                    <filter name="group_type" string="Typ" context="{'group_by':'newsletter_type'}"/>
-                    <filter name="group_state" string="Status" context="{'group_by':'state'}"/>
-                    <filter name="group_date" string="Sendetag" context="{'group_by':'scheduled_datetime:day'}"/>
-                </group>
-            </search>
-        </field>
-    </record>
 
     <record id="view_gl_cr_job_list" model="ir.ui.view">
         <field name="name">gl.cleverreach.newsletter.job.list</field>
@@ -362,8 +343,7 @@
         <field name="name">Planungsübersicht</field>
         <field name="res_model">gl.cleverreach.newsletter.job</field>
         <field name="view_mode">list,form</field>
-        <field name="search_view_id" ref="view_gl_cr_job_search"/>
-        <field name="context">{'search_default_upcoming': 1}</field>
+        <field name="domain">[('state', 'in', ['draft', 'ready', 'scheduled'])]</field>
     </record>
 
     <record id="view_gl_cr_single_event_wizard_form" model="ir.ui.view">

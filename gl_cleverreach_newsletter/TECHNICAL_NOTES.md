@@ -139,3 +139,8 @@ Neuer Cron:
 
 - `model._cron_weekly_newsletters()` für „Diese Woche bei Groundlift“.
 
+
+
+## Änderung in Version 19.0.1.4.2 – Odoo-19-Search-View-Fix
+
+Die separate Suchansicht der Newsletter-Planungsübersicht wurde entfernt, weil Odoo 19 SH die Definition mit gruppierter Datumsaggregation in einigen Builds als ungültige Search View verwirft. Die Planungsübersicht nutzt nun direkt eine sichere Action-Domain für nicht versendete Newsletter. Dadurch kann das Modul wieder sauber aktualisiert werden und die neuen Reiter/Planungslogiken werden geladen.

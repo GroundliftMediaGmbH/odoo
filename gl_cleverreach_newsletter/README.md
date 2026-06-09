@@ -170,3 +170,8 @@ Zusätzlich wurde ein Duplikatschutz ergänzt:
 - Der Diese-Woche-Newsletter wird pro Kalenderwoche und identischem Event-Set nur einmal erzeugt.
 - Der 2-wöchige Newsletter wird nicht erneut gesendet, wenn sich der Veranstaltungsinhalt gegenüber einem bereits geplanten oder versendeten Newsletter nicht geändert hat.
 
+
+
+## Änderung in Version 19.0.1.4.2 – Odoo-19-Search-View-Fix
+
+Die separate Suchansicht der Newsletter-Planungsübersicht wurde entfernt, weil Odoo 19 SH die Definition mit gruppierter Datumsaggregation in einigen Builds als ungültige Search View verwirft. Die Planungsübersicht nutzt nun direkt eine sichere Action-Domain für nicht versendete Newsletter. Dadurch kann das Modul wieder sauber aktualisiert werden und die neuen Reiter/Planungslogiken werden geladen.
