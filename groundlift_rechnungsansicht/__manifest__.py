@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Groundlift Rechnungsansicht",
-    "summary": "GROUNDLIFT PDF-Rechnungslayout im Stil der Farbe-Blau-Referenz",
-    "version": "19.0.3.3.0",
+    "summary": "GROUNDLIFT PDF-Rechnungslayout mit USt.-Satz je Position und USt.-Summen je Steuersatz",
+    "version": "19.0.3.4.0",
     "category": "Accounting/Accounting",
     "author": "GROUNDLIFT Media GmbH",
     "website": "https://www.groundlift.de",

@@ -66,7 +66,7 @@
                         border-bottom: 0.55pt solid #111111 !important;
                     }
                     .gl_invoice_page table.gl_invoice_line_table thead th {
-                        padding: 0 1.5mm 1.4mm 0 !important;
+                        padding: 0 1.2mm 1.4mm 0 !important;
                         font-size: 7.7pt !important;
                         font-weight: 400 !important;
                         color: #555555 !important;
@@ -77,18 +77,19 @@
                         border-bottom: 0.55pt solid #111111 !important;
                     }
                     .gl_invoice_page table.gl_invoice_line_table tbody td {
-                        padding: 2.2mm 1.5mm 0.6mm 0 !important;
+                        padding: 2.2mm 1.2mm 0.6mm 0 !important;
                         font-size: 8.0pt !important;
                         line-height: 1.16 !important;
                         vertical-align: top !important;
                         border: none !important;
                         background: transparent !important;
                     }
-                    .gl_invoice_page table.gl_invoice_line_table .gl_col_pos { width: 10mm !important; text-align: left !important; }
-                    .gl_invoice_page table.gl_invoice_line_table .gl_col_desc { width: 82mm !important; text-align: left !important; white-space: pre-line !important; }
-                    .gl_invoice_page table.gl_invoice_line_table .gl_col_qty { width: 18mm !important; text-align: right !important; white-space: nowrap !important; }
-                    .gl_invoice_page table.gl_invoice_line_table .gl_col_uom { width: 20mm !important; text-align: left !important; white-space: nowrap !important; }
-                    .gl_invoice_page table.gl_invoice_line_table .gl_col_price { width: 22mm !important; text-align: right !important; white-space: nowrap !important; }
+                    .gl_invoice_page table.gl_invoice_line_table .gl_col_pos { width: 9mm !important; text-align: left !important; }
+                    .gl_invoice_page table.gl_invoice_line_table .gl_col_desc { width: 68mm !important; text-align: left !important; white-space: pre-line !important; }
+                    .gl_invoice_page table.gl_invoice_line_table .gl_col_qty { width: 17mm !important; text-align: right !important; white-space: nowrap !important; }
+                    .gl_invoice_page table.gl_invoice_line_table .gl_col_uom { width: 18mm !important; text-align: left !important; white-space: nowrap !important; }
+                    .gl_invoice_page table.gl_invoice_line_table .gl_col_price { width: 20mm !important; text-align: right !important; white-space: nowrap !important; }
+                    .gl_invoice_page table.gl_invoice_line_table .gl_col_tax { width: 16mm !important; text-align: right !important; white-space: nowrap !important; }
                     .gl_invoice_page table.gl_invoice_line_table .gl_col_amount { width: 24mm !important; text-align: right !important; white-space: nowrap !important; }
                     .gl_invoice_page table.gl_invoice_line_table tr.gl_section_line td,
                     .gl_invoice_page table.gl_invoice_line_table tr.gl_note_line td {
@@ -105,7 +106,7 @@
                     }
                     .gl_invoice_page .gl_totals_table {
                         display: inline-table !important;
-                        width: 88mm !important;
+                        width: 108mm !important;
                         border-collapse: collapse !important;
                         font-size: 8.2pt !important;
                         line-height: 1.18 !important;
@@ -118,11 +119,11 @@
                     }
                     .gl_invoice_page .gl_totals_table td:first-child {
                         text-align: left !important;
-                        width: 60mm !important;
+                        width: 78mm !important;
                     }
                     .gl_invoice_page .gl_totals_table td:last-child {
                         text-align: right !important;
-                        width: 28mm !important;
+                        width: 30mm !important;
                         white-space: nowrap !important;
                     }
                     .gl_invoice_page .gl_totals_table .gl_total_final td {
@@ -155,8 +156,9 @@
                             <th class="gl_col_desc">Bezeichnung</th>
                             <th class="gl_col_qty">Menge</th>
                             <th class="gl_col_uom">Einheit</th>
-                            <th class="gl_col_price">Preis</th>
-                            <th class="gl_col_amount">Betrag EUR</th>
+                            <th class="gl_col_price">Einzel €</th>
+                            <th class="gl_col_tax">USt. %</th>
+                            <th class="gl_col_amount">Gesamt €</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -170,35 +172,44 @@
                                     <td class="gl_col_qty"><span t-field="line.quantity"/></td>
                                     <td class="gl_col_uom"><span t-field="line.product_uom_id"/></td>
                                     <td class="gl_col_price"><span t-field="line.price_unit"/></td>
+                                    <td class="gl_col_tax"><span t-out="line._groundlift_invoice_tax_rate_display()"/></td>
                                     <td class="gl_col_amount"><span t-field="line.price_subtotal" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/></td>
                                 </tr>
                             </t>
                             <t t-elif="line.display_type == 'line_section'">
                                 <tr class="gl_section_line">
                                     <td/>
-                                    <td colspan="5"><span t-field="line.name"/></td>
+                                    <td colspan="6"><span t-field="line.name"/></td>
                                 </tr>
                             </t>
                             <t t-elif="line.display_type == 'line_note'">
                                 <tr class="gl_note_line">
                                     <td/>
-                                    <td colspan="5"><span t-field="line.name"/></td>
+                                    <td colspan="6"><span t-field="line.name"/></td>
                                 </tr>
                             </t>
                         </t>
                     </tbody>
                 </table>
 
+                <t t-set="gl_tax_summary_lines" t-value="o._groundlift_invoice_tax_summary_by_rate()"/>
                 <div class="gl_totals_wrap">
                     <table class="gl_totals_table">
                         <tr>
                             <td>Summe:</td>
                             <td><span t-field="o.amount_untaxed" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/></td>
                         </tr>
-                        <tr t-if="o.amount_tax">
-                            <td>USt.:</td>
-                            <td><span t-field="o.amount_tax" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/></td>
-                        </tr>
+                        <t t-foreach="gl_tax_summary_lines" t-as="tax_line">
+                            <tr>
+                                <td>
+                                    <span t-out="tax_line['label']"/>
+                                    <span> (aus </span>
+                                    <span t-out="tax_line['base']" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                    <span> netto):</span>
+                                </td>
+                                <td><span t-out="tax_line['amount']" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/></td>
+                            </tr>
+                        </t>
                         <tr class="gl_total_final">
                             <td>Endbetrag:</td>
                             <td><span t-field="o.amount_total" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/></td>
