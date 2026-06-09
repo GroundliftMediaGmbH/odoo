@@ -144,3 +144,34 @@ Wenn eine hochgeladene CleverReach-Vorlage die Überschrift hart codiert enthäl
 - Kurzbeschreibung: bevorzugt `x_studio_event_kurzbeschreibung`, dann `subtitle`, dann `description`
 - Eventbild: standardmäßig `image_1920`, ggf. auf `x_studio_website_header` ändern
 - Ticketlink: versucht `x_studio_ticket_link`, `x_studio_event_ticketlink`, dann `website_url`
+
+## Änderung in Version 19.0.1.3.0 – Dark-/Bright-Mode-Fix und manueller Einzel-Event-Newsletter
+
+- Die HTML-Ausgabe wird beim Rendern jetzt nachträglich normalisiert: alte `bgcolor`-Attribute, weiße CleverReach-Innencontainer und bekannte Hellmodus-Hintergründe werden auf die Groundlift-Dark-Optik festgeschrieben. Dadurch bleiben die Newsletter in unterstützten Clients in Light Mode und Dark Mode visuell möglichst identisch.
+- Die automatische Überschrift für neu angekündigte Events lautet jetzt **„Ganz neu in unserem Eventkalender“**.
+- In den CleverReach-Einstellungen gibt es einen neuen Button **„Manueller Konzert-Newsletter“**. Dort wird genau eine Veranstaltung gewählt, daraus eine Vorschau erzeugt und über **„Abschicken“** sofort versendet.
+- Für den manuellen Einzel-Event-Newsletter kann ein **ChatGPT API Key** in der Konfiguration hinterlegt werden. Die API erzeugt Betreff, Preheader, Intro, Kurztext und Stichwörter aus den Odoo-Veranstaltungsdaten. Ohne API-Key erzeugt das Modul einen sicheren Fallbacktext aus den vorhandenen Eventdaten.
+- Die Kontextzeile wird automatisch aus dem Termin abgeleitet: **„Für Kurzentschlossene“** bei morgen/übermorgen, **„Diese Woche in der Groundlift Creative World“** bei Terminen in der laufenden Woche, sonst **„Ganz neu in unserem Eventkalender“**.
+
+## Änderung in Version 19.0.1.4.0 – übersichtliche Newsletter-Planung
+
+Diese Version strukturiert die Einstellungen neu in die Reiter:
+
+1. **2-wöchiger Newsletter** – Standard: Montag 17:00 Uhr, Tag/Uhrzeit änderbar, mit Voransicht.
+2. **Diese Woche bei Groundlift** – Standard: Mittwoch 17:00 Uhr, Tag/Uhrzeit änderbar, versendet nur, wenn in der laufenden Woche noch Veranstaltungen stattfinden. Der Zeitraum läuft bis einschließlich Sonntag.
+3. **Spontane Newsletter** – Warteschlange für neu angekündigte Veranstaltungen, Überschrift „Ganz neu in unserem Eventkalender“, mit Voransicht.
+4. **Planungsübersicht** – kommende Newsletter als Liste mit Button **Voransicht** und **Sofort senden**.
+5. **Einstellungen** – CleverReach, ChatGPT, Event-Felder, Absender, Watchdog und Listen gebündelt.
+
+Zusätzlich wurde ein Duplikatschutz ergänzt:
+
+- Newsletter mit identischem Veranstaltungsinhalt werden nicht erneut erzeugt.
+- Wenn in einem Zeitraum keine Veranstaltungen gefunden werden, wird kein leerer Newsletter erstellt.
+- Der Diese-Woche-Newsletter wird pro Kalenderwoche und identischem Event-Set nur einmal erzeugt.
+- Der 2-wöchige Newsletter wird nicht erneut gesendet, wenn sich der Veranstaltungsinhalt gegenüber einem bereits geplanten oder versendeten Newsletter nicht geändert hat.
+
+
+
+## Änderung in Version 19.0.1.4.2 – Odoo-19-Search-View-Fix
+
+Die separate Suchansicht der Newsletter-Planungsübersicht wurde entfernt, weil Odoo 19 SH die Definition mit gruppierter Datumsaggregation in einigen Builds als ungültige Search View verwirft. Die Planungsübersicht nutzt nun direkt eine sichere Action-Domain für nicht versendete Newsletter. Dadurch kann das Modul wieder sauber aktualisiert werden und die neuen Reiter/Planungslogiken werden geladen.

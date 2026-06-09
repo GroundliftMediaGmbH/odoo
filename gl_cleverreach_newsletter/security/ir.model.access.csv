@@ -4,3 +4,4 @@ access_gl_cleverreach_newsletter_template,gl.cleverreach.newsletter.template,mod
 access_gl_cleverreach_group,gl.cleverreach.group,model_gl_cleverreach_group,base.group_system,1,1,1,1
 access_gl_cleverreach_event_queue,gl.cleverreach.event.queue,model_gl_cleverreach_event_queue,base.group_system,1,1,1,1
 access_gl_cleverreach_newsletter_job,gl.cleverreach.newsletter.job,model_gl_cleverreach_newsletter_job,base.group_system,1,1,1,1
+access_gl_cleverreach_single_event_wizard,gl.cleverreach.single.event.wizard,model_gl_cleverreach_single_event_wizard,base.group_system,1,1,1,1
