@@ -386,16 +386,12 @@ class ProjectProject(models.Model):
             for rec in self:
                 stage = rec.stage_id if 'stage_id' in rec._fields else False
                 if stage and stage_name_matches(stage.name, configured) and not rec.gl_folder_path:
-                    try:
-                        storage = rec._gl_default_storage('postproduction')
-                        template = rec._gl_default_template('project.project')
-                        rec._gl_queue_create_folder(storage, template, parent_path=storage.root_path, check_connection=False)
-                        if hasattr(rec, 'message_post'):
-                            rec.message_post(body=_('SCORSESE Projektordner wurde automatisch beauftragt, weil das Projekt in „In Bearbeitung“ geschoben wurde.'))
-                    except Exception as exc:
-                        rec.write({'gl_folder_pending': True})
-                        if hasattr(rec, 'message_post'):
-                            rec.message_post(body=_('SCORSESE konnte keinen automatischen Projektordner anlegen: %s') % exc)
+                    rec.write({'gl_folder_pending': True})
+                    if hasattr(rec, 'message_post'):
+                        rec.message_post(body=_(
+                            'SCORSESE Projektordner wurde noch nicht automatisch erstellt. '
+                            'Bitte über den Button „Ordner auf Server erstellen“ Speicher, Ordner, Unterordner, Vorlage und Projektdatum auswählen.'
+                        ))
                 elif rec.gl_folder_path:
                     try:
                         rec._gl_queue_current_stage_icon(check_connection=False)
