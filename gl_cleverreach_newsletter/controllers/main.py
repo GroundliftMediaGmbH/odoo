@@ -48,3 +48,17 @@ class CleverReachOAuthController(http.Controller):
             </body></html>
             """ % escape(str(exc))
             return request.make_response(body, headers=[("Content-Type", "text/html; charset=utf-8")])
+
+    @http.route("/gl_cleverreach/newsletter/<int:job_id>/preview", type="http", auth="user", csrf=False)
+    def gl_cleverreach_newsletter_preview(self, job_id, **kw):
+        job = request.env["gl.cleverreach.newsletter.job"].sudo().browse(job_id).exists()
+        if not job:
+            return request.not_found()
+        if not job.html_body:
+            job._ensure_rendered_and_grouped()
+        html = job.html_body or ""
+        return request.make_response(html, headers=[
+            ("Content-Type", "text/html; charset=utf-8"),
+            ("X-Frame-Options", "SAMEORIGIN"),
+        ])
+
