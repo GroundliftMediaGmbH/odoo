@@ -29,6 +29,7 @@ NEW_EVENT_HEADING = "Ganz neu in unserem Eventkalender"
 WEEKLY_HEADING = "Diese Woche bei Groundlift"
 BIWEEKLY_HEADING = "UNSERE KOMMENDEN VERANSTALTUNGEN"
 PLANNING_HORIZON_DAYS = 93
+UNSUBSCRIBE_URL = "https://seu2.cleverreach.com/f/244084-240054/wwu/"
 
 WEEKDAY_SELECTION = [
     ("0", "Montag"),
@@ -369,7 +370,7 @@ class CleverReachNewsletterConfig(models.Model):
         template = template or self.newsletter_template_id or self.init_default_template()
         if template and template.name == "Groundlift Standardvorlage":
             current_html = template.get_html() or ""
-            if "gl-dynamic-newsletter-template-v2" not in current_html:
+            if "gl-dynamic-newsletter-template-v3" not in current_html:
                 template.sudo().write({
                     "filename": "GROUNDLIFT_NEWSLETTER_VORLAGE.html",
                     "html_source": self._default_template_html(),
@@ -1467,7 +1468,7 @@ class CleverReachNewsletterConfig(models.Model):
         if tours:
             selected_tour = sorted(tours, key=lambda e: (self._event_participant_count(e), e.date_begin or datetime.max))[0]
             if len(tours) > 1:
-                note = _("Wir freuen uns auf Ihren Besuch unserer anderen Veranstaltungen und Führungen!")
+                note = _("Wir freuen uns auf Ihren Besuch unserer anderen Führungen!")
         events = (normal | selected_tour).sorted(key=lambda e: (e.date_begin or datetime.max, e.id))[: max(1, int(self.max_upcoming_events or 7))]
         return events, note
 
@@ -1615,12 +1616,40 @@ class CleverReachNewsletterConfig(models.Model):
         html = html.replace("Ganz neu bei Groundlift", NEW_EVENT_HEADING)
         html = html.replace("Jetzt neu im Groundlift", NEW_EVENT_HEADING)
         html = html.replace("Jetzt neu bei Groundlift", NEW_EVENT_HEADING)
+        # Remove the small red hero eyebrow "Newsletter" from older stored
+        # standard templates. It should not appear above the main heading.
+        html = re.sub(
+            r'<div\s+class=("|\')red\s+gl-red\1[^>]*>\s*Newsletter\s*</div>',
+            '',
+            html,
+            flags=re.IGNORECASE,
+        )
+        if UNSUBSCRIBE_URL not in html:
+            html = self._append_unsubscribe_link(html)
         if "gl-cr-darkmode-lock" not in html:
             if "</head>" in html:
                 html = html.replace("</head>", DARKMODE_LOCK_CSS + "\n</head>", 1)
             else:
                 html = DARKMODE_LOCK_CSS + html
         return html
+
+    def _append_unsubscribe_link(self, html):
+        """Append a subtle but clear CleverReach unsubscribe link at the very bottom.
+
+        This is deliberately applied after rendering, so older stored standard
+        templates and future custom templates also receive the mandatory link
+        unless they already contain it.
+        """
+        link = escape(UNSUBSCRIBE_URL)
+        block = f'''
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1b1b1b" style="width:100%; background-color:#1b1b1b !important; color:#9f9f9f !important;">
+  <tr><td align="center" style="padding:0 24px 34px 24px; font-family:Verdana,Arial,sans-serif; font-size:10px; line-height:16px; color:#8e8e8e !important;">
+    <a href="{link}" target="_blank" style="color:#8e8e8e !important; text-decoration:underline; font-family:Verdana,Arial,sans-serif; font-size:10px; line-height:16px;">Newsletter abmelden</a>
+  </td></tr>
+</table>'''
+        if "</body>" in html:
+            return html.replace("</body>", block + "\n</body>", 1)
+        return html + block
 
     def _render_events_block(self, events, note=""):
         blocks = [self._render_event_block(event) for event in events]
@@ -1959,7 +1988,7 @@ class CleverReachNewsletterConfig(models.Model):
             </td></tr>
           </table>
         </td></tr>
-        <tr><td class="px gl-single-bg" style="padding:18px 34px 40px 34px; background-color:#1b1b1b !important; color:#cccccc !important; text-align:center;"><div class="gl-muted" style="font-family:Verdana,Arial,sans-serif; font-size:11px; line-height:18px; color:#cccccc !important;">Die Eventlocation in der Alten Brauerei Stegen am Ammersee</div></td></tr>
+        <tr><td class="px gl-single-bg" style="padding:18px 34px 40px 34px; background-color:#1b1b1b !important; color:#cccccc !important; text-align:center;"><div class="gl-muted" style="font-family:Verdana,Arial,sans-serif; font-size:11px; line-height:18px; color:#cccccc !important;">Groundlift Creative World · Alte Brauerei Stegen am Ammersee</div></td></tr>
       </table>
     </td></tr>
   </table>

@@ -17,6 +17,12 @@ Dieses Modul erzeugt aus Odoo-Veranstaltungen automatisch HTML-Newsletter für C
 10. Jeder geplante Newsletter wird zusätzlich als `calendar.event` in Odoo eingetragen.
 
 
+## Änderung in Version 19.0.1.4.6 – Newsletter-Kopf und Abmeldelink
+
+- Die rote Beschriftung **„Newsletter“** direkt über der großen Überschrift wurde aus der Groundlift-Standardvorlage entfernt.
+- Der finale Renderer entfernt diese Beschriftung zusätzlich aus älteren, bereits in Odoo gespeicherten Standardvorlagen.
+- Am unteren Ende jedes gerenderten Newsletters wird ein dezenter, aber eindeutiger Link **„Newsletter abmelden“** mit der CleverReach-Abmelde-URL eingefügt, sofern die URL nicht bereits in der Vorlage vorhanden ist.
+
 ## Änderung in Version 19.0.1.4.2 – einheitliche Groundlift-Optik für automatische Newsletter
 
 - Der 2-wöchige Newsletter, „Diese Woche bei Groundlift“ und spontane Newsletter verwenden nun dieselbe moderne Groundlift-HTML-Vorlage im Stil von `preview(2).html`.
