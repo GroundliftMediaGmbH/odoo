@@ -1467,7 +1467,7 @@ class CleverReachNewsletterConfig(models.Model):
         if tours:
             selected_tour = sorted(tours, key=lambda e: (self._event_participant_count(e), e.date_begin or datetime.max))[0]
             if len(tours) > 1:
-                note = _("Wir freuen uns auf Ihren Besuch unserer anderen Führungen!")
+                note = _("Wir freuen uns auf Ihren Besuch unserer anderen Veranstaltungen und Führungen!")
         events = (normal | selected_tour).sorted(key=lambda e: (e.date_begin or datetime.max, e.id))[: max(1, int(self.max_upcoming_events or 7))]
         return events, note
 
@@ -1959,7 +1959,7 @@ class CleverReachNewsletterConfig(models.Model):
             </td></tr>
           </table>
         </td></tr>
-        <tr><td class="px gl-single-bg" style="padding:18px 34px 40px 34px; background-color:#1b1b1b !important; color:#cccccc !important; text-align:center;"><div class="gl-muted" style="font-family:Verdana,Arial,sans-serif; font-size:11px; line-height:18px; color:#cccccc !important;">Groundlift Creative World · Alte Brauerei Stegen am Ammersee</div></td></tr>
+        <tr><td class="px gl-single-bg" style="padding:18px 34px 40px 34px; background-color:#1b1b1b !important; color:#cccccc !important; text-align:center;"><div class="gl-muted" style="font-family:Verdana,Arial,sans-serif; font-size:11px; line-height:18px; color:#cccccc !important;">Die Eventlocation in der Alten Brauerei Stegen am Ammersee</div></td></tr>
       </table>
     </td></tr>
   </table>
