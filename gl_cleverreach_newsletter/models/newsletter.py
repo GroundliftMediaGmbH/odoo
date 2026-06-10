@@ -380,7 +380,7 @@ class CleverReachNewsletterConfig(models.Model):
     def _newsletter_intro(self, heading):
         heading_text = (heading or "").strip().casefold()
         if heading_text == WEEKLY_HEADING.casefold():
-            return _("Alles, was in dieser Woche in der Groundlift Creative World ansteht – kompakt, klar und mit direktem Weg zu Tickets und Infos.")
+            return _("Diese Woche noch nichts vor? – Hier kommen unsere Veranstaltungen dieser Woche")
         if heading_text == BIWEEKLY_HEADING.casefold():
             return _("Die nächsten Veranstaltungen aus der Groundlift Creative World: Konzerte, Shows und besondere Abende in der Alten Brauerei Stegen.")
         if heading_text == NEW_EVENT_HEADING.casefold():
