@@ -41,6 +41,16 @@
         <field name="active">True</field>
     </record>
 
+    <record id="ir_cron_gl_cr_refresh_planning" model="ir.cron">
+        <field name="name">Groundlift CleverReach: Planungsübersicht täglich aktualisieren</field>
+        <field name="model_id" ref="model_gl_cleverreach_newsletter_config"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_refresh_planning()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active">True</field>
+    </record>
+
     <record id="ir_cron_gl_cr_due_newsletters" model="ir.cron">
         <field name="name">Groundlift CleverReach: fällige Newsletter versenden</field>
         <field name="model_id" ref="model_gl_cleverreach_newsletter_config"/>

@@ -24,9 +24,12 @@ except Exception:  # pragma: no cover
 PLACEHOLDER_EVENTS = "{{EVENTS_BLOCK}}"
 PLACEHOLDER_HEADING = "{{NEWSLETTER_HEADING}}"
 PLACEHOLDER_PREHEADER = "{{PREHEADER}}"
+PLACEHOLDER_INTRO = "{{NEWSLETTER_INTRO}}"
 NEW_EVENT_HEADING = "Ganz neu in unserem Eventkalender"
 WEEKLY_HEADING = "Diese Woche bei Groundlift"
 BIWEEKLY_HEADING = "UNSERE KOMMENDEN VERANSTALTUNGEN"
+PLANNING_HORIZON_DAYS = 93
+UNSUBSCRIBE_URL = "https://seu2.cleverreach.com/f/244084-240054/wwu/"
 
 WEEKDAY_SELECTION = [
     ("0", "Montag"),
@@ -43,33 +46,36 @@ DARKMODE_LOCK_CSS = """
 <meta name="supported-color-schemes" content="light only">
 <style id="gl-cr-darkmode-lock">
 :root { color-scheme: light only !important; supported-color-schemes: light only !important; }
-html, body { background-color:#000000 !important; color:#ffffff !important; }
-body, .gl-bg, .gl-dark, .gl-section { background-color:#000000 !important; color:#ffffff !important; }
-.gl-card, .gl-card td { background-color:#181513 !important; color:#ffffff !important; }
+html, body { background-color:#1b1b1b !important; color:#f3f3f3 !important; }
+body, .gl-bg, .body-bg, .email-bg, .dark-locked { background-color:#1b1b1b !important; color:#f3f3f3 !important; }
+.gl-card, .card-gradient, .gl-card td { background-color:#101010 !important; color:#f3f3f3 !important; }
 .gl-single-bg { background-color:#1b1b1b !important; color:#f3f3f3 !important; }
 .gl-single-card { background-color:#101010 !important; color:#f3f3f3 !important; }
-.gl-text, .gl-text p, .gl-text span, .gl-text div { color:#ffffff !important; }
-.gl-muted { color:#cccccc !important; }
-.gl-red { color:#d94122 !important; }
-.gl-btn, .gl-btn a { background-color:#d94122 !important; color:#ffffff !important; }
+.gl-text, .gl-text p, .gl-text span, .gl-text div, .text { color:#f3f3f3 !important; }
+.white { color:#ffffff !important; }
+.gl-muted, .muted { color:#cccccc !important; }
+.gl-red, .red { color:#d94122 !important; }
+.gl-btn, .gl-btn a, .btn { background-color:#d94122 !important; color:#ffffff !important; }
 @media (prefers-color-scheme: dark) {
-  html, body, .gl-bg, .gl-dark, .gl-section { background-color:#000000 !important; color:#ffffff !important; }
-  .gl-card, .gl-card td { background-color:#181513 !important; color:#ffffff !important; }
+  html, body, .gl-bg, .body-bg, .email-bg, .dark-locked { background-color:#1b1b1b !important; color:#f3f3f3 !important; }
+  .gl-card, .card-gradient, .gl-card td { background-color:#101010 !important; color:#f3f3f3 !important; }
   .gl-single-bg { background-color:#1b1b1b !important; color:#f3f3f3 !important; }
   .gl-single-card { background-color:#101010 !important; color:#f3f3f3 !important; }
-  .gl-text, .gl-text p, .gl-text span, .gl-text div { color:#ffffff !important; }
-  .gl-muted { color:#cccccc !important; }
-  .gl-red { color:#d94122 !important; }
-  .gl-btn, .gl-btn a { background-color:#d94122 !important; color:#ffffff !important; }
+  .gl-text, .gl-text p, .gl-text span, .gl-text div, .text { color:#f3f3f3 !important; }
+  .white { color:#ffffff !important; }
+  .gl-muted, .muted { color:#cccccc !important; }
+  .gl-red, .red { color:#d94122 !important; }
+  .gl-btn, .gl-btn a, .btn { background-color:#d94122 !important; color:#ffffff !important; }
 }
-[data-ogsc] body, [data-ogsc] .gl-bg, [data-ogsc] .gl-dark, [data-ogsc] .gl-section { background-color:#000000 !important; color:#ffffff !important; }
-[data-ogsc] .gl-card, [data-ogsc] .gl-card td { background-color:#181513 !important; color:#ffffff !important; }
+[data-ogsc] body, [data-ogsc] .gl-bg, [data-ogsc] .body-bg, [data-ogsc] .email-bg, [data-ogsc] .dark-locked { background-color:#1b1b1b !important; color:#f3f3f3 !important; }
+[data-ogsc] .gl-card, [data-ogsc] .card-gradient, [data-ogsc] .gl-card td { background-color:#101010 !important; color:#f3f3f3 !important; }
 [data-ogsc] .gl-single-bg { background-color:#1b1b1b !important; color:#f3f3f3 !important; }
 [data-ogsc] .gl-single-card { background-color:#101010 !important; color:#f3f3f3 !important; }
-[data-ogsc] .gl-text, [data-ogsc] .gl-text p, [data-ogsc] .gl-text span, [data-ogsc] .gl-text div { color:#ffffff !important; }
-[data-ogsc] .gl-muted { color:#cccccc !important; }
-[data-ogsc] .gl-red { color:#d94122 !important; }
-[data-ogsc] .gl-btn, [data-ogsc] .gl-btn a { background-color:#d94122 !important; color:#ffffff !important; }
+[data-ogsc] .gl-text, [data-ogsc] .gl-text p, [data-ogsc] .gl-text span, [data-ogsc] .gl-text div, [data-ogsc] .text { color:#f3f3f3 !important; }
+[data-ogsc] .white { color:#ffffff !important; }
+[data-ogsc] .gl-muted, [data-ogsc] .muted { color:#cccccc !important; }
+[data-ogsc] .gl-red, [data-ogsc] .red { color:#d94122 !important; }
+[data-ogsc] .gl-btn, [data-ogsc] .gl-btn a, [data-ogsc] .btn { background-color:#d94122 !important; color:#ffffff !important; }
 </style>
 """
 
@@ -346,24 +352,54 @@ class CleverReachNewsletterConfig(models.Model):
     last_watchdog_run = fields.Datetime(readonly=True)
     last_group_sync = fields.Datetime(readonly=True)
 
+    def _default_template_html(self):
+        try:
+            with tools.file_open("gl_cleverreach_newsletter/static/description/default_template.html", mode="rb") as f:
+                return f.read().decode("utf-8", errors="replace")
+        except Exception:
+            return "<html><body><h1>{{NEWSLETTER_HEADING}}</h1>{{EVENTS_BLOCK}}</body></html>"
+
+    def _ensure_standard_template_is_current(self, template=False):
+        """Keep the bundled Groundlift standard template current after module updates.
+
+        Custom templates with another name are never overwritten. The standard
+        template is updated only when it does not yet contain the v2 marker, so
+        it can still be edited in Odoo after the upgrade.
+        """
+        self.ensure_one()
+        template = template or self.newsletter_template_id or self.init_default_template()
+        if template and template.name == "Groundlift Standardvorlage":
+            current_html = template.get_html() or ""
+            if "gl-dynamic-newsletter-template-v4" not in current_html:
+                template.sudo().write({
+                    "filename": "GROUNDLIFT_NEWSLETTER_VORLAGE.html",
+                    "html_source": self._default_template_html(),
+                })
+        return template
+
+    def _newsletter_intro(self, heading):
+        heading_text = (heading or "").strip().casefold()
+        if heading_text == WEEKLY_HEADING.casefold():
+            return _("Diese Woche noch nichts vor? – Hier kommen unsere Veranstaltungen dieser Woche")
+        if heading_text == BIWEEKLY_HEADING.casefold():
+            return _("Die nächsten Veranstaltungen aus der Groundlift Creative World: Konzerte, Shows und besondere Abende in der Alten Brauerei Stegen.")
+        if heading_text == NEW_EVENT_HEADING.casefold():
+            return _("Neu angekündigte Termine aus unserem Eventkalender – frisch geplant und ab sofort buchbar.")
+        return _("Ausgewählte Veranstaltungen aus der Groundlift Creative World in der Alten Brauerei Stegen am Ammersee.")
+
     def init_default_template(self):
         self.ensure_one()
         if self.newsletter_template_id:
-            return self.newsletter_template_id
+            return self._ensure_standard_template_is_current(self.newsletter_template_id)
         Template = self.env["gl.cleverreach.newsletter.template"].sudo()
         existing = Template.search([("name", "=", "Groundlift Standardvorlage")], limit=1)
         if existing:
             self.newsletter_template_id = existing.id
-            return existing
-        try:
-            with tools.file_open("gl_cleverreach_newsletter/static/description/default_template.html", mode="rb") as f:
-                html = f.read().decode("utf-8", errors="replace")
-        except Exception:
-            html = "<html><body><h1>{{NEWSLETTER_HEADING}}</h1>{{EVENTS_BLOCK}}</body></html>"
+            return self._ensure_standard_template_is_current(existing)
         template = Template.create({
             "name": "Groundlift Standardvorlage",
             "filename": "GROUNDLIFT_NEWSLETTER_VORLAGE.html",
-            "html_source": html,
+            "html_source": self._default_template_html(),
         })
         self.newsletter_template_id = template.id
         return template
@@ -747,14 +783,20 @@ class CleverReachNewsletterConfig(models.Model):
         if existing:
             if existing.state == "skipped":
                 existing.write({"state": "pending", "announced_at": fields.Datetime.now(), "announced_date": local_date, "source_stage_id": stage.id if stage else False})
-            return existing
-        return Queue.create({
-            "config_id": self.id,
-            "event_id": event.id,
-            "announced_at": fields.Datetime.now(),
-            "announced_date": local_date,
-            "source_stage_id": stage.id if stage else False,
-        })
+            queue = existing
+        else:
+            queue = Queue.create({
+                "config_id": self.id,
+                "event_id": event.id,
+                "announced_at": fields.Datetime.now(),
+                "announced_date": local_date,
+                "source_stage_id": stage.id if stage else False,
+            })
+        try:
+            self._refresh_planning_overview()
+        except Exception:
+            _logger.exception("Could not refresh CleverReach planning preview after queueing event %s", event.id)
+        return queue
 
     def _last_scheduled_date(self, newsletter_type=None):
         domain = [("config_id", "=", self.id), ("state", "in", ["ready", "scheduled", "sent"]), ("scheduled_datetime", "!=", False)]
@@ -868,6 +910,16 @@ class CleverReachNewsletterConfig(models.Model):
         return True
 
     @api.model
+    def _cron_refresh_planning(self):
+        """Build or refresh the editable preview jobs for the next three months."""
+        for config in self.search([("active", "=", True)]):
+            try:
+                config._refresh_planning_overview()
+            except Exception:
+                _logger.exception("CleverReach planning refresh failed for config %s", config.id)
+        return True
+
+    @api.model
     def _cron_due_newsletters(self):
         """Send newsletters whose scheduling is handled by Odoo.
 
@@ -900,7 +952,7 @@ class CleverReachNewsletterConfig(models.Model):
     def action_run_biweekly_now(self):
         for rec in self:
             rec._ensure_schedule_defaults()
-            rec._create_biweekly_newsletter(force=True, scheduled_dt=fields.Datetime.now())
+            rec._create_biweekly_newsletter(force=True, scheduled_dt=fields.Datetime.now(), due_date=rec._local_today())
         return True
 
     def action_run_weekly_now(self):
@@ -920,19 +972,87 @@ class CleverReachNewsletterConfig(models.Model):
             "context": {"default_config_id": self.id},
         }
 
-    def action_open_planning_overview(self):
-        self.ensure_one()
+    @api.model
+    def action_open_global_planning_overview(self):
+        configs = self.search([("active", "=", True)])
+        for config in configs:
+            try:
+                config._refresh_planning_overview()
+            except Exception:
+                _logger.exception("Could not refresh CleverReach planning overview for config %s", config.id)
         return {
             "type": "ir.actions.act_window",
             "name": _("Planungsübersicht Newsletter"),
             "res_model": "gl.cleverreach.newsletter.job",
             "view_mode": "list,form",
-            "domain": [("config_id", "=", self.id), ("state", "in", ["draft", "ready", "scheduled"])],
-            "context": {"default_config_id": self.id, "search_default_upcoming": 1},
+            "domain": [("planning_visible", "=", True)],
+            "target": "current",
+        }
+
+    @api.model
+    def _default_menu_config(self):
+        """Return the configuration record used by the top menu entries.
+
+        The newsletter app is operated as a global configuration in practice.
+        These helpers keep the new menu entries on the existing singleton record
+        instead of opening a generic list view.
+        """
+        config = self.search([("active", "=", True)], order="id asc", limit=1)
+        if not config:
+            config = self.search([], order="id asc", limit=1)
+        return config
+
+    @api.model
+    def _action_open_config_menu_view(self, view_xml_id, title):
+        view = self.env.ref("gl_cleverreach_newsletter.%s" % view_xml_id, raise_if_not_found=False)
+        config = self._default_menu_config()
+        action = {
+            "type": "ir.actions.act_window",
+            "name": title,
+            "res_model": "gl.cleverreach.newsletter.config",
+            "view_mode": "form",
+            "target": "current",
+            "context": {},
+        }
+        if view:
+            action["views"] = [(view.id, "form")]
+            action["view_id"] = view.id
+        if config:
+            action["res_id"] = config.id
+        return action
+
+    @api.model
+    def action_open_global_biweekly_settings(self):
+        return self._action_open_config_menu_view("view_gl_cr_config_biweekly_form", _("2-wöchiger Newsletter"))
+
+    @api.model
+    def action_open_global_weekly_settings(self):
+        return self._action_open_config_menu_view("view_gl_cr_config_weekly_form", _("Diese Woche bei Groundlift"))
+
+    @api.model
+    def action_open_global_spontaneous_settings(self):
+        return self._action_open_config_menu_view("view_gl_cr_config_spontaneous_form", _("Spontane Newsletter"))
+
+    @api.model
+    def action_open_global_settings(self):
+        return self._action_open_config_menu_view("view_gl_cr_config_form", _("Einstellungen"))
+
+    def action_open_planning_overview(self):
+        self.ensure_one()
+        self._refresh_planning_overview()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Planungsübersicht Newsletter"),
+            "res_model": "gl.cleverreach.newsletter.job",
+            "view_mode": "list,form",
+            "domain": [("config_id", "=", self.id), ("planning_visible", "=", True)],
+            "context": {"default_config_id": self.id},
             "target": "current",
         }
 
     def action_refresh_previews(self):
+        for rec in self:
+            rec._refresh_planning_overview()
         return True
 
     @api.depends(
@@ -951,7 +1071,8 @@ class CleverReachNewsletterConfig(models.Model):
         self.ensure_one()
         try:
             if newsletter_type == "biweekly":
-                events, note = self._select_upcoming_events_for_biweekly()
+                reference_date = self._local_today()
+                events, note = self._select_upcoming_events_for_biweekly(reference_date=reference_date, exclude_event_ids=self._weekly_events_to_exclude_for_biweekly(reference_date))
                 if not events:
                     return self._info_preview_html(_("2-wöchiger Newsletter"), _("Aktuell wurden keine passenden kommenden Veranstaltungen gefunden. Es wird kein Newsletter erzeugt."))
                 return self._render_newsletter_html(_(BIWEEKLY_HEADING), events, note=note)
@@ -972,6 +1093,184 @@ class CleverReachNewsletterConfig(models.Model):
         except Exception as exc:
             return self._info_preview_html(_("Voransicht nicht verfügbar"), str(exc))
         return ""
+
+    def _planning_end_date(self):
+        self.ensure_one()
+        return self._local_today() + timedelta(days=PLANNING_HORIZON_DAYS)
+
+    def _planning_key(self, newsletter_type, local_date=False, suffix=False):
+        date_part = local_date.strftime("%Y-%m-%d") if local_date else "pending"
+        parts = [newsletter_type, date_part]
+        if suffix:
+            parts.append(str(suffix))
+        return ":".join(parts)
+
+    def _iter_planning_dates(self, start_due_date, interval_days, weekday, hour, minute):
+        self.ensure_one()
+        due = self._advance_due_date(start_due_date, interval_days, weekday, hour, minute)
+        end_date = self._planning_end_date()
+        while due <= end_date:
+            yield due
+            due = due + timedelta(days=max(1, int(interval_days or 1)))
+
+    def _weekly_events_to_exclude_for_biweekly(self, local_date):
+        self.ensure_one()
+        if not self.weekly_enabled:
+            return set()
+        week_start = local_date - timedelta(days=local_date.weekday())
+        weekly_date = week_start + timedelta(days=int(self.weekly_weekday or 2))
+        events, _period_key, _start, _end = self._select_events_for_this_week(reference_date=weekly_date)
+        return set(events.ids)
+
+    def _planned_job_values(self, newsletter_type, planning_key, scheduled_dt, name, subject, heading, events, note=False, content_key=False, queue_ids=False):
+        vals = {
+            "config_id": self.id,
+            "newsletter_type": newsletter_type,
+            "planning_key": planning_key,
+            "content_key": content_key or self._content_key(newsletter_type, events),
+            "name": name,
+            "subject": subject,
+            "heading": heading,
+            "scheduled_datetime": scheduled_dt,
+            "event_ids": [(6, 0, events.ids)],
+            "note": note or False,
+            "state": "ready",
+            "error_message": False,
+        }
+        if self.recipient_group_id:
+            vals["group_id"] = self.recipient_group_id.id
+        if queue_ids is not False:
+            vals["queue_ids"] = [(6, 0, queue_ids.ids)]
+        return vals
+
+    def _upsert_planned_newsletter(self, newsletter_type, local_date, name, subject, heading, events, note=False, content_key=False, queue_ids=False, planning_suffix=False):
+        self.ensure_one()
+        if not events:
+            return False
+        Job = self.env["gl.cleverreach.newsletter.job"].sudo()
+        if newsletter_type == "new_events" and planning_suffix == "pending":
+            planning_key = self._planning_key(newsletter_type, False, suffix="pending")
+        else:
+            planning_key = self._planning_key(newsletter_type, local_date, suffix=planning_suffix)
+        scheduled_dt = self._scheduled_utc_naive(local_date, self.biweekly_send_hour if newsletter_type == "biweekly" else self.weekly_send_hour if newsletter_type == "weekly_this_week" else self.default_send_hour, self.biweekly_send_minute if newsletter_type == "biweekly" else self.weekly_send_minute if newsletter_type == "weekly_this_week" else 0)
+        job = Job.search([
+            ("config_id", "=", self.id),
+            ("planning_key", "=", planning_key),
+            ("state", "in", ["draft", "ready", "scheduled", "error", "blocked"]),
+        ], order="scheduled_datetime desc, id desc", limit=1)
+        if not job and content_key:
+            job = Job.search([
+                ("config_id", "=", self.id),
+                ("newsletter_type", "=", newsletter_type),
+                ("content_key", "=", content_key),
+                ("state", "in", ["draft", "ready", "scheduled", "error", "blocked"]),
+            ], order="scheduled_datetime desc, id desc", limit=1)
+        vals = self._planned_job_values(newsletter_type, planning_key, scheduled_dt, name, subject, heading, events, note=note, content_key=content_key, queue_ids=queue_ids)
+        if job:
+            if job.state == "sent":
+                return job
+            # Automatic preview refresh may change event content. If a remote draft
+            # already exists, clear it so the next push/send uses the current HTML.
+            if job.cleverreach_mailing_id and not job.html_manually_edited:
+                vals.update({
+                    "cleverreach_mailing_id": False,
+                    "cleverreach_response": False,
+                    "state": "ready",
+                })
+            if not job.html_manually_edited:
+                vals["html_body"] = self._render_newsletter_html(heading, events, note=note or "")
+            else:
+                vals["error_message"] = _("HTML wurde manuell bearbeitet. Die tägliche Vorschau aktualisiert Termin und Event-Zuordnung, überschreibt aber den HTML-Code nicht.")
+            job.with_context(gl_auto_render=True).write(vals)
+            job._create_or_update_calendar_event()
+            return job
+        vals["html_body"] = self._render_newsletter_html(heading, events, note=note or "")
+        job = Job.with_context(gl_auto_render=True).create(vals)
+        job._create_or_update_calendar_event()
+        return job
+
+    def _refresh_planning_overview(self):
+        """Create/update editable preview jobs for the next three months.
+
+        The jobs are real Odoo-scheduled newsletter jobs in state 'ready', but they
+        are not pushed to CleverReach here. This keeps the Planungsübersicht
+        editable and avoids creating three months of remote CleverReach drafts.
+        """
+        self.ensure_one()
+        self._ensure_schedule_defaults()
+        created_or_updated = self.env["gl.cleverreach.newsletter.job"].sudo().browse([])
+        if self.weekly_enabled:
+            for local_date in self._iter_planning_dates(self.weekly_next_due_date, 7, self.weekly_weekday, self.weekly_send_hour, self.weekly_send_minute):
+                events, period_key, _start, _end = self._select_events_for_this_week(reference_date=local_date)
+                if not events:
+                    continue
+                content_key = self._content_key("weekly_this_week", events, period_key=period_key)
+                job = self._upsert_planned_newsletter(
+                    "weekly_this_week",
+                    local_date,
+                    _("Diese Woche bei Groundlift %s") % period_key,
+                    _(WEEKLY_HEADING),
+                    _(WEEKLY_HEADING),
+                    events,
+                    note=False,
+                    content_key=content_key,
+                    planning_suffix=period_key,
+                )
+                if job:
+                    created_or_updated |= job
+        if self.biweekly_enabled:
+            for local_date in self._iter_planning_dates(self.biweekly_next_due_date, 14, self.biweekly_weekday, self.biweekly_send_hour, self.biweekly_send_minute):
+                exclude_ids = self._weekly_events_to_exclude_for_biweekly(local_date)
+                events, note = self._select_upcoming_events_for_biweekly(reference_date=local_date, exclude_event_ids=exclude_ids)
+                if not events:
+                    continue
+                period_key = local_date.strftime("%Y-%m-%d")
+                content_key = self._content_key("biweekly", events, period_key=period_key)
+                job = self._upsert_planned_newsletter(
+                    "biweekly",
+                    local_date,
+                    _("2-wöchiger Newsletter %s") % local_date.strftime("%d.%m.%Y"),
+                    _("Unsere kommenden Veranstaltungen"),
+                    _(BIWEEKLY_HEADING),
+                    events,
+                    note=note or False,
+                    content_key=content_key,
+                    planning_suffix=period_key,
+                )
+                if job:
+                    created_or_updated |= job
+        queues = self.env["gl.cleverreach.event.queue"].sudo().search([
+            ("config_id", "=", self.id),
+            ("state", "=", "pending"),
+        ], order="announced_at asc, id asc")
+        events = queues.mapped("event_id").exists()
+        if events:
+            existing = self.env["gl.cleverreach.newsletter.job"].sudo().search([
+                ("config_id", "=", self.id),
+                ("planning_key", "=", self._planning_key("new_events", False, suffix="pending")),
+                ("state", "in", ["draft", "ready", "scheduled", "error", "blocked"]),
+            ], order="scheduled_datetime desc, id desc", limit=1)
+            if existing and existing.scheduled_datetime:
+                local_date = self._local_date_from_utc(existing.scheduled_datetime)
+            else:
+                next_dt = self._next_allowed_send_datetime("new_events")
+                local_date = self._local_date_from_utc(next_dt) or self._local_today()
+            content_key = self._content_key("new_events", events)
+            job = self._upsert_planned_newsletter(
+                "new_events",
+                local_date,
+                _("Neue Veranstaltungen %s") % local_date.strftime("%d.%m.%Y"),
+                _(NEW_EVENT_HEADING),
+                _(NEW_EVENT_HEADING),
+                events,
+                note=False,
+                content_key=content_key,
+                queue_ids=queues,
+                planning_suffix="pending",
+            )
+            if job:
+                created_or_updated |= job
+        return created_or_updated
 
     def _event_ids_key(self, events):
         ids = sorted([int(x) for x in events.ids]) if events else []
@@ -1070,7 +1369,7 @@ class CleverReachNewsletterConfig(models.Model):
             self.biweekly_next_due_date = due
             return False
         scheduled_dt = self._scheduled_utc_naive(due, self.biweekly_send_hour, self.biweekly_send_minute)
-        job = self._create_biweekly_newsletter(force=False, scheduled_dt=scheduled_dt)
+        job = self._create_biweekly_newsletter(force=False, scheduled_dt=scheduled_dt, due_date=due)
         self.biweekly_next_due_date = due + timedelta(days=14)
         return job
 
@@ -1088,14 +1387,16 @@ class CleverReachNewsletterConfig(models.Model):
         self.weekly_next_due_date = due + timedelta(days=7)
         return job
 
-    def _create_biweekly_newsletter(self, force=False, scheduled_dt=False):
+    def _create_biweekly_newsletter(self, force=False, scheduled_dt=False, due_date=False):
         self.ensure_one()
-        events, note = self._select_upcoming_events_for_biweekly()
+        reference_date = due_date or self._local_date_from_utc(scheduled_dt) or self._local_today()
+        exclude_ids = self._weekly_events_to_exclude_for_biweekly(reference_date)
+        events, note = self._select_upcoming_events_for_biweekly(reference_date=reference_date, exclude_event_ids=exclude_ids)
         if not events:
             if force:
                 raise UserError(_("Es wurden keine passenden kommenden Veranstaltungen gefunden. Der 2-wöchige Newsletter wurde nicht erzeugt."))
             return False
-        content_key = self._content_key("biweekly", events)
+        content_key = self._content_key("biweekly", events, period_key=(reference_date.strftime("%Y-%m-%d") if reference_date else None))
         if self._duplicate_content_job("biweekly", content_key):
             if force:
                 raise UserError(_("Dieser 2-wöchige Newsletter existiert mit identischem Veranstaltungsinhalt bereits. Es wurde kein Duplikat erzeugt."))
@@ -1140,13 +1441,21 @@ class CleverReachNewsletterConfig(models.Model):
         job.action_render_and_schedule()
         return job
 
-    def _select_upcoming_events_for_biweekly(self):
+    def _select_upcoming_events_for_biweekly(self, reference_date=False, exclude_event_ids=False):
         self.ensure_one()
         Event = self.env["event.event"].sudo()
         domain = self._base_event_domain()
+        reference_date = reference_date or self._local_today()
         if "date_begin" in Event._fields:
-            domain.append(("date_begin", ">=", fields.Datetime.now()))
-        candidates = Event.search(domain, order="date_begin asc, id asc", limit=40)
+            ref_start = datetime.combine(reference_date, time(0, 0), tzinfo=self._tz())
+            if reference_date <= self._local_today():
+                ref_start = max(ref_start, self._local_now())
+            start_utc, _dummy_end = self._local_range_to_utc_domain(ref_start, ref_start + timedelta(days=1))
+            domain.append(("date_begin", ">=", start_utc))
+        candidates = Event.search(domain, order="date_begin asc, id asc", limit=60)
+        exclude_ids = set(int(x) for x in (exclude_event_ids or []))
+        if exclude_ids:
+            candidates = candidates.filtered(lambda ev: ev.id not in exclude_ids)
         normal = Event.browse()
         tours = Event.browse()
         for ev in candidates:
@@ -1159,7 +1468,7 @@ class CleverReachNewsletterConfig(models.Model):
         if tours:
             selected_tour = sorted(tours, key=lambda e: (self._event_participant_count(e), e.date_begin or datetime.max))[0]
             if len(tours) > 1:
-                note = _("Wir freuen uns auf Ihren Besuch unserer anderen Führungen!")
+                note = _("Wir freuen uns auf Ihren Besuch unserer anderen Events und Führungen!")
         events = (normal | selected_tour).sorted(key=lambda e: (e.date_begin or datetime.max, e.id))[: max(1, int(self.max_upcoming_events or 7))]
         return events, note
 
@@ -1181,8 +1490,14 @@ class CleverReachNewsletterConfig(models.Model):
         today = reference_date or self._local_today()
         week_start = today - timedelta(days=today.weekday())
         week_end = week_start + timedelta(days=7)
-        now_local = self._local_now()
-        start_local = max(datetime.combine(week_start, time(0, 0), tzinfo=self._tz()), now_local)
+        week_start_local = datetime.combine(week_start, time(0, 0), tzinfo=self._tz())
+        if reference_date:
+            reference_start = datetime.combine(today, time(0, 0), tzinfo=self._tz())
+            if today <= self._local_today():
+                reference_start = max(reference_start, self._local_now())
+            start_local = max(week_start_local, reference_start)
+        else:
+            start_local = max(week_start_local, self._local_now())
         end_local = datetime.combine(week_end, time(0, 0), tzinfo=self._tz())
         start_utc, end_utc = self._local_range_to_utc_domain(start_local, end_local)
         domain = self._base_event_domain()
@@ -1244,13 +1559,16 @@ class CleverReachNewsletterConfig(models.Model):
 
     def _render_newsletter_html(self, heading, events, note=""):
         self.ensure_one()
-        template = self.newsletter_template_id or self.init_default_template()
+        template = self._ensure_standard_template_is_current(self.newsletter_template_id or self.init_default_template())
         html = template.get_html()
         events_block = self._render_events_block(events, note=note)
+        heading_safe = escape(heading or "")
+        intro_safe = escape(self._newsletter_intro(heading))
         html = html.replace(PLACEHOLDER_EVENTS, events_block)
-        html = html.replace(PLACEHOLDER_HEADING, escape(heading or ""))
-        html = html.replace(PLACEHOLDER_PREHEADER, escape(heading or ""))
-        html = html.replace("UNSERE KOMMENDEN VERANSTALTUNGEN", escape(heading or ""))
+        html = html.replace(PLACEHOLDER_HEADING, heading_safe)
+        html = html.replace(PLACEHOLDER_PREHEADER, escape(self._newsletter_intro(heading)))
+        html = html.replace(PLACEHOLDER_INTRO, intro_safe)
+        html = html.replace("UNSERE KOMMENDEN VERANSTALTUNGEN", heading_safe)
         return self._normalize_newsletter_html(html)
 
     def _normalize_newsletter_html(self, html):
@@ -1298,12 +1616,40 @@ class CleverReachNewsletterConfig(models.Model):
         html = html.replace("Ganz neu bei Groundlift", NEW_EVENT_HEADING)
         html = html.replace("Jetzt neu im Groundlift", NEW_EVENT_HEADING)
         html = html.replace("Jetzt neu bei Groundlift", NEW_EVENT_HEADING)
+        # Remove the small red hero eyebrow "Newsletter" from older stored
+        # standard templates. It should not appear above the main heading.
+        html = re.sub(
+            r'<div\s+class=("|\')red\s+gl-red\1[^>]*>\s*Newsletter\s*</div>',
+            '',
+            html,
+            flags=re.IGNORECASE,
+        )
+        if UNSUBSCRIBE_URL not in html:
+            html = self._append_unsubscribe_link(html)
         if "gl-cr-darkmode-lock" not in html:
             if "</head>" in html:
                 html = html.replace("</head>", DARKMODE_LOCK_CSS + "\n</head>", 1)
             else:
                 html = DARKMODE_LOCK_CSS + html
         return html
+
+    def _append_unsubscribe_link(self, html):
+        """Append a subtle but clear CleverReach unsubscribe link at the very bottom.
+
+        This is deliberately applied after rendering, so older stored standard
+        templates and future custom templates also receive the mandatory link
+        unless they already contain it.
+        """
+        link = escape(UNSUBSCRIBE_URL)
+        block = f'''
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1b1b1b" style="width:100%; background-color:#1b1b1b !important; color:#9f9f9f !important;">
+  <tr><td align="center" style="padding:0 24px 34px 24px; font-family:Verdana,Arial,sans-serif; font-size:10px; line-height:16px; color:#8e8e8e !important;">
+    <a href="{link}" target="_blank" style="color:#8e8e8e !important; text-decoration:underline; font-family:Verdana,Arial,sans-serif; font-size:10px; line-height:16px;">Newsletter abmelden</a>
+  </td></tr>
+</table>'''
+        if "</body>" in html:
+            return html.replace("</body>", block + "\n</body>", 1)
+        return html + block
 
     def _render_events_block(self, events, note=""):
         blocks = [self._render_event_block(event) for event in events]
@@ -1312,23 +1658,27 @@ class CleverReachNewsletterConfig(models.Model):
         return "".join(blocks)
 
     def _render_note_block(self, note):
-        return f'''<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #181513; padding: 0px 20px 30px 20px; border: 0px;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color: inherit; border: 0px;"><tbody><tr><td align="left" valign="top" style="font-family: 'Trebuchet MS', Helvetica, sans-serif !important; font-size: 12px; line-height: 150%; font-weight: normal; letter-spacing: 1px; color: #ffffff; padding: 0px;" class="cr-text"><div align="left"><p><span style="font-family: verdana, geneva, sans-serif; font-size: 12px;">{escape(note)}</span></p></div></td></tr></tbody></table></td></tr></tbody></table>'''
+        note = escape(note or "")
+        return f"""<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#121212" style="width:100%; background-color:#121212 !important; border:1px solid rgba(217,65,34,0.36); border-radius:18px; margin:0 0 22px 0;">
+  <tr><td style="padding:26px 28px; color:#f3f3f3 !important;"><div class="gl-red red" style="font-family:Verdana,Arial,sans-serif; font-size:12px; line-height:18px; color:#d94122 !important; font-weight:700; text-transform:uppercase; letter-spacing:1.8px; margin-bottom:10px;">Hinweis</div><p class="gl-muted muted" style="margin:0; font-family:Verdana,Arial,sans-serif; font-size:15px; line-height:27px; color:#cccccc !important;">{note}</p></td></tr>
+</table>"""
+
+    def _event_card_date_line(self, event):
+        line = self._event_date_line(event) or ""
+        line = re.sub(r"\s*\|\s*TICKETS ONLINE(?:\s|&nbsp;|<br>|&lt;br&gt;)*ODER AN DER ABENDKASSE\s*", "", line, flags=re.IGNORECASE)
+        return line.strip(" |") or _("Termin folgt")
 
     def _render_event_block(self, event):
         title = escape(event.name or "")
         img_url = escape(self._event_image_url(event))
         link = escape(self._event_link(event))
-        date_line = escape(self._event_date_line(event))
-        category = escape(self._event_category(event))
+        date_line = escape(self._event_card_date_line(event))
+        category = escape(self._event_category(event).title())
         teaser = escape(self._event_teaser(event))
-        return f'''<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #181513; padding:15px 0px 15px 0px; border:0px;" class="cr-container" data-name="Container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color:inherit; border:inherit;" data-name="Inner container"><tbody><tr><td align="center" valign="top" class="cr-image"><table cellpadding="0" cellspacing="0" style="width: 100%; border: 0px; padding: 0px; margin: 0px;"><tbody><tr><td align="center" style="text-align: center;"><a href="{link}" target="_blank" style="color: #d94122; text-decoration: underline; pointer-events: auto" title="{title}" rel="noopener"><img src="{img_url}" alt="{title}" style="border: 0px; margin: 0px; padding: 0px; display: inline; width: 414px; height: auto;" width="414" /></a></td></tr></tbody></table></td></tr></tbody></table></td></tr></tbody></table>
-<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #d94122;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px;"><tbody><tr><td style="line-height: 0; font-size: 0px; height: 2px;" height="2"></td></tr></tbody></table></td></tr></tbody></table>
-<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #181513; padding: 0px 20px 0px 20px; border: 0px;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color: inherit; border: 0px;"><tbody><tr><td align="left" valign="top" style="font-family: 'Trebuchet MS', Helvetica, sans-serif !important; font-size: 11px; line-height: 126%; font-weight: normal; letter-spacing: 1px; color: #ffffff; padding: 0px;" class="cr-text"><div align="left"><h1 style="color: #d94122;"><span style="font-family: verdana, geneva, sans-serif;"><span style="color: #ffffff; font-size: 12px;">{date_line}</span><span style="font-size: 18px;"><strong><br></strong></span></span></h1></div></td></tr></tbody></table></td></tr></tbody></table>
-<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #d94122;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px;"><tbody><tr><td style="line-height: 0; font-size: 0px; height: 2px;" height="2"></td></tr></tbody></table></td></tr></tbody></table>
-<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #181513; padding: 10px 20px; border: 0px;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color: inherit; border: 0px;"><tbody><tr><td align="left" valign="top" style="font-family: 'Trebuchet MS', Helvetica, sans-serif !important; font-size: 11px; line-height: 126%; font-weight: normal; letter-spacing: 1px; color: #ffffff; padding: 0px;" class="cr-text"><div align="left"><h2 style="color: #d94122;"><span style="font-family: verdana, geneva, sans-serif;"><span style="font-size: 18px;">{title}</span></span></h2></div></td></tr></tbody></table></td></tr></tbody></table>
-<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #181513; padding: 0px 20px 10px 20px; border: 0px;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color: inherit; border: 0px;"><tbody><tr><td align="left" valign="top" style="font-family: 'Trebuchet MS', Helvetica, sans-serif !important; font-size: 11px; line-height: 126%; font-weight: normal; letter-spacing: 1px; color: #ffffff; padding: 0px;" class="cr-text"><div align="left"><p><span style="font-family: verdana, geneva, sans-serif; font-size: 12px; color: #ffffff;">— {category}</span><br><br><span style="font-family: verdana, geneva, sans-serif; font-size: 12px; color: #ffffff;">{teaser}</span></p></div></td></tr></tbody></table></td></tr></tbody></table>
-<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color:#181513;border:0px;padding: 10px 20px 20px 20px;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color: #181513; border: inherit;"><tbody><tr><td align="center" valign="top" class="cr-button"><table align="left" border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:separate;line-height:100%;" class="cred-button"><tbody><tr><td align="center" bgcolor="#d94122" role="presentation" style="border:0px none #ffffff;border-radius:1px;cursor:auto;padding:15px 20px;background:#d94122;" valign="middle"><a href="{link}" style="display:inline-block;background:#d94122;color:#ffffff;font-family:'Trebuchet MS', Helvetica, sans-serif;font-size:14px;font-weight:700;line-height:120%;margin:0;text-decoration:none;text-transform:none;mso-padding-alt:0px;border-radius:1px;" target="_blank" title="{title}">MEHR INFOS</a></td></tr></tbody></table></td></tr></tbody></table></td></tr></tbody></table>
-<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #000000;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px;"><tbody><tr><td style="line-height: 0; font-size: 0; height: 40px;" height="40"></td></tr></tbody></table></td></tr></tbody></table>'''
+        return f"""<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#101010" class="card-gradient gl-card" style="width:100%; background-color:#101010 !important; background-image:linear-gradient(145deg,#151515 0%,#070707 100%) !important; border:1px solid rgba(255,255,255,0.08); border-radius:22px; overflow:hidden; box-shadow:0 18px 60px rgba(0,0,0,0.45); margin:0 0 26px 0; color:#f3f3f3 !important;">
+  <tr><td style="padding:0; background-color:#101010 !important;"><a href="{link}" target="_blank" style="display:block; color:#d94122 !important; text-decoration:none;"><img class="hero-img" src="{img_url}" width="680" alt="{title}" style="width:100%; max-width:680px; height:auto; display:block; border:0; color:#ffffff; font-family:Verdana,Arial,sans-serif; font-size:18px; background-color:#101010;"></a></td></tr>
+  <tr><td class="px gl-card" style="padding:34px 36px 28px 36px; background-color:#101010 !important; color:#f3f3f3 !important;"><div class="white" style="font-family:Verdana,Arial,sans-serif; font-size:13px; line-height:20px; color:#ffffff !important; font-weight:700; text-transform:uppercase; letter-spacing:1.4px;">{date_line}</div><h2 class="text gl-text" style="margin:14px 0 12px 0; font-family:Verdana,Arial,sans-serif; font-size:34px; line-height:40px; font-weight:700; text-transform:uppercase; letter-spacing:1.4px; color:#ffffff !important;">{title}</h2><div class="red gl-red" style="font-family:Verdana,Arial,sans-serif; font-size:13px; line-height:21px; color:#d94122 !important; font-weight:700; text-transform:uppercase; letter-spacing:1.3px; margin-bottom:18px;">{category}</div><p class="muted gl-muted" style="margin:0 0 24px 0; font-family:Verdana,Arial,sans-serif; font-size:15px; line-height:27px; color:#cccccc !important;">{teaser}</p><table role="presentation" cellpadding="0" cellspacing="0" border="0" class="mobile-full"><tr><td bgcolor="#d94122" class="btn gl-btn" style="background-color:#d94122 !important; border-radius:999px;"><a href="{link}" target="_blank" style="display:inline-block; padding:15px 24px; font-family:Verdana,Arial,sans-serif; font-size:13px; line-height:18px; font-weight:700; color:#ffffff !important; background-color:#d94122 !important; text-transform:uppercase; letter-spacing:1.1px; border-radius:999px; text-decoration:none;">Tickets & Infos</a></td></tr></table></td></tr>
+</table>"""
 
     def _base_url(self):
         return (self.public_base_url or self.env["ir.config_parameter"].sudo().get_param("web.base.url") or "").rstrip("/")
@@ -1638,7 +1988,7 @@ class CleverReachNewsletterConfig(models.Model):
             </td></tr>
           </table>
         </td></tr>
-        <tr><td class="px gl-single-bg" style="padding:18px 34px 40px 34px; background-color:#1b1b1b !important; color:#cccccc !important; text-align:center;"><div class="gl-muted" style="font-family:Verdana,Arial,sans-serif; font-size:11px; line-height:18px; color:#cccccc !important;">Groundlift Creative World · Alte Brauerei Stegen am Ammersee</div></td></tr>
+        <tr><td class="px gl-single-bg" style="padding:18px 34px 40px 34px; background-color:#1b1b1b !important; color:#cccccc !important; text-align:center;"><div class="gl-muted" style="font-family:Verdana,Arial,sans-serif; font-size:11px; line-height:18px; color:#cccccc !important;">DIE EVENTLOCATION IN DER ALTEN BRAUEREI STEGEN AM AMMERSEE</div></td></tr>
       </table>
     </td></tr>
   </table>
@@ -1674,7 +2024,10 @@ class CleverReachNewsletterJob(models.Model):
     subject = fields.Char(required=True)
     heading = fields.Char(required=True)
     content_key = fields.Char(string="Duplikat-Schlüssel", index=True, copy=False, readonly=True)
+    planning_key = fields.Char(string="Planungsschlüssel", index=True, copy=False, readonly=True)
     html_body = fields.Text(string="HTML")
+    html_manually_edited = fields.Boolean(string="HTML manuell bearbeitet", copy=False, readonly=True)
+    planning_visible = fields.Boolean(string="In Planungsübersicht", compute="_compute_planning_visible", search="_search_planning_visible")
     scheduled_datetime = fields.Datetime(index=True)
     sent_datetime = fields.Datetime(string="Tatsächlich versendet am", readonly=True, copy=False)
     group_id = fields.Many2one("gl.cleverreach.group", string="Empfängerliste")
@@ -1685,6 +2038,74 @@ class CleverReachNewsletterJob(models.Model):
     cleverreach_response = fields.Text(readonly=True, copy=False)
     error_message = fields.Text(copy=False)
     calendar_event_id = fields.Many2one("calendar.event", readonly=True, copy=False, ondelete="set null")
+
+    @api.depends("scheduled_datetime", "state")
+    def _compute_planning_visible(self):
+        now = fields.Datetime.to_datetime(fields.Datetime.now())
+        end = now + timedelta(days=PLANNING_HORIZON_DAYS)
+        for job in self:
+            scheduled = fields.Datetime.to_datetime(job.scheduled_datetime)
+            job.planning_visible = bool(
+                scheduled
+                and now <= scheduled <= end
+                and job.state in ("draft", "ready", "scheduled", "error")
+            )
+
+    def _search_planning_visible(self, operator, value):
+        now = fields.Datetime.to_datetime(fields.Datetime.now())
+        end = now + timedelta(days=PLANNING_HORIZON_DAYS)
+        positive = (operator in ("=", "==") and bool(value)) or (operator in ("!=", "<>") and not bool(value))
+        if positive:
+            return [
+                ("scheduled_datetime", "!=", False),
+                ("scheduled_datetime", ">=", now),
+                ("scheduled_datetime", "<=", end),
+                ("state", "in", ["draft", "ready", "scheduled", "error"]),
+            ]
+        return ["|", "|", "|",
+            ("scheduled_datetime", "=", False),
+            ("scheduled_datetime", "<", now),
+            ("scheduled_datetime", ">", end),
+            ("state", "not in", ["draft", "ready", "scheduled", "error"]),
+        ]
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        return super().create(vals_list)
+
+    def write(self, vals):
+        vals = dict(vals or {})
+        manual_html_change = "html_body" in vals and not self.env.context.get("gl_auto_render")
+        if manual_html_change:
+            vals.setdefault("html_manually_edited", True)
+            if any(job.cleverreach_mailing_id and job.state != "sent" for job in self):
+                vals.setdefault("cleverreach_mailing_id", False)
+                vals.setdefault("cleverreach_response", False)
+                vals.setdefault("state", "ready")
+        return super().write(vals)
+
+    def action_open_html_editor(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("HTML bearbeiten"),
+            "res_model": "gl.cleverreach.newsletter.job",
+            "res_id": self.id,
+            "view_mode": "form",
+            "target": "current",
+        }
+
+    def action_reset_manual_html(self):
+        for job in self:
+            html = job.config_id._render_newsletter_html(job.heading, job.event_ids, note=job.note or "")
+            job.with_context(gl_auto_render=True).write({
+                "html_body": html,
+                "html_manually_edited": False,
+                "cleverreach_mailing_id": False,
+                "cleverreach_response": False,
+                "state": "ready" if job.state != "sent" else job.state,
+            })
+        return True
 
     def action_render_and_schedule(self):
         for job in self:
@@ -1698,14 +2119,17 @@ class CleverReachNewsletterJob(models.Model):
             scheduled_dt = job.scheduled_datetime or config._next_allowed_send_datetime(job.newsletter_type)
             vals = {
                 "html_body": html,
+                "html_manually_edited": False,
                 "scheduled_datetime": scheduled_dt,
                 "group_id": config.recipient_group_id.id,
                 "state": "ready",
                 "error_message": False,
+                "cleverreach_mailing_id": False,
+                "cleverreach_response": False,
             }
             if not job.content_key and job.newsletter_type != "single_event":
                 vals["content_key"] = config._content_key(job.newsletter_type, job.event_ids)
-            job.write(vals)
+            job.with_context(gl_auto_render=True).write(vals)
             job._create_or_update_calendar_event()
             if config.auto_push_to_cleverreach:
                 job.action_push_to_cleverreach()
@@ -1782,7 +2206,7 @@ class CleverReachNewsletterJob(models.Model):
         if not self.content_key and self.newsletter_type != "single_event":
             vals["content_key"] = config._content_key(self.newsletter_type, self.event_ids)
         if vals:
-            self.write(vals)
+            self.with_context(gl_auto_render=True).write(vals)
         return True
 
     def _ensure_cleverreach_mailing(self):

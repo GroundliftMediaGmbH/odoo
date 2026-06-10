@@ -1,5 +1,18 @@
 # Technische Hinweise
 
+## Version 19.0.1.4.2 – Template-Vereinheitlichung wie `preview(2).html`
+
+Relevante Methoden:
+
+```python
+CleverReachNewsletterConfig._render_newsletter_html()
+CleverReachNewsletterConfig._render_event_block()
+CleverReachNewsletterConfig._render_note_block()
+CleverReachNewsletterConfig._ensure_standard_template_is_current()
+```
+
+Die automatischen Newsletter-Arten `biweekly`, `weekly_this_week` und `new_events` laufen weiterhin über denselben Renderpfad. Die visuelle Änderung sitzt deshalb zentral in der Standardvorlage und im Eventkarten-Renderer. Die neue Vorlage enthält die Markierung `gl-dynamic-newsletter-template-v2`, damit bestehende alte Standardvorlagen beim Rendern aktualisiert werden können, ohne anders benannte eigene Vorlagen zu überschreiben.
+
 ## Datenmodelle
 
 - `gl.cleverreach.newsletter.config`: globale Konfiguration und API-Zugang.
@@ -141,6 +154,11 @@ Neuer Cron:
 
 
 
-## Änderung in Version 19.0.1.4.2 – Odoo-19-Search-View-Fix
 
-Die separate Suchansicht der Newsletter-Planungsübersicht wurde entfernt, weil Odoo 19 SH die Definition mit gruppierter Datumsaggregation in einigen Builds als ungültige Search View verwirft. Die Planungsübersicht nutzt nun direkt eine sichere Action-Domain für nicht versendete Newsletter. Dadurch kann das Modul wieder sauber aktualisiert werden und die neuen Reiter/Planungslogiken werden geladen.
+## Version 19.0.1.4.7 – Claim unter dem Logo
+
+Die Standardvorlage verwendet nun die Markierung `gl-dynamic-newsletter-template-v4`. Dadurch werden bestehende gespeicherte Standardvorlagen beim nächsten Rendern mit dem neuen Claim unter dem Logo aktualisiert.
+
+## Version 19.0.1.4.6 – finales Newsletter-HTML
+
+Die Methode `CleverReachNewsletterConfig._normalize_newsletter_html()` entfernt das Hero-Eyebrow „Newsletter“ aus älteren gespeicherten Vorlagen und ergänzt über `_append_unsubscribe_link()` einen dezenten Abmeldelink am Ende des Newsletters, falls die CleverReach-Abmelde-URL noch nicht im HTML enthalten ist. Die Standardvorlage trägt nun die Markierung `gl-dynamic-newsletter-template-v3`, damit bestehende `Groundlift Standardvorlage`-Datensätze nach dem Update sauber aktualisiert werden.

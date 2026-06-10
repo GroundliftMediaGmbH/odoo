@@ -17,6 +17,26 @@ Dieses Modul erzeugt aus Odoo-Veranstaltungen automatisch HTML-Newsletter für C
 10. Jeder geplante Newsletter wird zusätzlich als `calendar.event` in Odoo eingetragen.
 
 
+
+## Änderung in Version 19.0.1.4.7 – Claim unter dem Logo
+
+- Der rote Claim direkt unter dem Groundlift-Logo lautet nun: **DIE EVENTLOCATION IN DER ALTEN BRAUEREI STEGEN AM AMMERSEE**.
+- Bestehende gespeicherte Standardvorlagen werden beim Rendern auf die neue Version aktualisiert.
+
+## Änderung in Version 19.0.1.4.6 – Newsletter-Kopf und Abmeldelink
+
+- Die rote Beschriftung **„Newsletter“** direkt über der großen Überschrift wurde aus der Groundlift-Standardvorlage entfernt.
+- Der finale Renderer entfernt diese Beschriftung zusätzlich aus älteren, bereits in Odoo gespeicherten Standardvorlagen.
+- Am unteren Ende jedes gerenderten Newsletters wird ein dezenter, aber eindeutiger Link **„Newsletter abmelden“** mit der CleverReach-Abmelde-URL eingefügt, sofern die URL nicht bereits in der Vorlage vorhanden ist.
+
+## Änderung in Version 19.0.1.4.2 – einheitliche Groundlift-Optik für automatische Newsletter
+
+- Der 2-wöchige Newsletter, „Diese Woche bei Groundlift“ und spontane Newsletter verwenden nun dieselbe moderne Groundlift-HTML-Vorlage im Stil von `preview(2).html`.
+- Die Standardvorlage liegt als `static/description/default_template.html` im Modul und bleibt über **CleverReach Newsletter → Newsletter-Vorlagen** austauschbar.
+- Die Vorlage unterstützt weiterhin `{{EVENTS_BLOCK}}`, `{{NEWSLETTER_HEADING}}` und `{{PREHEADER}}`; zusätzlich kann `{{NEWSLETTER_INTRO}}` verwendet werden.
+- Eventkarten werden zentral in `_render_event_block()` im neuen dunklen Kartenlayout mit fixierten Farben gerendert, damit mobile Dark-/Light-Mode-Autokorrekturen die Farben nicht umdrehen.
+- Bestehende Datensätze der Vorlage **Groundlift Standardvorlage** werden beim Rendern automatisch auf die neue Standardvorlage aktualisiert, solange sie noch nicht die neue v2-Markierung enthalten. Eigene Vorlagen mit anderem Namen werden nicht überschrieben.
+
 ## Änderung in Version 19.0.1.2.3 – Sofortversand aus „Angekündigte Events"
 
 Im Formular eines Eintrags unter **CleverReach Newsletter → Angekündigte Events** gibt es jetzt den Button **Sofort senden**. Der Button erzeugt für genau diesen Queue-Eintrag beziehungsweise dieses Event einen `new_events`-Newsletter mit der Überschrift **Jetzt neu bei Groundlift**, rendert den Newsletter, bereitet ihn bei CleverReach vor und released ihn sofort. Bei erfolgreichem Versand wird der Queue-Eintrag auf **Verwendet** gesetzt und mit dem erzeugten Newsletter-Auftrag verknüpft.
@@ -171,7 +191,18 @@ Zusätzlich wurde ein Duplikatschutz ergänzt:
 - Der 2-wöchige Newsletter wird nicht erneut gesendet, wenn sich der Veranstaltungsinhalt gegenüber einem bereits geplanten oder versendeten Newsletter nicht geändert hat.
 
 
+## Änderung in Version 19.0.1.4.4 – Planungsübersicht, tägliche Vorschau und HTML-Bearbeitung
 
-## Änderung in Version 19.0.1.4.2 – Odoo-19-Search-View-Fix
+- Die Planungsübersicht zeigt nur noch Newsletter mit geplantem Versandtermin innerhalb der kommenden 3 Monate.
+- Beim Öffnen der Planungsübersicht und zusätzlich täglich per Cron wird die Vorschauplanung für die kommenden Newsletter aktualisiert.
+- Neue angekündigte Veranstaltungen aktualisieren die Planung sofort, sobald sie in die Warteschlange aufgenommen werden.
+- Wenn ein 2-wöchiger Newsletter und „Diese Woche bei Groundlift“ in derselben Kalenderwoche geplant sind, werden die Veranstaltungen aus „Diese Woche bei Groundlift“ aus dem 2-wöchigen Newsletter entfernt.
+- Jeder geplante Newsletter kann in der Planungsübersicht über „HTML editieren“ im Quelltext angepasst werden. Manuell bearbeitetes HTML wird durch die tägliche Vorschauaktualisierung nicht überschrieben.
 
-Die separate Suchansicht der Newsletter-Planungsübersicht wurde entfernt, weil Odoo 19 SH die Definition mit gruppierter Datumsaggregation in einigen Builds als ungültige Search View verwirft. Die Planungsübersicht nutzt nun direkt eine sichere Action-Domain für nicht versendete Newsletter. Dadurch kann das Modul wieder sauber aktualisiert werden und die neuen Reiter/Planungslogiken werden geladen.
+
+## Änderung in Version 19.0.1.4.5 – Menüstruktur der Benutzeroberfläche
+
+- Die bisherigen Konfigurations-Reiter für den 2-wöchigen Newsletter, „Diese Woche bei Groundlift“, spontane Newsletter und Einstellungen sind als eigene Einträge in die obere Menüleiste gewandert.
+- Die technischen CleverReach-Aktionen Verbindung testen, Benutzer autorisieren, Listen importieren und Planungsübersicht öffnen liegen nun im Menüpunkt „Einstellungen“.
+- Der Header-Button „Manueller Konzert-Newsletter“ wurde aus der Einstellungs-Zwischenleiste entfernt; der Wizard bleibt über die Menüleiste erreichbar.
+- Die Newsletter-Funktionalität wurde nicht verändert.

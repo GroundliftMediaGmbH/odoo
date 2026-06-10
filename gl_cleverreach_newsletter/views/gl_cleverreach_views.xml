@@ -17,17 +17,10 @@
     </record>
 
     <record id="view_gl_cr_config_form" model="ir.ui.view">
-        <field name="name">gl.cleverreach.newsletter.config.form</field>
+        <field name="name">gl.cleverreach.newsletter.config.form.settings</field>
         <field name="model">gl.cleverreach.newsletter.config</field>
         <field name="arch" type="xml">
-            <form string="CleverReach Newsletter-Konfiguration">
-                <header>
-                    <button name="action_test_connection" type="object" string="Verbindung testen" class="btn-secondary"/>
-                    <button name="action_open_oauth_authorization" type="object" string="CleverReach-Benutzer autorisieren" class="btn-primary"/>
-                    <button name="action_sync_groups" type="object" string="Listen importieren" class="btn-secondary"/>
-                    <button name="action_open_planning_overview" type="object" string="Planungsübersicht öffnen" class="btn-primary"/>
-                    <button name="action_open_single_event_newsletter_wizard" type="object" string="Manueller Konzert-Newsletter" class="btn-secondary"/>
-                </header>
+            <form string="CleverReach Einstellungen">
                 <sheet>
                     <group string="Grunddaten">
                         <group>
@@ -42,138 +35,179 @@
                         </group>
                     </group>
 
-                    <notebook>
-                        <page string="2-wöchiger Newsletter">
-                            <group>
-                                <group string="Sendeplan">
-                                    <field name="biweekly_enabled"/>
-                                    <field name="biweekly_weekday"/>
-                                    <field name="biweekly_send_hour"/>
-                                    <field name="biweekly_send_minute"/>
-                                    <field name="biweekly_next_due_date"/>
-                                    <field name="max_upcoming_events"/>
-                                </group>
-                                <group string="Aktionen">
-                                    <button name="action_run_biweekly_now" type="object" string="Newsletter jetzt erzeugen" class="btn-primary"/>
-                                    <button name="action_refresh_previews" type="object" string="Voransicht aktualisieren" class="btn-secondary"/>
-                                </group>
-                            </group>
-                            <field name="biweekly_preview_html" nolabel="1" readonly="1" widget="html"/>
-                        </page>
+                    <group string="Aktionen">
+                        <button name="action_test_connection" type="object" string="Verbindung testen" class="btn-secondary"/>
+                        <button name="action_open_oauth_authorization" type="object" string="CleverReach-Benutzer autorisieren" class="btn-primary"/>
+                        <button name="action_sync_groups" type="object" string="Listen importieren" class="btn-secondary"/>
+                        <button name="action_open_planning_overview" type="object" string="Planungsübersicht öffnen" class="btn-primary"/>
+                    </group>
 
-                        <page string="Diese Woche bei Groundlift">
-                            <group>
-                                <group string="Sendeplan">
-                                    <field name="weekly_enabled"/>
-                                    <field name="weekly_weekday"/>
-                                    <field name="weekly_send_hour"/>
-                                    <field name="weekly_send_minute"/>
-                                    <field name="weekly_next_due_date"/>
-                                </group>
-                                <group string="Aktionen">
-                                    <button name="action_run_weekly_now" type="object" string="Newsletter jetzt erzeugen" class="btn-primary"/>
-                                    <button name="action_refresh_previews" type="object" string="Voransicht aktualisieren" class="btn-secondary"/>
-                                </group>
-                            </group>
-                            <field name="weekly_preview_html" nolabel="1" readonly="1" widget="html"/>
-                        </page>
+                    <group string="CleverReach API">
+                        <group>
+                            <field name="client_id"/>
+                            <field name="client_secret" password="True"/>
+                            <field name="api_base_url"/>
+                            <field name="oauth_token_url"/>
+                            <field name="oauth_authorize_url"/>
+                            <field name="oauth_redirect_uri"/>
+                            <field name="oauth_authorization_code" password="True"/>
+                            <button name="action_exchange_oauth_code" type="object" string="OAuth-Code einlösen" class="btn-secondary"/>
+                        </group>
+                        <group>
+                            <field name="token_valid_until" readonly="1"/>
+                            <field name="oauth_refresh_token" readonly="1" password="True"/>
+                            <field name="oauth_scope" readonly="1"/>
+                            <field name="last_api_message" readonly="1" nolabel="1"/>
+                        </group>
+                    </group>
 
-                        <page string="Spontane Newsletter">
-                            <group>
-                                <group string="Logik">
-                                    <field name="announced_stage_name"/>
-                                    <field name="create_time_hour"/>
-                                    <field name="default_send_hour"/>
-                                    <field name="min_days_between_new_event_newsletters"/>
-                                </group>
-                                <group string="Aktionen">
-                                    <button name="action_run_announced_now" type="object" string="Neue Events jetzt prüfen" class="btn-primary"/>
-                                    <button name="action_refresh_previews" type="object" string="Voransicht aktualisieren" class="btn-secondary"/>
-                                </group>
-                            </group>
-                            <field name="spontaneous_preview_html" nolabel="1" readonly="1" widget="html"/>
-                            <separator string="Warteschlange"/>
-                            <field name="queue_ids" nolabel="1" readonly="1">
-                                <list string="Spontane Event-Warteschlange" create="0" edit="0" delete="0">
-                                    <field name="announced_date"/>
-                                    <field name="event_id"/>
-                                    <field name="state"/>
-                                    <field name="newsletter_id"/>
-                                    <button name="action_send_now" type="object" string="Sofort senden" class="btn-primary"/>
-                                </list>
-                            </field>
-                        </page>
+                    <group string="ChatGPT API">
+                        <group>
+                            <field name="openai_api_key" password="True"/>
+                            <field name="openai_model"/>
+                            <field name="openai_api_url"/>
+                        </group>
+                    </group>
 
-                        <page string="Planungsübersicht">
-                            <p class="text-muted">Alle geplanten, vorbereiteten oder noch nicht versendeten Newsletter. Über „Voransicht“ wird das gerenderte HTML in einem neuen Tab geöffnet.</p>
-                            <field name="job_ids" nolabel="1">
-                                <list string="Kommende Newsletter" default_order="scheduled_datetime asc" create="0" delete="0">
-                                    <field name="scheduled_datetime"/>
-                                    <field name="newsletter_type"/>
-                                    <field name="name"/>
-                                    <field name="subject"/>
-                                    <field name="state"/>
-                                    <field name="group_id"/>
-                                    <button name="action_preview" type="object" string="Voransicht" class="btn-secondary"/>
-                                    <button name="action_send_now" type="object" string="Sofort senden" class="btn-primary" invisible="state == 'sent'"/>
-                                </list>
-                            </field>
-                        </page>
+                    <group string="Event-Felder">
+                        <group>
+                            <field name="public_base_url"/>
+                            <field name="image_field_name"/>
+                            <field name="short_description_field_names"/>
+                            <field name="ticket_url_field_names"/>
+                        </group>
+                        <group string="Absender / Watchdog">
+                            <field name="sender_name"/>
+                            <field name="sender_email"/>
+                            <field name="reply_to"/>
+                            <field name="remote_watchdog_active"/>
+                            <field name="min_days_between_any_newsletters"/>
+                            <field name="last_watchdog_run" readonly="1"/>
+                        </group>
+                    </group>
 
-                        <page string="Einstellungen">
-                            <group string="CleverReach API">
-                                <group>
-                                    <field name="client_id"/>
-                                    <field name="client_secret" password="True"/>
-                                    <field name="api_base_url"/>
-                                    <field name="oauth_token_url"/>
-                                    <field name="oauth_authorize_url"/>
-                                    <field name="oauth_redirect_uri"/>
-                                    <field name="oauth_authorization_code" password="True"/>
-                                    <button name="action_exchange_oauth_code" type="object" string="OAuth-Code einlösen" class="btn-secondary"/>
-                                </group>
-                                <group>
-                                    <field name="token_valid_until" readonly="1"/>
-                                    <field name="oauth_refresh_token" readonly="1" password="True"/>
-                                    <field name="oauth_scope" readonly="1"/>
-                                    <field name="last_api_message" readonly="1" nolabel="1"/>
-                                </group>
-                            </group>
-                            <group string="ChatGPT API">
-                                <group>
-                                    <field name="openai_api_key" password="True"/>
-                                    <field name="openai_model"/>
-                                    <field name="openai_api_url"/>
-                                </group>
-                            </group>
-                            <group string="Event-Felder">
-                                <group>
-                                    <field name="public_base_url"/>
-                                    <field name="image_field_name"/>
-                                    <field name="short_description_field_names"/>
-                                    <field name="ticket_url_field_names"/>
-                                </group>
-                                <group string="Absender / Watchdog">
-                                    <field name="sender_name"/>
-                                    <field name="sender_email"/>
-                                    <field name="reply_to"/>
-                                    <field name="remote_watchdog_active"/>
-                                    <field name="min_days_between_any_newsletters"/>
-                                    <field name="last_watchdog_run" readonly="1"/>
-                                </group>
-                            </group>
-                            <separator string="Importierte CleverReach-Listen"/>
-                            <field name="group_ids">
-                                <list editable="bottom">
-                                    <field name="name"/>
-                                    <field name="external_id"/>
-                                    <field name="receiver_count"/>
-                                    <field name="active"/>
-                                    <field name="last_sync"/>
-                                </list>
-                            </field>
-                        </page>
-                    </notebook>
+                    <separator string="Importierte CleverReach-Listen"/>
+                    <field name="group_ids">
+                        <list editable="bottom">
+                            <field name="name"/>
+                            <field name="external_id"/>
+                            <field name="receiver_count"/>
+                            <field name="active"/>
+                            <field name="last_sync"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_gl_cr_config_biweekly_form" model="ir.ui.view">
+        <field name="name">gl.cleverreach.newsletter.config.form.biweekly</field>
+        <field name="model">gl.cleverreach.newsletter.config</field>
+        <field name="arch" type="xml">
+            <form string="2-wöchiger Newsletter">
+                <sheet>
+                    <group string="Grunddaten">
+                        <group>
+                            <field name="name"/>
+                            <field name="active"/>
+                            <field name="recipient_group_id" domain="[('config_id', '=', id)]"/>
+                            <field name="newsletter_template_id"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Sendeplan">
+                            <field name="biweekly_enabled"/>
+                            <field name="biweekly_weekday"/>
+                            <field name="biweekly_send_hour"/>
+                            <field name="biweekly_send_minute"/>
+                            <field name="biweekly_next_due_date"/>
+                            <field name="max_upcoming_events"/>
+                        </group>
+                        <group string="Aktionen">
+                            <button name="action_run_biweekly_now" type="object" string="Newsletter jetzt erzeugen" class="btn-primary"/>
+                            <button name="action_refresh_previews" type="object" string="Voransicht aktualisieren" class="btn-secondary"/>
+                        </group>
+                    </group>
+                    <separator string="Voransicht"/>
+                    <field name="biweekly_preview_html" nolabel="1" readonly="1" widget="html"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_gl_cr_config_weekly_form" model="ir.ui.view">
+        <field name="name">gl.cleverreach.newsletter.config.form.weekly</field>
+        <field name="model">gl.cleverreach.newsletter.config</field>
+        <field name="arch" type="xml">
+            <form string="Diese Woche bei Groundlift">
+                <sheet>
+                    <group string="Grunddaten">
+                        <group>
+                            <field name="name"/>
+                            <field name="active"/>
+                            <field name="recipient_group_id" domain="[('config_id', '=', id)]"/>
+                            <field name="newsletter_template_id"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Sendeplan">
+                            <field name="weekly_enabled"/>
+                            <field name="weekly_weekday"/>
+                            <field name="weekly_send_hour"/>
+                            <field name="weekly_send_minute"/>
+                            <field name="weekly_next_due_date"/>
+                        </group>
+                        <group string="Aktionen">
+                            <button name="action_run_weekly_now" type="object" string="Newsletter jetzt erzeugen" class="btn-primary"/>
+                            <button name="action_refresh_previews" type="object" string="Voransicht aktualisieren" class="btn-secondary"/>
+                        </group>
+                    </group>
+                    <separator string="Voransicht"/>
+                    <field name="weekly_preview_html" nolabel="1" readonly="1" widget="html"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_gl_cr_config_spontaneous_form" model="ir.ui.view">
+        <field name="name">gl.cleverreach.newsletter.config.form.spontaneous</field>
+        <field name="model">gl.cleverreach.newsletter.config</field>
+        <field name="arch" type="xml">
+            <form string="Spontane Newsletter">
+                <sheet>
+                    <group string="Grunddaten">
+                        <group>
+                            <field name="name"/>
+                            <field name="active"/>
+                            <field name="recipient_group_id" domain="[('config_id', '=', id)]"/>
+                            <field name="newsletter_template_id"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Logik">
+                            <field name="announced_stage_name"/>
+                            <field name="create_time_hour"/>
+                            <field name="default_send_hour"/>
+                            <field name="min_days_between_new_event_newsletters"/>
+                        </group>
+                        <group string="Aktionen">
+                            <button name="action_run_announced_now" type="object" string="Neue Events jetzt prüfen" class="btn-primary"/>
+                            <button name="action_refresh_previews" type="object" string="Voransicht aktualisieren" class="btn-secondary"/>
+                        </group>
+                    </group>
+                    <separator string="Voransicht"/>
+                    <field name="spontaneous_preview_html" nolabel="1" readonly="1" widget="html"/>
+                    <separator string="Warteschlange"/>
+                    <field name="queue_ids" nolabel="1" readonly="1">
+                        <list string="Spontane Event-Warteschlange" create="0" edit="0" delete="0">
+                            <field name="announced_date"/>
+                            <field name="event_id"/>
+                            <field name="state"/>
+                            <field name="newsletter_id"/>
+                            <button name="action_send_now" type="object" string="Sofort senden" class="btn-primary"/>
+                        </list>
+                    </field>
                 </sheet>
             </form>
         </field>
@@ -268,7 +302,6 @@
         <field name="view_mode">list,form</field>
     </record>
 
-
     <record id="view_gl_cr_job_list" model="ir.ui.view">
         <field name="name">gl.cleverreach.newsletter.job.list</field>
         <field name="model">gl.cleverreach.newsletter.job</field>
@@ -281,7 +314,9 @@
                 <field name="state"/>
                 <field name="group_id"/>
                 <field name="cleverreach_mailing_id"/>
+                <field name="html_manually_edited"/>
                 <button name="action_preview" type="object" string="Voransicht" class="btn-secondary"/>
+                <button name="action_open_html_editor" type="object" string="HTML editieren" class="btn-secondary"/>
                 <button name="action_send_now" type="object" string="Sofort senden" class="btn-primary" invisible="state == 'sent'"/>
             </list>
         </field>
@@ -295,6 +330,7 @@
                 <header>
                     <button name="action_preview" type="object" string="Voransicht" class="btn-secondary"/>
                     <button name="action_render_and_schedule" type="object" string="Neu rendern &amp; planen" class="btn-secondary"/>
+                    <button name="action_reset_manual_html" type="object" string="Manuelle HTML-Änderung verwerfen" class="btn-secondary" invisible="not html_manually_edited"/>
                     <button name="action_push_to_cleverreach" type="object" string="An CleverReach vorbereiten" class="btn-secondary"/>
                     <button name="action_send_now" type="object" string="Sofort versenden" class="btn-primary" invisible="state == 'sent'"/>
                     <button name="action_open_calendar_event" type="object" string="Kalendereintrag öffnen" class="btn-secondary"/>
@@ -309,6 +345,8 @@
                             <field name="subject"/>
                             <field name="heading"/>
                             <field name="content_key" readonly="1"/>
+                            <field name="planning_key" readonly="1"/>
+                            <field name="html_manually_edited" readonly="1"/>
                         </group>
                         <group>
                             <field name="scheduled_datetime"/>
@@ -326,7 +364,7 @@
                             <field name="event_ids"/>
                             <field name="note"/>
                         </page>
-                        <page string="HTML-Quelltext">
+                        <page string="HTML bearbeiten">
                             <field name="html_body" nolabel="1" widget="text"/>
                         </page>
                         <page string="CleverReach Antwort / Fehler">
@@ -343,7 +381,14 @@
         <field name="name">Planungsübersicht</field>
         <field name="res_model">gl.cleverreach.newsletter.job</field>
         <field name="view_mode">list,form</field>
-        <field name="domain">[('state', 'in', ['draft', 'ready', 'scheduled'])]</field>
+        <field name="domain">[("planning_visible", "=", True)]</field>
+    </record>
+
+    <record id="action_gl_cr_job_refresh" model="ir.actions.server">
+        <field name="name">Planungsübersicht</field>
+        <field name="model_id" ref="model_gl_cleverreach_newsletter_config"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_open_global_planning_overview()</field>
     </record>
 
     <record id="view_gl_cr_single_event_wizard_form" model="ir.ui.view">
@@ -390,10 +435,41 @@
         <field name="target">new</field>
     </record>
 
+
+    <record id="action_gl_cr_config_biweekly_menu" model="ir.actions.server">
+        <field name="name">2-wöchiger Newsletter</field>
+        <field name="model_id" ref="model_gl_cleverreach_newsletter_config"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_open_global_biweekly_settings()</field>
+    </record>
+
+    <record id="action_gl_cr_config_weekly_menu" model="ir.actions.server">
+        <field name="name">Diese Woche bei Groundlift</field>
+        <field name="model_id" ref="model_gl_cleverreach_newsletter_config"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_open_global_weekly_settings()</field>
+    </record>
+
+    <record id="action_gl_cr_config_spontaneous_menu" model="ir.actions.server">
+        <field name="name">Spontane Newsletter</field>
+        <field name="model_id" ref="model_gl_cleverreach_newsletter_config"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_open_global_spontaneous_settings()</field>
+    </record>
+
+    <record id="action_gl_cr_config_settings_menu" model="ir.actions.server">
+        <field name="name">Einstellungen</field>
+        <field name="model_id" ref="model_gl_cleverreach_newsletter_config"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_open_global_settings()</field>
+    </record>
+
     <menuitem id="menu_gl_cr_root" name="CleverReach Newsletter" sequence="60" groups="base.group_system"/>
-    <menuitem id="menu_gl_cr_config" name="Einstellungen" parent="menu_gl_cr_root" action="action_gl_cr_config" sequence="10" groups="base.group_system"/>
-    <menuitem id="menu_gl_cr_jobs" name="Planungsübersicht" parent="menu_gl_cr_root" action="action_gl_cr_job" sequence="20" groups="base.group_system"/>
-    <menuitem id="menu_gl_cr_single_event" name="Manueller Konzert-Newsletter" parent="menu_gl_cr_root" action="action_gl_cr_single_event_wizard" sequence="30" groups="base.group_system"/>
-    <menuitem id="menu_gl_cr_queue" name="Spontane Newsletter" parent="menu_gl_cr_root" action="action_gl_cr_queue" sequence="40" groups="base.group_system"/>
-    <menuitem id="menu_gl_cr_templates" name="Newsletter-Vorlagen" parent="menu_gl_cr_root" action="action_gl_cr_template" sequence="50" groups="base.group_system"/>
+    <menuitem id="menu_gl_cr_biweekly" name="2-wöchiger Newsletter" parent="menu_gl_cr_root" action="action_gl_cr_config_biweekly_menu" sequence="10" groups="base.group_system"/>
+    <menuitem id="menu_gl_cr_weekly" name="Diese Woche bei Groundlift" parent="menu_gl_cr_root" action="action_gl_cr_config_weekly_menu" sequence="20" groups="base.group_system"/>
+    <menuitem id="menu_gl_cr_queue" name="Spontane Newsletter" parent="menu_gl_cr_root" action="action_gl_cr_config_spontaneous_menu" sequence="30" groups="base.group_system"/>
+    <menuitem id="menu_gl_cr_jobs" name="Planungsübersicht" parent="menu_gl_cr_root" action="action_gl_cr_job_refresh" sequence="40" groups="base.group_system"/>
+    <menuitem id="menu_gl_cr_single_event" name="Manueller Konzert-Newsletter" parent="menu_gl_cr_root" action="action_gl_cr_single_event_wizard" sequence="50" groups="base.group_system"/>
+    <menuitem id="menu_gl_cr_templates" name="Newsletter-Vorlagen" parent="menu_gl_cr_root" action="action_gl_cr_template" sequence="60" groups="base.group_system"/>
+    <menuitem id="menu_gl_cr_config" name="Einstellungen" parent="menu_gl_cr_root" action="action_gl_cr_config_settings_menu" sequence="90" groups="base.group_system"/>
 </odoo>
