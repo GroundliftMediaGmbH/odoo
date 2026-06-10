@@ -178,3 +178,11 @@ Zusätzlich wurde ein Duplikatschutz ergänzt:
 - Der Diese-Woche-Newsletter wird pro Kalenderwoche und identischem Event-Set nur einmal erzeugt.
 - Der 2-wöchige Newsletter wird nicht erneut gesendet, wenn sich der Veranstaltungsinhalt gegenüber einem bereits geplanten oder versendeten Newsletter nicht geändert hat.
 
+
+## Änderung in Version 19.0.1.4.4 – Planungsübersicht, tägliche Vorschau und HTML-Bearbeitung
+
+- Die Planungsübersicht zeigt nur noch Newsletter mit geplantem Versandtermin innerhalb der kommenden 3 Monate.
+- Beim Öffnen der Planungsübersicht und zusätzlich täglich per Cron wird die Vorschauplanung für die kommenden Newsletter aktualisiert.
+- Neue angekündigte Veranstaltungen aktualisieren die Planung sofort, sobald sie in die Warteschlange aufgenommen werden.
+- Wenn ein 2-wöchiger Newsletter und „Diese Woche bei Groundlift“ in derselben Kalenderwoche geplant sind, werden die Veranstaltungen aus „Diese Woche bei Groundlift“ aus dem 2-wöchigen Newsletter entfernt.
+- Jeder geplante Newsletter kann in der Planungsübersicht über „HTML editieren“ im Quelltext angepasst werden. Manuell bearbeitetes HTML wird durch die tägliche Vorschauaktualisierung nicht überschrieben.

@@ -280,7 +280,9 @@
                 <field name="state"/>
                 <field name="group_id"/>
                 <field name="cleverreach_mailing_id"/>
+                <field name="html_manually_edited"/>
                 <button name="action_preview" type="object" string="Voransicht" class="btn-secondary"/>
+                <button name="action_open_html_editor" type="object" string="HTML editieren" class="btn-secondary"/>
                 <button name="action_send_now" type="object" string="Sofort senden" class="btn-primary" invisible="state == 'sent'"/>
             </list>
         </field>
@@ -294,6 +296,7 @@
                 <header>
                     <button name="action_preview" type="object" string="Voransicht" class="btn-secondary"/>
                     <button name="action_render_and_schedule" type="object" string="Neu rendern &amp; planen" class="btn-secondary"/>
+                    <button name="action_reset_manual_html" type="object" string="Manuelle HTML-Änderung verwerfen" class="btn-secondary" invisible="not html_manually_edited"/>
                     <button name="action_push_to_cleverreach" type="object" string="An CleverReach vorbereiten" class="btn-secondary"/>
                     <button name="action_send_now" type="object" string="Sofort versenden" class="btn-primary" invisible="state == 'sent'"/>
                     <button name="action_open_calendar_event" type="object" string="Kalendereintrag öffnen" class="btn-secondary"/>
@@ -308,6 +311,8 @@
                             <field name="subject"/>
                             <field name="heading"/>
                             <field name="content_key" readonly="1"/>
+                            <field name="planning_key" readonly="1"/>
+                            <field name="html_manually_edited" readonly="1"/>
                         </group>
                         <group>
                             <field name="scheduled_datetime"/>
@@ -325,7 +330,7 @@
                             <field name="event_ids"/>
                             <field name="note"/>
                         </page>
-                        <page string="HTML-Quelltext">
+                        <page string="HTML bearbeiten">
                             <field name="html_body" nolabel="1" widget="text"/>
                         </page>
                         <page string="CleverReach Antwort / Fehler">
@@ -342,6 +347,14 @@
         <field name="name">Planungsübersicht</field>
         <field name="res_model">gl.cleverreach.newsletter.job</field>
         <field name="view_mode">list,form</field>
+        <field name="domain">[("planning_visible", "=", True)]</field>
+    </record>
+
+    <record id="action_gl_cr_job_refresh" model="ir.actions.server">
+        <field name="name">Planungsübersicht</field>
+        <field name="model_id" ref="model_gl_cleverreach_newsletter_config"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_open_global_planning_overview()</field>
     </record>
 
     <record id="view_gl_cr_single_event_wizard_form" model="ir.ui.view">
@@ -390,7 +403,7 @@
 
     <menuitem id="menu_gl_cr_root" name="CleverReach Newsletter" sequence="60" groups="base.group_system"/>
     <menuitem id="menu_gl_cr_config" name="Einstellungen" parent="menu_gl_cr_root" action="action_gl_cr_config" sequence="10" groups="base.group_system"/>
-    <menuitem id="menu_gl_cr_jobs" name="Planungsübersicht" parent="menu_gl_cr_root" action="action_gl_cr_job" sequence="20" groups="base.group_system"/>
+    <menuitem id="menu_gl_cr_jobs" name="Planungsübersicht" parent="menu_gl_cr_root" action="action_gl_cr_job_refresh" sequence="20" groups="base.group_system"/>
     <menuitem id="menu_gl_cr_single_event" name="Manueller Konzert-Newsletter" parent="menu_gl_cr_root" action="action_gl_cr_single_event_wizard" sequence="30" groups="base.group_system"/>
     <menuitem id="menu_gl_cr_queue" name="Spontane Newsletter" parent="menu_gl_cr_root" action="action_gl_cr_queue" sequence="40" groups="base.group_system"/>
     <menuitem id="menu_gl_cr_templates" name="Newsletter-Vorlagen" parent="menu_gl_cr_root" action="action_gl_cr_template" sequence="50" groups="base.group_system"/>
