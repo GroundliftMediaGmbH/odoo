@@ -1988,7 +1988,7 @@ class CleverReachNewsletterConfig(models.Model):
             </td></tr>
           </table>
         </td></tr>
-        <tr><td class="px gl-single-bg" style="padding:18px 34px 40px 34px; background-color:#1b1b1b !important; color:#cccccc !important; text-align:center;"><div class="gl-muted" style="font-family:Verdana,Arial,sans-serif; font-size:11px; line-height:18px; color:#cccccc !important;">Groundlift Creative World · Alte Brauerei Stegen am Ammersee</div></td></tr>
+        <tr><td class="px gl-single-bg" style="padding:18px 34px 40px 34px; background-color:#1b1b1b !important; color:#cccccc !important; text-align:center;"><div class="gl-muted" style="font-family:Verdana,Arial,sans-serif; font-size:11px; line-height:18px; color:#cccccc !important;">Die Event Location in der Alten Brauerei Stegen am Ammersee</div></td></tr>
       </table>
     </td></tr>
   </table>
