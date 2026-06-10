@@ -1,5 +1,18 @@
 # Technische Hinweise
 
+## Version 19.0.1.4.2 – Template-Vereinheitlichung wie `preview(2).html`
+
+Relevante Methoden:
+
+```python
+CleverReachNewsletterConfig._render_newsletter_html()
+CleverReachNewsletterConfig._render_event_block()
+CleverReachNewsletterConfig._render_note_block()
+CleverReachNewsletterConfig._ensure_standard_template_is_current()
+```
+
+Die automatischen Newsletter-Arten `biweekly`, `weekly_this_week` und `new_events` laufen weiterhin über denselben Renderpfad. Die visuelle Änderung sitzt deshalb zentral in der Standardvorlage und im Eventkarten-Renderer. Die neue Vorlage enthält die Markierung `gl-dynamic-newsletter-template-v2`, damit bestehende alte Standardvorlagen beim Rendern aktualisiert werden können, ohne anders benannte eigene Vorlagen zu überschreiben.
+
 ## Datenmodelle
 
 - `gl.cleverreach.newsletter.config`: globale Konfiguration und API-Zugang.
@@ -139,8 +152,3 @@ Neuer Cron:
 
 - `model._cron_weekly_newsletters()` für „Diese Woche bei Groundlift“.
 
-
-
-## Änderung in Version 19.0.1.4.2 – Odoo-19-Search-View-Fix
-
-Die separate Suchansicht der Newsletter-Planungsübersicht wurde entfernt, weil Odoo 19 SH die Definition mit gruppierter Datumsaggregation in einigen Builds als ungültige Search View verwirft. Die Planungsübersicht nutzt nun direkt eine sichere Action-Domain für nicht versendete Newsletter. Dadurch kann das Modul wieder sauber aktualisiert werden und die neuen Reiter/Planungslogiken werden geladen.

@@ -24,6 +24,7 @@ except Exception:  # pragma: no cover
 PLACEHOLDER_EVENTS = "{{EVENTS_BLOCK}}"
 PLACEHOLDER_HEADING = "{{NEWSLETTER_HEADING}}"
 PLACEHOLDER_PREHEADER = "{{PREHEADER}}"
+PLACEHOLDER_INTRO = "{{NEWSLETTER_INTRO}}"
 NEW_EVENT_HEADING = "Ganz neu in unserem Eventkalender"
 WEEKLY_HEADING = "Diese Woche bei Groundlift"
 BIWEEKLY_HEADING = "UNSERE KOMMENDEN VERANSTALTUNGEN"
@@ -43,33 +44,36 @@ DARKMODE_LOCK_CSS = """
 <meta name="supported-color-schemes" content="light only">
 <style id="gl-cr-darkmode-lock">
 :root { color-scheme: light only !important; supported-color-schemes: light only !important; }
-html, body { background-color:#000000 !important; color:#ffffff !important; }
-body, .gl-bg, .gl-dark, .gl-section { background-color:#000000 !important; color:#ffffff !important; }
-.gl-card, .gl-card td { background-color:#181513 !important; color:#ffffff !important; }
+html, body { background-color:#1b1b1b !important; color:#f3f3f3 !important; }
+body, .gl-bg, .body-bg, .email-bg, .dark-locked { background-color:#1b1b1b !important; color:#f3f3f3 !important; }
+.gl-card, .card-gradient, .gl-card td { background-color:#101010 !important; color:#f3f3f3 !important; }
 .gl-single-bg { background-color:#1b1b1b !important; color:#f3f3f3 !important; }
 .gl-single-card { background-color:#101010 !important; color:#f3f3f3 !important; }
-.gl-text, .gl-text p, .gl-text span, .gl-text div { color:#ffffff !important; }
-.gl-muted { color:#cccccc !important; }
-.gl-red { color:#d94122 !important; }
-.gl-btn, .gl-btn a { background-color:#d94122 !important; color:#ffffff !important; }
+.gl-text, .gl-text p, .gl-text span, .gl-text div, .text { color:#f3f3f3 !important; }
+.white { color:#ffffff !important; }
+.gl-muted, .muted { color:#cccccc !important; }
+.gl-red, .red { color:#d94122 !important; }
+.gl-btn, .gl-btn a, .btn { background-color:#d94122 !important; color:#ffffff !important; }
 @media (prefers-color-scheme: dark) {
-  html, body, .gl-bg, .gl-dark, .gl-section { background-color:#000000 !important; color:#ffffff !important; }
-  .gl-card, .gl-card td { background-color:#181513 !important; color:#ffffff !important; }
+  html, body, .gl-bg, .body-bg, .email-bg, .dark-locked { background-color:#1b1b1b !important; color:#f3f3f3 !important; }
+  .gl-card, .card-gradient, .gl-card td { background-color:#101010 !important; color:#f3f3f3 !important; }
   .gl-single-bg { background-color:#1b1b1b !important; color:#f3f3f3 !important; }
   .gl-single-card { background-color:#101010 !important; color:#f3f3f3 !important; }
-  .gl-text, .gl-text p, .gl-text span, .gl-text div { color:#ffffff !important; }
-  .gl-muted { color:#cccccc !important; }
-  .gl-red { color:#d94122 !important; }
-  .gl-btn, .gl-btn a { background-color:#d94122 !important; color:#ffffff !important; }
+  .gl-text, .gl-text p, .gl-text span, .gl-text div, .text { color:#f3f3f3 !important; }
+  .white { color:#ffffff !important; }
+  .gl-muted, .muted { color:#cccccc !important; }
+  .gl-red, .red { color:#d94122 !important; }
+  .gl-btn, .gl-btn a, .btn { background-color:#d94122 !important; color:#ffffff !important; }
 }
-[data-ogsc] body, [data-ogsc] .gl-bg, [data-ogsc] .gl-dark, [data-ogsc] .gl-section { background-color:#000000 !important; color:#ffffff !important; }
-[data-ogsc] .gl-card, [data-ogsc] .gl-card td { background-color:#181513 !important; color:#ffffff !important; }
+[data-ogsc] body, [data-ogsc] .gl-bg, [data-ogsc] .body-bg, [data-ogsc] .email-bg, [data-ogsc] .dark-locked { background-color:#1b1b1b !important; color:#f3f3f3 !important; }
+[data-ogsc] .gl-card, [data-ogsc] .card-gradient, [data-ogsc] .gl-card td { background-color:#101010 !important; color:#f3f3f3 !important; }
 [data-ogsc] .gl-single-bg { background-color:#1b1b1b !important; color:#f3f3f3 !important; }
 [data-ogsc] .gl-single-card { background-color:#101010 !important; color:#f3f3f3 !important; }
-[data-ogsc] .gl-text, [data-ogsc] .gl-text p, [data-ogsc] .gl-text span, [data-ogsc] .gl-text div { color:#ffffff !important; }
-[data-ogsc] .gl-muted { color:#cccccc !important; }
-[data-ogsc] .gl-red { color:#d94122 !important; }
-[data-ogsc] .gl-btn, [data-ogsc] .gl-btn a { background-color:#d94122 !important; color:#ffffff !important; }
+[data-ogsc] .gl-text, [data-ogsc] .gl-text p, [data-ogsc] .gl-text span, [data-ogsc] .gl-text div, [data-ogsc] .text { color:#f3f3f3 !important; }
+[data-ogsc] .white { color:#ffffff !important; }
+[data-ogsc] .gl-muted, [data-ogsc] .muted { color:#cccccc !important; }
+[data-ogsc] .gl-red, [data-ogsc] .red { color:#d94122 !important; }
+[data-ogsc] .gl-btn, [data-ogsc] .gl-btn a, [data-ogsc] .btn { background-color:#d94122 !important; color:#ffffff !important; }
 </style>
 """
 
@@ -346,24 +350,54 @@ class CleverReachNewsletterConfig(models.Model):
     last_watchdog_run = fields.Datetime(readonly=True)
     last_group_sync = fields.Datetime(readonly=True)
 
+    def _default_template_html(self):
+        try:
+            with tools.file_open("gl_cleverreach_newsletter/static/description/default_template.html", mode="rb") as f:
+                return f.read().decode("utf-8", errors="replace")
+        except Exception:
+            return "<html><body><h1>{{NEWSLETTER_HEADING}}</h1>{{EVENTS_BLOCK}}</body></html>"
+
+    def _ensure_standard_template_is_current(self, template=False):
+        """Keep the bundled Groundlift standard template current after module updates.
+
+        Custom templates with another name are never overwritten. The standard
+        template is updated only when it does not yet contain the v2 marker, so
+        it can still be edited in Odoo after the upgrade.
+        """
+        self.ensure_one()
+        template = template or self.newsletter_template_id or self.init_default_template()
+        if template and template.name == "Groundlift Standardvorlage":
+            current_html = template.get_html() or ""
+            if "gl-dynamic-newsletter-template-v2" not in current_html:
+                template.sudo().write({
+                    "filename": "GROUNDLIFT_NEWSLETTER_VORLAGE.html",
+                    "html_source": self._default_template_html(),
+                })
+        return template
+
+    def _newsletter_intro(self, heading):
+        heading_text = (heading or "").strip().casefold()
+        if heading_text == WEEKLY_HEADING.casefold():
+            return _("Alles, was in dieser Woche in der Groundlift Creative World ansteht – kompakt, klar und mit direktem Weg zu Tickets und Infos.")
+        if heading_text == BIWEEKLY_HEADING.casefold():
+            return _("Die nächsten Veranstaltungen aus der Groundlift Creative World: Konzerte, Shows und besondere Abende in der Alten Brauerei Stegen.")
+        if heading_text == NEW_EVENT_HEADING.casefold():
+            return _("Neu angekündigte Termine aus unserem Eventkalender – frisch geplant und ab sofort buchbar.")
+        return _("Ausgewählte Veranstaltungen aus der Groundlift Creative World in der Alten Brauerei Stegen am Ammersee.")
+
     def init_default_template(self):
         self.ensure_one()
         if self.newsletter_template_id:
-            return self.newsletter_template_id
+            return self._ensure_standard_template_is_current(self.newsletter_template_id)
         Template = self.env["gl.cleverreach.newsletter.template"].sudo()
         existing = Template.search([("name", "=", "Groundlift Standardvorlage")], limit=1)
         if existing:
             self.newsletter_template_id = existing.id
-            return existing
-        try:
-            with tools.file_open("gl_cleverreach_newsletter/static/description/default_template.html", mode="rb") as f:
-                html = f.read().decode("utf-8", errors="replace")
-        except Exception:
-            html = "<html><body><h1>{{NEWSLETTER_HEADING}}</h1>{{EVENTS_BLOCK}}</body></html>"
+            return self._ensure_standard_template_is_current(existing)
         template = Template.create({
             "name": "Groundlift Standardvorlage",
             "filename": "GROUNDLIFT_NEWSLETTER_VORLAGE.html",
-            "html_source": html,
+            "html_source": self._default_template_html(),
         })
         self.newsletter_template_id = template.id
         return template
@@ -1244,13 +1278,16 @@ class CleverReachNewsletterConfig(models.Model):
 
     def _render_newsletter_html(self, heading, events, note=""):
         self.ensure_one()
-        template = self.newsletter_template_id or self.init_default_template()
+        template = self._ensure_standard_template_is_current(self.newsletter_template_id or self.init_default_template())
         html = template.get_html()
         events_block = self._render_events_block(events, note=note)
+        heading_safe = escape(heading or "")
+        intro_safe = escape(self._newsletter_intro(heading))
         html = html.replace(PLACEHOLDER_EVENTS, events_block)
-        html = html.replace(PLACEHOLDER_HEADING, escape(heading or ""))
-        html = html.replace(PLACEHOLDER_PREHEADER, escape(heading or ""))
-        html = html.replace("UNSERE KOMMENDEN VERANSTALTUNGEN", escape(heading or ""))
+        html = html.replace(PLACEHOLDER_HEADING, heading_safe)
+        html = html.replace(PLACEHOLDER_PREHEADER, escape(self._newsletter_intro(heading)))
+        html = html.replace(PLACEHOLDER_INTRO, intro_safe)
+        html = html.replace("UNSERE KOMMENDEN VERANSTALTUNGEN", heading_safe)
         return self._normalize_newsletter_html(html)
 
     def _normalize_newsletter_html(self, html):
@@ -1312,23 +1349,27 @@ class CleverReachNewsletterConfig(models.Model):
         return "".join(blocks)
 
     def _render_note_block(self, note):
-        return f'''<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #181513; padding: 0px 20px 30px 20px; border: 0px;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color: inherit; border: 0px;"><tbody><tr><td align="left" valign="top" style="font-family: 'Trebuchet MS', Helvetica, sans-serif !important; font-size: 12px; line-height: 150%; font-weight: normal; letter-spacing: 1px; color: #ffffff; padding: 0px;" class="cr-text"><div align="left"><p><span style="font-family: verdana, geneva, sans-serif; font-size: 12px;">{escape(note)}</span></p></div></td></tr></tbody></table></td></tr></tbody></table>'''
+        note = escape(note or "")
+        return f"""<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#121212" style="width:100%; background-color:#121212 !important; border:1px solid rgba(217,65,34,0.36); border-radius:18px; margin:0 0 22px 0;">
+  <tr><td style="padding:26px 28px; color:#f3f3f3 !important;"><div class="gl-red red" style="font-family:Verdana,Arial,sans-serif; font-size:12px; line-height:18px; color:#d94122 !important; font-weight:700; text-transform:uppercase; letter-spacing:1.8px; margin-bottom:10px;">Hinweis</div><p class="gl-muted muted" style="margin:0; font-family:Verdana,Arial,sans-serif; font-size:15px; line-height:27px; color:#cccccc !important;">{note}</p></td></tr>
+</table>"""
+
+    def _event_card_date_line(self, event):
+        line = self._event_date_line(event) or ""
+        line = re.sub(r"\s*\|\s*TICKETS ONLINE(?:\s|&nbsp;|<br>|&lt;br&gt;)*ODER AN DER ABENDKASSE\s*", "", line, flags=re.IGNORECASE)
+        return line.strip(" |") or _("Termin folgt")
 
     def _render_event_block(self, event):
         title = escape(event.name or "")
         img_url = escape(self._event_image_url(event))
         link = escape(self._event_link(event))
-        date_line = escape(self._event_date_line(event))
-        category = escape(self._event_category(event))
+        date_line = escape(self._event_card_date_line(event))
+        category = escape(self._event_category(event).title())
         teaser = escape(self._event_teaser(event))
-        return f'''<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #181513; padding:15px 0px 15px 0px; border:0px;" class="cr-container" data-name="Container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color:inherit; border:inherit;" data-name="Inner container"><tbody><tr><td align="center" valign="top" class="cr-image"><table cellpadding="0" cellspacing="0" style="width: 100%; border: 0px; padding: 0px; margin: 0px;"><tbody><tr><td align="center" style="text-align: center;"><a href="{link}" target="_blank" style="color: #d94122; text-decoration: underline; pointer-events: auto" title="{title}" rel="noopener"><img src="{img_url}" alt="{title}" style="border: 0px; margin: 0px; padding: 0px; display: inline; width: 414px; height: auto;" width="414" /></a></td></tr></tbody></table></td></tr></tbody></table></td></tr></tbody></table>
-<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #d94122;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px;"><tbody><tr><td style="line-height: 0; font-size: 0px; height: 2px;" height="2"></td></tr></tbody></table></td></tr></tbody></table>
-<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #181513; padding: 0px 20px 0px 20px; border: 0px;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color: inherit; border: 0px;"><tbody><tr><td align="left" valign="top" style="font-family: 'Trebuchet MS', Helvetica, sans-serif !important; font-size: 11px; line-height: 126%; font-weight: normal; letter-spacing: 1px; color: #ffffff; padding: 0px;" class="cr-text"><div align="left"><h1 style="color: #d94122;"><span style="font-family: verdana, geneva, sans-serif;"><span style="color: #ffffff; font-size: 12px;">{date_line}</span><span style="font-size: 18px;"><strong><br></strong></span></span></h1></div></td></tr></tbody></table></td></tr></tbody></table>
-<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #d94122;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px;"><tbody><tr><td style="line-height: 0; font-size: 0px; height: 2px;" height="2"></td></tr></tbody></table></td></tr></tbody></table>
-<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #181513; padding: 10px 20px; border: 0px;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color: inherit; border: 0px;"><tbody><tr><td align="left" valign="top" style="font-family: 'Trebuchet MS', Helvetica, sans-serif !important; font-size: 11px; line-height: 126%; font-weight: normal; letter-spacing: 1px; color: #ffffff; padding: 0px;" class="cr-text"><div align="left"><h2 style="color: #d94122;"><span style="font-family: verdana, geneva, sans-serif;"><span style="font-size: 18px;">{title}</span></span></h2></div></td></tr></tbody></table></td></tr></tbody></table>
-<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #181513; padding: 0px 20px 10px 20px; border: 0px;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color: inherit; border: 0px;"><tbody><tr><td align="left" valign="top" style="font-family: 'Trebuchet MS', Helvetica, sans-serif !important; font-size: 11px; line-height: 126%; font-weight: normal; letter-spacing: 1px; color: #ffffff; padding: 0px;" class="cr-text"><div align="left"><p><span style="font-family: verdana, geneva, sans-serif; font-size: 12px; color: #ffffff;">— {category}</span><br><br><span style="font-family: verdana, geneva, sans-serif; font-size: 12px; color: #ffffff;">{teaser}</span></p></div></td></tr></tbody></table></td></tr></tbody></table>
-<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color:#181513;border:0px;padding: 10px 20px 20px 20px;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px; background-color: #181513; border: inherit;"><tbody><tr><td align="center" valign="top" class="cr-button"><table align="left" border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:separate;line-height:100%;" class="cred-button"><tbody><tr><td align="center" bgcolor="#d94122" role="presentation" style="border:0px none #ffffff;border-radius:1px;cursor:auto;padding:15px 20px;background:#d94122;" valign="middle"><a href="{link}" style="display:inline-block;background:#d94122;color:#ffffff;font-family:'Trebuchet MS', Helvetica, sans-serif;font-size:14px;font-weight:700;line-height:120%;margin:0;text-decoration:none;text-transform:none;mso-padding-alt:0px;border-radius:1px;" target="_blank" title="{title}">MEHR INFOS</a></td></tr></tbody></table></td></tr></tbody></table></td></tr></tbody></table>
-<table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td align="center" valign="top" style="background-color: #000000;" class="cr-container"><table border="0" cellpadding="0" cellspacing="0" width="100%" class="cr-maxwidth" style="max-width: 670px;"><tbody><tr><td style="line-height: 0; font-size: 0; height: 40px;" height="40"></td></tr></tbody></table></td></tr></tbody></table>'''
+        return f"""<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#101010" class="card-gradient gl-card" style="width:100%; background-color:#101010 !important; background-image:linear-gradient(145deg,#151515 0%,#070707 100%) !important; border:1px solid rgba(255,255,255,0.08); border-radius:22px; overflow:hidden; box-shadow:0 18px 60px rgba(0,0,0,0.45); margin:0 0 26px 0; color:#f3f3f3 !important;">
+  <tr><td style="padding:0; background-color:#101010 !important;"><a href="{link}" target="_blank" style="display:block; color:#d94122 !important; text-decoration:none;"><img class="hero-img" src="{img_url}" width="680" alt="{title}" style="width:100%; max-width:680px; height:auto; display:block; border:0; color:#ffffff; font-family:Verdana,Arial,sans-serif; font-size:18px; background-color:#101010;"></a></td></tr>
+  <tr><td class="px gl-card" style="padding:34px 36px 28px 36px; background-color:#101010 !important; color:#f3f3f3 !important;"><div class="white" style="font-family:Verdana,Arial,sans-serif; font-size:13px; line-height:20px; color:#ffffff !important; font-weight:700; text-transform:uppercase; letter-spacing:1.4px;">{date_line}</div><h2 class="text gl-text" style="margin:14px 0 12px 0; font-family:Verdana,Arial,sans-serif; font-size:34px; line-height:40px; font-weight:700; text-transform:uppercase; letter-spacing:1.4px; color:#ffffff !important;">{title}</h2><div class="red gl-red" style="font-family:Verdana,Arial,sans-serif; font-size:13px; line-height:21px; color:#d94122 !important; font-weight:700; text-transform:uppercase; letter-spacing:1.3px; margin-bottom:18px;">{category}</div><p class="muted gl-muted" style="margin:0 0 24px 0; font-family:Verdana,Arial,sans-serif; font-size:15px; line-height:27px; color:#cccccc !important;">{teaser}</p><table role="presentation" cellpadding="0" cellspacing="0" border="0" class="mobile-full"><tr><td bgcolor="#d94122" class="btn gl-btn" style="background-color:#d94122 !important; border-radius:999px;"><a href="{link}" target="_blank" style="display:inline-block; padding:15px 24px; font-family:Verdana,Arial,sans-serif; font-size:13px; line-height:18px; font-weight:700; color:#ffffff !important; background-color:#d94122 !important; text-transform:uppercase; letter-spacing:1.1px; border-radius:999px; text-decoration:none;">Tickets & Infos</a></td></tr></table></td></tr>
+</table>"""
 
     def _base_url(self):
         return (self.public_base_url or self.env["ir.config_parameter"].sudo().get_param("web.base.url") or "").rstrip("/")
