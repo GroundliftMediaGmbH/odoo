@@ -1468,7 +1468,7 @@ class CleverReachNewsletterConfig(models.Model):
         if tours:
             selected_tour = sorted(tours, key=lambda e: (self._event_participant_count(e), e.date_begin or datetime.max))[0]
             if len(tours) > 1:
-                note = _("Wir freuen uns auf Ihren Besuch unserer anderen Führungen!")
+                note = _("Wir freuen uns auf Ihren Besuch unserer anderen Events und Führungen!")
         events = (normal | selected_tour).sorted(key=lambda e: (e.date_begin or datetime.max, e.id))[: max(1, int(self.max_upcoming_events or 7))]
         return events, note
 
