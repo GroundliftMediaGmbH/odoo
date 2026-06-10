@@ -2069,6 +2069,29 @@ class CleverReachNewsletterJob(models.Model):
             ("state", "not in", ["draft", "ready", "scheduled", "error"]),
         ]
 
+    @api.model
+    def action_load_newsletters(self):
+        """Manually rebuild the planning overview for the next three months.
+
+        This is intentionally non-destructive: deleted planning rows are created
+        again from the current event data, existing unsent planning rows are
+        refreshed through the normal planning upsert logic, and already sent
+        newsletters are left untouched.
+        """
+        Config = self.env["gl.cleverreach.newsletter.config"].sudo()
+        config_id = self.env.context.get("default_config_id") or self.env.context.get("config_id")
+        configs = Config.browse(config_id).exists() if config_id else Config.search([("active", "=", True)])
+        if not configs:
+            configs = Config.search([], order="id asc", limit=1)
+        if not configs:
+            raise UserError(_("Es wurde keine CleverReach-Konfiguration gefunden."))
+        for config in configs:
+            config._ensure_schedule_defaults()
+            config._refresh_planning_overview()
+        if len(configs) == 1:
+            return configs.action_open_planning_overview()
+        return Config.action_open_global_planning_overview()
+
     @api.model_create_multi
     def create(self, vals_list):
         return super().create(vals_list)

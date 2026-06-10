@@ -307,6 +307,9 @@
         <field name="model">gl.cleverreach.newsletter.job</field>
         <field name="arch" type="xml">
             <list string="Newsletter-Aufträge" default_order="scheduled_datetime asc, id asc">
+                <header>
+                    <button name="action_load_newsletters" type="object" string="Newsletter laden" class="btn-primary" display="always"/>
+                </header>
                 <field name="scheduled_datetime"/>
                 <field name="newsletter_type"/>
                 <field name="name"/>
