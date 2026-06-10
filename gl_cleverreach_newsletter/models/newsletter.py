@@ -2070,7 +2070,7 @@ class CleverReachNewsletterJob(models.Model):
         ]
 
     @api.model
-    def action_load_newsletters(self):
+    def action_load_newsletters(self, *args, **kwargs):
         """Manually rebuild the planning overview for the next three months.
 
         This is intentionally non-destructive: deleted planning rows are created
