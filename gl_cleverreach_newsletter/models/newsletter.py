@@ -988,6 +988,54 @@ class CleverReachNewsletterConfig(models.Model):
             "target": "current",
         }
 
+    @api.model
+    def _default_menu_config(self):
+        """Return the configuration record used by the top menu entries.
+
+        The newsletter app is operated as a global configuration in practice.
+        These helpers keep the new menu entries on the existing singleton record
+        instead of opening a generic list view.
+        """
+        config = self.search([("active", "=", True)], order="id asc", limit=1)
+        if not config:
+            config = self.search([], order="id asc", limit=1)
+        return config
+
+    @api.model
+    def _action_open_config_menu_view(self, view_xml_id, title):
+        view = self.env.ref("gl_cleverreach_newsletter.%s" % view_xml_id, raise_if_not_found=False)
+        config = self._default_menu_config()
+        action = {
+            "type": "ir.actions.act_window",
+            "name": title,
+            "res_model": "gl.cleverreach.newsletter.config",
+            "view_mode": "form",
+            "target": "current",
+            "context": {},
+        }
+        if view:
+            action["views"] = [(view.id, "form")]
+            action["view_id"] = view.id
+        if config:
+            action["res_id"] = config.id
+        return action
+
+    @api.model
+    def action_open_global_biweekly_settings(self):
+        return self._action_open_config_menu_view("view_gl_cr_config_biweekly_form", _("2-wöchiger Newsletter"))
+
+    @api.model
+    def action_open_global_weekly_settings(self):
+        return self._action_open_config_menu_view("view_gl_cr_config_weekly_form", _("Diese Woche bei Groundlift"))
+
+    @api.model
+    def action_open_global_spontaneous_settings(self):
+        return self._action_open_config_menu_view("view_gl_cr_config_spontaneous_form", _("Spontane Newsletter"))
+
+    @api.model
+    def action_open_global_settings(self):
+        return self._action_open_config_menu_view("view_gl_cr_config_form", _("Einstellungen"))
+
     def action_open_planning_overview(self):
         self.ensure_one()
         self._refresh_planning_overview()

@@ -186,3 +186,11 @@ Zusätzlich wurde ein Duplikatschutz ergänzt:
 - Neue angekündigte Veranstaltungen aktualisieren die Planung sofort, sobald sie in die Warteschlange aufgenommen werden.
 - Wenn ein 2-wöchiger Newsletter und „Diese Woche bei Groundlift“ in derselben Kalenderwoche geplant sind, werden die Veranstaltungen aus „Diese Woche bei Groundlift“ aus dem 2-wöchigen Newsletter entfernt.
 - Jeder geplante Newsletter kann in der Planungsübersicht über „HTML editieren“ im Quelltext angepasst werden. Manuell bearbeitetes HTML wird durch die tägliche Vorschauaktualisierung nicht überschrieben.
+
+
+## Änderung in Version 19.0.1.4.5 – Menüstruktur der Benutzeroberfläche
+
+- Die bisherigen Konfigurations-Reiter für den 2-wöchigen Newsletter, „Diese Woche bei Groundlift“, spontane Newsletter und Einstellungen sind als eigene Einträge in die obere Menüleiste gewandert.
+- Die technischen CleverReach-Aktionen Verbindung testen, Benutzer autorisieren, Listen importieren und Planungsübersicht öffnen liegen nun im Menüpunkt „Einstellungen“.
+- Der Header-Button „Manueller Konzert-Newsletter“ wurde aus der Einstellungs-Zwischenleiste entfernt; der Wizard bleibt über die Menüleiste erreichbar.
+- Die Newsletter-Funktionalität wurde nicht verändert.
