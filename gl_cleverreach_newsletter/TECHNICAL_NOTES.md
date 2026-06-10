@@ -154,6 +154,11 @@ Neuer Cron:
 
 
 
+
+## Version 19.0.1.4.7 – Claim unter dem Logo
+
+Die Standardvorlage verwendet nun die Markierung `gl-dynamic-newsletter-template-v4`. Dadurch werden bestehende gespeicherte Standardvorlagen beim nächsten Rendern mit dem neuen Claim unter dem Logo aktualisiert.
+
 ## Version 19.0.1.4.6 – finales Newsletter-HTML
 
 Die Methode `CleverReachNewsletterConfig._normalize_newsletter_html()` entfernt das Hero-Eyebrow „Newsletter“ aus älteren gespeicherten Vorlagen und ergänzt über `_append_unsubscribe_link()` einen dezenten Abmeldelink am Ende des Newsletters, falls die CleverReach-Abmelde-URL noch nicht im HTML enthalten ist. Die Standardvorlage trägt nun die Markierung `gl-dynamic-newsletter-template-v3`, damit bestehende `Groundlift Standardvorlage`-Datensätze nach dem Update sauber aktualisiert werden.

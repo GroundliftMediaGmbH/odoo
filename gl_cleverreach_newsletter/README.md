@@ -17,6 +17,12 @@ Dieses Modul erzeugt aus Odoo-Veranstaltungen automatisch HTML-Newsletter für C
 10. Jeder geplante Newsletter wird zusätzlich als `calendar.event` in Odoo eingetragen.
 
 
+
+## Änderung in Version 19.0.1.4.7 – Claim unter dem Logo
+
+- Der rote Claim direkt unter dem Groundlift-Logo lautet nun: **DIE EVENTLOCATION IN DER ALTEN BRAUEREI STEGEN AM AMMERSEE**.
+- Bestehende gespeicherte Standardvorlagen werden beim Rendern auf die neue Version aktualisiert.
+
 ## Änderung in Version 19.0.1.4.6 – Newsletter-Kopf und Abmeldelink
 
 - Die rote Beschriftung **„Newsletter“** direkt über der großen Überschrift wurde aus der Groundlift-Standardvorlage entfernt.
