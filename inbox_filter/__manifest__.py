@@ -2,7 +2,7 @@
 {
     "name": "Inbox Filter",
     "summary": "GPT-gestützte Sortierung neuer CRM-Leads in Qualifiziert, Spam, Projekt/VA, ToDo, Kundensupport oder Zu prüfen.",
-    "version": "19.0.1.0.2",
+    "version": "19.0.1.0.3",
     "category": "Sales/CRM",
     "author": "Groundlift / OpenAI",
     "website": "https://groundlift.de",

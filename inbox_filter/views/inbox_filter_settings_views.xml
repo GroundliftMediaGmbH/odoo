@@ -10,7 +10,10 @@
                         <h1>Inbox Filter Einstellungen</h1>
                     </div>
                     <group string="OpenAI">
-                        <field name="inbox_filter_openai_api_key" password="True"/>
+                        <field name="inbox_filter_openai_api_key_status" readonly="1"/>
+                        <field name="inbox_filter_openai_api_key" password="True" placeholder="OpenAI API Token hier einfügen oder bestehenden ersetzen"/>
+                        <button string="Token prüfen" type="object" name="action_test_openai_token_saved" class="btn-secondary"/>
+                        <button string="Token entfernen" type="object" name="action_clear_openai_token" class="btn-secondary" confirm="Soll der gespeicherte OpenAI API Token wirklich entfernt werden?"/>
                         <field name="inbox_filter_openai_model"/>
                         <field name="inbox_filter_openai_url"/>
                     </group>

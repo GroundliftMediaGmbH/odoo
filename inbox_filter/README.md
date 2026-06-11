@@ -27,7 +27,7 @@ GPT-gestützte Sortierung von CRM-Datensätzen aus der Phase **Neu**.
 
 SPAM, Projekt/VA, ToDo und Kundensupport werden nicht sofort hart aus der Datenbank gelöscht. Der CRM-Datensatz wird zunächst archiviert und bleibt über die Historie rückgängig machbar. Nur **SPAM bestätigt** löscht den ursprünglichen CRM-Datensatz endgültig.
 
-## Version 19.0.1.0.2
+## Version 19.0.1.0.3
 
 - Odoo-19-kompatible Search-View korrigiert: Das `<group>`-Element in Search-Views enthält keine Attribute mehr.
 - Sicherheitsgruppe bleibt ohne `category_id`, damit die Installation in Odoo 19 SH funktioniert.
@@ -53,3 +53,10 @@ SPAM, Projekt/VA, ToDo und Kundensupport werden nicht sofort hart aus der Datenb
 
 - Odoo-19-Kompatibilitätsfix: keine Verwendung von `res.groups.category_id` mehr.
 - XML-Ladereihenfolge korrigiert: Das Hauptmenü wird vor den Untermenüs geladen.
+
+
+## Version 19.0.1.0.3
+
+- OpenAI API Token wird explizit in `ir.config_parameter` geschrieben und beim Öffnen wieder geladen.
+- Leeres Passwortfeld löscht einen bestehenden Token nicht mehr versehentlich.
+- Neue Statusanzeige und Buttons „Token prüfen“ / „Token entfernen“.

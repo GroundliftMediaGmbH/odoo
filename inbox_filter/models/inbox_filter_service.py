@@ -271,7 +271,10 @@ class InboxFilterService(models.AbstractModel):
     # Odoo helpers
     # ---------------------------------------------------------------------
     def _get_param(self, key, default=None):
-        return self.env["ir.config_parameter"].sudo().get_param(key, default)
+        value = self.env["ir.config_parameter"].sudo().get_param(key, default)
+        if isinstance(value, str):
+            return value.strip()
+        return value
 
     def _get_int_param(self, key, default=0):
         value = self._get_param(key, default)
