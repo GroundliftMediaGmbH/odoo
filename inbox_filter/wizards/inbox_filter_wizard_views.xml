@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_inbox_filter_assign_production_wizard_form" model="ir.ui.view">
+        <field name="name">inbox.filter.assign.production.wizard.form</field>
+        <field name="model">inbox.filter.assign.production.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Projekt/VA zuweisen">
+                <group>
+                    <field name="history_id" invisible="1"/>
+                    <field name="project_id"/>
+                    <field name="event_id"/>
+                </group>
+                <footer>
+                    <button name="action_apply" type="object" string="Zuweisen" class="btn-primary"/>
+                    <button string="Abbrechen" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_inbox_filter_assign_todo_wizard_form" model="ir.ui.view">
+        <field name="name">inbox.filter.assign.todo.wizard.form</field>
+        <field name="model">inbox.filter.assign.todo.wizard</field>
+        <field name="arch" type="xml">
+            <form string="ToDo zuweisen">
+                <group>
+                    <field name="history_id" invisible="1"/>
+                    <field name="employee_id"/>
+                </group>
+                <footer>
+                    <button name="action_apply" type="object" string="ToDo anlegen" class="btn-primary"/>
+                    <button string="Abbrechen" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
