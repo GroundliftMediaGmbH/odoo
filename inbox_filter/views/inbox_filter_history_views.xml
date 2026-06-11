@@ -93,7 +93,7 @@
                 <filter name="filter_qualified" string="Qualifiziert" domain="[('category','=','qualified')]"/>
                 <filter name="filter_review" string="Zu prüfen" domain="[('category','=','review')]"/>
                 <filter name="filter_errors" string="Fehler" domain="[('status','=','error')]"/>
-                <group expand="0" string="Gruppieren nach">
+                <group>
                     <filter name="group_category" string="Filter" context="{'group_by':'category'}"/>
                     <filter name="group_status" string="Status" context="{'group_by':'status'}"/>
                     <filter name="group_date" string="Datum" context="{'group_by':'create_date:day'}"/>

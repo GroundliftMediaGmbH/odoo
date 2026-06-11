@@ -27,6 +27,11 @@ GPT-gestützte Sortierung von CRM-Datensätzen aus der Phase **Neu**.
 
 SPAM, Projekt/VA, ToDo und Kundensupport werden nicht sofort hart aus der Datenbank gelöscht. Der CRM-Datensatz wird zunächst archiviert und bleibt über die Historie rückgängig machbar. Nur **SPAM bestätigt** löscht den ursprünglichen CRM-Datensatz endgültig.
 
+## Version 19.0.1.0.2
+
+- Odoo-19-kompatible Search-View korrigiert: Das `<group>`-Element in Search-Views enthält keine Attribute mehr.
+- Sicherheitsgruppe bleibt ohne `category_id`, damit die Installation in Odoo 19 SH funktioniert.
+
 ## Installation auf Odoo.sh
 
 1. ZIP entpacken oder Ordner `inbox_filter` in dein Custom-Addons-Repository kopieren.
