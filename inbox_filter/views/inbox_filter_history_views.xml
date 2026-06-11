@@ -110,5 +110,5 @@
         <field name="context">{'search_default_group_date': 1}</field>
     </record>
 
-    <menuitem id="menu_inbox_filter_history" name="Historie" parent="menu_inbox_filter_root" action="action_inbox_filter_history" sequence="20" groups="inbox_filter.group_inbox_filter_user"/>
+    <menuitem id="menu_inbox_filter_history" name="Historie" parent="menu_inbox_filter_root" action="action_inbox_filter_history" sequence="20" groups="base.group_user"/>
 </odoo>

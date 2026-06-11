@@ -38,5 +38,5 @@
         <field name="context">{'module': 'inbox_filter'}</field>
     </record>
 
-    <menuitem id="menu_inbox_filter_settings" name="Einstellungen" parent="menu_inbox_filter_root" action="action_inbox_filter_settings" sequence="30" groups="inbox_filter.group_inbox_filter_manager"/>
+    <menuitem id="menu_inbox_filter_settings" name="Einstellungen" parent="menu_inbox_filter_root" action="action_inbox_filter_settings" sequence="30" groups="base.group_system"/>
 </odoo>

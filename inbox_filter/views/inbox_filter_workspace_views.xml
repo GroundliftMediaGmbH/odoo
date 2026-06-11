@@ -82,6 +82,6 @@
         <field name="target">current</field>
     </record>
 
-    <menuitem id="menu_inbox_filter_root" name="Inbox Filter" sequence="35" web_icon="inbox_filter,static/description/icon.png" groups="inbox_filter.group_inbox_filter_user"/>
-    <menuitem id="menu_inbox_filter_workspace" name="Inbox Filter öffnen" parent="menu_inbox_filter_root" action="action_inbox_filter_workspace" sequence="10" groups="inbox_filter.group_inbox_filter_user"/>
+    <menuitem id="menu_inbox_filter_root" name="Inbox Filter" sequence="35" web_icon="inbox_filter,static/description/icon.png" groups="base.group_user"/>
+    <menuitem id="menu_inbox_filter_workspace" name="Inbox Filter öffnen" parent="menu_inbox_filter_root" action="action_inbox_filter_workspace" sequence="10" groups="base.group_user"/>
 </odoo>

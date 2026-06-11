@@ -8,6 +8,6 @@
     </record>
 
     <!-- CRM-Schnellzugriff: Menüeinträge werden bewusst nahe an der Pipeline einsortiert. -->
-    <menuitem id="crm_menu_inbox_filter_sort" name="Sortieren" parent="crm.crm_menu_root" action="action_crm_inbox_filter_sort" sequence="12" groups="inbox_filter.group_inbox_filter_user"/>
-    <menuitem id="crm_menu_inbox_filter_open" name="Inbox Filter öffnen" parent="crm.crm_menu_root" action="action_inbox_filter_workspace" sequence="13" groups="inbox_filter.group_inbox_filter_user"/>
+    <menuitem id="crm_menu_inbox_filter_sort" name="Sortieren" parent="crm.crm_menu_root" action="action_crm_inbox_filter_sort" sequence="12" groups="base.group_user"/>
+    <menuitem id="crm_menu_inbox_filter_open" name="Inbox Filter öffnen" parent="crm.crm_menu_root" action="action_inbox_filter_workspace" sequence="13" groups="base.group_user"/>
 </odoo>
