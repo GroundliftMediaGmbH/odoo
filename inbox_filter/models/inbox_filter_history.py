@@ -22,6 +22,7 @@ class InboxFilterHistory(models.Model):
     category = fields.Selection(
         selection=[
             ("qualified", "Qualifiziert"),
+            ("band_request", "Bandanfragen"),
             ("spam", "SPAM"),
             ("production", "Projekt/VA"),
             ("todo", "ToDo"),
@@ -175,7 +176,7 @@ class InboxFilterHistory(models.Model):
         lead = self.with_context(active_test=False).lead_id.exists()
         if lead:
             new_stage = self.env["inbox.filter.service"]._get_or_create_stage("Neu", sequence=1)
-            lead.write({"active": True, "stage_id": new_stage.id})
+            lead.with_context(inbox_filter_skip_auto=True).write({"active": True, "stage_id": new_stage.id})
             return lead
         return self._restore_lead_from_snapshot()
 
@@ -201,7 +202,7 @@ class InboxFilterHistory(models.Model):
         for field_name in optional_fields:
             if field_name in Lead._fields and data.get(field_name) not in (None, False, ""):
                 vals[field_name] = data.get(field_name)
-        lead = Lead.create(vals)
+        lead = Lead.with_context(inbox_filter_skip_auto=True).create(vals)
         if "tag_ids" in Lead._fields and data.get("tag_ids"):
             lead.write({"tag_ids": [(6, 0, data.get("tag_ids"))]})
         self.write({"lead_id": lead.id})
@@ -245,7 +246,7 @@ class InboxFilterHistory(models.Model):
         for rec in self:
             lead = rec.get_or_restore_lead()
             new_stage = rec.env["inbox.filter.service"]._get_or_create_stage("Neu", sequence=1)
-            lead.write({"active": True, "stage_id": new_stage.id})
+            lead.with_context(inbox_filter_skip_auto=True).write({"active": True, "stage_id": new_stage.id})
             lead.message_post(body=_("Inbox-Filter-Vorgang wurde manuell rückgängig gemacht."))
             rec.write({
                 "status": "undone",
@@ -273,6 +274,12 @@ class InboxFilterHistory(models.Model):
         for rec in self:
             self.env["inbox.filter.service"].manual_mark_qualified(rec)
             rec.write({"status": "corrected", "category": "qualified"})
+        return True
+
+    def action_mark_band_request(self):
+        for rec in self:
+            self.env["inbox.filter.service"].manual_mark_band_request(rec)
+            rec.write({"status": "corrected", "category": "band_request"})
         return True
 
     def action_open_project_event_wizard(self):
@@ -305,7 +312,7 @@ class InboxFilterHistory(models.Model):
 
     def _learn_from_manual_correction(self, corrected_category):
         self.ensure_one()
-        if corrected_category not in ("qualified", "spam", "production", "todo", "support", "review"):
+        if corrected_category not in ("qualified", "band_request", "spam", "production", "todo", "support", "review"):
             corrected_category = "review"
         note = self.env["inbox.filter.service"].create_learning_note(self, corrected_category)
         prompt = self.env["inbox.filter.prompt"].get_prompt_by_code(corrected_category)

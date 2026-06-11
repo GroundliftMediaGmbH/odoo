@@ -25,6 +25,7 @@
                     <button name="action_undo" type="object" string="Rückgängig" class="btn-secondary"/>
                     <button name="action_confirm_spam" type="object" string="SPAM bestätigt" class="btn-secondary"/>
                     <button name="action_mark_qualified" type="object" string="Qualifiziert" class="btn-primary"/>
+                    <button name="action_mark_band_request" type="object" string="Bandanfragen"/>
                     <button name="action_open_project_event_wizard" type="object" string="Projekt/VA"/>
                     <button name="action_open_todo_wizard" type="object" string="ToDo"/>
                     <button name="action_assign_support" type="object" string="Kundensupport"/>
@@ -89,6 +90,7 @@
                 <field name="summary"/>
                 <field name="raw_input"/>
                 <field name="category"/>
+                <filter name="filter_band_request" string="Bandanfragen" domain="[('category','=','band_request')]"/>
                 <filter name="filter_spam" string="SPAM" domain="[('category','=','spam')]"/>
                 <filter name="filter_qualified" string="Qualifiziert" domain="[('category','=','qualified')]"/>
                 <filter name="filter_review" string="Zu prüfen" domain="[('category','=','review')]"/>

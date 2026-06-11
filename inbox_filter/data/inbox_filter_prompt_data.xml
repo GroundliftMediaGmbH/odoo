@@ -10,6 +10,17 @@ Nicht qualifizieren: bestehende Produktionsunterlagen, Lost-&-Found, reine Ticke
         ]]></field>
     </record>
 
+
+    <record id="prompt_band_request" model="inbox.filter.prompt">
+        <field name="name">Bandanfragen</field>
+        <field name="code">band_request</field>
+        <field name="sequence">15</field>
+        <field name="prompt"><![CDATA[
+Erkenne Bandanfragen und Künstler-/Booking-Anfragen. Dazu gehören Bands, Musiker, Künstler, DJs, Managements oder Booking-Agenturen, die sich für einen Auftritt, Konzertslot, Support-Slot, Bewerbung fürs Programm, Gig, Live-Session, Showcase oder eine musikalische Zusammenarbeit bei Groundlift interessieren. Diese Anfragen sollen in CRM in die Phase Bandanfragen.
+Nicht als Bandanfrage werten: Eine bereits gebuchte Band sendet Rider, Stageplot, Setliste, Inputliste oder Bühnenanweisung zu einer konkreten bestehenden Veranstaltung; das ist Projekt/VA. Auch Kunden, die eine Band für ihr Firmenevent buchen wollen, sind normale qualifizierte Leads.
+        ]]></field>
+    </record>
+
     <record id="prompt_spam" model="inbox.filter.prompt">
         <field name="name">SPAM</field>
         <field name="code">spam</field>

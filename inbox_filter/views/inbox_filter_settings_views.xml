@@ -19,6 +19,7 @@
                     </group>
                     <group string="Sortierlauf">
                         <field name="limit"/>
+                        <field name="auto_sort_enabled"/>
                     </group>
                     <group string="Kundensupport">
                         <field name="customer_care_email"/>

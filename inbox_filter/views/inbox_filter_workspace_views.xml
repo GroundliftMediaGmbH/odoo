@@ -27,6 +27,15 @@
                                 <field name="qualified_learning_notes" nolabel="1" readonly="1" widget="text"/>
                             </group>
                         </page>
+
+                        <page string="Bandanfragen">
+                            <group string="Prompt">
+                                <field name="band_request_prompt" nolabel="1" widget="text"/>
+                            </group>
+                            <group string="Live-Lernbeispiele">
+                                <field name="band_request_learning_notes" nolabel="1" readonly="1" widget="text"/>
+                            </group>
+                        </page>
                         <page string="SPAM">
                             <group string="Prompt">
                                 <field name="spam_prompt" nolabel="1" widget="text"/>

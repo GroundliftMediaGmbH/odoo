@@ -40,6 +40,11 @@ class InboxFilterSettings(models.Model):
         default=50,
         help="Schützt vor zu großen API-Läufen. 0 bedeutet: alle Leads in Neu.",
     )
+    auto_sort_enabled = fields.Boolean(
+        string="Automatisch sortieren",
+        default=True,
+        help="Wenn aktiv, wird jeder neu in CRM Neu eingehende Datensatz sofort automatisch analysiert und einsortiert.",
+    )
 
     @api.depends("openai_api_key")
     def _compute_openai_api_key_status(self):
@@ -70,6 +75,7 @@ class InboxFilterSettings(models.Model):
                 "openai_url": (params.get_param("inbox_filter.openai_url", "https://api.openai.com/v1/chat/completions") or "https://api.openai.com/v1/chat/completions").strip(),
                 "customer_care_email": (params.get_param("inbox_filter.customer_care_email", "customer-care@groundlift.odoo.com") or "customer-care@groundlift.odoo.com").strip(),
                 "limit": int(params.get_param("inbox_filter.limit", "50") or 50),
+                "auto_sort_enabled": (params.get_param("inbox_filter.auto_sort_enabled", "1") or "1") not in ("0", "False", "false"),
             })
         return record
 
@@ -119,6 +125,7 @@ class InboxFilterSettings(models.Model):
             params.set_param("inbox_filter.openai_url", (record.openai_url or "https://api.openai.com/v1/chat/completions").strip())
             params.set_param("inbox_filter.customer_care_email", (record.customer_care_email or "customer-care@groundlift.odoo.com").strip())
             params.set_param("inbox_filter.limit", str(record.limit or 0))
+            params.set_param("inbox_filter.auto_sort_enabled", "1" if record.auto_sort_enabled else "0")
 
     @api.model
     def _mask_token(self, token):

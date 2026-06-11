@@ -11,6 +11,7 @@ class InboxFilterPrompt(models.Model):
     code = fields.Selection(
         selection=[
             ("qualified", "Qualifiziert"),
+            ("band_request", "Bandanfragen"),
             ("spam", "SPAM"),
             ("production", "Projekt/VA"),
             ("todo", "ToDo"),

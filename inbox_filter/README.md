@@ -30,3 +30,11 @@ Dadurch bleibt der API-Token zuverlässig gespeichert und `Token prüfen` liest 
 - Der Token wird zusätzlich nach `ir.config_parameter` gespiegelt, damit ältere Modulpfade und Upgrades kompatibel bleiben.
 - SPAM/Projekt/VA/ToDo/Kundensupport werden zunächst sicher archiviert und in der Inbox-Filter-Historie protokolliert.
 - Endgültiges Löschen erfolgt nur über „SPAM bestätigt“.
+
+
+## Version 19.0.1.0.6
+
+- Neuer Filter **Bandanfragen** mit eigenem Prompt, Tab, Historienkategorie und manueller Korrektur.
+- Zutreffende Bandanfragen werden in die CRM-Phase **Bandanfragen** verschoben.
+- Neue CRM-Datensätze, die in der Phase **Neu** eingehen, werden automatisch sortiert, sofern die Einstellung **Automatisch sortieren** aktiv ist.
+- Die Automatik ist fehlertolerant: API-/Klassifizierungsfehler verhindern nicht das Erstellen des CRM-Datensatzes.

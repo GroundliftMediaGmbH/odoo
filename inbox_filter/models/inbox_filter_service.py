@@ -12,7 +12,7 @@ from odoo.exceptions import UserError
 _logger = logging.getLogger(__name__)
 
 
-CATEGORY_SELECTION = ["qualified", "spam", "production", "todo", "support", "review"]
+CATEGORY_SELECTION = ["qualified", "band_request", "spam", "production", "todo", "support", "review"]
 
 
 class InboxFilterService(models.AbstractModel):
@@ -27,7 +27,7 @@ class InboxFilterService(models.AbstractModel):
         stats = self.run_sort_new_leads()
         message = _(
             "Inbox Filter abgeschlossen: %(processed)s verarbeitet, %(qualified)s qualifiziert, "
-            "%(spam)s Spam, %(production)s Projekt/VA, %(todo)s ToDo, %(support)s Kundensupport, "
+            "%(band_request)s Bandanfragen, %(spam)s Spam, %(production)s Projekt/VA, %(todo)s ToDo, %(support)s Kundensupport, "
             "%(review)s zu prüfen, %(error)s Fehler."
         ) % stats
         return {
@@ -57,6 +57,7 @@ class InboxFilterService(models.AbstractModel):
             "processed": 0,
             "qualified": 0,
             "spam": 0,
+            "band_request": 0,
             "production": 0,
             "todo": 0,
             "support": 0,
@@ -83,6 +84,47 @@ class InboxFilterService(models.AbstractModel):
                     # auf einer angepassten CRM-Struktur nicht geschrieben werden kann.
                     _logger.exception("Inbox Filter could not create error history for lead %s", lead.id)
         return stats
+
+    @api.model
+    def auto_sort_lead(self, lead):
+        """Sort a single lead automatically when it enters the CRM stage Neu.
+
+        This method is deliberately non-blocking: API or mapping errors are logged
+        and, where possible, written to the Inbox Filter history, but they must not
+        prevent Odoo from creating the CRM lead.
+        """
+        if self.env.context.get("inbox_filter_skip_auto"):
+            return False
+        if not self._is_auto_sort_enabled():
+            return False
+        if not self._get_param("inbox_filter.openai_api_key"):
+            _logger.info("Inbox Filter automatic sorting skipped: no OpenAI API token configured.")
+            return False
+
+        lead = lead.with_context(inbox_filter_skip_auto=True)
+        new_stage = self._find_stage(["Neu", "New"])
+        if not new_stage:
+            _logger.warning("Inbox Filter automatic sorting skipped: CRM stage Neu/New not found.")
+            return False
+        if not lead.exists() or not self._record_value(lead, "active", True) or lead.stage_id.id != new_stage.id:
+            return False
+
+        try:
+            decision = self.classify_lead(lead)
+            category = decision.get("category") or "review"
+            if category not in CATEGORY_SELECTION:
+                decision["category"] = "review"
+            history = self.env["inbox.filter.history"].sudo().create_from_lead(lead, decision)
+            history.message_post(body=_("Automatischer Sortierlauf beim Eingang in CRM Neu."))
+            self.apply_decision(lead, history, decision)
+            return True
+        except Exception as exc:  # noqa: BLE001
+            _logger.exception("Inbox Filter automatic sorting failed for lead %s", lead.id)
+            try:
+                self.env["inbox.filter.history"].sudo().create_error_from_lead(lead, exc)
+            except Exception:  # noqa: BLE001
+                _logger.exception("Inbox Filter could not create automatic error history for lead %s", lead.id)
+            return False
 
     @api.model
     def classify_lead(self, lead):
@@ -130,6 +172,8 @@ class InboxFilterService(models.AbstractModel):
         category = decision.get("category") or "review"
         if category == "qualified":
             return self._apply_qualified(lead, history, decision)
+        if category == "band_request":
+            return self._apply_band_request(lead, history, decision)
         if category == "spam":
             return self._apply_spam(lead, history, decision)
         if category == "production":
@@ -147,6 +191,17 @@ class InboxFilterService(models.AbstractModel):
         history.write({
             "target_stage_id": stage.id,
             "moved_to": "CRM: Qualifiziert",
+            "status": "applied",
+        })
+
+
+    def _apply_band_request(self, lead, history, decision):
+        stage = self._get_or_create_stage("Bandanfragen", sequence=25)
+        lead.write({"stage_id": stage.id, "active": True})
+        lead.message_post(body=self._format_internal_note("Inbox Filter: als Bandanfrage erkannt", decision))
+        history.write({
+            "target_stage_id": stage.id,
+            "moved_to": "CRM: Bandanfragen",
             "status": "applied",
         })
 
@@ -235,6 +290,14 @@ class InboxFilterService(models.AbstractModel):
         history._learn_from_manual_correction("qualified")
 
     @api.model
+    def manual_mark_band_request(self, history):
+        lead = history.get_or_restore_lead()
+        decision = history.decision_dict()
+        decision["category"] = "band_request"
+        self._apply_band_request(lead, history, decision)
+        history._learn_from_manual_correction("band_request")
+
+    @api.model
     def manual_assign_production(self, history, project=None, event=None):
         lead = history.get_or_restore_lead()
         target = project or event
@@ -288,6 +351,7 @@ class InboxFilterService(models.AbstractModel):
             "inbox_filter.openai_url": "openai_url",
             "inbox_filter.customer_care_email": "customer_care_email",
             "inbox_filter.limit": "limit",
+            "inbox_filter.auto_sort_enabled": "auto_sort_enabled",
         }
         field_name = settings_map.get(key)
         if field_name and "inbox.filter.settings" in self.env.registry.models:
@@ -313,6 +377,12 @@ class InboxFilterService(models.AbstractModel):
     def _ensure_api_key(self):
         if not self._get_param("inbox_filter.openai_api_key"):
             raise UserError(_("Bitte zuerst in Inbox Filter > Einstellungen den OpenAI API Token hinterlegen."))
+
+    def _is_auto_sort_enabled(self):
+        value = self._get_param("inbox_filter.auto_sort_enabled", True)
+        if isinstance(value, str):
+            return value.strip().lower() not in ("0", "false", "no", "nein", "off", "")
+        return bool(value)
 
     def _find_stage(self, names):
         lowered = [n.lower() for n in names]
@@ -438,6 +508,7 @@ Du entscheidest genau EINE Kategorie für eine neue CRM-Anfrage.
 
 Kategorien:
 - qualified: echter neuer Lead mit geschäftlichem Potenzial.
+- band_request: Anfrage einer Band, eines Künstlers, einer Booking-Agentur oder eines Acts mit Interesse an Auftritt, Konzertslot, Bewerbungs-/Bookingmöglichkeit oder Programmanfrage.
 - spam: Werbung, Scam, irrelevante Massenmail, SEO-Angebot, Bot, offensichtlicher Müll.
 - production: gehört eindeutig zu einem bestehenden Projekt oder einer bestehenden Veranstaltung, z.B. Band schickt Bühnenanweisung, Technikrider, Produktionsdetails, Ablauf/Material zu einer Produktion.
 - todo: benötigt eine konkrete Handlung eines bestimmten Mitarbeiters; Mitarbeiter muss eindeutig erkennbar sein.
@@ -448,6 +519,7 @@ Regeln:
 - Gib production nur aus, wenn ein eindeutiges Projekt oder Event aus den Kandidaten passt.
 - Gib todo nur aus, wenn ein eindeutiger Mitarbeiter aus den Kandidaten passt.
 - Gib target_id nur aus, wenn der passende Kandidat eindeutig ist.
+- Bandanfragen sind neue künstlerische/bookingbezogene Anfragen und gehören in band_request, nicht in qualified, außer es geht eindeutig um eine bezahlte Studio-/Eventlocation-/Produktionsbuchung durch einen Kunden.
 - Kundentickets, vergessene Brillen/Handschuhe/Jacken, Besucherrückfragen und verlorene Gegenstände gehören in support, auch wenn eine Veranstaltung erwähnt wird.
 - Bühnenanweisungen, Tech-Rider, Setlisten, Soundcheck, Backline, Ablaufpläne und Produktionsunterlagen gehören zu production, wenn das Projekt/Event eindeutig ist.
 - Liefere nur JSON im vorgegebenen Schema.
