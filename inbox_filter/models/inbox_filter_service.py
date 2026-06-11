@@ -76,7 +76,12 @@ class InboxFilterService(models.AbstractModel):
             except Exception as exc:  # noqa: BLE001 - in Odoo soll ein Lead den Gesamtlauf nicht abbrechen
                 _logger.exception("Inbox Filter failed for lead %s", lead.id)
                 stats["error"] += 1
-                self.env["inbox.filter.history"].sudo().create_error_from_lead(lead, exc)
+                try:
+                    self.env["inbox.filter.history"].sudo().create_error_from_lead(lead, exc)
+                except Exception:  # noqa: BLE001
+                    # Der Sortierlauf darf nie komplett abbrechen, nur weil die Fehlerhistorie
+                    # auf einer angepassten CRM-Struktur nicht geschrieben werden kann.
+                    _logger.exception("Inbox Filter could not create error history for lead %s", lead.id)
         return stats
 
     @api.model
@@ -367,7 +372,7 @@ class InboxFilterService(models.AbstractModel):
             "res_id": target.id,
             "user_id": user.id,
             "date_deadline": deadline,
-            "summary": decision.get("suggested_title") or source_lead.name or _("Inbox Filter ToDo"),
+            "summary": decision.get("suggested_title") or self._record_value(source_lead, "name", "") or _("Inbox Filter ToDo"),
             "note": body,
         })
         target.message_post(body=body)
@@ -378,15 +383,19 @@ class InboxFilterService(models.AbstractModel):
         Ticket = self.env["helpdesk.ticket"].sudo()
         vals = {}
         if "name" in Ticket._fields:
-            vals["name"] = decision.get("suggested_title") or lead.name or _("Kundensupport-Anfrage")
+            vals["name"] = decision.get("suggested_title") or self._record_value(lead, "name", "") or _("Kundensupport-Anfrage")
         if "description" in Ticket._fields:
             vals["description"] = self._support_description(lead, decision)
-        if "partner_name" in Ticket._fields and (lead.contact_name or lead.partner_name):
-            vals["partner_name"] = lead.contact_name or lead.partner_name
-        if "partner_email" in Ticket._fields and lead.email_from:
-            vals["partner_email"] = lead.email_from
-        if "partner_id" in Ticket._fields and lead.partner_id:
-            vals["partner_id"] = lead.partner_id.id
+        lead_contact_name = self._record_value(lead, "contact_name", "") or ""
+        lead_partner_name = self._record_value(lead, "partner_name", "") or ""
+        lead_email_from = self._record_value(lead, "email_from", "") or ""
+        lead_partner = self._record_value(lead, "partner_id", False)
+        if "partner_name" in Ticket._fields and (lead_contact_name or lead_partner_name):
+            vals["partner_name"] = lead_contact_name or lead_partner_name
+        if "partner_email" in Ticket._fields and lead_email_from:
+            vals["partner_email"] = lead_email_from
+        if "partner_id" in Ticket._fields and lead_partner:
+            vals["partner_id"] = lead_partner.id
         if "team_id" in Ticket._fields:
             team = self._find_customer_care_team()
             if team:
@@ -456,25 +465,47 @@ Filterdefinitionen:
         }
 
     def _lead_to_payload(self, lead):
+        name = self._record_value(lead, "name", "") or ""
+        contact_name = self._record_value(lead, "contact_name", "") or ""
+        partner_name = self._record_value(lead, "partner_name", "") or ""
+        email_from = self._record_value(lead, "email_from", "") or ""
+        phone = self._record_value(lead, "phone", "") or ""
+        mobile = self._record_value(lead, "mobile", "") or ""
+        description = self._record_value(lead, "description", "") or ""
         raw_text = "\n\n".join(filter(None, [
-            lead.name or "",
-            lead.contact_name or "",
-            lead.partner_name or "",
-            lead.email_from or "",
-            lead.phone or "",
-            tools.html2plaintext(lead.description or ""),
+            name,
+            contact_name,
+            partner_name,
+            email_from,
+            phone,
+            mobile,
+            tools.html2plaintext(description),
         ])).strip()
+        create_date = self._record_value(lead, "create_date")
         return {
             "id": lead.id,
-            "name": lead.name,
-            "contact_name": lead.contact_name,
-            "partner_name": lead.partner_name,
-            "email_from": lead.email_from,
-            "phone": lead.phone,
-            "description_text": tools.html2plaintext(lead.description or ""),
+            "name": name,
+            "contact_name": contact_name,
+            "partner_name": partner_name,
+            "email_from": email_from,
+            "phone": phone,
+            "mobile": mobile,
+            "description_text": tools.html2plaintext(description),
             "raw_text": raw_text,
-            "create_date": fields.Datetime.to_string(lead.create_date) if lead.create_date else None,
+            "create_date": fields.Datetime.to_string(create_date) if create_date else None,
         }
+
+    def _record_value(self, record, field_name, default=False):
+        """Read a field only if it exists in the current Odoo database.
+
+        Odoo 19 / Studio customizations can remove or rename optional fields on
+        crm.lead. Direct access like ``lead.mobile`` can therefore crash the
+        whole server action. This helper keeps the inbox filter compatible with
+        lean CRM schemas.
+        """
+        if not record or field_name not in getattr(record, "_fields", {}):
+            return default
+        return record[field_name]
 
     def _event_candidates(self):
         Event = self.env["event.event"].sudo()
@@ -564,7 +595,6 @@ Filterdefinitionen:
         ]
         request_payload = {
             "model": model,
-            "temperature": 0.1,
             "messages": messages,
             "response_format": {
                 "type": "json_schema",
@@ -676,7 +706,7 @@ Filterdefinitionen:
             tools.html_escape(lead.display_name),
             tools.html_escape(decision.get("summary") or ""),
             tools.html_escape(decision.get("reason") or ""),
-            tools.html_escape(tools.html2plaintext(lead.description or "") or lead.name or ""),
+            tools.html_escape(tools.html2plaintext(self._record_value(lead, "description", "") or "") or self._record_value(lead, "name", "") or ""),
         )
 
     def _support_description(self, lead, decision):
@@ -691,8 +721,8 @@ Filterdefinitionen:
         """ % (
             tools.html_escape(decision.get("summary") or ""),
             tools.html_escape(decision.get("support_reason") or decision.get("reason") or ""),
-            tools.html_escape(lead.contact_name or lead.partner_name or ""),
-            tools.html_escape(lead.email_from or ""),
-            tools.html_escape(lead.phone or ""),
-            tools.html_escape(tools.html2plaintext(lead.description or "") or lead.name or ""),
+            tools.html_escape(self._record_value(lead, "contact_name", "") or self._record_value(lead, "partner_name", "") or ""),
+            tools.html_escape(self._record_value(lead, "email_from", "") or ""),
+            tools.html_escape(self._record_value(lead, "phone", "") or self._record_value(lead, "mobile", "") or ""),
+            tools.html_escape(tools.html2plaintext(self._record_value(lead, "description", "") or "") or self._record_value(lead, "name", "") or ""),
         )

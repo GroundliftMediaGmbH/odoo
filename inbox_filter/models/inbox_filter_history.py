@@ -96,35 +96,58 @@ class InboxFilterHistory(models.Model):
 
     @api.model
     def _snapshot_lead(self, lead):
+        def value(field_name, default=False):
+            if field_name not in getattr(lead, "_fields", {}):
+                return default
+            return lead[field_name]
+
+        def many2one_id(field_name):
+            rec = value(field_name, False)
+            return rec.id if rec else False
+
+        def x2many_ids(field_name):
+            recs = value(field_name, False)
+            return recs.ids if recs else []
+
+        name = value("name", "") or ""
+        contact_name = value("contact_name", "") or ""
+        partner_name = value("partner_name", "") or ""
+        email_from = value("email_from", "") or ""
+        phone = value("phone", "") or ""
+        mobile = value("mobile", "") or ""
+        description = value("description", "") or ""
+        raw_input = "\n\n".join(filter(None, [
+            name,
+            contact_name,
+            partner_name,
+            email_from,
+            phone,
+            mobile,
+            tools.html2plaintext(description),
+        ])).strip()
+
         return {
-            "name": lead.name,
-            "type": lead.type,
-            "active": lead.active,
-            "stage_id": lead.stage_id.id if lead.stage_id else False,
-            "team_id": lead.team_id.id if lead.team_id else False,
-            "user_id": lead.user_id.id if lead.user_id else False,
-            "partner_id": lead.partner_id.id if lead.partner_id else False,
-            "partner_name": lead.partner_name,
-            "contact_name": lead.contact_name,
-            "email_from": lead.email_from,
-            "phone": lead.phone,
-            "mobile": lead.mobile,
-            "description": lead.description,
-            "planned_revenue": lead.planned_revenue,
-            "probability": lead.probability,
-            "priority": lead.priority,
-            "campaign_id": lead.campaign_id.id if lead.campaign_id else False,
-            "medium_id": lead.medium_id.id if lead.medium_id else False,
-            "source_id": lead.source_id.id if lead.source_id else False,
-            "tag_ids": lead.tag_ids.ids,
-            "raw_input": "\n\n".join(filter(None, [
-                lead.name or "",
-                lead.contact_name or "",
-                lead.partner_name or "",
-                lead.email_from or "",
-                lead.phone or "",
-                tools.html2plaintext(lead.description or ""),
-            ])).strip(),
+            "name": name,
+            "type": value("type", "lead") or "lead",
+            "active": value("active", True),
+            "stage_id": many2one_id("stage_id"),
+            "team_id": many2one_id("team_id"),
+            "user_id": many2one_id("user_id"),
+            "partner_id": many2one_id("partner_id"),
+            "partner_name": partner_name,
+            "contact_name": contact_name,
+            "email_from": email_from,
+            "phone": phone,
+            "mobile": mobile,
+            "description": description,
+            "planned_revenue": value("planned_revenue", 0.0),
+            "probability": value("probability", 0.0),
+            "priority": value("priority", "0"),
+            "campaign_id": many2one_id("campaign_id"),
+            "medium_id": many2one_id("medium_id"),
+            "source_id": many2one_id("source_id"),
+            "tag_ids": x2many_ids("tag_ids"),
+            "raw_input": raw_input,
         }
 
     def decision_dict(self):
