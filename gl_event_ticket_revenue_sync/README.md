@@ -1,53 +1,49 @@
 # Groundlift Event Ticket Revenue Sync
 
-Kleines Odoo-19-Modul für Odoo.sh.
+Synchronisiert den Brutto-Ticketumsatz eines Events in ein vorhandenes Studio-Feld.
 
-## Zweck
+## Mapping
 
-Das Modul synchronisiert den von Odoo berechneten Brutto-Ticketumsatz eines Events aus:
-
-```text
-sale_price_total
-```
-
-in das Groundlift-Studio-Feld:
+Quelle:
 
 ```text
-x_studio_event_kalk_ist_ticketumsatz_max_brutto
+event.event.sale_price_total
 ```
 
-Odoos Feld `sale_price_total` kommt aus `event_sale` und entspricht dem steuerinkludierten Verkaufswert bestätigter Verkaufsauftragspositionen, die mit dem Event verknüpft sind.
+Zielfeld:
+
+```text
+event.event.x_studio_event_kalk_ist_ticketumsatz_max_brutto
+```
+
+## Wichtig
+
+Das Modul liest `sale_price_total` nicht nur stumpf aus dem Cache, sondern berechnet den Wert robust nach der Odoo-Standardlogik aus bestätigten `sale.order.line`-Zeilen:
+
+- `event_id` ist gesetzt
+- `state = sale`
+- `price_total != 0`
+- Gruppierung nach Event und Währung
+- Umrechnung in die Event-Währung
+
+Dadurch entspricht der Wert der Logik von Odoos `sale_price_total`, ist aber bei direkten Aktualisierungen zuverlässiger.
 
 ## Aktualisierung erfolgt bei
 
-- Erstellung von Verkaufsauftragspositionen
-- Änderung relevanter Verkaufsauftragspositionen
-- Löschen von Verkaufsauftragspositionen
-- Bestätigung eines Verkaufsauftrags
-- Storno eines Verkaufsauftrags
-- Zurücksetzen auf Entwurf
-- relevanten Änderungen am Verkaufsauftrag
-- täglich zusätzlich per Sicherheits-Cron
-- einmalig direkt nach Modulinstallation für bestehende Events
+- Verkaufsauftrag bestätigen
+- Verkaufsauftrag stornieren
+- Verkaufsauftrag zurück auf Entwurf
+- Verkaufsauftragsposition erstellen, ändern oder löschen
+- relevanten Preis-/Mengen-/Steueränderungen
+- stündlichem Sicherheits-Cron
+- einmalig direkt nach Installation
 
 ## Voraussetzung
 
-Das Studio-Feld muss auf `event.event` existieren:
+Das Zielfeld muss bereits auf `event.event` existieren:
 
 ```text
 x_studio_event_kalk_ist_ticketumsatz_max_brutto
 ```
 
-Empfohlen: Feldtyp `Monetary` oder `Float`.
-
-## Installation in Odoo.sh
-
-1. Ordner `gl_event_ticket_revenue_sync` in euer Custom-Addons-Repository kopieren.
-2. In Odoo.sh committen und deployen.
-3. App-Liste aktualisieren.
-4. Modul `Groundlift Event Ticket Revenue Sync` installieren.
-5. Bestehende Events werden beim Installieren einmalig synchronisiert.
-
-## Hinweis
-
-Das Modul legt kein neues Feld an, sondern schreibt bewusst in das bestehende Studio-Feld. Wenn das Feld fehlt, wird nichts geschrieben und ein Hinweis im Log erzeugt.
+Es sollte ein Decimal/Float- oder Monetary-Feld sein.

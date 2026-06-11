@@ -8,13 +8,13 @@ class SaleOrderLine(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         lines = super().create(vals_list)
-        events = lines.mapped("event_id")
+        events = lines.sudo().mapped("event_id")
         if events:
             events._gl_sync_sale_price_total_to_studio_field()
         return lines
 
     def write(self, vals):
-        events_before = self.mapped("event_id")
+        events_before = self.sudo().mapped("event_id")
         res = super().write(vals)
 
         relevant_fields = {
@@ -32,13 +32,13 @@ class SaleOrderLine(models.Model):
             "state",
         }
         if relevant_fields.intersection(vals):
-            events = events_before | self.mapped("event_id")
+            events = events_before | self.sudo().mapped("event_id")
             if events:
                 events._gl_sync_sale_price_total_to_studio_field()
         return res
 
     def unlink(self):
-        events = self.mapped("event_id")
+        events = self.sudo().mapped("event_id")
         res = super().unlink()
         if events:
             events._gl_sync_sale_price_total_to_studio_field()

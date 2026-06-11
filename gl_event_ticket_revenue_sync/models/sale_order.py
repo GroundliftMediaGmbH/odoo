@@ -6,7 +6,7 @@ class SaleOrder(models.Model):
     _inherit = "sale.order"
 
     def _gl_get_linked_event_records(self):
-        return self.mapped("order_line.event_id")
+        return self.sudo().mapped("order_line.event_id")
 
     def _gl_sync_linked_event_revenue(self, extra_events=False):
         events = self._gl_get_linked_event_records()
@@ -19,7 +19,6 @@ class SaleOrder(models.Model):
         events_before = self._gl_get_linked_event_records()
         res = super().write(vals)
 
-        # Relevant for confirmations, cancellations, currency changes, edited lines, etc.
         relevant_fields = {
             "state",
             "order_line",
@@ -27,6 +26,9 @@ class SaleOrder(models.Model):
             "company_id",
             "pricelist_id",
             "date_order",
+            "amount_total",
+            "amount_tax",
+            "amount_untaxed",
         }
         if relevant_fields.intersection(vals):
             self._gl_sync_linked_event_revenue(extra_events=events_before)
@@ -35,6 +37,12 @@ class SaleOrder(models.Model):
     def action_confirm(self):
         events_before = self._gl_get_linked_event_records()
         res = super().action_confirm()
+        self._gl_sync_linked_event_revenue(extra_events=events_before)
+        return res
+
+    def _action_confirm(self):
+        events_before = self._gl_get_linked_event_records()
+        res = super()._action_confirm()
         self._gl_sync_linked_event_revenue(extra_events=events_before)
         return res
 

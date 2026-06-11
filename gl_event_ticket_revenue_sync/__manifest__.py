@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Groundlift Event Ticket Revenue Sync",
-    "summary": "Synchronisiert den Odoo-Brutto-Ticketumsatz in ein Studio-Feld am Event.",
-    "version": "19.0.1.0.0",
+    "summary": "Synchronisiert Odoo sale_price_total robust in ein Studio-Feld am Event.",
+    "version": "19.0.1.1.0",
     "category": "Events",
     "author": "Groundlift",
     "license": "LGPL-3",
