@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_gl_service_staff_event_costs_recompute" model="ir.actions.server">
+        <field name="name">Servicekosten neu berechnen</field>
+        <field name="model_id" ref="gl_service_staff.model_gl_service_shift"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_recompute_all_service_staff_event_costs()</field>
+    </record>
+
+    <menuitem id="menu_gl_service_staff_event_costs_recompute"
+              name="Servicekosten neu berechnen"
+              parent="gl_service_staff.menu_gl_service_root"
+              action="action_gl_service_staff_event_costs_recompute"
+              sequence="45"/>
+</odoo>
