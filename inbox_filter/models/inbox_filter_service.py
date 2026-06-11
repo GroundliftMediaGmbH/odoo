@@ -271,6 +271,28 @@ class InboxFilterService(models.AbstractModel):
     # Odoo helpers
     # ---------------------------------------------------------------------
     def _get_param(self, key, default=None):
+        """Read Inbox Filter configuration robustly.
+
+        Since v104 the primary storage is the persistent singleton model
+        `inbox.filter.settings`. `ir.config_parameter` remains a fallback for
+        older installations/upgrades.
+        """
+        settings_map = {
+            "inbox_filter.openai_api_key": "openai_api_key",
+            "inbox_filter.openai_model": "openai_model",
+            "inbox_filter.openai_url": "openai_url",
+            "inbox_filter.customer_care_email": "customer_care_email",
+            "inbox_filter.limit": "limit",
+        }
+        field_name = settings_map.get(key)
+        if field_name and "inbox.filter.settings" in self.env.registry.models:
+            settings = self.env["inbox.filter.settings"].sudo().get_singleton()
+            value = settings[field_name]
+            if value not in (False, None, ""):
+                if isinstance(value, str):
+                    return value.strip()
+                return value
+
         value = self.env["ir.config_parameter"].sudo().get_param(key, default)
         if isinstance(value, str):
             return value.strip()

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="inbox_filter_settings_singleton" model="inbox.filter.settings">
+        <field name="name">Inbox Filter Einstellungen</field>
+        <field name="openai_model">gpt-4.1-mini</field>
+        <field name="openai_url">https://api.openai.com/v1/chat/completions</field>
+        <field name="customer_care_email">customer-care@groundlift.odoo.com</field>
+        <field name="limit">50</field>
+    </record>
+</odoo>

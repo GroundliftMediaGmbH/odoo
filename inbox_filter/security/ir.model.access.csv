@@ -7,3 +7,5 @@ access_inbox_filter_history_user,inbox.filter.history.user,model_inbox_filter_hi
 access_inbox_filter_history_manager,inbox.filter.history.manager,model_inbox_filter_history,base.group_system,1,1,1,1
 access_inbox_filter_assign_production_wizard_user,inbox.filter.assign.production.wizard.user,model_inbox_filter_assign_production_wizard,base.group_user,1,1,1,1
 access_inbox_filter_assign_todo_wizard_user,inbox.filter.assign.todo.wizard.user,model_inbox_filter_assign_todo_wizard,base.group_user,1,1,1,1
+access_inbox_filter_settings_system,inbox.filter.settings.system,model_inbox_filter_settings,base.group_system,1,1,0,0
+access_inbox_filter_settings_user,inbox.filter.settings.user,model_inbox_filter_settings,base.group_user,1,0,0,0
