@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="prompt_qualified" model="inbox.filter.prompt">
+        <field name="name">Qualifiziert</field>
+        <field name="code">qualified</field>
+        <field name="sequence">10</field>
+        <field name="prompt"><![CDATA[
+Erkenne echte neue Leads. Ein Lead ist qualifiziert, wenn eine Person oder Firma erkennbar eine potenzielle Buchung, Produktion, Vermietung, Veranstaltung, Studioleistung, Podcastproduktion, Videoproduktion, Aufnahme, Business-Event, Firmenfeier, Livestream, Konzertproduktion oder konkrete Zusammenarbeit anfragt. Auch unvollständige, aber ernsthafte Anfragen mit Geschäftspotenzial zählen.
+Nicht qualifizieren: bestehende Produktionsunterlagen, Lost-&-Found, reine Ticket-/Besucherprobleme, Spam, Bewerbungen ohne Bezug zu Auftrag, allgemeine Werbung.
+        ]]></field>
+    </record>
+
+    <record id="prompt_spam" model="inbox.filter.prompt">
+        <field name="name">SPAM</field>
+        <field name="code">spam</field>
+        <field name="sequence">20</field>
+        <field name="prompt"><![CDATA[
+Erkenne Spam, Scam, Bot-Mails, SEO-/Marketing-Massenangebote, Linkbuilding, unseriöse Kredit-/Crypto-/Casino-/Phishing-Angebote, generische Sales-Pitches ohne konkreten Bezug zu Groundlift, technische Bounce-Mails ohne operativen Wert und offensichtlich irrelevante Werbung. Sei vorsichtig: Eine schlecht formulierte echte Kundenanfrage ist kein Spam.
+        ]]></field>
+    </record>
+
+    <record id="prompt_production" model="inbox.filter.prompt">
+        <field name="name">Projekt/VA</field>
+        <field name="code">production</field>
+        <field name="sequence">30</field>
+        <field name="prompt"><![CDATA[
+Erkenne Anfragen, die eindeutig zu einem bestehenden Projekt oder einer Veranstaltung gehören. Beispiele: Band sendet Bühnenanweisung, Technical Rider, Stageplot, Inputliste, Setliste, Ablauf, Soundcheckzeit, Backline, Produktionsdaten, Rechnungs-/Organisationsdetails zu einer konkreten VA, Lieferanteninformationen oder Absprachen mit Künstlern/Technikern. Wähle diese Kategorie nur, wenn aus den Kandidaten ein Projekt oder Event eindeutig passt. Besucher-/Kundenthemen wie verlorene Brille, Ticketproblem, Platzfrage oder Fundsache sind Kundensupport, nicht Projekt/VA.
+        ]]></field>
+    </record>
+
+    <record id="prompt_todo" model="inbox.filter.prompt">
+        <field name="name">ToDo</field>
+        <field name="code">todo</field>
+        <field name="sequence">40</field>
+        <field name="prompt"><![CDATA[
+Erkenne Fälle, bei denen eine konkrete Handlung durch einen bestimmten Mitarbeiter erforderlich ist. Der Mitarbeiter muss aus Text oder Kontext eindeutig ableitbar sein, z.B. Daniel soll zurückrufen, Julius soll Technik prüfen, Serviceplanung soll reagieren. Wenn kein Mitarbeiter eindeutig ist, nicht ToDo wählen, sondern je nach Inhalt Qualifiziert, Support, Projekt/VA oder Zu prüfen. Die Aufgabe soll bis morgen fällig sein.
+        ]]></field>
+    </record>
+
+    <record id="prompt_support" model="inbox.filter.prompt">
+        <field name="name">Kundensupport</field>
+        <field name="code">support</field>
+        <field name="sequence">50</field>
+        <field name="prompt"><![CDATA[
+Erkenne Kundensupport-Fälle: verlorene Gegenstände wie Brille, Handschuh, Jacke, Tasche; Besucherfragen nach Veranstaltungen; Ticketprobleme; Reservierungs-/Gästeprobleme; Beschwerden; Rückfragen von Gästen ohne neuen Auftrag; allgemeine Kundenbetreuung. Auch wenn ein Event erwähnt wird, bleibt Lost-&-Found oder Ticket-/Besucheranliegen Kundensupport und wird nicht in den Produktionschatter geschrieben.
+        ]]></field>
+    </record>
+
+    <record id="prompt_review" model="inbox.filter.prompt">
+        <field name="name">Zu prüfen</field>
+        <field name="code">review</field>
+        <field name="sequence">60</field>
+        <field name="prompt"><![CDATA[
+Nutze Zu prüfen für alle Fälle, in denen keine Kategorie sicher passt, die Zuordnung zu einem Projekt/Event nicht eindeutig ist, ein Mitarbeiter nicht eindeutig bestimmbar ist, die Anfrage widersprüchlich oder zu dünn ist, oder eine Fehlklassifikation größeren Schaden verursachen könnte. Nicht raten.
+        ]]></field>
+    </record>
+
+    <record id="workspace_default" model="inbox.filter.workspace">
+        <field name="name">Inbox Filter</field>
+    </record>
+</odoo>

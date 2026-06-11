@@ -1,0 +1,9 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_inbox_filter_prompt_user,inbox.filter.prompt.user,model_inbox_filter_prompt,inbox_filter.group_inbox_filter_user,1,1,0,0
+access_inbox_filter_prompt_manager,inbox.filter.prompt.manager,model_inbox_filter_prompt,inbox_filter.group_inbox_filter_manager,1,1,1,1
+access_inbox_filter_workspace_user,inbox.filter.workspace.user,model_inbox_filter_workspace,inbox_filter.group_inbox_filter_user,1,1,0,0
+access_inbox_filter_workspace_manager,inbox.filter.workspace.manager,model_inbox_filter_workspace,inbox_filter.group_inbox_filter_manager,1,1,1,1
+access_inbox_filter_history_user,inbox.filter.history.user,model_inbox_filter_history,inbox_filter.group_inbox_filter_user,1,1,1,0
+access_inbox_filter_history_manager,inbox.filter.history.manager,model_inbox_filter_history,inbox_filter.group_inbox_filter_manager,1,1,1,1
+access_inbox_filter_assign_production_wizard_user,inbox.filter.assign.production.wizard.user,model_inbox_filter_assign_production_wizard,inbox_filter.group_inbox_filter_user,1,1,1,1
+access_inbox_filter_assign_todo_wizard_user,inbox.filter.assign.todo.wizard.user,model_inbox_filter_assign_todo_wizard,inbox_filter.group_inbox_filter_user,1,1,1,1

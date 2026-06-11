@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_crm_inbox_filter_sort" model="ir.actions.server">
+        <field name="name">Sortieren</field>
+        <field name="model_id" ref="crm.model_crm_lead"/>
+        <field name="state">code</field>
+        <field name="code">action = env['inbox.filter.service'].run_sort_new_leads_action()</field>
+    </record>
+
+    <!-- CRM-Schnellzugriff: Menüeinträge werden bewusst nahe an der Pipeline einsortiert. -->
+    <menuitem id="crm_menu_inbox_filter_sort" name="Sortieren" parent="crm.crm_menu_root" action="action_crm_inbox_filter_sort" sequence="12" groups="inbox_filter.group_inbox_filter_user"/>
+    <menuitem id="crm_menu_inbox_filter_open" name="Inbox Filter öffnen" parent="crm.crm_menu_root" action="action_inbox_filter_workspace" sequence="13" groups="inbox_filter.group_inbox_filter_user"/>
+</odoo>

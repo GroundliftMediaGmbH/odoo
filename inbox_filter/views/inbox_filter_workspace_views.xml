@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_inbox_filter_workspace_form" model="ir.ui.view">
+        <field name="name">inbox.filter.workspace.form</field>
+        <field name="model">inbox.filter.workspace</field>
+        <field name="arch" type="xml">
+            <form string="Inbox Filter" create="false" delete="false">
+                <header>
+                    <button name="action_sort_now" type="object" string="Sortieren" class="btn-primary"/>
+                    <button name="action_open_history" type="object" string="Historie"/>
+                    <button name="action_open_settings" type="object" string="Einstellungen"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <field name="last_run_at" readonly="1"/>
+                        <field name="last_run_summary" readonly="1"/>
+                    </group>
+                    <notebook>
+                        <page string="Qualifiziert">
+                            <group string="Prompt">
+                                <field name="qualified_prompt" nolabel="1" widget="text"/>
+                            </group>
+                            <group string="Live-Lernbeispiele">
+                                <field name="qualified_learning_notes" nolabel="1" readonly="1" widget="text"/>
+                            </group>
+                        </page>
+                        <page string="SPAM">
+                            <group string="Prompt">
+                                <field name="spam_prompt" nolabel="1" widget="text"/>
+                            </group>
+                            <group string="Live-Lernbeispiele">
+                                <field name="spam_learning_notes" nolabel="1" readonly="1" widget="text"/>
+                            </group>
+                        </page>
+                        <page string="Projekt/VA">
+                            <group string="Prompt">
+                                <field name="production_prompt" nolabel="1" widget="text"/>
+                            </group>
+                            <group string="Live-Lernbeispiele">
+                                <field name="production_learning_notes" nolabel="1" readonly="1" widget="text"/>
+                            </group>
+                        </page>
+                        <page string="ToDo">
+                            <group string="Prompt">
+                                <field name="todo_prompt" nolabel="1" widget="text"/>
+                            </group>
+                            <group string="Live-Lernbeispiele">
+                                <field name="todo_learning_notes" nolabel="1" readonly="1" widget="text"/>
+                            </group>
+                        </page>
+                        <page string="Kundensupport">
+                            <group string="Prompt">
+                                <field name="support_prompt" nolabel="1" widget="text"/>
+                            </group>
+                            <group string="Live-Lernbeispiele">
+                                <field name="support_learning_notes" nolabel="1" readonly="1" widget="text"/>
+                            </group>
+                        </page>
+                        <page string="Zu prüfen">
+                            <group string="Prompt">
+                                <field name="review_prompt" nolabel="1" widget="text"/>
+                            </group>
+                            <group string="Live-Lernbeispiele">
+                                <field name="review_learning_notes" nolabel="1" readonly="1" widget="text"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_inbox_filter_workspace" model="ir.actions.act_window">
+        <field name="name">Inbox Filter</field>
+        <field name="res_model">inbox.filter.workspace</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_inbox_filter_workspace_form"/>
+        <field name="res_id" ref="workspace_default"/>
+        <field name="target">current</field>
+    </record>
+
+    <menuitem id="menu_inbox_filter_root" name="Inbox Filter" sequence="35" web_icon="inbox_filter,static/description/icon.png" groups="inbox_filter.group_inbox_filter_user"/>
+    <menuitem id="menu_inbox_filter_workspace" name="Inbox Filter öffnen" parent="menu_inbox_filter_root" action="action_inbox_filter_workspace" sequence="10" groups="inbox_filter.group_inbox_filter_user"/>
+</odoo>

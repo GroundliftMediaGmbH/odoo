@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_inbox_filter_history_list" model="ir.ui.view">
+        <field name="name">inbox.filter.history.list</field>
+        <field name="model">inbox.filter.history</field>
+        <field name="arch" type="xml">
+            <list string="Inbox Filter Historie" create="false">
+                <field name="create_date" string="Zeitstempel"/>
+                <field name="name" string="Beschreibung"/>
+                <field name="category" string="Filter"/>
+                <field name="moved_to" string="Verschoben nach"/>
+                <field name="confidence"/>
+                <field name="status"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_inbox_filter_history_form" model="ir.ui.view">
+        <field name="name">inbox.filter.history.form</field>
+        <field name="model">inbox.filter.history</field>
+        <field name="arch" type="xml">
+            <form string="Inbox Filter Vorgang">
+                <header>
+                    <button name="action_open_record" type="object" string="Datensatz öffnen"/>
+                    <button name="action_undo" type="object" string="Rückgängig" class="btn-secondary"/>
+                    <button name="action_confirm_spam" type="object" string="SPAM bestätigt" class="btn-secondary"/>
+                    <button name="action_mark_qualified" type="object" string="Qualifiziert" class="btn-primary"/>
+                    <button name="action_open_project_event_wizard" type="object" string="Projekt/VA"/>
+                    <button name="action_open_todo_wizard" type="object" string="ToDo"/>
+                    <button name="action_assign_support" type="object" string="Kundensupport"/>
+                    <field name="status" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="create_date" readonly="1"/>
+                            <field name="category"/>
+                            <field name="confidence"/>
+                            <field name="moved_to"/>
+                            <field name="target_stage_id"/>
+                        </group>
+                        <group>
+                            <field name="lead_id" context="{'active_test': False}"/>
+                            <field name="project_id"/>
+                            <field name="event_id"/>
+                            <field name="employee_id"/>
+                            <field name="user_id"/>
+                            <field name="ticket_ref_model" readonly="1"/>
+                            <field name="ticket_ref_id" readonly="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Übersicht">
+                            <group string="Beschreibung">
+                                <field name="summary" nolabel="1" widget="text"/>
+                            </group>
+                            <group string="Begründung">
+                                <field name="reason" nolabel="1" widget="text"/>
+                            </group>
+                        </page>
+                        <page string="Original">
+                            <field name="raw_input" nolabel="1" widget="text"/>
+                        </page>
+                        <page string="GPT JSON">
+                            <field name="gpt_response_json" nolabel="1" widget="text"/>
+                        </page>
+                        <page string="Snapshot">
+                            <field name="original_data_json" nolabel="1" widget="text" readonly="1"/>
+                        </page>
+                        <page string="Fehler">
+                            <field name="error_message" nolabel="1" widget="text"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_inbox_filter_history_search" model="ir.ui.view">
+        <field name="name">inbox.filter.history.search</field>
+        <field name="model">inbox.filter.history</field>
+        <field name="arch" type="xml">
+            <search string="Inbox Filter Historie">
+                <field name="name"/>
+                <field name="summary"/>
+                <field name="raw_input"/>
+                <field name="category"/>
+                <filter name="filter_spam" string="SPAM" domain="[('category','=','spam')]"/>
+                <filter name="filter_qualified" string="Qualifiziert" domain="[('category','=','qualified')]"/>
+                <filter name="filter_review" string="Zu prüfen" domain="[('category','=','review')]"/>
+                <filter name="filter_errors" string="Fehler" domain="[('status','=','error')]"/>
+                <group expand="0" string="Gruppieren nach">
+                    <filter name="group_category" string="Filter" context="{'group_by':'category'}"/>
+                    <filter name="group_status" string="Status" context="{'group_by':'status'}"/>
+                    <filter name="group_date" string="Datum" context="{'group_by':'create_date:day'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_inbox_filter_history" model="ir.actions.act_window">
+        <field name="name">Historie</field>
+        <field name="res_model">inbox.filter.history</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_inbox_filter_history_search"/>
+        <field name="context">{'search_default_group_date': 1}</field>
+    </record>
+
+    <menuitem id="menu_inbox_filter_history" name="Historie" parent="menu_inbox_filter_root" action="action_inbox_filter_history" sequence="20" groups="inbox_filter.group_inbox_filter_user"/>
+</odoo>
