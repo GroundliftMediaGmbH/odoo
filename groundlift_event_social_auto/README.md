@@ -16,7 +16,7 @@ Dieses Modul erzeugt aus Odoo-Veranstaltungen automatisch Social-Marketing-Posts
   - neue Posts werden als bearbeitbare Entwürfe mit gewünschtem Planungsdatum erzeugt,
   - per Button können Posts freigegeben und geplant werden,
   - global kann später automatische Planung ohne manuelle Freigabe aktiviert werden.
-- Event-Headerbild wird aus `x_studio_website_header`, `website_image` oder Standard-Eventbildern übernommen.
+- Event-Headerbild wird streng nur aus `x_studio_website_header` übernommen; es gibt bewusst keinen Fallback auf andere Eventbilder.
 - Ticketlink wird aus `website_url` bzw. Event-URL erzeugt.
 - Der Beschreibungstext der Posts kommt primär aus `x_studio_html_field_eventbeschreibung` und wird von HTML in Social-Media-Klartext umgewandelt.
 - Standard-Hashtags und Event-Tags/Kategorien werden ergänzt.
@@ -47,6 +47,12 @@ Dieses Modul erzeugt aus Odoo-Veranstaltungen automatisch Social-Marketing-Posts
 - Standard-Hashtags: `#groundlift #ammersee #livemusik`
 - Post-Beschreibung: primär `x_studio_html_field_eventbeschreibung`
 - Zeitzone: `Europe/Berlin`
+
+## Version 19.0.1.0.3
+
+- Social-Post-Bilder werden streng nur noch aus `x_studio_website_header` erzeugt.
+- Keine Fallbacks mehr auf `website_image`, `image_1920`, `image_1024` oder `image_512`.
+- Wenn `x_studio_website_header` leer ist, bleibt der Post text-only und am Event wird ein Hinweis gespeichert.
 
 ## Version 19.0.1.0.2
 

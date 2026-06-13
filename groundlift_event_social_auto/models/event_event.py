@@ -493,37 +493,50 @@ class EventEvent(models.Model):
         return '%s · %s Uhr' % (date_part, time_part)
 
     def _gl_create_event_image_attachment(self):
+        """Create the social post image attachment from the strict Groundlift field.
+
+        By design this method uses only x_studio_website_header.  It no longer
+        falls back to website_image/image_1920/etc., because Groundlift wants the
+        website header image to be the single authoritative post image.  If the
+        custom field is missing or empty, the generated post remains text-only
+        and no replacement image is attached.
+        """
         self.ensure_one()
-        for field_name in ['x_studio_website_header', 'website_image', 'image_1920', 'image_1024', 'image_512']:
-            if field_name not in self._fields:
-                continue
-            data = self[field_name]
-            if not data:
-                continue
-            if isinstance(data, str):
-                data = data.encode()
-            try:
-                # Verify base64-ish binary to avoid broken attachments.
-                base64.b64decode(data, validate=False)
-            except Exception:
-                continue
-            filename = '%s_social_header.jpg' % self._gl_filename_safe(self.name or 'event')
-            existing = self.env['ir.attachment'].sudo().search([
-                ('res_model', '=', 'event.event'),
-                ('res_id', '=', self.id),
-                ('name', '=', filename),
-            ], limit=1)
-            if existing:
-                return existing
-            return self.env['ir.attachment'].sudo().create({
-                'name': filename,
-                'type': 'binary',
-                'datas': data,
-                'res_model': 'event.event',
-                'res_id': self.id,
-                'mimetype': 'image/jpeg',
-            })
-        return False
+        field_name = 'x_studio_website_header'
+        if field_name not in self._fields:
+            self._gl_note_social_error('Bildfeld x_studio_website_header existiert auf event.event nicht; kein Social-Bild angehängt.')
+            return False
+
+        data = self[field_name]
+        if not data:
+            self._gl_note_social_error('Bildfeld x_studio_website_header ist leer; kein Social-Bild angehängt.')
+            return False
+
+        if isinstance(data, str):
+            data = data.encode()
+        try:
+            # Verify base64-ish binary to avoid broken attachments.
+            base64.b64decode(data, validate=False)
+        except Exception:
+            self._gl_note_social_error('Bildfeld x_studio_website_header enthält keine gültigen Bilddaten; kein Social-Bild angehängt.')
+            return False
+
+        filename = '%s_website_header_social.jpg' % self._gl_filename_safe(self.name or 'event')
+        existing = self.env['ir.attachment'].sudo().search([
+            ('res_model', '=', 'event.event'),
+            ('res_id', '=', self.id),
+            ('name', '=', filename),
+        ], limit=1)
+        if existing:
+            return existing
+        return self.env['ir.attachment'].sudo().create({
+            'name': filename,
+            'type': 'binary',
+            'datas': data,
+            'res_model': 'event.event',
+            'res_id': self.id,
+            'mimetype': 'image/jpeg',
+        })
 
     def _gl_filename_safe(self, value):
         return re.sub(r'[^A-Za-z0-9_.-]+', '_', value).strip('_')[:80]
