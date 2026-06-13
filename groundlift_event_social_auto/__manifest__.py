@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Groundlift Event Social Automation',
-    'summary': 'Create approval-based scheduled Facebook/Instagram posts from announced events.',
-    'version': '19.0.1.0.3',
+    'summary': 'Create approval-based scheduled Facebook/Instagram posts from announced events with collision handling and AI hashtags.',
+    'version': '19.0.1.0.4',
     'category': 'Marketing/Social Marketing',
     'author': 'Groundlift / ChatGPT',
     'website': 'https://groundlift.de',

@@ -10,6 +10,7 @@
                     <group>
                         <field name="gl_social_posts_generated" readonly="1"/>
                         <field name="gl_soldout_social_post_created" readonly="1"/>
+                        <field name="gl_completed_social_post_created" readonly="1"/>
                         <field name="gl_social_auto_publish_ok"/>
                         <field name="gl_social_post_count" readonly="1"/>
                     </group>

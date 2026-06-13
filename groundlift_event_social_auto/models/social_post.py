@@ -18,6 +18,8 @@ class SocialPost(models.Model):
         ('event_day', 'Eventtag'),
         ('soldout', 'Ausverkauft'),
         ('event_day_soldout', 'Eventtag ausverkauft'),
+        ('completed', 'Nachbericht'),
+        ('gap_filler', 'Lückenfüller'),
     ], string='Groundlift Post-Typ', index=True)
     gl_requires_approval = fields.Boolean(string='Groundlift Freigabe erforderlich', default=True)
     gl_approved = fields.Boolean(string='Groundlift freigegeben', default=False)
