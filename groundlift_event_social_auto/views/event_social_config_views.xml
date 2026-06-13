@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_event_social_config_list" model="ir.ui.view">
+        <field name="name">gl.event.social.config.list</field>
+        <field name="model">gl.event.social.config</field>
+        <field name="arch" type="xml">
+            <list string="Event Social Automation">
+                <field name="name"/>
+                <field name="active"/>
+                <field name="announcement_stage_name"/>
+                <field name="auto_post_without_approval"/>
+                <field name="account_search_term"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_event_social_config_form" model="ir.ui.view">
+        <field name="name">gl.event.social.config.form</field>
+        <field name="model">gl.event.social.config</field>
+        <field name="arch" type="xml">
+            <form string="Groundlift Event Social Automation">
+                <header>
+                    <button name="action_test_social_accounts" type="object" string="Kanäle testen" class="btn-secondary"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group string="Auslöser">
+                            <field name="name"/>
+                            <field name="active"/>
+                            <field name="announcement_stage_name"/>
+                        </group>
+                        <group string="Freigabe">
+                            <field name="auto_post_without_approval"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Kanäle">
+                            <group>
+                                <field name="social_account_ids" widget="many2many_tags"/>
+                                <field name="account_search_term"/>
+                            </group>
+                        </page>
+                        <page string="Posting-Zeiten">
+                            <group>
+                                <group string="Zeitzone">
+                                    <field name="timezone"/>
+                                    <field name="skip_past_planned_posts"/>
+                                </group>
+                                <group string="Erstpost am Folgetag">
+                                    <field name="first_post_hour"/>
+                                    <field name="first_post_minute"/>
+                                </group>
+                                <group string="Reminder">
+                                    <field name="reminder_days_before"/>
+                                    <field name="reminder_hour"/>
+                                    <field name="reminder_minute"/>
+                                </group>
+                                <group string="Eventtag">
+                                    <field name="event_day_hour"/>
+                                    <field name="event_day_minute"/>
+                                </group>
+                                <group string="Ausverkauft">
+                                    <field name="create_soldout_posts"/>
+                                    <field name="soldout_delay_hours"/>
+                                    <field name="delete_future_promo_when_soldout"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Text &amp; Kampagne">
+                            <group>
+                                <field name="default_hashtags"/>
+                                <field name="campaign_name"/>
+                                <field name="notes"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_event_social_config" model="ir.actions.act_window">
+        <field name="name">Einstellungen</field>
+        <field name="res_model">gl.event.social.config</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_gl_event_social_root" name="Event Social Automation" sequence="35"/>
+    <menuitem id="menu_gl_event_social_config" name="Einstellungen" parent="menu_gl_event_social_root" action="action_gl_event_social_config" sequence="10"/>
+</odoo>
