@@ -330,7 +330,7 @@ class EventEvent(models.Model):
         self.ensure_one()
         title = self.name or 'Veranstaltung im Groundlift Studio'
         date_text = self._gl_format_event_datetime(config.timezone)
-        description = self._gl_short_description(max_chars=260)
+        description = self._gl_short_description(max_chars=900)
         ticket_url = self._gl_event_ticket_url()
         hashtags = self._gl_hashtags(config)
 
@@ -389,10 +389,24 @@ class EventEvent(models.Model):
 
         return '\n\n'.join([title, date_text, ticket_url, hashtags])
 
-    def _gl_short_description(self, max_chars=260):
+    def _gl_short_description(self, max_chars=900):
+        """Return the event description used in generated social posts.
+
+        Groundlift stores the public event text in the custom Studio field
+        x_studio_html_field_eventbeschreibung.  That HTML field is now the
+        primary source for the generated Facebook/Instagram post body.  The
+        older standard fields are kept only as fallbacks so the automation does
+        not break on test events where the Studio field is still empty.
+        """
         self.ensure_one()
         description = ''
-        for field_name in ['subtitle', 'website_description', 'description', 'note']:
+        for field_name in [
+            'x_studio_html_field_eventbeschreibung',
+            'subtitle',
+            'website_description',
+            'description',
+            'note',
+        ]:
             if field_name in self._fields and self[field_name]:
                 description = self[field_name]
                 break
@@ -400,7 +414,7 @@ class EventEvent(models.Model):
             return ''
         text = html2plaintext(description or '')
         text = re.sub(r'\s+', ' ', text).strip()
-        if len(text) > max_chars:
+        if max_chars and len(text) > max_chars:
             text = text[:max_chars].rsplit(' ', 1)[0].rstrip('.,;:') + ' …'
         return text
 
