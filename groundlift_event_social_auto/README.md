@@ -1,13 +1,13 @@
 # Groundlift Event Social Automation
 
-Version: 19.0.1.0.4
+Version: 19.0.1.0.5
 
 Dieses Odoo-19-SH-Modul erzeugt automatisch bearbeitbare Social-Marketing-Posts aus Veranstaltungen.
 
 ## Hauptfunktionen
 
 - Trigger: Veranstaltung erreicht die konfigurierbare Phase `Angekündigt`.
-- Erstpost am Folgetag zur konfigurierten Uhrzeit.
+- Erstpost am Folgetag zur konfigurierten Uhrzeit, aber spätestens mit konfigurierbarem Mindestabstand vor der Veranstaltung; Standard: mindestens 7 Tage vorher.
 - Reminder-Post vor der Veranstaltung.
 - Eventtag-Post am Veranstaltungstag.
 - Ausverkauft-Post mit Anpassung/Entfernung künftiger Werbeposts.
@@ -16,8 +16,9 @@ Dieses Odoo-19-SH-Modul erzeugt automatisch bearbeitbare Social-Marketing-Posts 
 - Button `Alle Events laden`: erzeugt Posts für alle bereits angekündigten künftigen Veranstaltungen.
 - Kollisionsschutz: pro Kalendertag wird nur ein automatisch erzeugter Groundlift-Post geplant.
 - Prioritäten: Eventtag/Ausverkauft/Nachbericht/Reminder haben Vorrang vor Erstankündigung; Erstankündigungen werden verschoben.
-- ChatGPT/OpenAI API kann automatisch zusätzliche Hashtags erzeugen.
-- Optionale Lückenfüller-Posts: Wenn in einem Zeitraum keine Eventposts geplant sind, wird ein werbender Post aus Homepage-Bild + Homepage-Kontext erzeugt.
+- ChatGPT/OpenAI API kann automatisch zusätzliche, veranstaltungsbezogene Hashtags erzeugen.
+- Wöchentliche Werbeposts: Standardmäßig wird pro Woche ein werbender Post aus Homepage-Bild + Homepage-Kontext geplant, sofern an diesem Tag kein höher priorisierter Eventpost liegt.
+- Optionale zusätzliche Lückenfüller-Posts: Wenn in einem Zeitraum keine Eventposts geplant sind, wird ein werbender Post aus Homepage-Bild + Homepage-Kontext erzeugt.
 
 ## Bildlogik
 
@@ -48,3 +49,11 @@ Ohne API Key läuft das Modul weiter, nutzt dann aber nur lokale/standardisierte
 - Bei aktivierter Freigabe-Automatik werden Posts direkt in Odoo geplant.
 - Wenn manuelle Freigabe aktiv ist, bleiben Posts als Entwurf/Freigabe erforderlich stehen.
 - Bitte zuerst auf Staging installieren und testen.
+
+
+## Änderungen in 19.0.1.0.5
+
+- Erstankündigungen werden nicht mehr über die Deadline `Veranstaltungsdatum minus X Tage` hinaus verschoben. Standard: 7 Tage.
+- Neuer wöchentlicher Werbepost mit eigenem Wochentag, Uhrzeit und Planungshorizont.
+- Hashtag-Logik filtert unpassende Ticket-/Stehplatz-Hashtags und verwendet #livemusik/#konzert nur bei erkennbarem Musikbezug.
+- OpenAI-Prompt für Hashtags wurde auf eventbezogene, nicht generische Hashtags verschärft.

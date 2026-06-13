@@ -8,6 +8,7 @@
                 <field name="gl_event_id"/>
                 <field name="gl_event_social_type"/>
                 <field name="gl_planned_date"/>
+                <field name="gl_latest_planned_date"/>
                 <field name="gl_requires_approval"/>
                 <field name="gl_approved"/>
                 <field name="message" optional="show"/>
@@ -31,6 +32,7 @@
                             <field name="gl_event_id"/>
                             <field name="gl_event_social_type"/>
                             <field name="gl_planned_date"/>
+                            <field name="gl_latest_planned_date"/>
                             <field name="gl_requires_approval"/>
                             <field name="gl_approved"/>
                             <field name="gl_auto_generated"/>

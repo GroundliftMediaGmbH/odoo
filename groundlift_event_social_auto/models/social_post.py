@@ -20,10 +20,12 @@ class SocialPost(models.Model):
         ('event_day_soldout', 'Eventtag ausverkauft'),
         ('completed', 'Nachbericht'),
         ('gap_filler', 'Lückenfüller'),
+        ('weekly_promo', 'Wöchentlicher Werbepost'),
     ], string='Groundlift Post-Typ', index=True)
     gl_requires_approval = fields.Boolean(string='Groundlift Freigabe erforderlich', default=True)
     gl_approved = fields.Boolean(string='Groundlift freigegeben', default=False)
     gl_planned_date = fields.Datetime(string='Groundlift geplanter Zeitpunkt')
+    gl_latest_planned_date = fields.Datetime(string='Groundlift spätester zulässiger Zeitpunkt')
     gl_auto_generated = fields.Boolean(string='Automatisch aus Veranstaltung erzeugt', default=False, index=True)
 
     def action_gl_approve_and_schedule(self):

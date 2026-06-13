@@ -33,7 +33,8 @@ class GroundliftEventSocialConfig(models.Model):
     account_search_term = fields.Char(string='Fallback-Suche nach Social Accounts', default='groundlift studio')
 
     auto_post_without_approval = fields.Boolean(string='Posts ohne manuelle Freigabe automatisch planen', default=False)
-    default_hashtags = fields.Char(string='Standard-Hashtags', default='#groundlift #ammersee #livemusik')
+    default_hashtags = fields.Char(string='Basis-Hashtags', default='#groundlift #ammersee #stegen')
+    announcement_min_days_before = fields.Integer(string='Erstankündigung spätestens Tage vorher', default=7)
     timezone = fields.Selection(selection='_selection_timezones', string='Zeitzone für Planung', default='Europe/Berlin', required=True)
     first_post_hour = fields.Integer(string='Erstpost Uhrzeit', default=10)
     first_post_minute = fields.Integer(string='Erstpost Minute', default=0)
@@ -68,7 +69,14 @@ class GroundliftEventSocialConfig(models.Model):
         default='Du bist Social-Media-Redakteur für das Groundlift Studio in der Alten Brauerei Stegen am Ammersee. Schreibe prägnant, natürlich, lokal relevant und ohne übertriebene Werbesprache.',
     )
 
-    enable_gap_filler_posts = fields.Boolean(string='Lückenfüller-Posts aktivieren', default=False)
+    enable_weekly_promo_posts = fields.Boolean(string='Wöchentlichen Werbepost planen', default=True)
+    weekly_promo_initialized = fields.Boolean(default=False, copy=False)
+    weekly_promo_weekday = fields.Selection([('0', 'Montag'), ('1', 'Dienstag'), ('2', 'Mittwoch'), ('3', 'Donnerstag'), ('4', 'Freitag'), ('5', 'Samstag'), ('6', 'Sonntag')], string='Wochentag Werbepost', default='2')
+    weekly_promo_lookahead_weeks = fields.Integer(string='Werbepost Planungshorizont Wochen', default=8)
+    weekly_promo_hour = fields.Integer(string='Werbepost Uhrzeit', default=10)
+    weekly_promo_minute = fields.Integer(string='Werbepost Minute', default=0)
+
+    enable_gap_filler_posts = fields.Boolean(string='Zusätzliche Lückenfüller-Posts aktivieren', default=False)
     gap_filler_interval_days = fields.Integer(string='Maximale Lücke in Tagen', default=2)
     gap_filler_lookahead_days = fields.Integer(string='Lückenfüller Planungshorizont', default=30)
     gap_filler_hour = fields.Integer(string='Lückenfüller Uhrzeit', default=10)
@@ -90,7 +98,20 @@ class GroundliftEventSocialConfig(models.Model):
     def get_config(self):
         config = self.sudo().search([('active', '=', True)], limit=1)
         if not config:
-            config = self.sudo().create({'name': 'Groundlift Social Automation', 'notes': '<p>Automatisch angelegte Standardkonfiguration.</p>'})
+            config = self.sudo().create({
+                'name': 'Groundlift Social Automation',
+                'notes': '<p>Automatisch angelegte Standardkonfiguration.</p>',
+                'enable_weekly_promo_posts': True,
+                'weekly_promo_initialized': True,
+            })
+        elif not config.weekly_promo_initialized:
+            # Upgrade-Pfad: bestehende Installationen aus Versionen vor 19.0.1.0.5
+            # sollen den neuen wöchentlichen Werbepost standardmäßig aktiv haben,
+            # danach kann der Haken normal manuell deaktiviert werden.
+            config.sudo().write({
+                'enable_weekly_promo_posts': True,
+                'weekly_promo_initialized': True,
+            })
         return config
 
     def _notification(self, title, message, notif_type='success'):
@@ -105,7 +126,7 @@ class GroundliftEventSocialConfig(models.Model):
         self.ensure_one()
         if not self.openai_api_key:
             raise UserError('Bitte zuerst einen OpenAI API Key hinterlegen.')
-        result = self._gl_openai_generate_hashtags_from_context('Groundlift Studio Test', 'Konzert, Eventlocation, Fernsehstudio, Ammersee, Alte Brauerei Stegen', self.default_hashtags or '')
+        result = self._gl_openai_generate_hashtags_from_context('Groundlift Studio Test', 'Kabarettabend, Eventlocation, Ammersee, Alte Brauerei Stegen', self.default_hashtags or '')
         if not result:
             raise UserError('Die ChatGPT API hat keine verwertbaren Hashtags zurückgegeben. Bitte Logs prüfen.')
         return self._notification('ChatGPT API', 'API-Test erfolgreich: %s' % result, 'success')
@@ -170,8 +191,9 @@ class GroundliftEventSocialConfig(models.Model):
         self.ensure_one()
         prompt = ('Erzeuge passende Social-Media-Hashtags für diesen Groundlift-Event.\n'
                   'Gib ausschließlich JSON zurück im Format {"hashtags":["#tag1","#tag2"]}.\n'
-                  'Regeln: 4 bis %s Hashtags, deutsch/lokal passend, keine Leerzeichen, keine Satzzeichen außer #, keine Duplikate.\n\n'
-                  'Titel: %s\nDatum: %s\nBeschreibung: %s\nBereits vorhanden: %s') % (max(self.openai_extra_hashtag_count or 6, 1), title, date_text, description, existing_hashtags)
+                  'Regeln: 4 bis %s Hashtags, deutsch/lokal passend, keine Leerzeichen, keine Satzzeichen außer #, keine Duplikate.\n'
+                  'Wichtig: Hashtags müssen aus Titel/Beschreibung ableitbar sein. Keine generischen Ticket-, Stehplatz-, Sitzplatz- oder Vorverkaufs-Hashtags, außer diese Begriffe stehen ausdrücklich im Eventtext. #livemusik/#konzert nur bei Musik-/Konzertbezug. Bei Kabarett/Comedy/Talk passende Kultur-/Comedy-Hashtags wählen.\n\n'
+                  'Titel: %s\nDatum: %s\nBeschreibung: %s\nBasis-/bereits vorhandene Hashtags: %s') % (max(self.openai_extra_hashtag_count or 6, 1), title, date_text, description, existing_hashtags)
         data = self._gl_openai_chat_json(prompt, max_tokens=180)
         return self._gl_normalize_hashtags(data.get('hashtags') if isinstance(data, dict) else [])
 
@@ -231,6 +253,50 @@ class GroundliftEventSocialConfig(models.Model):
             result.append(tag)
         return ' '.join(result[:max(self.openai_extra_hashtag_count or 6, 1)])
 
+    def _gl_create_weekly_promo_posts(self, force_one=False):
+        self.ensure_one()
+        created = self.env['social.post'].browse()
+        if not self.enable_weekly_promo_posts and not force_one:
+            return created
+        accounts = self._get_social_accounts(raise_on_error=False)
+        if not accounts:
+            return created
+        tz = pytz.timezone(self.timezone or 'Europe/Berlin')
+        now_local = pytz.UTC.localize(fields.Datetime.now()).astimezone(tz)
+        Event = self.env['event.event']
+        weeks = max(self.weekly_promo_lookahead_weeks or 8, 1)
+        weekday = int(self.weekly_promo_weekday or '2')
+        current_week_monday = now_local.date() - timedelta(days=now_local.weekday())
+        for week_offset in range(weeks):
+            week_start = current_week_monday + timedelta(days=week_offset * 7)
+            target_date = week_start + timedelta(days=weekday)
+            if target_date <= now_local.date():
+                continue
+            if self._gl_has_weekly_promo_in_week(week_start):
+                continue
+            local_dt = datetime.combine(target_date, time(max(min(self.weekly_promo_hour or 10, 23), 0), max(min(self.weekly_promo_minute or 0, 59), 0)))
+            desired_dt = Event._gl_local_naive_to_utc_naive_global(local_dt, tz)
+            week_end_local = datetime.combine(week_start + timedelta(days=6), time(23, 59))
+            latest_dt = Event._gl_local_naive_to_utc_naive_global(week_end_local, tz)
+            planned_dt = Event._gl_resolve_planned_date_global(self, desired_dt, 'weekly_promo', latest_dt=latest_dt)
+            if planned_dt:
+                post = self._gl_create_one_gap_filler_post(accounts, planned_dt, post_type='weekly_promo', latest_planned_date=latest_dt)
+                created |= post
+                if force_one:
+                    break
+        return created
+
+    def _gl_has_weekly_promo_in_week(self, week_start_date):
+        posts = self.env['social.post'].sudo().search([('gl_auto_generated', '=', True), ('gl_event_social_type', '=', 'weekly_promo')], limit=1000)
+        Event = self.env['event.event']
+        week_end = week_start_date + timedelta(days=6)
+        for post in posts:
+            planned = post.gl_planned_date or ('scheduled_date' in post._fields and post.scheduled_date)
+            local_date = Event._gl_local_date_from_utc(planned, self.timezone)
+            if local_date and week_start_date <= local_date <= week_end and not Event._gl_is_post_record_published(post):
+                return True
+        return False
+
     def _gl_create_gap_filler_posts(self, force_one=False):
         self.ensure_one()
         created = self.env['social.post'].browse()
@@ -286,7 +352,7 @@ class GroundliftEventSocialConfig(models.Model):
                     return True
         return False
 
-    def _gl_create_one_gap_filler_post(self, accounts, planned_dt):
+    def _gl_create_one_gap_filler_post(self, accounts, planned_dt, post_type='gap_filler', latest_planned_date=False):
         candidate, homepage_context = self._gl_choose_homepage_image_candidate()
         generated = self._gl_openai_generate_gap_filler(candidate.get('context') if candidate else '', homepage_context) if self.openai_api_key else {}
         text = (generated.get('text') if isinstance(generated, dict) else '') or self._gl_fallback_gap_filler_text(candidate.get('context') if candidate else '')
@@ -294,12 +360,14 @@ class GroundliftEventSocialConfig(models.Model):
         attachment = self._gl_download_homepage_image_attachment(candidate['url']) if candidate and candidate.get('url') else False
         if attachment and candidate and candidate.get('url'):
             self.sudo().write({'last_homepage_image_url': candidate['url']})
-        return self._gl_create_generic_social_post(accounts, planned_dt, '%s\n\n%s' % (text.strip(), hashtags.strip()), attachment)
+        return self._gl_create_generic_social_post(accounts, planned_dt, '%s\n\n%s' % (text.strip(), hashtags.strip()), attachment, post_type=post_type, latest_planned_date=latest_planned_date)
 
-    def _gl_create_generic_social_post(self, accounts, planned_dt, message, attachment=False):
+    def _gl_create_generic_social_post(self, accounts, planned_dt, message, attachment=False, post_type='gap_filler', latest_planned_date=False):
         SocialPost = self.env['social.post'].sudo()
         post_fields = SocialPost._fields
-        vals = {'gl_event_social_type': 'gap_filler', 'gl_auto_generated': True, 'gl_planned_date': planned_dt, 'gl_requires_approval': not self.auto_post_without_approval, 'gl_approved': bool(self.auto_post_without_approval)}
+        vals = {'gl_event_social_type': post_type, 'gl_auto_generated': True, 'gl_planned_date': planned_dt, 'gl_requires_approval': not self.auto_post_without_approval, 'gl_approved': bool(self.auto_post_without_approval)}
+        if latest_planned_date:
+            vals['gl_latest_planned_date'] = latest_planned_date
         if 'message' in post_fields:
             vals['message'] = message
         elif 'message_deserialized' in post_fields:

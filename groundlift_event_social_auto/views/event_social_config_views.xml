@@ -10,6 +10,7 @@
                 <field name="announcement_stage_name"/>
                 <field name="completed_stage_name"/>
                 <field name="auto_post_without_approval"/>
+                <field name="enable_weekly_promo_posts"/>
                 <field name="enable_gap_filler_posts"/>
                 <field name="account_search_term"/>
             </list>
@@ -52,9 +53,10 @@
                                     <field name="timezone"/>
                                     <field name="skip_past_planned_posts"/>
                                 </group>
-                                <group string="Erstpost am Folgetag">
+                                <group string="Erstankündigung">
                                     <field name="first_post_hour"/>
                                     <field name="first_post_minute"/>
+                                    <field name="announcement_min_days_before"/>
                                 </group>
                                 <group string="Reminder">
                                     <field name="reminder_days_before"/>
@@ -106,15 +108,24 @@
                                 </group>
                             </group>
                         </page>
-                        <page string="Lückenfüller">
+                        <page string="Werbeposts &amp; Lückenfüller">
                             <group>
-                                <group string="Automatik">
+                                <group string="Wöchentlicher Werbepost">
+                                    <field name="enable_weekly_promo_posts"/>
+                                    <field name="weekly_promo_weekday"/>
+                                    <field name="weekly_promo_lookahead_weeks"/>
+                                    <field name="weekly_promo_hour"/>
+                                    <field name="weekly_promo_minute"/>
+                                </group>
+                                <group string="Zusätzliche Lückenfüller">
                                     <field name="enable_gap_filler_posts"/>
                                     <field name="gap_filler_interval_days"/>
                                     <field name="gap_filler_lookahead_days"/>
                                     <field name="gap_filler_hour"/>
                                     <field name="gap_filler_minute"/>
                                 </group>
+                            </group>
+                            <group>
                                 <group string="Homepage-Bilder">
                                     <field name="homepage_url"/>
                                     <field name="last_homepage_image_url" readonly="1"/>

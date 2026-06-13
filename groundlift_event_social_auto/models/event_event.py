@@ -82,6 +82,7 @@ class EventEvent(models.Model):
             completed_domain.append(('date_end', '<=', fields.Datetime.now()))
             completed_domain.append(('date_end', '>=', fields.Datetime.now() - timedelta(days=14)))
         self.search(completed_domain, limit=150)._gl_handle_completed_changes(config=config)
+        config._gl_create_weekly_promo_posts(force_one=False)
         config._gl_create_gap_filler_posts(force_one=False)
         return True
 
@@ -175,6 +176,8 @@ class EventEvent(models.Model):
         planned_date = spec['planned_date']
         message = spec['message']
         vals = {'gl_event_id': self.id, 'gl_event_social_type': spec['post_type'], 'gl_auto_generated': True, 'gl_planned_date': planned_date, 'gl_requires_approval': not (config.auto_post_without_approval or self.gl_social_auto_publish_ok), 'gl_approved': bool(config.auto_post_without_approval or self.gl_social_auto_publish_ok)}
+        if spec.get('latest_planned_date'):
+            vals['gl_latest_planned_date'] = spec['latest_planned_date']
         if 'message' in post_fields:
             vals['message'] = message
         elif 'message_deserialized' in post_fields:
@@ -204,9 +207,19 @@ class EventEvent(models.Model):
     def _gl_build_post_specs(self, config, sold_out=False, include_soldout=False, batch_mode=False):
         self.ensure_one()
         specs, now = [], fields.Datetime.now()
-        first_dt = self._gl_next_day_datetime(config.first_post_hour, config.first_post_minute, config.timezone)
+        first_dt, latest_first_dt = self._gl_announcement_datetime_window(config)
         if self._gl_should_create_planned_post(first_dt, now, config):
-            specs.append({'post_type': 'announcement', 'planned_date': first_dt, 'message': self._gl_render_post_message(config, 'announcement', sold_out=sold_out)})
+            specs.append({
+                'post_type': 'announcement',
+                'planned_date': first_dt,
+                'latest_planned_date': latest_first_dt,
+                'message': self._gl_render_post_message(config, 'announcement', sold_out=sold_out),
+            })
+        elif latest_first_dt and latest_first_dt <= now:
+            self._gl_note_social_error(
+                'Erstankündigung wurde nicht erzeugt, weil die Veranstaltung weniger als %s Tage entfernt ist.'
+                % (config.announcement_min_days_before or 7)
+            )
         if sold_out:
             if include_soldout and config.create_soldout_posts:
                 soldout_dt = now + timedelta(hours=max(config.soldout_delay_hours or 1, 1))
@@ -222,19 +235,44 @@ class EventEvent(models.Model):
             specs.append({'post_type': event_day_type, 'planned_date': event_day_dt, 'message': self._gl_render_post_message(config, event_day_type, sold_out=sold_out)})
         return specs
 
+    def _gl_announcement_datetime_window(self, config):
+        """Return (desired_dt, latest_dt) for the first announcement.
+
+        The first announcement should be created as early as possible, but never later
+        than the configured minimum distance before the event. This prevents bulk imports
+        and collision moves from pushing first announcements too close to the event date.
+        """
+        self.ensure_one()
+        desired_dt = self._gl_next_day_datetime(config.first_post_hour, config.first_post_minute, config.timezone)
+        min_days = max(config.announcement_min_days_before or 7, 0)
+        latest_dt = self._gl_event_relative_datetime(days_delta=-min_days, hour=config.first_post_hour, minute=config.first_post_minute, tzname=config.timezone)
+        if latest_dt and desired_dt and desired_dt > latest_dt:
+            desired_dt = latest_dt
+        return desired_dt, latest_dt
+
     def _gl_apply_global_scheduling_rules(self, config, spec):
         self.ensure_one()
-        planned_dt = self._gl_resolve_planned_date_global(config, spec['planned_date'], spec['post_type'])
+        planned_dt = self._gl_resolve_planned_date_global(config, spec['planned_date'], spec['post_type'], latest_dt=spec.get('latest_planned_date'))
         if not planned_dt:
-            self._gl_note_social_error('Post %s wurde wegen eines höher priorisierten Posts am gleichen Tag übersprungen.' % spec['post_type'])
+            if spec.get('latest_planned_date'):
+                self._gl_note_social_error(
+                    'Post %s wurde nicht geplant, weil vor der spätesten zulässigen Deadline kein freier Social-Tag gefunden wurde.'
+                    % spec['post_type']
+                )
+            else:
+                self._gl_note_social_error('Post %s wurde wegen eines höher priorisierten Posts am gleichen Tag übersprungen.' % spec['post_type'])
             return False
         result = dict(spec)
         result['planned_date'] = planned_dt
         return result
 
     @api.model
-    def _gl_resolve_planned_date_global(self, config, desired_dt, post_type):
+    def _gl_resolve_planned_date_global(self, config, desired_dt, post_type, latest_dt=None):
         if not desired_dt:
+            return False
+        if latest_dt and desired_dt > latest_dt:
+            desired_dt = latest_dt
+        if latest_dt and latest_dt <= fields.Datetime.now() and config.skip_past_planned_posts:
             return False
         priority = self._gl_post_priority(post_type)
         conflicts = self._gl_auto_posts_on_same_local_date(desired_dt, config.timezone).filtered(lambda p: not self._gl_is_post_record_published(p))
@@ -244,15 +282,22 @@ class EventEvent(models.Model):
         lower = conflicts - higher_or_equal
         if higher_or_equal:
             if self._gl_is_flexible_post_type(post_type):
-                return self._gl_find_next_free_datetime(config, desired_dt + timedelta(days=1))
+                return self._gl_find_next_free_datetime(config, desired_dt + timedelta(days=1), latest_dt=latest_dt)
             return False
         for post in lower:
             if self._gl_is_flexible_post_type(post.gl_event_social_type):
-                new_dt = self._gl_find_next_free_datetime(config, (post.gl_planned_date or desired_dt) + timedelta(days=1), exclude_post_ids=[post.id])
-                vals = {'gl_planned_date': new_dt}
-                if 'scheduled_date' in post._fields:
-                    vals['scheduled_date'] = new_dt
-                post.sudo().write(vals)
+                post_latest_dt = post.gl_latest_planned_date or False
+                new_dt = self._gl_find_next_free_datetime(config, (post.gl_planned_date or desired_dt) + timedelta(days=1), exclude_post_ids=[post.id], latest_dt=post_latest_dt)
+                if new_dt:
+                    vals = {'gl_planned_date': new_dt}
+                    if 'scheduled_date' in post._fields:
+                        vals['scheduled_date'] = new_dt
+                    post.sudo().write(vals)
+                else:
+                    try:
+                        post.sudo().unlink()
+                    except Exception:
+                        _logger.exception('Could not remove lower-priority conflicting social.post %s.', post.id)
             else:
                 try:
                     post.sudo().unlink()
@@ -261,15 +306,17 @@ class EventEvent(models.Model):
         return desired_dt
 
     @api.model
-    def _gl_find_next_free_datetime(self, config, start_dt, exclude_post_ids=None):
+    def _gl_find_next_free_datetime(self, config, start_dt, exclude_post_ids=None, latest_dt=None):
         exclude_post_ids = exclude_post_ids or []
         candidate = start_dt
         for _attempt in range(120):
+            if latest_dt and candidate > latest_dt:
+                return False
             conflicts = self._gl_auto_posts_on_same_local_date(candidate, config.timezone).filtered(lambda p: p.id not in exclude_post_ids and not self._gl_is_post_record_published(p))
             if not conflicts:
                 return candidate
             candidate = candidate + timedelta(days=1)
-        return candidate
+        return False
 
     @api.model
     def _gl_auto_posts_on_same_local_date(self, planned_dt, tzname):
@@ -279,11 +326,11 @@ class EventEvent(models.Model):
 
     @api.model
     def _gl_post_priority(self, post_type):
-        return {'event_day': 100, 'event_day_soldout': 105, 'soldout': 90, 'completed': 85, 'reminder_3d': 80, 'announcement': 20, 'gap_filler': 5}.get(post_type or '', 10)
+        return {'event_day': 100, 'event_day_soldout': 105, 'soldout': 90, 'completed': 85, 'reminder_3d': 80, 'announcement': 20, 'weekly_promo': 8, 'gap_filler': 5}.get(post_type or '', 10)
 
     @api.model
     def _gl_is_flexible_post_type(self, post_type):
-        return post_type in ['announcement', 'gap_filler']
+        return post_type in ['announcement', 'gap_filler', 'weekly_promo']
 
     @api.model
     def _gl_is_post_record_published(self, post):
@@ -425,13 +472,47 @@ class EventEvent(models.Model):
         api_hashtags = config._gl_openai_generate_hashtags_for_event(self, ' '.join(tags))
         if api_hashtags:
             tags.extend([tag.strip() for tag in api_hashtags.split() if tag.strip()])
+        filtered = self._gl_filter_hashtags_for_event_context(tags)
         deduped, seen = [], set()
-        for tag in tags:
+        for tag in filtered:
             if tag.lower() in seen:
                 continue
             seen.add(tag.lower())
             deduped.append(tag)
         return ' '.join(deduped)
+
+    def _gl_filter_hashtags_for_event_context(self, tags):
+        self.ensure_one()
+        context = self._gl_hashtag_context_text()
+        result = []
+        for tag in tags or []:
+            clean = str(tag or '').strip()
+            if not clean:
+                continue
+            normalized = clean.lower().replace('#', '')
+            # Inventory-/Ticket-Hashtags nur verwenden, wenn sie wirklich im Eventkontext vorkommen.
+            if any(token in normalized for token in ['stehplatz', 'sitzplatz', 'ticket', 'tiket', 'vorverkauf', 'vvk']):
+                if not any(token in context for token in ['stehplatz', 'sitzplatz', 'ticket', 'tickets', 'vorverkauf', 'vvk']):
+                    continue
+            # #livemusik ist gut für Konzerte, aber falsch für Kabarett/Talk/Comedy ohne Musikbezug.
+            if normalized in ['livemusik', 'liveband', 'konzert', 'band']:
+                if not any(token in context for token in ['konzert', 'musik', 'musiker', 'band', 'jazz', 'rock', 'pop', 'singer', 'songwriter', 'piano', 'klavier', 'gitarre', 'bühne', 'buehne']):
+                    continue
+            result.append(clean)
+        return result
+
+    def _gl_hashtag_context_text(self):
+        self.ensure_one()
+        parts = [self.name or '', self._gl_short_description(max_chars=1600)]
+        for field_name in ['event_type_id', 'x_studio_public_category', 'x_studio_website_kategorie']:
+            if field_name in self._fields and self[field_name]:
+                value = self[field_name]
+                parts.append(getattr(value, 'name', False) or str(value))
+        for field_name in ['tag_ids', 'event_tag_ids']:
+            if field_name in self._fields and self[field_name]:
+                parts.extend(self[field_name].mapped('name'))
+        text = ' '.join([p for p in parts if p]).lower()
+        return text.replace('ä', 'ae').replace('ö', 'oe').replace('ü', 'ue').replace('ß', 'ss')
 
     def _gl_make_hashtag(self, value):
         value = (value or '').strip().lower()
