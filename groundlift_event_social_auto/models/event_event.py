@@ -211,10 +211,6 @@ class EventEvent(models.Model):
             if scheduled_key:
                 vals['post_method'] = scheduled_key
 
-        campaign = config._get_or_create_campaign()
-        if campaign and 'campaign_id' in post_fields:
-            vals['campaign_id'] = campaign.id
-
         attachment = self._gl_create_event_image_attachment()
         if attachment:
             for image_field in ['image_ids', 'attachment_ids', 'media_ids']:

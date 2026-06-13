@@ -46,12 +46,6 @@ class GroundliftEventSocialConfig(models.Model):
         string='Standard-Hashtags',
         default='#groundlift #ammersee #livemusik',
     )
-    campaign_name = fields.Char(
-        string='Marketing-Kampagne',
-        default='Öffentliche Veranstaltungen',
-        help='Optional: Kampagne wird bei Bedarf automatisch angelegt und dem Social Post zugeordnet.',
-    )
-
     timezone = fields.Selection(
         selection='_selection_timezones',
         string='Zeitzone für Planung',
@@ -157,12 +151,3 @@ class GroundliftEventSocialConfig(models.Model):
         text = ' '.join(texts)
         return 'facebook' in text or 'instagram' in text or 'meta' in text
 
-    def _get_or_create_campaign(self):
-        self.ensure_one()
-        if not self.campaign_name:
-            return False
-        Campaign = self.env['utm.campaign'].sudo()
-        campaign = Campaign.search([('name', '=', self.campaign_name)], limit=1)
-        if not campaign:
-            campaign = Campaign.create({'name': self.campaign_name})
-        return campaign

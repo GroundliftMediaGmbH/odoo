@@ -66,10 +66,9 @@
                                 </group>
                             </group>
                         </page>
-                        <page string="Text &amp; Kampagne">
+                        <page string="Texte">
                             <group>
                                 <field name="default_hashtags"/>
-                                <field name="campaign_name"/>
                                 <field name="notes"/>
                             </group>
                         </page>

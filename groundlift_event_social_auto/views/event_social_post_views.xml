@@ -39,7 +39,6 @@
                             <field name="state" readonly="1"/>
                             <field name="scheduled_date"/>
                             <field name="account_ids" widget="many2many_tags"/>
-                            <field name="campaign_id"/>
                         </group>
                     </group>
                     <group string="Post">

@@ -44,5 +44,5 @@ Dieses Modul erzeugt aus Odoo-Veranstaltungen automatisch Social-Marketing-Posts
 - Auslösende Veranstaltungsphase: `Angekündigt`
 - Fallback-Suche nach Social Accounts: `groundlift studio`
 - Standard-Hashtags: `#groundlift #ammersee #livemusik`
-- Kampagne: `Öffentliche Veranstaltungen`
+- Text-/Posting-Konfiguration: `Öffentliche Veranstaltungen`
 - Zeitzone: `Europe/Berlin`
