@@ -451,27 +451,34 @@ class EventEvent(models.Model):
         def join(parts):
             return '\n\n'.join([p for p in parts if p])
 
-        # Der Ticketlink steht bei Event-Werbeposts bewusst direkt unter der Headline.
+        def headline_with_link(headline_value, link_value):
+            # Der Ticketlink soll direkt unter der Überschrift stehen, ohne Titel/Datum dazwischen.
+            # Zwischen Headline und Link wird nur ein einfacher Zeilenumbruch gesetzt.
+            if headline_value and link_value:
+                return '%s\n%s' % (headline_value, link_value)
+            return headline_value or link_value or ''
+
         # Für Nachberichte wird kein Ticketlink gesetzt, da die Veranstaltung bereits vorbei ist.
+        headline_block = headline_with_link(headline, ticket_url)
         if post_type == 'announcement':
-            parts = [headline, ticket_url, title, date_text, description, hashtags]
+            parts = [headline_block, title, date_text, description, hashtags]
             return join(parts)
         if post_type == 'reminder_3d':
-            parts = [headline, ticket_url, title, date_text, description, hashtags]
+            parts = [headline_block, title, date_text, description, hashtags]
             return join(parts)
         if post_type == 'event_day':
-            parts = [headline, ticket_url, title, date_text, description, hashtags]
+            parts = [headline_block, title, date_text, description, hashtags]
             return join(parts)
         if post_type == 'soldout':
-            parts = [headline, ticket_url, title, date_text, 'Wir freuen uns auf einen besonderen Abend bei uns in der Alten Brauerei Stegen.', hashtags]
+            parts = [headline_block, title, date_text, 'Wir freuen uns auf einen besonderen Abend bei uns in der Alten Brauerei Stegen.', hashtags]
             return join(parts)
         if post_type == 'event_day_soldout':
-            parts = [headline, ticket_url, title, date_text, 'Danke an alle, die dabei sind. Wir freuen uns auf euch im Groundlift Studio.', hashtags]
+            parts = [headline_block, title, date_text, 'Danke an alle, die dabei sind. Wir freuen uns auf euch im Groundlift Studio.', hashtags]
             return join(parts)
         if post_type == 'completed':
             parts = [headline, title, config.body_completed or 'Postet gerne in die Kommentare und Bilder, wie es für euch war!', hashtags]
             return join(parts)
-        return join([headline, ticket_url, title, date_text, hashtags])
+        return join([headline_block, title, date_text, hashtags])
 
     def _gl_fallback_headline(self, config, post_type, sold_out=False):
         if post_type == 'announcement':

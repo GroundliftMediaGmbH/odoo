@@ -1,6 +1,6 @@
 # Groundlift Event Social Automation
 
-Version: 19.0.1.0.6
+Version: 19.0.1.0.7
 
 Dieses Odoo-19-SH-Modul erzeugt automatisch bearbeitbare Social-Marketing-Posts aus Veranstaltungen.
 
@@ -66,3 +66,11 @@ Ohne API Key läuft das Modul weiter, nutzt dann aber nur lokale/standardisierte
 - `Alle Events laden` erzeugt nun zusätzlich wöchentliche Werbeposts und Lückenfüller im Planungshorizont.
 - Werbeposts und Lückenfüller haben Vorrang vor Erstankündigungen; Erstankündigungen werden innerhalb der Deadline nachgeholt.
 - Hashtag-Kontext filtert interne Ticket-/Produktkategorien stärker, damit z. B. Kabarettabende keine Stehplatz-/Ticket-Hashtags erhalten.
+
+
+## Änderungen in 19.0.1.0.7
+
+- Ticketlink steht jetzt technisch als eigener Zeilenumbruch direkt unter der Überschrift, ohne Eventtitel/Datum dazwischen.
+- Homepage-/Bild-Kontext für wöchentliche Werbeposts und Lückenfüller wird stärker bereinigt: Bilddateinamen, HTML-Attribute, CSS-Klassen, URLs und abgeschnittene Fragmente werden entfernt.
+- Wöchentliche Werbeposts haben ein zusätzliches Sicherheitsnetz: Falls in den nächsten 7 Tagen noch kein wöchentlicher Werbepost existiert, wird die nächste passende Gelegenheit innerhalb dieses Fensters gesucht.
+- Die Wochenlogik berücksichtigt jetzt auch den heutigen Tag, wenn die konfigurierte Uhrzeit noch nicht vorbei ist.

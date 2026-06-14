@@ -279,10 +279,42 @@ class GroundliftEventSocialConfig(models.Model):
         self.ensure_one()
         if not self.openai_api_key:
             return {}
+        image_context = self._gl_clean_homepage_context(image_context, max_chars=900)
+        homepage_context = self._gl_clean_homepage_context(homepage_context, max_chars=1400)
         prompt = ('%s\n\nGib ausschließlich JSON zurück im Format {"text":"...","hashtags":["#..."]}.\n'
-                  'Der Text darf keine Platzhalter enthalten. Keine erfundenen Termine oder Preise.\n\n'
+                  'Der Text darf keine Platzhalter, HTML-Reste, Bilddateinamen, CSS-Klassen, URLs oder abgeschnittene Website-Fragmente enthalten. Keine erfundenen Termine oder Preise.\n\n'
                   'Bild-/Homepage-Kontext:\n%s\n\nAllgemeiner Homepage-Kontext:\n%s') % (self.gap_filler_prompt or '', image_context or '', homepage_context or '')
         return self._gl_openai_chat_json(prompt, max_tokens=450)
+
+    def _gl_clean_homepage_context(self, text, max_chars=900):
+        """Convert scraped homepage snippets into editorial text only.
+
+        Website image snippets can contain broken attribute fragments such as
+        file names, class=..., srcset=... or partial tags. Those fragments must
+        never be passed to the API or fallback post text.
+        """
+        text = html2plaintext(text or '')
+        text = re.sub(r'<script\b.*?</script>', ' ', text, flags=re.I | re.S)
+        text = re.sub(r'<style\b.*?</style>', ' ', text, flags=re.I | re.S)
+        text = re.sub(r'<[^>]+>', ' ', text)
+        text = re.sub(r'https?://\S+', ' ', text, flags=re.I)
+        text = re.sub(r'\b[\w./%+-]+\.(?:jpg|jpeg|png|webp|gif)(?:[?&][^\s]*)?', ' ', text, flags=re.I)
+        text = re.sub(r'\b(?:src|srcset|class|clas|alt|title|loading|decoding|width|height|sizes|style|data-[\w-]+)\s*=?\s*[^\s]{0,120}', ' ', text, flags=re.I)
+        text = re.sub(r'[#{}\[\]<>"`]+', ' ', text)
+        text = re.sub(r'\s+', ' ', text).strip()
+        # Keep only reasonably human-readable chunks.
+        words = []
+        for word in text.split():
+            lower = word.lower().strip('.,;:!?()')
+            if any(ext in lower for ext in ['.jpg', '.jpeg', '.png', '.webp', '.gif']):
+                continue
+            if lower in ['class', 'clas', 'src', 'srcset', 'alt', 'title']:
+                continue
+            words.append(word)
+        text = ' '.join(words).strip()
+        if max_chars and len(text) > max_chars:
+            text = text[:max_chars].rsplit(' ', 1)[0].rstrip('.,;:')
+        return text
 
     def _gl_openai_chat_json(self, prompt, max_tokens=300):
         self.ensure_one()
@@ -344,15 +376,40 @@ class GroundliftEventSocialConfig(models.Model):
         Event = self.env['event.event']
         weeks = max(self.weekly_promo_lookahead_weeks or 8, 1)
         weekday = int(self.weekly_promo_weekday or '2')
+        post_time = time(max(min(self.weekly_promo_hour or 10, 23), 0), max(min(self.weekly_promo_minute or 0, 59), 0))
+
+        # Sicherheitsnetz: Es soll nicht passieren, dass der erste wöchentliche
+        # Werbepost erst mehrere Wochen später beginnt. Wenn in den nächsten 7
+        # Tagen noch kein wöchentlicher Werbepost existiert, wird die nächste
+        # passende Gelegenheit innerhalb dieser 7 Tage gesucht.
+        first_window_start = now_local.date()
+        first_window_end = now_local.date() + timedelta(days=7)
+        if not self._gl_has_weekly_promo_between(first_window_start, first_window_end):
+            days_until = (weekday - now_local.weekday()) % 7
+            target_date = now_local.date() + timedelta(days=days_until)
+            local_dt = datetime.combine(target_date, post_time)
+            if local_dt <= now_local.replace(tzinfo=None):
+                target_date = target_date + timedelta(days=7)
+                local_dt = datetime.combine(target_date, post_time)
+            if target_date <= first_window_end:
+                desired_dt = Event._gl_local_naive_to_utc_naive_global(local_dt, tz)
+                latest_local = datetime.combine(first_window_end, time(23, 59))
+                latest_dt = Event._gl_local_naive_to_utc_naive_global(latest_local, tz)
+                planned_dt = Event._gl_resolve_planned_date_global(self, desired_dt, 'weekly_promo', latest_dt=latest_dt)
+                if planned_dt:
+                    created |= self._gl_create_one_gap_filler_post(accounts, planned_dt, post_type='weekly_promo', latest_planned_date=latest_dt)
+                    if force_one:
+                        return created
+
         current_week_monday = now_local.date() - timedelta(days=now_local.weekday())
         for week_offset in range(weeks):
             week_start = current_week_monday + timedelta(days=week_offset * 7)
             target_date = week_start + timedelta(days=weekday)
-            if target_date <= now_local.date():
+            local_dt = datetime.combine(target_date, post_time)
+            if local_dt <= now_local.replace(tzinfo=None):
                 continue
             if self._gl_has_weekly_promo_in_week(week_start):
                 continue
-            local_dt = datetime.combine(target_date, time(max(min(self.weekly_promo_hour or 10, 23), 0), max(min(self.weekly_promo_minute or 0, 59), 0)))
             desired_dt = Event._gl_local_naive_to_utc_naive_global(local_dt, tz)
             week_end_local = datetime.combine(week_start + timedelta(days=6), time(23, 59))
             latest_dt = Event._gl_local_naive_to_utc_naive_global(week_end_local, tz)
@@ -372,6 +429,16 @@ class GroundliftEventSocialConfig(models.Model):
             planned = post.gl_planned_date or ('scheduled_date' in post._fields and post.scheduled_date)
             local_date = Event._gl_local_date_from_utc(planned, self.timezone)
             if local_date and week_start_date <= local_date <= week_end and not Event._gl_is_post_record_published(post):
+                return True
+        return False
+
+    def _gl_has_weekly_promo_between(self, start_date, end_date):
+        posts = self.env['social.post'].sudo().search([('gl_auto_generated', '=', True), ('gl_event_social_type', '=', 'weekly_promo')], limit=1000)
+        Event = self.env['event.event']
+        for post in posts:
+            planned = post.gl_planned_date or ('scheduled_date' in post._fields and post.scheduled_date)
+            local_date = Event._gl_local_date_from_utc(planned, self.timezone)
+            if local_date and start_date <= local_date <= end_date and not Event._gl_is_post_record_published(post):
                 return True
         return False
 
@@ -432,8 +499,12 @@ class GroundliftEventSocialConfig(models.Model):
 
     def _gl_create_one_gap_filler_post(self, accounts, planned_dt, post_type='gap_filler', latest_planned_date=False):
         candidate, homepage_context = self._gl_choose_homepage_image_candidate()
-        generated = self._gl_openai_generate_gap_filler(candidate.get('context') if candidate else '', homepage_context) if self.openai_api_key else {}
-        text = (generated.get('text') if isinstance(generated, dict) else '') or self._gl_fallback_gap_filler_text(candidate.get('context') if candidate else '')
+        image_context = self._gl_clean_homepage_context(candidate.get('context') if candidate else '', max_chars=900)
+        homepage_context = self._gl_clean_homepage_context(homepage_context, max_chars=1400)
+        generated = self._gl_openai_generate_gap_filler(image_context, homepage_context) if self.openai_api_key else {}
+        text = self._gl_clean_homepage_context((generated.get('text') if isinstance(generated, dict) else '') or '', max_chars=700)
+        if not text:
+            text = self._gl_fallback_gap_filler_text(image_context)
         hashtags = self._gl_normalize_hashtags(generated.get('hashtags') if isinstance(generated, dict) else []) or (self.default_hashtags or '#groundlift #ammersee')
         attachment = self._gl_download_homepage_image_attachment(candidate['url']) if candidate and candidate.get('url') else False
         if attachment and candidate and candidate.get('url'):
@@ -493,7 +564,8 @@ class GroundliftEventSocialConfig(models.Model):
         except Exception as exc:
             _logger.warning('Could not fetch homepage for gap filler posts: %s', exc)
             return [], ''
-        homepage_context = re.sub(r'\s+', ' ', html2plaintext(html or '')).strip()[:1400]
+        html_without_assets = re.sub(r'<(?:img|source)\b[^>]*>', ' ', html or '', flags=re.I | re.S)
+        homepage_context = self._gl_clean_homepage_context(html_without_assets, max_chars=1400)
         candidates = []
         for match in re.finditer(r'<img\b[^>]*>', html, flags=re.I):
             tag = match.group(0)
@@ -510,7 +582,9 @@ class GroundliftEventSocialConfig(models.Model):
             title = self._gl_extract_html_attr(tag, 'title') or ''
             before = html[max(0, match.start() - 500):match.start()]
             after = html[match.end():match.end() + 700]
-            context = re.sub(r'\s+', ' ', html2plaintext('%s %s %s %s' % (alt, title, before, after))).strip()[:900]
+            before = re.sub(r'<[^>]*>', ' ', before)
+            after = re.sub(r'<[^>]*>', ' ', after)
+            context = self._gl_clean_homepage_context('%s %s %s %s' % (alt, title, before, after), max_chars=900)
             candidates.append({'url': full_url, 'context': context})
         deduped, seen = [], set()
         for candidate in candidates:
@@ -551,6 +625,7 @@ class GroundliftEventSocialConfig(models.Model):
         return 'homepage_%s' % re.sub(r'[^A-Za-z0-9_.-]+', '_', filename)[:90]
 
     def _gl_fallback_gap_filler_text(self, image_context=''):
+        image_context = self._gl_clean_homepage_context(image_context, max_chars=220)
         if image_context:
-            return 'Ein Blick ins Groundlift Studio: %s\n\nEntdeckt unser Programm und die besonderen Möglichkeiten vor Ort.' % image_context[:220].rstrip('.,;:')
+            return 'Ein Blick ins Groundlift Studio: %s\n\nEntdeckt unser Programm und die besonderen Möglichkeiten vor Ort.' % image_context.rstrip('.,;:')
         return 'Groundlift Studio in der Alten Brauerei Stegen: Konzerte, Shows, Kino, Events und Produktionen am Ammersee.\n\nEntdeckt unser Programm und die besonderen Möglichkeiten vor Ort.'
