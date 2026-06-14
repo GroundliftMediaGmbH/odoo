@@ -23,7 +23,7 @@
         <field name="arch" type="xml">
             <form string="Groundlift Social Post">
                 <header>
-                    <button name="action_gl_approve_and_schedule" type="object" string="Freigeben &amp; planen" class="btn-primary" invisible="not gl_requires_approval"/>
+                    <button name="action_gl_approve_and_schedule" type="object" string="Groundlift freigeben &amp; geplant lassen" class="btn-primary" invisible="not gl_requires_approval"/>
                     <button name="action_gl_mark_needs_approval" type="object" string="Freigabe zurücknehmen" class="btn-secondary" invisible="gl_requires_approval"/>
                 </header>
                 <sheet>
