@@ -16,7 +16,7 @@
                     </group>
                     <group>
                         <button name="action_gl_create_social_posts" type="object" string="Social Posts erzeugen" class="btn-secondary"/>
-                        <button name="action_gl_approve_social_posts" type="object" string="Social Posts freigeben &amp; planen" class="btn-primary" invisible="not gl_social_posts_generated"/>
+                        <button name="action_gl_approve_social_posts" type="object" string="Social Posts Groundlift-freigeben" class="btn-primary" invisible="not gl_social_posts_generated"/>
                         <button name="action_gl_open_social_posts" type="object" string="Social Posts öffnen" class="btn-secondary" invisible="not gl_social_posts_generated"/>
                     </group>
                     <field name="gl_social_last_error" readonly="1" placeholder="Keine Hinweise"/>

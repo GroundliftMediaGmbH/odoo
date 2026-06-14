@@ -74,3 +74,10 @@ Ohne API Key läuft das Modul weiter, nutzt dann aber nur lokale/standardisierte
 - Homepage-/Bild-Kontext für wöchentliche Werbeposts und Lückenfüller wird stärker bereinigt: Bilddateinamen, HTML-Attribute, CSS-Klassen, URLs und abgeschnittene Fragmente werden entfernt.
 - Wöchentliche Werbeposts haben ein zusätzliches Sicherheitsnetz: Falls in den nächsten 7 Tagen noch kein wöchentlicher Werbepost existiert, wird die nächste passende Gelegenheit innerhalb dieses Fensters gesucht.
 - Die Wochenlogik berücksichtigt jetzt auch den heutigen Tag, wenn die konfigurierte Uhrzeit noch nicht vorbei ist.
+
+
+## 19.0.1.0.8
+
+- Groundlift-Freigabe löst keine native Sofortveröffentlichung mehr aus.
+- Native Social-Marketing-Aktionen wie `action_post` werden für zukünftige automatisch erzeugte Groundlift-Posts abgefangen und auf geplante Veröffentlichung gesetzt.
+- Buttontexte wurden klarer benannt: Groundlift freigeben & geplant lassen.
