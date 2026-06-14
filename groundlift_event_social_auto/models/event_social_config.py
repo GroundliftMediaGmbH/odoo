@@ -60,6 +60,11 @@ class GroundliftEventSocialConfig(models.Model):
     body_completed = fields.Text(string='Text: Nachbericht', default='Postet gerne in die Kommentare und Bilder, wie es für euch war!')
 
     use_openai_hashtags = fields.Boolean(string='ChatGPT API für Hashtags nutzen', default=True)
+    use_openai_headlines = fields.Boolean(string='ChatGPT API für Überschriften nutzen', default=True)
+    openai_headline_prompt = fields.Text(
+        string='Prompt für API-Überschriften',
+        default='Erzeuge eine kurze, abwechslungsreiche und werbende Headline für einen Instagram/Facebook-Post. Sie darf gerne frisch und modern klingen, soll aber seriös bleiben, maximal 85 Zeichen haben, keine Ticketlinks enthalten und nicht ständig mit denselben Worten beginnen.',
+    )
     openai_api_key = fields.Char(string='OpenAI API Key')
     openai_model = fields.Char(string='OpenAI Modell', default='gpt-4o-mini')
     openai_timeout = fields.Integer(string='OpenAI Timeout Sekunden', default=20)
@@ -126,10 +131,18 @@ class GroundliftEventSocialConfig(models.Model):
         self.ensure_one()
         if not self.openai_api_key:
             raise UserError('Bitte zuerst einen OpenAI API Key hinterlegen.')
-        result = self._gl_openai_generate_hashtags_from_context('Groundlift Studio Test', 'Kabarettabend, Eventlocation, Ammersee, Alte Brauerei Stegen', self.default_hashtags or '')
-        if not result:
-            raise UserError('Die ChatGPT API hat keine verwertbaren Hashtags zurückgegeben. Bitte Logs prüfen.')
-        return self._notification('ChatGPT API', 'API-Test erfolgreich: %s' % result, 'success')
+        hashtags = self._gl_openai_generate_hashtags_from_context('Groundlift Studio Test', 'Kabarettabend, Eventlocation, Ammersee, Alte Brauerei Stegen', self.default_hashtags or '')
+        headline = self._gl_openai_generate_headline_from_context(
+            title='Groundlift Studio Test',
+            description='Kabarettabend, Eventlocation, Ammersee, Alte Brauerei Stegen',
+            post_type='announcement',
+            fallback='Neu angekündigt im Groundlift Studio:',
+            date_text='',
+            sold_out=False,
+        )
+        if not hashtags and not headline:
+            raise UserError('Die ChatGPT API hat keine verwertbaren Überschriften/Hashtags zurückgegeben. Bitte Logs prüfen.')
+        return self._notification('ChatGPT API', 'API-Test erfolgreich: %s %s' % (headline or '', hashtags or ''), 'success')
 
     def action_load_all_announced_events(self):
         self.ensure_one()
@@ -138,8 +151,16 @@ class GroundliftEventSocialConfig(models.Model):
         if 'date_begin' in Event._fields:
             domain.append(('date_begin', '>', fields.Datetime.now()))
         events = Event.search(domain, order='date_begin asc', limit=1000).filtered(lambda event: event._gl_is_in_announcement_stage(self))
-        created = events._gl_create_social_posts(config=self, force=False, raise_on_error=False, batch_mode=True)
-        return self._notification('Alle Events geladen', '%s angekündigte Veranstaltung(en) geprüft, %s Social Post(s) erzeugt/geplant.' % (len(events), len(created)), 'success')
+        created_events = events._gl_create_social_posts(config=self, force=False, raise_on_error=False, batch_mode=True)
+        created_weekly = self._gl_create_weekly_promo_posts(force_one=False, ignore_enabled=True)
+        created_gap = self._gl_create_gap_filler_posts(force_one=False, ignore_enabled=True)
+        total = len(created_events) + len(created_weekly) + len(created_gap)
+        return self._notification(
+            'Alle Events geladen',
+            '%s angekündigte Veranstaltung(en) geprüft. %s Eventpost(s), %s wöchentliche Werbepost(s), %s Lückenfüller erzeugt/geplant. Gesamt: %s.'
+            % (len(events), len(created_events), len(created_weekly), len(created_gap), total),
+            'success' if total else 'warning',
+        )
 
     def action_generate_gap_filler_now(self):
         self.ensure_one()
@@ -187,12 +208,69 @@ class GroundliftEventSocialConfig(models.Model):
             return ''
         return self._gl_openai_generate_hashtags_from_context(event.name or '', event._gl_short_description(max_chars=1200), existing_hashtags, event._gl_format_event_datetime(self.timezone))
 
+    def _gl_openai_generate_headline_for_event(self, event, post_type, fallback, sold_out=False):
+        self.ensure_one()
+        if not self.use_openai_headlines or not self.openai_api_key:
+            return ''
+        return self._gl_openai_generate_headline_from_context(
+            title=event.name or '',
+            description=event._gl_short_description(max_chars=1200),
+            post_type=post_type,
+            fallback=fallback,
+            date_text=event._gl_format_event_datetime(self.timezone),
+            sold_out=sold_out,
+        )
+
+    def _gl_openai_generate_headline_from_context(self, title, description, post_type, fallback, date_text='', sold_out=False):
+        self.ensure_one()
+        if not self.openai_api_key:
+            return ''
+        post_type_labels = {
+            'announcement': 'Erstankündigung eines neuen Events',
+            'reminder_3d': 'Reminder drei Tage vor dem Event',
+            'event_day': 'Post am Veranstaltungstag',
+            'soldout': 'Ausverkauft-Meldung',
+            'event_day_soldout': 'Post am Veranstaltungstag bei ausverkauftem Haus',
+            'completed': 'Nachbericht am Tag nach dem Event',
+        }
+        prompt = (
+            '%s\n\n'
+            'Gib ausschließlich JSON zurück im Format {"headline":"..."}.\n'
+            'Regeln: maximal 85 Zeichen, eine einzige Headline, keine Hashtags, kein Ticketlink, keine Anführungszeichen am Anfang/Ende, keine erfundenen Fakten, keine Preise. '
+            'Die Headline soll abwechslungsreich, werbend und passend zum konkreten Event sein. Vermeide Standardfloskeln wie "Neu im Groundlift", "Heute im Groundlift" oder "In 3 Tagen bei uns", außer der Kontext verlangt es wirklich. '
+            'Bei Kabarett/Comedy bitte eher pointiert/kulturell formulieren; bei Konzerten musikalisch; bei Talk/Show entsprechend editorial.\n\n'
+            'Post-Typ: %s\nFallback-Headline: %s\nAusverkauft: %s\nTitel: %s\nDatum: %s\nBeschreibung: %s'
+        ) % (
+            self.openai_headline_prompt or '',
+            post_type_labels.get(post_type, post_type or ''),
+            fallback or '',
+            'ja' if sold_out else 'nein',
+            title or '',
+            date_text or '',
+            description or '',
+        )
+        data = self._gl_openai_chat_json(prompt, max_tokens=120)
+        headline = data.get('headline') if isinstance(data, dict) else ''
+        return self._gl_clean_generated_headline(headline, fallback=fallback)
+
+    def _gl_clean_generated_headline(self, headline, fallback=''):
+        headline = re.sub(r'\s+', ' ', str(headline or '')).strip().strip("\"'„“‚‘")
+        headline = re.sub(r'[#\n\r]+', ' ', headline).strip()
+        if not headline:
+            return ''
+        if len(headline) > 95:
+            headline = headline[:95].rsplit(' ', 1)[0].rstrip('.,;:')
+        # Verhindert defekte oder zu generische API-Ausgaben.
+        if headline.lower() in ['neu im groundlift', 'neu angekündigt im groundlift', 'heute im groundlift', 'in 3 tagen bei uns']:
+            return ''
+        return headline
+
     def _gl_openai_generate_hashtags_from_context(self, title, description, existing_hashtags='', date_text=''):
         self.ensure_one()
         prompt = ('Erzeuge passende Social-Media-Hashtags für diesen Groundlift-Event.\n'
                   'Gib ausschließlich JSON zurück im Format {"hashtags":["#tag1","#tag2"]}.\n'
                   'Regeln: 4 bis %s Hashtags, deutsch/lokal passend, keine Leerzeichen, keine Satzzeichen außer #, keine Duplikate.\n'
-                  'Wichtig: Hashtags müssen aus Titel/Beschreibung ableitbar sein. Keine generischen Ticket-, Stehplatz-, Sitzplatz- oder Vorverkaufs-Hashtags, außer diese Begriffe stehen ausdrücklich im Eventtext. #livemusik/#konzert nur bei Musik-/Konzertbezug. Bei Kabarett/Comedy/Talk passende Kultur-/Comedy-Hashtags wählen.\n\n'
+                  'Wichtig: Hashtags müssen aus Titel/Beschreibung ableitbar sein und zum Genre passen. Keine generischen Ticket-, Stehplatz-, Sitzplatz-, VVK-, Vorverkaufs- oder Preis-Hashtags, außer diese Begriffe stehen ausdrücklich im redaktionellen Eventtext. #livemusik/#konzert/#band nur bei klarem Musik-/Konzertbezug. Bei Kabarett/Comedy/Talk passende Kultur-/Comedy-/Talk-Hashtags wählen. Keine internen Produkt-/Ticketkategorie-Hashtags.\n\n'
                   'Titel: %s\nDatum: %s\nBeschreibung: %s\nBasis-/bereits vorhandene Hashtags: %s') % (max(self.openai_extra_hashtag_count or 6, 1), title, date_text, description, existing_hashtags)
         data = self._gl_openai_chat_json(prompt, max_tokens=180)
         return self._gl_normalize_hashtags(data.get('hashtags') if isinstance(data, dict) else [])
@@ -253,10 +331,10 @@ class GroundliftEventSocialConfig(models.Model):
             result.append(tag)
         return ' '.join(result[:max(self.openai_extra_hashtag_count or 6, 1)])
 
-    def _gl_create_weekly_promo_posts(self, force_one=False):
+    def _gl_create_weekly_promo_posts(self, force_one=False, ignore_enabled=False):
         self.ensure_one()
         created = self.env['social.post'].browse()
-        if not self.enable_weekly_promo_posts and not force_one:
+        if not self.enable_weekly_promo_posts and not force_one and not ignore_enabled:
             return created
         accounts = self._get_social_accounts(raise_on_error=False)
         if not accounts:
@@ -297,10 +375,10 @@ class GroundliftEventSocialConfig(models.Model):
                 return True
         return False
 
-    def _gl_create_gap_filler_posts(self, force_one=False):
+    def _gl_create_gap_filler_posts(self, force_one=False, ignore_enabled=False):
         self.ensure_one()
         created = self.env['social.post'].browse()
-        if not self.enable_gap_filler_posts and not force_one:
+        if not self.enable_gap_filler_posts and not force_one and not ignore_enabled:
             return created
         accounts = self._get_social_accounts(raise_on_error=False)
         if not accounts:

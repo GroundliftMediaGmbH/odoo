@@ -98,6 +98,7 @@
                             <group>
                                 <group string="API">
                                     <field name="use_openai_hashtags"/>
+                                    <field name="use_openai_headlines"/>
                                     <field name="openai_api_key" password="True"/>
                                     <field name="openai_model"/>
                                     <field name="openai_timeout"/>
@@ -105,6 +106,7 @@
                                 </group>
                                 <group string="Prompt">
                                     <field name="openai_system_prompt"/>
+                                    <field name="openai_headline_prompt"/>
                                 </group>
                             </group>
                         </page>

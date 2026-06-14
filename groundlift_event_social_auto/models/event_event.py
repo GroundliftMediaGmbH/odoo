@@ -282,18 +282,26 @@ class EventEvent(models.Model):
         lower = conflicts - higher_or_equal
         if higher_or_equal:
             if self._gl_is_flexible_post_type(post_type):
-                return self._gl_find_next_free_datetime(config, desired_dt + timedelta(days=1), latest_dt=latest_dt)
+                return self._gl_find_alternative_free_datetime(config, desired_dt + timedelta(days=1), latest_dt=latest_dt, fallback_before_dt=desired_dt - timedelta(days=1))
             return False
         for post in lower:
             if self._gl_is_flexible_post_type(post.gl_event_social_type):
                 post_latest_dt = post.gl_latest_planned_date or False
-                new_dt = self._gl_find_next_free_datetime(config, (post.gl_planned_date or desired_dt) + timedelta(days=1), exclude_post_ids=[post.id], latest_dt=post_latest_dt)
+                new_dt = self._gl_find_alternative_free_datetime(
+                    config,
+                    (post.gl_planned_date or desired_dt) + timedelta(days=1),
+                    exclude_post_ids=[post.id],
+                    latest_dt=post_latest_dt,
+                    fallback_before_dt=(post.gl_planned_date or desired_dt) - timedelta(days=1),
+                )
                 if new_dt:
                     vals = {'gl_planned_date': new_dt}
                     if 'scheduled_date' in post._fields:
                         vals['scheduled_date'] = new_dt
                     post.sudo().write(vals)
                 else:
+                    if post.gl_event_id:
+                        post.gl_event_id._gl_note_social_error('Ein niedriger priorisierter Post konnte wegen einer Kollision nicht rechtzeitig verschoben werden: %s' % (post.gl_event_social_type or 'unbekannt'))
                     try:
                         post.sudo().unlink()
                     except Exception:
@@ -319,6 +327,33 @@ class EventEvent(models.Model):
         return False
 
     @api.model
+    def _gl_find_previous_free_datetime(self, config, start_dt, exclude_post_ids=None, earliest_dt=None):
+        exclude_post_ids = exclude_post_ids or []
+        candidate = start_dt
+        earliest_dt = earliest_dt or (fields.Datetime.now() + timedelta(minutes=5))
+        for _attempt in range(120):
+            if candidate < earliest_dt:
+                return False
+            conflicts = self._gl_auto_posts_on_same_local_date(candidate, config.timezone).filtered(lambda p: p.id not in exclude_post_ids and not self._gl_is_post_record_published(p))
+            if not conflicts:
+                return candidate
+            candidate = candidate - timedelta(days=1)
+        return False
+
+    @api.model
+    def _gl_find_alternative_free_datetime(self, config, preferred_start_dt, exclude_post_ids=None, latest_dt=None, fallback_before_dt=None):
+        # Erst nach hinten schieben. Falls dadurch die Deadline überschritten würde,
+        # rückwärts nach einem freien Tag suchen, damit flexible Erstankündigungen
+        # trotzdem rechtzeitig vor der Veranstaltung nachgeholt werden können.
+        candidate = self._gl_find_next_free_datetime(config, preferred_start_dt, exclude_post_ids=exclude_post_ids, latest_dt=latest_dt)
+        if candidate:
+            return candidate
+        if latest_dt:
+            start_back = min(fallback_before_dt or latest_dt, latest_dt)
+            return self._gl_find_previous_free_datetime(config, start_back, exclude_post_ids=exclude_post_ids)
+        return False
+
+    @api.model
     def _gl_auto_posts_on_same_local_date(self, planned_dt, tzname):
         target_date = self._gl_local_date_from_utc(planned_dt, tzname)
         posts = self.env['social.post'].sudo().search([('gl_auto_generated', '=', True)], limit=2000)
@@ -326,7 +361,19 @@ class EventEvent(models.Model):
 
     @api.model
     def _gl_post_priority(self, post_type):
-        return {'event_day': 100, 'event_day_soldout': 105, 'soldout': 90, 'completed': 85, 'reminder_3d': 80, 'announcement': 20, 'weekly_promo': 8, 'gap_filler': 5}.get(post_type or '', 10)
+        # Wöchentliche Werbeposts und Lückenfüller haben bewusst Vorrang vor
+        # Erstankündigungen. Erstankündigungen bleiben flexibel, werden aber nur
+        # bis zur konfigurierten Deadline verschoben. Eventtag/Reminder bleiben höher.
+        return {
+            'event_day_soldout': 105,
+            'event_day': 100,
+            'soldout': 90,
+            'completed': 85,
+            'reminder_3d': 80,
+            'weekly_promo': 35,
+            'gap_filler': 30,
+            'announcement': 20,
+        }.get(post_type or '', 10)
 
     @api.model
     def _gl_is_flexible_post_type(self, post_type):
@@ -398,28 +445,50 @@ class EventEvent(models.Model):
         description = self._gl_short_description(max_chars=900)
         ticket_url = self._gl_event_ticket_url()
         hashtags = self._gl_hashtags(config)
+        fallback_headline = self._gl_fallback_headline(config, post_type, sold_out=sold_out)
+        headline = config._gl_openai_generate_headline_for_event(self, post_type, fallback_headline, sold_out=sold_out) or fallback_headline
+
+        def join(parts):
+            return '\n\n'.join([p for p in parts if p])
+
+        # Der Ticketlink steht bei Event-Werbeposts bewusst direkt unter der Headline.
+        # Für Nachberichte wird kein Ticketlink gesetzt, da die Veranstaltung bereits vorbei ist.
         if post_type == 'announcement':
-            headline = config.headline_announcement or 'Neu angekündigt im Groundlift Studio:'
-            if sold_out:
-                headline = 'Neu angekündigt – bereits ausverkauft:'
-            parts = [headline, title, date_text, description, 'Infos & Tickets: %s' % ticket_url, hashtags]
-            return '\n\n'.join([p for p in parts if p])
+            parts = [headline, ticket_url, title, date_text, description, hashtags]
+            return join(parts)
         if post_type == 'reminder_3d':
-            parts = [config.headline_reminder or 'In 3 Tagen bei uns:', title, date_text, description, 'Jetzt Tickets sichern: %s' % ticket_url, hashtags]
-            return '\n\n'.join([p for p in parts if p])
+            parts = [headline, ticket_url, title, date_text, description, hashtags]
+            return join(parts)
         if post_type == 'event_day':
-            parts = [config.headline_event_day or 'Heute im Groundlift Studio:', title, date_text, description, 'Tickets & Infos: %s' % ticket_url, hashtags]
-            return '\n\n'.join([p for p in parts if p])
+            parts = [headline, ticket_url, title, date_text, description, hashtags]
+            return join(parts)
         if post_type == 'soldout':
-            parts = [config.headline_soldout or 'Ausverkauft – danke für euer riesiges Interesse!', title, date_text, 'Wir freuen uns auf einen besonderen Abend bei uns in der Alten Brauerei Stegen.', hashtags]
-            return '\n\n'.join([p for p in parts if p])
+            parts = [headline, ticket_url, title, date_text, 'Wir freuen uns auf einen besonderen Abend bei uns in der Alten Brauerei Stegen.', hashtags]
+            return join(parts)
         if post_type == 'event_day_soldout':
-            parts = [config.headline_event_day_soldout or 'Heute vor vollem Haus:', title, date_text, 'Danke an alle, die dabei sind. Wir freuen uns auf euch im Groundlift Studio.', hashtags]
-            return '\n\n'.join([p for p in parts if p])
+            parts = [headline, ticket_url, title, date_text, 'Danke an alle, die dabei sind. Wir freuen uns auf euch im Groundlift Studio.', hashtags]
+            return join(parts)
         if post_type == 'completed':
-            parts = [config.headline_completed or 'Schön, dass ihr da wart!', title, config.body_completed or 'Postet gerne in die Kommentare und Bilder, wie es für euch war!', hashtags]
-            return '\n\n'.join([p for p in parts if p])
-        return '\n\n'.join([title, date_text, ticket_url, hashtags])
+            parts = [headline, title, config.body_completed or 'Postet gerne in die Kommentare und Bilder, wie es für euch war!', hashtags]
+            return join(parts)
+        return join([headline, ticket_url, title, date_text, hashtags])
+
+    def _gl_fallback_headline(self, config, post_type, sold_out=False):
+        if post_type == 'announcement':
+            if sold_out:
+                return 'Neu angekündigt – bereits ausverkauft:'
+            return config.headline_announcement or 'Neu angekündigt im Groundlift Studio:'
+        if post_type == 'reminder_3d':
+            return config.headline_reminder or 'In 3 Tagen bei uns:'
+        if post_type == 'event_day':
+            return config.headline_event_day or 'Heute im Groundlift Studio:'
+        if post_type == 'soldout':
+            return config.headline_soldout or 'Ausverkauft – danke für euer riesiges Interesse!'
+        if post_type == 'event_day_soldout':
+            return config.headline_event_day_soldout or 'Heute vor vollem Haus:'
+        if post_type == 'completed':
+            return config.headline_completed or 'Schön, dass ihr da wart!'
+        return 'Groundlift Studio:'
 
     def _gl_short_description(self, max_chars=900):
         self.ensure_one()
@@ -503,14 +572,14 @@ class EventEvent(models.Model):
 
     def _gl_hashtag_context_text(self):
         self.ensure_one()
+        # Nur redaktioneller Event-Kontext. Event-/Ticket-Tags werden hier absichtlich
+        # nicht einbezogen, weil sonst interne Kategorien wie 'Stehplatzticket' ihre
+        # eigenen unpassenden Hashtags legitimieren würden.
         parts = [self.name or '', self._gl_short_description(max_chars=1600)]
         for field_name in ['event_type_id', 'x_studio_public_category', 'x_studio_website_kategorie']:
             if field_name in self._fields and self[field_name]:
                 value = self[field_name]
                 parts.append(getattr(value, 'name', False) or str(value))
-        for field_name in ['tag_ids', 'event_tag_ids']:
-            if field_name in self._fields and self[field_name]:
-                parts.extend(self[field_name].mapped('name'))
         text = ' '.join([p for p in parts if p]).lower()
         return text.replace('ä', 'ae').replace('ö', 'oe').replace('ü', 'ue').replace('ß', 'ss')
 

@@ -1,6 +1,6 @@
 # Groundlift Event Social Automation
 
-Version: 19.0.1.0.5
+Version: 19.0.1.0.6
 
 Dieses Odoo-19-SH-Modul erzeugt automatisch bearbeitbare Social-Marketing-Posts aus Veranstaltungen.
 
@@ -12,11 +12,11 @@ Dieses Odoo-19-SH-Modul erzeugt automatisch bearbeitbare Social-Marketing-Posts 
 - Eventtag-Post am Veranstaltungstag.
 - Ausverkauft-Post mit Anpassung/Entfernung künftiger Werbeposts.
 - Nachbericht-Post, wenn die Veranstaltung die konfigurierbare Abschlussphase erreicht.
-- Alle Texte/Headlines sind in der App konfigurierbar.
-- Button `Alle Events laden`: erzeugt Posts für alle bereits angekündigten künftigen Veranstaltungen.
+- Alle Texte/Headlines sind in der App konfigurierbar; Event-Headlines können zusätzlich per ChatGPT API variantenreich generiert werden.
+- Button `Alle Events laden`: erzeugt Posts für alle bereits angekündigten künftigen Veranstaltungen sowie wöchentliche Werbeposts und Lückenfüller im Planungshorizont.
 - Kollisionsschutz: pro Kalendertag wird nur ein automatisch erzeugter Groundlift-Post geplant.
-- Prioritäten: Eventtag/Ausverkauft/Nachbericht/Reminder haben Vorrang vor Erstankündigung; Erstankündigungen werden verschoben.
-- ChatGPT/OpenAI API kann automatisch zusätzliche, veranstaltungsbezogene Hashtags erzeugen.
+- Prioritäten: Eventtag/Ausverkauft/Nachbericht/Reminder haben Vorrang vor Werbeposts; Werbeposts/Lückenfüller haben Vorrang vor Erstankündigungen. Erstankündigungen werden rechtzeitig nachgeholt, solange die Deadline eingehalten werden kann.
+- ChatGPT/OpenAI API kann automatisch zusätzliche, veranstaltungsbezogene Hashtags und abwechslungsreiche Headlines erzeugen.
 - Wöchentliche Werbeposts: Standardmäßig wird pro Woche ein werbender Post aus Homepage-Bild + Homepage-Kontext geplant, sofern an diesem Tag kein höher priorisierter Eventpost liegt.
 - Optionale zusätzliche Lückenfüller-Posts: Wenn in einem Zeitraum keine Eventposts geplant sind, wird ein werbender Post aus Homepage-Bild + Homepage-Kontext erzeugt.
 
@@ -57,3 +57,12 @@ Ohne API Key läuft das Modul weiter, nutzt dann aber nur lokale/standardisierte
 - Neuer wöchentlicher Werbepost mit eigenem Wochentag, Uhrzeit und Planungshorizont.
 - Hashtag-Logik filtert unpassende Ticket-/Stehplatz-Hashtags und verwendet #livemusik/#konzert nur bei erkennbarem Musikbezug.
 - OpenAI-Prompt für Hashtags wurde auf eventbezogene, nicht generische Hashtags verschärft.
+
+
+## Änderungen in 19.0.1.0.6
+
+- Event-Headlines werden optional per ChatGPT API erzeugt; die bisherigen konfigurierbaren Überschriften bleiben Fallback.
+- Der Ticketlink steht bei Event-Werbeposts direkt unter der Überschrift.
+- `Alle Events laden` erzeugt nun zusätzlich wöchentliche Werbeposts und Lückenfüller im Planungshorizont.
+- Werbeposts und Lückenfüller haben Vorrang vor Erstankündigungen; Erstankündigungen werden innerhalb der Deadline nachgeholt.
+- Hashtag-Kontext filtert interne Ticket-/Produktkategorien stärker, damit z. B. Kabarettabende keine Stehplatz-/Ticket-Hashtags erhalten.
