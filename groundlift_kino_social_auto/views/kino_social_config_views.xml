@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_kino_social_config_list" model="ir.ui.view">
+        <field name="name">gl.kino.social.config.list</field>
+        <field name="model">gl.kino.social.config</field>
+        <field name="arch" type="xml">
+            <list string="Kino Social Automation">
+                <field name="name"/>
+                <field name="active"/>
+                <field name="timezone"/>
+                <field name="week_mode"/>
+                <field name="account_search_term"/>
+                <field name="auto_post_without_approval"/>
+                <field name="last_run_at"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_kino_social_config_form" model="ir.ui.view">
+        <field name="name">gl.kino.social.config.form</field>
+        <field name="model">gl.kino.social.config</field>
+        <field name="arch" type="xml">
+            <form string="Groundlift Kino Social Automation">
+                <header>
+                    <button name="action_test_social_accounts" type="object" string="Kanäle testen" class="btn-secondary"/>
+                    <button name="action_test_openai_api" type="object" string="ChatGPT API testen" class="btn-secondary"/>
+                    <button name="action_generate_current_week_now" type="object" string="Diese Woche jetzt erzeugen" class="btn-primary"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group string="Grundlagen">
+                            <field name="name"/>
+                            <field name="active"/>
+                            <field name="timezone"/>
+                            <field name="week_mode"/>
+                        </group>
+                        <group string="Cinetixx">
+                            <field name="cinetixx_api_url"/>
+                            <field name="program_url"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Kanäle &amp; Freigabe">
+                            <group>
+                                <group string="Social Kanäle">
+                                    <field name="social_account_ids" widget="many2many_tags"/>
+                                    <field name="account_search_term"/>
+                                </group>
+                                <group string="Freigabe">
+                                    <field name="auto_post_without_approval"/>
+                                    <field name="skip_past_planned_posts"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Montag &amp; Wochenpost">
+                            <group>
+                                <group string="Montagsprüfung">
+                                    <field name="monday_check_hour"/>
+                                    <field name="monday_check_minute"/>
+                                </group>
+                                <group string="Wochenpost Zeitpunkt">
+                                    <field name="create_weekly_post"/>
+                                    <field name="weekly_post_hour"/>
+                                    <field name="weekly_post_minute"/>
+                                </group>
+                            </group>
+                            <group>
+                                <field name="weekly_title"/>
+                                <field name="weekly_footer"/>
+                                <field name="weekly_summary_prompt"/>
+                            </group>
+                            <group string="Standardbild">
+                                <field name="standard_image_filename"/>
+                                <field name="standard_image" widget="image" filename="standard_image_filename"/>
+                            </group>
+                        </page>
+                        <page string="Tages-/Film-Posts">
+                            <group>
+                                <group string="Zeitplanung">
+                                    <field name="create_daily_posts"/>
+                                    <field name="daily_first_hour"/>
+                                    <field name="daily_first_minute"/>
+                                    <field name="daily_interval_minutes"/>
+                                </group>
+                                <group string="Textvorlagen">
+                                    <field name="daily_headline_template"/>
+                                    <field name="daily_ticket_line"/>
+                                    <field name="daily_footer"/>
+                                </group>
+                            </group>
+                            <group string="Prompt">
+                                <field name="daily_summary_prompt" nolabel="1"/>
+                            </group>
+                        </page>
+                        <page string="ChatGPT API">
+                            <group>
+                                <group string="API">
+                                    <field name="openai_api_key" password="True"/>
+                                    <field name="openai_model"/>
+                                    <field name="openai_timeout"/>
+                                </group>
+                            </group>
+                            <group string="Grundprompt">
+                                <field name="openai_system_prompt" nolabel="1"/>
+                            </group>
+                        </page>
+                        <page string="Status &amp; Hinweise">
+                            <group>
+                                <field name="last_run_at" readonly="1"/>
+                                <field name="last_run_message" readonly="1"/>
+                            </group>
+                            <group string="Hinweise">
+                                <field name="notes" nolabel="1"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_kino_social_config" model="ir.actions.act_window">
+        <field name="name">Einstellungen</field>
+        <field name="res_model">gl.kino.social.config</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_gl_kino_social_root" name="Kino Social Automation" sequence="36"/>
+    <menuitem id="menu_gl_kino_social_config" name="Einstellungen" parent="menu_gl_kino_social_root" action="action_gl_kino_social_config" sequence="10"/>
+</odoo>

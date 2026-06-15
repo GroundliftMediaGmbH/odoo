@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="ir_cron_gl_kino_social_monday" model="ir.cron">
+        <field name="name">Groundlift: Kino Social Posts montags erzeugen</field>
+        <field name="model_id" ref="model_gl_kino_social_issue"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_prepare_kino_social_posts()</field>
+        <field name="interval_number">30</field>
+        <field name="interval_type">minutes</field>
+        <field name="active">True</field>
+    </record>
+</odoo>

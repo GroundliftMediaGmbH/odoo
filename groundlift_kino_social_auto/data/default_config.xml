@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="default_gl_kino_social_config" model="gl.kino.social.config">
+        <field name="name">Kino Alte Brauerei Stegen Social Automation</field>
+        <field name="account_search_term">Kino Alte Brauerei Stegen</field>
+        <field name="weekly_title">Unser Kinoprogramm der Woche</field>
+        <field name="daily_headline_template">Heute um {time} Uhr bei uns im Kino Stegen</field>
+    </record>
+</odoo>
