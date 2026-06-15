@@ -23,7 +23,8 @@ class InboxFilterHistory(models.Model):
         selection=[
             ("qualified", "Qualifiziert"),
             ("band_request", "Bandanfragen"),
-            ("spam", "SPAM"),
+            ("spam", "SPAM/Newsletter"),
+            ("cinema_delivery_report", "Kino Lieferung/Report"),
             ("production", "Projekt/VA"),
             ("todo", "ToDo"),
             ("support", "Kundensupport"),
@@ -52,7 +53,7 @@ class InboxFilterHistory(models.Model):
             ("applied", "Angewendet"),
             ("undone", "Rückgängig"),
             ("corrected", "Manuell korrigiert"),
-            ("spam_confirmed", "SPAM bestätigt"),
+            ("spam_confirmed", "SPAM/Newsletter bestätigt"),
             ("error", "Fehler"),
         ],
         default="applied",
@@ -63,7 +64,7 @@ class InboxFilterHistory(models.Model):
     @api.model
     def create_from_lead(self, lead, decision):
         original_data = self._snapshot_lead(lead)
-        return self.sudo().create({
+        rec = self.sudo().create({
             "name": "%s → %s" % (lead.display_name, decision.get("category") or "review"),
             "lead_id": lead.id,
             "original_lead_name": lead.name,
@@ -76,11 +77,13 @@ class InboxFilterHistory(models.Model):
             "summary": decision.get("summary") or "",
             "gpt_response_json": json.dumps(decision, ensure_ascii=False, indent=2),
         })
+        rec._post_original_to_chatter()
+        return rec
 
     @api.model
     def create_error_from_lead(self, lead, exc):
         original_data = self._snapshot_lead(lead)
-        return self.sudo().create({
+        rec = self.sudo().create({
             "name": "%s → Fehler" % lead.display_name,
             "lead_id": lead.id,
             "original_lead_name": lead.name,
@@ -94,6 +97,17 @@ class InboxFilterHistory(models.Model):
             "status": "error",
             "moved_to": "Nicht verschoben",
         })
+        rec._post_original_to_chatter()
+        return rec
+
+    def _post_original_to_chatter(self):
+        for rec in self:
+            raw = (rec.raw_input or "").strip()
+            if not raw:
+                continue
+            body = '<p><b>Originalinhalt des CRM-Eingangs</b></p><pre style="white-space: pre-wrap; font-family: inherit;">%s</pre>' % tools.html_escape(raw)
+            rec.message_post(body=body)
+
 
     @api.model
     def _snapshot_lead(self, lead):
@@ -264,7 +278,7 @@ class InboxFilterHistory(models.Model):
             rec.write({
                 "lead_id": False,
                 "status": "spam_confirmed",
-                "moved_to": "SPAM endgültig gelöscht",
+                "moved_to": "SPAM/Newsletter endgültig gelöscht",
             })
             # SPAM-Bestätigung trainiert den Spam-Filter positiv.
             rec._learn_from_manual_correction("spam")
@@ -280,6 +294,12 @@ class InboxFilterHistory(models.Model):
         for rec in self:
             self.env["inbox.filter.service"].manual_mark_band_request(rec)
             rec.write({"status": "corrected", "category": "band_request"})
+        return True
+
+    def action_mark_cinema_delivery_report(self):
+        for rec in self:
+            self.env["inbox.filter.service"].manual_mark_cinema_delivery_report(rec)
+            rec.write({"status": "corrected", "category": "cinema_delivery_report"})
         return True
 
     def action_open_project_event_wizard(self):
@@ -312,7 +332,7 @@ class InboxFilterHistory(models.Model):
 
     def _learn_from_manual_correction(self, corrected_category):
         self.ensure_one()
-        if corrected_category not in ("qualified", "band_request", "spam", "production", "todo", "support", "review"):
+        if corrected_category not in ("qualified", "band_request", "spam", "cinema_delivery_report", "production", "todo", "support", "review"):
             corrected_category = "review"
         note = self.env["inbox.filter.service"].create_learning_note(self, corrected_category)
         prompt = self.env["inbox.filter.prompt"].get_prompt_by_code(corrected_category)

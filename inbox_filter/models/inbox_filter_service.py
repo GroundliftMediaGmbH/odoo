@@ -12,7 +12,7 @@ from odoo.exceptions import UserError
 _logger = logging.getLogger(__name__)
 
 
-CATEGORY_SELECTION = ["qualified", "band_request", "spam", "production", "todo", "support", "review"]
+CATEGORY_SELECTION = ["qualified", "band_request", "spam", "cinema_delivery_report", "production", "todo", "support", "review"]
 
 
 class InboxFilterService(models.AbstractModel):
@@ -27,7 +27,7 @@ class InboxFilterService(models.AbstractModel):
         stats = self.run_sort_new_leads()
         message = _(
             "Inbox Filter abgeschlossen: %(processed)s verarbeitet, %(qualified)s qualifiziert, "
-            "%(band_request)s Bandanfragen, %(spam)s Spam, %(production)s Projekt/VA, %(todo)s ToDo, %(support)s Kundensupport, "
+            "%(band_request)s Bandanfragen, %(spam)s SPAM/Newsletter, %(cinema_delivery_report)s Kino Lieferung/Report, %(production)s Projekt/VA, %(todo)s ToDo, %(support)s Kundensupport, "
             "%(review)s zu prüfen, %(error)s Fehler."
         ) % stats
         return {
@@ -58,6 +58,7 @@ class InboxFilterService(models.AbstractModel):
             "qualified": 0,
             "spam": 0,
             "band_request": 0,
+            "cinema_delivery_report": 0,
             "production": 0,
             "todo": 0,
             "support": 0,
@@ -176,6 +177,8 @@ class InboxFilterService(models.AbstractModel):
             return self._apply_band_request(lead, history, decision)
         if category == "spam":
             return self._apply_spam(lead, history, decision)
+        if category == "cinema_delivery_report":
+            return self._apply_cinema_delivery_report(lead, history, decision)
         if category == "production":
             return self._apply_production(lead, history, decision)
         if category == "todo":
@@ -206,12 +209,22 @@ class InboxFilterService(models.AbstractModel):
         })
 
     def _apply_spam(self, lead, history, decision):
-        # Sicherheitslogik: erst nur archivieren. Endgültig löschen erfolgt per Button "SPAM bestätigt".
+        # Sicherheitslogik: erst nur archivieren. Endgültig löschen erfolgt per Button "SPAM/Newsletter bestätigt".
         lead.write({"active": False})
         history.write({
-            "moved_to": "SPAM / aus CRM Neu entfernt",
+            "moved_to": "SPAM/Newsletter / aus CRM Neu entfernt",
             "status": "applied",
         })
+
+    def _apply_cinema_delivery_report(self, lead, history, decision):
+        # Kino-Lieferungen und Reports werden bewusst nur aus CRM Neu entfernt
+        # und vollständig in der Inbox-Filter-Historie vorgehalten.
+        lead.write({"active": False})
+        history.write({
+            "moved_to": "Inbox Filter Archiv: Kino Lieferung/Report",
+            "status": "applied",
+        })
+        history.message_post(body=self._format_internal_note("Inbox Filter: Kino Lieferung/Report archiviert", decision))
 
     def _apply_review(self, lead, history, decision):
         stage = self._get_or_create_stage("Zu prüfen", sequence=30)
@@ -296,6 +309,14 @@ class InboxFilterService(models.AbstractModel):
         decision["category"] = "band_request"
         self._apply_band_request(lead, history, decision)
         history._learn_from_manual_correction("band_request")
+
+    @api.model
+    def manual_mark_cinema_delivery_report(self, history):
+        lead = history.get_or_restore_lead()
+        decision = history.decision_dict()
+        decision["category"] = "cinema_delivery_report"
+        self._apply_cinema_delivery_report(lead, history, decision)
+        history._learn_from_manual_correction("cinema_delivery_report")
 
     @api.model
     def manual_assign_production(self, history, project=None, event=None):
@@ -509,7 +530,8 @@ Du entscheidest genau EINE Kategorie für eine neue CRM-Anfrage.
 Kategorien:
 - qualified: echter neuer Lead mit geschäftlichem Potenzial.
 - band_request: Anfrage einer Band, eines Künstlers, einer Booking-Agentur oder eines Acts mit Interesse an Auftritt, Konzertslot, Bewerbungs-/Bookingmöglichkeit oder Programmanfrage.
-- spam: Werbung, Scam, irrelevante Massenmail, SEO-Angebot, Bot, offensichtlicher Müll.
+- spam: Werbung, Newsletter, Scam, irrelevante Massenmail, SEO-Angebot, Bot, offensichtlicher Müll.
+- cinema_delivery_report: Kino-Lieferungen und Kino-Reports wie KDM für Film, DCP geliefert, Zahlenmeldung Kino Alte Brauerei Stegen, Verleih-/Dispo-/Kinoabrechnungsstatus; nur archivieren.
 - production: gehört eindeutig zu einem bestehenden Projekt oder einer bestehenden Veranstaltung, z.B. Band schickt Bühnenanweisung, Technikrider, Produktionsdetails, Ablauf/Material zu einer Produktion.
 - todo: benötigt eine konkrete Handlung eines bestimmten Mitarbeiters; Mitarbeiter muss eindeutig erkennbar sein.
 - support: Kundensupport / Lost & Found / Ticket-/Gästeproblem / vergessene Gegenstände / Besucheranliegen. Wichtig: Lost & Found bei einer Veranstaltung ist Support, NICHT production.
@@ -522,6 +544,7 @@ Regeln:
 - Bandanfragen sind neue künstlerische/bookingbezogene Anfragen und gehören in band_request, nicht in qualified, außer es geht eindeutig um eine bezahlte Studio-/Eventlocation-/Produktionsbuchung durch einen Kunden.
 - Kundentickets, vergessene Brillen/Handschuhe/Jacken, Besucherrückfragen und verlorene Gegenstände gehören in support, auch wenn eine Veranstaltung erwähnt wird.
 - Bühnenanweisungen, Tech-Rider, Setlisten, Soundcheck, Backline, Ablaufpläne und Produktionsunterlagen gehören zu production, wenn das Projekt/Event eindeutig ist.
+- KDMs, DCP-Lieferungen, Kino-Zahlenmeldungen, Kino-Verleihreports und Kinolieferstatus gehören zu cinema_delivery_report, nicht zu production und nicht zu support.
 - Liefere nur JSON im vorgegebenen Schema.
 
 Filterdefinitionen:

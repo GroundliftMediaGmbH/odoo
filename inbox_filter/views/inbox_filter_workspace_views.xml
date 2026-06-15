@@ -36,12 +36,20 @@
                                 <field name="band_request_learning_notes" nolabel="1" readonly="1" widget="text"/>
                             </group>
                         </page>
-                        <page string="SPAM">
+                        <page string="SPAM/Newsletter">
                             <group string="Prompt">
                                 <field name="spam_prompt" nolabel="1" widget="text"/>
                             </group>
                             <group string="Live-Lernbeispiele">
                                 <field name="spam_learning_notes" nolabel="1" readonly="1" widget="text"/>
+                            </group>
+                        </page>
+                        <page string="Kino Lieferung/Report">
+                            <group string="Prompt">
+                                <field name="cinema_delivery_report_prompt" nolabel="1" widget="text"/>
+                            </group>
+                            <group string="Live-Lernbeispiele">
+                                <field name="cinema_delivery_report_learning_notes" nolabel="1" readonly="1" widget="text"/>
                             </group>
                         </page>
                         <page string="Projekt/VA">

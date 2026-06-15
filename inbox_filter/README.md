@@ -6,7 +6,8 @@ Version: 19.0.1.0.4
 GPT-gestützte Sortierung neuer CRM-Leads aus der Phase „Neu“ in:
 
 - Qualifiziert
-- SPAM
+- SPAM/Newsletter
+- Kino Lieferung/Report
 - Projekt/Veranstaltung
 - ToDo für Mitarbeitende
 - Kundensupport
@@ -28,8 +29,8 @@ Dadurch bleibt der API-Token zuverlässig gespeichert und `Token prüfen` liest 
 ## Hinweise
 
 - Der Token wird zusätzlich nach `ir.config_parameter` gespiegelt, damit ältere Modulpfade und Upgrades kompatibel bleiben.
-- SPAM/Projekt/VA/ToDo/Kundensupport werden zunächst sicher archiviert und in der Inbox-Filter-Historie protokolliert.
-- Endgültiges Löschen erfolgt nur über „SPAM bestätigt“.
+- SPAM/Newsletter, Kino Lieferung/Report, Projekt/VA, ToDo und Kundensupport werden zunächst sicher archiviert und in der Inbox-Filter-Historie protokolliert.
+- Endgültiges Löschen erfolgt nur über „SPAM/Newsletter bestätigt“.
 
 
 ## Version 19.0.1.0.6
