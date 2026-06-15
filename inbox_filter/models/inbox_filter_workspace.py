@@ -10,7 +10,8 @@ class InboxFilterWorkspace(models.Model):
 
     qualified_prompt = fields.Text(string="Prompt: Qualifiziert", compute="_compute_prompts", inverse="_inverse_qualified_prompt", readonly=False)
     band_request_prompt = fields.Text(string="Prompt: Bandanfragen", compute="_compute_prompts", inverse="_inverse_band_request_prompt", readonly=False)
-    spam_prompt = fields.Text(string="Prompt: SPAM", compute="_compute_prompts", inverse="_inverse_spam_prompt", readonly=False)
+    spam_prompt = fields.Text(string="Prompt: SPAM/Newsletter", compute="_compute_prompts", inverse="_inverse_spam_prompt", readonly=False)
+    cinema_delivery_report_prompt = fields.Text(string="Prompt: Kino Lieferung/Report", compute="_compute_prompts", inverse="_inverse_cinema_delivery_report_prompt", readonly=False)
     production_prompt = fields.Text(string="Prompt: Projekt/VA", compute="_compute_prompts", inverse="_inverse_production_prompt", readonly=False)
     todo_prompt = fields.Text(string="Prompt: ToDo", compute="_compute_prompts", inverse="_inverse_todo_prompt", readonly=False)
     support_prompt = fields.Text(string="Prompt: Kundensupport", compute="_compute_prompts", inverse="_inverse_support_prompt", readonly=False)
@@ -18,7 +19,8 @@ class InboxFilterWorkspace(models.Model):
 
     qualified_learning_notes = fields.Text(string="Lernbeispiele: Qualifiziert", compute="_compute_learning_notes", readonly=True)
     band_request_learning_notes = fields.Text(string="Lernbeispiele: Bandanfragen", compute="_compute_learning_notes", readonly=True)
-    spam_learning_notes = fields.Text(string="Lernbeispiele: SPAM", compute="_compute_learning_notes", readonly=True)
+    spam_learning_notes = fields.Text(string="Lernbeispiele: SPAM/Newsletter", compute="_compute_learning_notes", readonly=True)
+    cinema_delivery_report_learning_notes = fields.Text(string="Lernbeispiele: Kino Lieferung/Report", compute="_compute_learning_notes", readonly=True)
     production_learning_notes = fields.Text(string="Lernbeispiele: Projekt/VA", compute="_compute_learning_notes", readonly=True)
     todo_learning_notes = fields.Text(string="Lernbeispiele: ToDo", compute="_compute_learning_notes", readonly=True)
     support_learning_notes = fields.Text(string="Lernbeispiele: Kundensupport", compute="_compute_learning_notes", readonly=True)
@@ -44,6 +46,7 @@ class InboxFilterWorkspace(models.Model):
             "qualified_prompt": self._get_prompt_text("qualified"),
             "band_request_prompt": self._get_prompt_text("band_request"),
             "spam_prompt": self._get_prompt_text("spam"),
+            "cinema_delivery_report_prompt": self._get_prompt_text("cinema_delivery_report"),
             "production_prompt": self._get_prompt_text("production"),
             "todo_prompt": self._get_prompt_text("todo"),
             "support_prompt": self._get_prompt_text("support"),
@@ -58,6 +61,7 @@ class InboxFilterWorkspace(models.Model):
             "qualified_learning_notes": self._get_learning_notes("qualified"),
             "band_request_learning_notes": self._get_learning_notes("band_request"),
             "spam_learning_notes": self._get_learning_notes("spam"),
+            "cinema_delivery_report_learning_notes": self._get_learning_notes("cinema_delivery_report"),
             "production_learning_notes": self._get_learning_notes("production"),
             "todo_learning_notes": self._get_learning_notes("todo"),
             "support_learning_notes": self._get_learning_notes("support"),
@@ -78,6 +82,10 @@ class InboxFilterWorkspace(models.Model):
     def _inverse_spam_prompt(self):
         for rec in self:
             rec._set_prompt_text("spam", rec.spam_prompt)
+
+    def _inverse_cinema_delivery_report_prompt(self):
+        for rec in self:
+            rec._set_prompt_text("cinema_delivery_report", rec.cinema_delivery_report_prompt)
 
     def _inverse_production_prompt(self):
         for rec in self:

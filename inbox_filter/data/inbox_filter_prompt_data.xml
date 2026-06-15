@@ -22,11 +22,21 @@ Nicht als Bandanfrage werten: Eine bereits gebuchte Band sendet Rider, Stageplot
     </record>
 
     <record id="prompt_spam" model="inbox.filter.prompt">
-        <field name="name">SPAM</field>
+        <field name="name">SPAM/Newsletter</field>
         <field name="code">spam</field>
         <field name="sequence">20</field>
         <field name="prompt"><![CDATA[
-Erkenne Spam, Scam, Bot-Mails, SEO-/Marketing-Massenangebote, Linkbuilding, unseriöse Kredit-/Crypto-/Casino-/Phishing-Angebote, generische Sales-Pitches ohne konkreten Bezug zu Groundlift, technische Bounce-Mails ohne operativen Wert und offensichtlich irrelevante Werbung. Sei vorsichtig: Eine schlecht formulierte echte Kundenanfrage ist kein Spam.
+Erkenne Spam, Newsletter, automatisch abonnierte Verteiler, Scam, Bot-Mails, SEO-/Marketing-Massenangebote, Linkbuilding, unseriöse Kredit-/Crypto-/Casino-/Phishing-Angebote, generische Sales-Pitches ohne konkreten Bezug zu Groundlift, technische Bounce-Mails ohne operativen Wert und offensichtlich irrelevante Werbung. Newsletter sind hier gemeint als massenhafte, nicht individuell handlungsrelevante Informationen. Sei vorsichtig: Eine schlecht formulierte echte Kundenanfrage ist kein Spam.
+        ]]></field>
+    </record>
+
+
+    <record id="prompt_cinema_delivery_report" model="inbox.filter.prompt">
+        <field name="name">Kino Lieferung/Report</field>
+        <field name="code">cinema_delivery_report</field>
+        <field name="sequence">25</field>
+        <field name="prompt"><![CDATA[
+Erkenne operative Kino-Lieferungen und Kino-Reports, die nicht als CRM-Lead bearbeitet werden müssen. Dazu gehören insbesondere Mails wie "KDM für Film ...", "KDM Delivery", "DCP geliefert", "DCP Delivery", "Zahlenmeldung Kino Alte Brauerei Stegen", Filmverleih-Reports, Vorführschlüssel, Kinodisposition, Kinoabrechnungs-/Besucherzahlenmeldungen und Statusmeldungen zur technischen Film-/Kino-Lieferung. Diese Datensätze sollen aus CRM Neu entfernt und nur in der Inbox-Filter-Historie archiviert werden. Nicht verwenden für echte Kundenanfragen, Lost-&-Found, Ticketprobleme oder allgemeine Event-Produktionen.
         ]]></field>
     </record>
 
