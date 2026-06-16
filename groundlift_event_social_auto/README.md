@@ -1,6 +1,6 @@
 # Groundlift Event Social Automation
 
-Version: 19.0.1.0.7
+Version: 19.0.1.0.9
 
 Dieses Odoo-19-SH-Modul erzeugt automatisch bearbeitbare Social-Marketing-Posts aus Veranstaltungen.
 
@@ -81,3 +81,34 @@ Ohne API Key läuft das Modul weiter, nutzt dann aber nur lokale/standardisierte
 - Groundlift-Freigabe löst keine native Sofortveröffentlichung mehr aus.
 - Native Social-Marketing-Aktionen wie `action_post` werden für zukünftige automatisch erzeugte Groundlift-Posts abgefangen und auf geplante Veröffentlichung gesetzt.
 - Buttontexte wurden klarer benannt: Groundlift freigeben & geplant lassen.
+
+
+## 19.0.1.0.9
+
+- API-Headlines werden stärker randomisiert: Das Modul fordert mehrere Varianten an, arbeitet mit höherer Temperatur und vermeidet zuletzt verwendete Headlines sowie häufige Einstiege wie „Erlebe“/„Entdecke“.
+- Eventbeschreibung aus `x_studio_html_field_eventbeschreibung` behält sinnvolle Absätze. Falls die HTML-Beschreibung zu einem einzigen Absatz zusammenfällt, setzt das Modul automatisch einen Absatz nach einem kurzen Teaser/Satz.
+- Ticketlink bleibt direkt unter der Headline.
+
+
+## Version 19.0.1.0.11
+- Synchronisiert `social.post.media_ids` strikt mit den Medien der ausgewählten Social Accounts.
+- Behebt den Odoo-Fehler `KeyError` in `_compute_live_posts_by_media`.
+- `media_ids` wird nicht mehr fälschlich als Bild-/Attachment-Feld behandelt.
+- Repariert beim Modulupdate automatisch bestehende Groundlift-Posts und bietet zusätzlich den Button „Social Posts reparieren“.
+
+
+## Einzelne Plattform direkt erneut posten
+
+Auf dem normalen Social-Post-Formular stehen zwei zusätzliche Aktionen bereit:
+
+- **Direkt erneut auf Instagram posten**
+- **Direkt erneut auf Facebook posten**
+
+Die Aktion erzeugt bewusst eine separate Kopie des Beitrags, die ausschließlich das
+gewählte Plattformkonto enthält, und löst danach Odoos native Sofortveröffentlichung
+aus. Dadurch wird beispielsweise bei einem erfolgreichen Facebook-Post und einem
+fehlgeschlagenen Instagram-Post nur Instagram erneut angesprochen; Facebook wird
+nicht doppelt veröffentlicht.
+
+Der Wiederholungs-Post erhält einen Verweis auf den ursprünglichen Social-Post und
+wird nicht von der Event-Planungsautomatik erneut verschoben oder verarbeitet.

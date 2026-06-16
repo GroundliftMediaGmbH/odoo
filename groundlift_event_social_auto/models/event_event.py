@@ -188,6 +188,12 @@ class EventEvent(models.Model):
             vals['account_ids'] = [(6, 0, accounts.ids)]
         elif 'social_account_ids' in post_fields:
             vals['social_account_ids'] = [(6, 0, accounts.ids)]
+        # Odoo Social expects the selected networks (social.media) to match the
+        # media of the selected accounts. Without this, its
+        # _compute_live_posts_by_media can crash with KeyError.
+        media_field = post_fields.get('media_ids')
+        if media_field and getattr(media_field, 'comodel_name', '') == 'social.media':
+            vals['media_ids'] = [(6, 0, accounts.mapped('media_id').ids)]
         if 'scheduled_date' in post_fields:
             vals['scheduled_date'] = planned_date
         if 'post_method' in post_fields:
@@ -196,8 +202,10 @@ class EventEvent(models.Model):
                 vals['post_method'] = scheduled_key
         attachment = self._gl_create_event_image_attachment()
         if attachment:
-            for image_field in ['image_ids', 'attachment_ids', 'media_ids']:
-                if image_field in post_fields and getattr(post_fields[image_field], 'type', '') in ['many2many', 'one2many']:
+            # media_ids is the list of social networks, not an attachment field.
+            for image_field in ['image_ids', 'attachment_ids']:
+                field = post_fields.get(image_field)
+                if field and getattr(field, 'type', '') in ['many2many', 'one2many'] and getattr(field, 'comodel_name', '') == 'ir.attachment':
                     vals[image_field] = [(6, 0, [attachment.id])]
                     break
         if 'company_id' in post_fields and 'company_id' in self._fields and self.company_id:
@@ -506,10 +514,60 @@ class EventEvent(models.Model):
                 break
         if not description:
             return ''
-        text = re.sub(r'\s+', ' ', html2plaintext(description or '')).strip()
+        return self._gl_clean_event_description_text(description, max_chars=max_chars)
+
+    def _gl_clean_event_description_text(self, description, max_chars=900):
+        """Return social-ready plain text while preserving useful paragraph breaks.
+
+        Earlier versions compressed the HTML description into one long line.
+        For social posts this looks cramped, especially when the event page has
+        a short intro/teaser followed by the actual body text.
+        """
+        text = html2plaintext(description or '')
+        text = re.sub(r'<br\s*/?>', '\n', text, flags=re.I)
+        text = text.replace('\r\n', '\n').replace('\r', '\n')
+        text = re.sub(r'[ \t]+', ' ', text)
+        raw_lines = [line.strip() for line in text.split('\n')]
+        paragraphs, buffer = [], []
+        for line in raw_lines:
+            if line:
+                buffer.append(line)
+            elif buffer:
+                paragraphs.append(' '.join(buffer).strip())
+                buffer = []
+        if buffer:
+            paragraphs.append(' '.join(buffer).strip())
+        paragraphs = [re.sub(r'\s+', ' ', p).strip() for p in paragraphs if p and p.strip()]
+        if not paragraphs:
+            paragraphs = [re.sub(r'\s+', ' ', html2plaintext(description or '')).strip()]
+
+        # If the source HTML still collapsed to a single paragraph, create a
+        # readable break after a concise opener such as "Ein Blick hinter ...".
+        if len(paragraphs) == 1:
+            paragraphs = self._gl_split_single_description_paragraph(paragraphs[0])
+
+        text = '\n\n'.join([p for p in paragraphs if p])
+        text = re.sub(r'\n{3,}', '\n\n', text).strip()
         if max_chars and len(text) > max_chars:
             text = text[:max_chars].rsplit(' ', 1)[0].rstrip('.,;:') + ' …'
         return text
+
+    def _gl_split_single_description_paragraph(self, paragraph):
+        paragraph = re.sub(r'\s+', ' ', paragraph or '').strip()
+        if not paragraph:
+            return []
+        # Prefer splitting after the first real sentence.
+        match = re.match(r'(.{45,220}?[.!?])\s+(.+)$', paragraph)
+        if match:
+            return [match.group(1).strip(), match.group(2).strip()]
+        # Common event-page pattern: a short teaser/headline followed by body text.
+        match = re.match(r'(.{35,180}?)(\s+(?:Bei|Mit|Nach|Freut|Freuen|Erlebt|Entdeckt|Taucht|Kommt|Wir)\s+.+)$', paragraph)
+        if match:
+            first = match.group(1).strip().rstrip('.,;:')
+            second = match.group(2).strip()
+            if first and second and len(first) >= 25:
+                return [first, second]
+        return [paragraph]
 
     def _gl_event_ticket_url(self):
         self.ensure_one()

@@ -4,6 +4,7 @@ import base64
 import json
 import logging
 import mimetypes
+import random
 import re
 import urllib.parse
 import urllib.request
@@ -127,6 +128,16 @@ class GroundliftEventSocialConfig(models.Model):
         accounts = self._get_social_accounts(raise_on_error=True)
         return self._notification('Social Automation', 'Gefundene Social Accounts: %s' % ', '.join(accounts.mapped('name')), 'success')
 
+    def action_repair_social_posts(self):
+        self.ensure_one()
+        result = self.env['social.post'].sudo()._gl_repair_generated_media_links()
+        return self._notification(
+            'Social Posts repariert',
+            '%s Groundlift-Post(s) geprüft, %s korrigiert, %s ohne gültige Social Accounts.'
+            % (result.get('checked', 0), result.get('repaired', 0), result.get('without_accounts', 0)),
+            'success' if not result.get('errors') else 'warning',
+        )
+
     def action_test_openai_api(self):
         self.ensure_one()
         if not self.openai_api_key:
@@ -233,15 +244,26 @@ class GroundliftEventSocialConfig(models.Model):
             'event_day_soldout': 'Post am Veranstaltungstag bei ausverkauftem Haus',
             'completed': 'Nachbericht am Tag nach dem Event',
         }
+        recent_headlines = self._gl_recent_groundlift_headlines(limit=24)
+        recent_starts = self._gl_recent_headline_starts(recent_headlines)
+        random_seed = random.randint(100000, 999999)
         prompt = (
             '%s\n\n'
-            'Gib ausschließlich JSON zurück im Format {"headline":"..."}.\n'
-            'Regeln: maximal 85 Zeichen, eine einzige Headline, keine Hashtags, kein Ticketlink, keine Anführungszeichen am Anfang/Ende, keine erfundenen Fakten, keine Preise. '
-            'Die Headline soll abwechslungsreich, werbend und passend zum konkreten Event sein. Vermeide Standardfloskeln wie "Neu im Groundlift", "Heute im Groundlift" oder "In 3 Tagen bei uns", außer der Kontext verlangt es wirklich. '
-            'Bei Kabarett/Comedy bitte eher pointiert/kulturell formulieren; bei Konzerten musikalisch; bei Talk/Show entsprechend editorial.\n\n'
+            'Gib ausschließlich JSON zurück im Format {"headlines":["...","...","...","...","..."]}.\n'
+            'Erzeuge genau 5 deutlich unterschiedliche Headline-Varianten und variiere Satzbau, erstes Wort und Tonalität. '
+            'Wähle NICHT wiederholt dieselben Einstiege wie "Erlebe ...", "Entdecke ...", "Wir freuen uns ...", "Heute ...". '
+            'Die Headlines dürfen frisch/hip klingen, sollen aber nicht künstlich wirken. Keine Hashtags, kein Ticketlink, keine Preise, keine erfundenen Fakten. '
+            'Jede Variante maximal 85 Zeichen. Keine Anführungszeichen am Anfang/Ende. '
+            'Bei Kabarett/Comedy bitte eher pointiert/kulturell formulieren; bei Konzerten musikalisch; bei Talk/Show editorial; bei Führungen neugierig/behind-the-scenes.\n\n'
+            'Vermeide außerdem diese zuletzt verwendeten Headlines möglichst komplett:\n%s\n\n'
+            'Überbeanspruchte Einstiegswörter zuletzt: %s\n'
+            'Randomisierungswert: %s\n'
             'Post-Typ: %s\nFallback-Headline: %s\nAusverkauft: %s\nTitel: %s\nDatum: %s\nBeschreibung: %s'
         ) % (
             self.openai_headline_prompt or '',
+            '\n'.join(['- %s' % h for h in recent_headlines[:12]]) or '-',
+            ', '.join(recent_starts[:8]) or '-',
+            random_seed,
             post_type_labels.get(post_type, post_type or ''),
             fallback or '',
             'ja' if sold_out else 'nein',
@@ -249,9 +271,91 @@ class GroundliftEventSocialConfig(models.Model):
             date_text or '',
             description or '',
         )
-        data = self._gl_openai_chat_json(prompt, max_tokens=120)
-        headline = data.get('headline') if isinstance(data, dict) else ''
-        return self._gl_clean_generated_headline(headline, fallback=fallback)
+        data = self._gl_openai_chat_json(prompt, max_tokens=260, temperature=0.95)
+        candidates = []
+        if isinstance(data, dict):
+            if isinstance(data.get('headlines'), list):
+                candidates = data.get('headlines')
+            elif data.get('headline'):
+                candidates = [data.get('headline')]
+        return self._gl_select_generated_headline(candidates, fallback=fallback, recent_headlines=recent_headlines)
+
+    def _gl_recent_groundlift_headlines(self, limit=24):
+        Post = self.env['social.post'].sudo()
+        domain = [('gl_auto_generated', '=', True)]
+        order = 'gl_planned_date desc' if 'gl_planned_date' in Post._fields else 'id desc'
+        posts = Post.search(domain, limit=max(limit or 24, 1), order=order)
+        result = []
+        for post in posts:
+            message = self._gl_post_message_text(post)
+            first_line = ''
+            for line in (message or '').splitlines():
+                line = re.sub(r'\s+', ' ', line).strip()
+                if line and not line.startswith('http'):
+                    first_line = line
+                    break
+            if first_line:
+                result.append(first_line[:120])
+        return result
+
+    def _gl_post_message_text(self, post):
+        for field_name in ['message', 'message_deserialized', 'body']:
+            if field_name in post._fields and post[field_name]:
+                value = post[field_name]
+                if isinstance(value, (dict, list)):
+                    try:
+                        return json.dumps(value, ensure_ascii=False)
+                    except Exception:
+                        return str(value)
+                return str(value)
+        return ''
+
+    def _gl_recent_headline_starts(self, headlines):
+        counts = {}
+        for headline in headlines or []:
+            match = re.match(r'([A-Za-zÄÖÜäöüß]+)', headline or '')
+            if not match:
+                continue
+            word = match.group(1).lower()
+            counts[word] = counts.get(word, 0) + 1
+        return [word for word, _count in sorted(counts.items(), key=lambda item: item[1], reverse=True)]
+
+    def _gl_select_generated_headline(self, candidates, fallback='', recent_headlines=None):
+        recent_headlines = recent_headlines or []
+        recent_norm = {self._gl_normalize_headline_for_compare(h) for h in recent_headlines}
+        recent_starts = self._gl_recent_headline_starts(recent_headlines)
+        cleaned = []
+        for candidate in candidates or []:
+            headline = self._gl_clean_generated_headline(candidate, fallback=fallback)
+            if headline:
+                cleaned.append(headline)
+        if not cleaned:
+            return ''
+
+        def score(headline):
+            norm = self._gl_normalize_headline_for_compare(headline)
+            start_match = re.match(r'([A-Za-zÄÖÜäöüß]+)', headline or '')
+            start = start_match.group(1).lower() if start_match else ''
+            value = random.random()
+            if norm in recent_norm:
+                value -= 100
+            if start in recent_starts[:5]:
+                value -= 18
+            # Diese Wörter sind nicht verboten, aber wenn sie ständig auftauchen, werden andere Varianten bevorzugt.
+            if start in ['erlebe', 'entdecke', 'erleben', 'entdecken']:
+                value -= 10
+            if start in ['neu', 'heute']:
+                value -= 8
+            value += min(len(set(headline.lower().split())), 12) / 20.0
+            return value
+
+        cleaned = sorted(cleaned, key=score, reverse=True)
+        return cleaned[0]
+
+    def _gl_normalize_headline_for_compare(self, headline):
+        text = re.sub(r'\s+', ' ', str(headline or '').strip().lower())
+        text = text.strip(' .,!?:;-–—"\'„“‚‘')
+        return text
 
     def _gl_clean_generated_headline(self, headline, fallback=''):
         headline = re.sub(r'\s+', ' ', str(headline or '')).strip().strip("\"'„“‚‘")
@@ -262,6 +366,8 @@ class GroundliftEventSocialConfig(models.Model):
             headline = headline[:95].rsplit(' ', 1)[0].rstrip('.,;:')
         # Verhindert defekte oder zu generische API-Ausgaben.
         if headline.lower() in ['neu im groundlift', 'neu angekündigt im groundlift', 'heute im groundlift', 'in 3 tagen bei uns']:
+            return ''
+        if headline.lower().strip(':') == (fallback or '').lower().strip(':'):
             return ''
         return headline
 
@@ -316,11 +422,11 @@ class GroundliftEventSocialConfig(models.Model):
             text = text[:max_chars].rsplit(' ', 1)[0].rstrip('.,;:')
         return text
 
-    def _gl_openai_chat_json(self, prompt, max_tokens=300):
+    def _gl_openai_chat_json(self, prompt, max_tokens=300, temperature=0.4):
         self.ensure_one()
         if not self.openai_api_key:
             return {}
-        payload = {'model': self.openai_model or 'gpt-4o-mini', 'messages': [{'role': 'system', 'content': self.openai_system_prompt or ''}, {'role': 'user', 'content': prompt}], 'temperature': 0.4, 'max_tokens': max_tokens}
+        payload = {'model': self.openai_model or 'gpt-4o-mini', 'messages': [{'role': 'system', 'content': self.openai_system_prompt or ''}, {'role': 'user', 'content': prompt}], 'temperature': temperature, 'max_tokens': max_tokens}
         request = urllib.request.Request('https://api.openai.com/v1/chat/completions', data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json', 'Authorization': 'Bearer %s' % self.openai_api_key.strip()}, method='POST')
         try:
             with urllib.request.urlopen(request, timeout=max(self.openai_timeout or 20, 3)) as response:
@@ -527,6 +633,12 @@ class GroundliftEventSocialConfig(models.Model):
             vals['account_ids'] = [(6, 0, accounts.ids)]
         elif 'social_account_ids' in post_fields:
             vals['social_account_ids'] = [(6, 0, accounts.ids)]
+        # Keep social.post.media_ids synchronized with account_ids. Odoo's
+        # live-post grouping assumes every live post account belongs to one of
+        # the media records selected on the parent post.
+        media_field = post_fields.get('media_ids')
+        if media_field and getattr(media_field, 'comodel_name', '') == 'social.media':
+            vals['media_ids'] = [(6, 0, accounts.mapped('media_id').ids)]
         if 'scheduled_date' in post_fields:
             vals['scheduled_date'] = planned_dt
         if 'post_method' in post_fields:
@@ -534,8 +646,11 @@ class GroundliftEventSocialConfig(models.Model):
             if scheduled_key:
                 vals['post_method'] = scheduled_key
         if attachment:
-            for image_field in ['image_ids', 'attachment_ids', 'media_ids']:
-                if image_field in post_fields and getattr(post_fields[image_field], 'type', '') in ['many2many', 'one2many']:
+            # media_ids contains social networks and must never receive an
+            # ir.attachment ID.
+            for image_field in ['image_ids', 'attachment_ids']:
+                field = post_fields.get(image_field)
+                if field and getattr(field, 'type', '') in ['many2many', 'one2many'] and getattr(field, 'comodel_name', '') == 'ir.attachment':
                     vals[image_field] = [(6, 0, [attachment.id])]
                     break
         post = SocialPost.create(vals)

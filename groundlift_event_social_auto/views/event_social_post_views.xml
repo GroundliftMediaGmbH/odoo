@@ -25,6 +25,8 @@
                 <header>
                     <button name="action_gl_approve_and_schedule" type="object" string="Groundlift freigeben &amp; geplant lassen" class="btn-primary" invisible="not gl_requires_approval"/>
                     <button name="action_gl_mark_needs_approval" type="object" string="Freigabe zurücknehmen" class="btn-secondary" invisible="gl_requires_approval"/>
+                    <button name="action_gl_post_instagram_now" type="object" string="Direkt erneut auf Instagram posten" class="btn-secondary" invisible="not gl_has_instagram_target" confirm="Der Beitrag wird jetzt ausschließlich auf Instagram erneut veröffentlicht. Fortfahren?"/>
+                    <button name="action_gl_post_facebook_now" type="object" string="Direkt erneut auf Facebook posten" class="btn-secondary" invisible="not gl_has_facebook_target" confirm="Der Beitrag wird jetzt ausschließlich auf Facebook erneut veröffentlicht. Fortfahren?"/>
                 </header>
                 <sheet>
                     <group>
@@ -36,6 +38,10 @@
                             <field name="gl_requires_approval"/>
                             <field name="gl_approved"/>
                             <field name="gl_auto_generated"/>
+                            <field name="gl_has_facebook_target" invisible="1"/>
+                            <field name="gl_has_instagram_target" invisible="1"/>
+                            <field name="gl_retry_source_post_id" readonly="1" invisible="not gl_retry_source_post_id"/>
+                            <field name="gl_retry_platform" readonly="1" invisible="not gl_retry_platform"/>
                         </group>
                         <group string="Odoo Social">
                             <field name="state" readonly="1"/>
@@ -51,6 +57,30 @@
                     </group>
                 </sheet>
             </form>
+        </field>
+    </record>
+
+    <record id="view_gl_social_post_retry_form_inherit" model="ir.ui.view">
+        <field name="name">gl.social.post.retry.form.inherit</field>
+        <field name="model">social.post</field>
+        <field name="inherit_id" ref="social.social_post_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <field name="gl_has_facebook_target" invisible="1"/>
+                <field name="gl_has_instagram_target" invisible="1"/>
+                <button name="action_gl_post_instagram_now"
+                        type="object"
+                        string="Direkt erneut auf Instagram posten"
+                        class="btn-secondary"
+                        invisible="not gl_has_instagram_target"
+                        confirm="Der Beitrag wird jetzt ausschließlich auf Instagram erneut veröffentlicht. Fortfahren?"/>
+                <button name="action_gl_post_facebook_now"
+                        type="object"
+                        string="Direkt erneut auf Facebook posten"
+                        class="btn-secondary"
+                        invisible="not gl_has_facebook_target"
+                        confirm="Der Beitrag wird jetzt ausschließlich auf Facebook erneut veröffentlicht. Fortfahren?"/>
+            </xpath>
         </field>
     </record>
 
