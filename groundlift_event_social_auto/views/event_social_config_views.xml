@@ -24,6 +24,7 @@
             <form string="Groundlift Event Social Automation">
                 <header>
                     <button name="action_test_social_accounts" type="object" string="Kanäle testen" class="btn-secondary"/>
+                            <button name="action_repair_social_posts" type="object" string="Social Posts reparieren" class="btn-secondary"/>
                     <button name="action_test_openai_api" type="object" string="ChatGPT API testen" class="btn-secondary"/>
                     <button name="action_load_all_announced_events" type="object" string="Alle Events laden" class="btn-primary"/>
                     <button name="action_generate_gap_filler_now" type="object" string="Lückenfüller erzeugen" class="btn-secondary"/>

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_kino_social_issue_list" model="ir.ui.view">
+        <field name="name">gl.kino.social.issue.list</field>
+        <field name="model">gl.kino.social.issue</field>
+        <field name="arch" type="xml">
+            <list string="Kino Social Wochen">
+                <field name="name"/>
+                <field name="state"/>
+                <field name="week_start"/>
+                <field name="week_end"/>
+                <field name="show_count"/>
+                <field name="movie_count"/>
+                <field name="social_post_count"/>
+                <field name="prepared_at"/>
+                <field name="social_posts_created_at"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_kino_social_issue_form" model="ir.ui.view">
+        <field name="name">gl.kino.social.issue.form</field>
+        <field name="model">gl.kino.social.issue</field>
+        <field name="arch" type="xml">
+            <form string="Kino Social Woche">
+                <header>
+                    <button name="action_load_films" type="object" string="Filme laden" class="btn-secondary"/>
+                    <button name="action_button_fetch_and_create_posts" type="object" string="Posts erzeugen" class="btn-primary"/>
+                    <button name="action_open_social_posts" type="object" string="Social Posts öffnen" class="btn-secondary"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,ready,posts_created,empty,failed"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group string="Woche">
+                            <field name="name"/>
+                            <field name="config_id"/>
+                            <field name="week_start"/>
+                            <field name="week_end"/>
+                        </group>
+                        <group string="Status">
+                            <field name="show_count" readonly="1"/>
+                            <field name="movie_count" readonly="1"/>
+                            <field name="social_post_count" readonly="1"/>
+                            <field name="prepared_at" readonly="1"/>
+                            <field name="social_posts_created_at" readonly="1"/>
+                            <field name="cron_done_date" readonly="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Pressemail-Liste">
+                            <field name="press_body" nolabel="1" readonly="1"/>
+                        </page>
+                        <page string="Social Posts">
+                            <field name="social_post_ids" readonly="1">
+                                <list>
+                                    <field name="gl_kino_social_type"/>
+                                    <field name="gl_kino_planned_date"/>
+                                    <field name="gl_kino_requires_approval"/>
+                                    <field name="gl_kino_approved"/>
+                                    <field name="state"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Cinetixx Rohdaten">
+                            <field name="show_json" nolabel="1" readonly="1"/>
+                        </page>
+                        <page string="Fehler">
+                            <field name="last_error" nolabel="1" readonly="1"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_kino_social_issue" model="ir.actions.act_window">
+        <field name="name">Kino Social Wochen</field>
+        <field name="res_model">gl.kino.social.issue</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_gl_kino_social_issue" name="Wochen" parent="menu_gl_kino_social_root" action="action_gl_kino_social_issue" sequence="20"/>
+</odoo>

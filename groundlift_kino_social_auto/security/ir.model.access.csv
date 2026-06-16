@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_gl_kino_social_config_user,gl.kino.social.config user,model_gl_kino_social_config,base.group_user,1,1,1,1
+access_gl_kino_social_issue_user,gl.kino.social.issue user,model_gl_kino_social_issue,base.group_user,1,1,1,1
