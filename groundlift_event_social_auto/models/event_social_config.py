@@ -128,6 +128,16 @@ class GroundliftEventSocialConfig(models.Model):
         accounts = self._get_social_accounts(raise_on_error=True)
         return self._notification('Social Automation', 'Gefundene Social Accounts: %s' % ', '.join(accounts.mapped('name')), 'success')
 
+    def action_repair_social_posts(self):
+        self.ensure_one()
+        result = self.env['social.post'].sudo()._gl_repair_generated_media_links()
+        return self._notification(
+            'Social Posts repariert',
+            '%s Groundlift-Post(s) geprüft, %s korrigiert, %s ohne gültige Social Accounts.'
+            % (result.get('checked', 0), result.get('repaired', 0), result.get('without_accounts', 0)),
+            'success' if not result.get('errors') else 'warning',
+        )
+
     def action_test_openai_api(self):
         self.ensure_one()
         if not self.openai_api_key:
@@ -623,6 +633,12 @@ class GroundliftEventSocialConfig(models.Model):
             vals['account_ids'] = [(6, 0, accounts.ids)]
         elif 'social_account_ids' in post_fields:
             vals['social_account_ids'] = [(6, 0, accounts.ids)]
+        # Keep social.post.media_ids synchronized with account_ids. Odoo's
+        # live-post grouping assumes every live post account belongs to one of
+        # the media records selected on the parent post.
+        media_field = post_fields.get('media_ids')
+        if media_field and getattr(media_field, 'comodel_name', '') == 'social.media':
+            vals['media_ids'] = [(6, 0, accounts.mapped('media_id').ids)]
         if 'scheduled_date' in post_fields:
             vals['scheduled_date'] = planned_dt
         if 'post_method' in post_fields:
@@ -630,8 +646,11 @@ class GroundliftEventSocialConfig(models.Model):
             if scheduled_key:
                 vals['post_method'] = scheduled_key
         if attachment:
-            for image_field in ['image_ids', 'attachment_ids', 'media_ids']:
-                if image_field in post_fields and getattr(post_fields[image_field], 'type', '') in ['many2many', 'one2many']:
+            # media_ids contains social networks and must never receive an
+            # ir.attachment ID.
+            for image_field in ['image_ids', 'attachment_ids']:
+                field = post_fields.get(image_field)
+                if field and getattr(field, 'type', '') in ['many2many', 'one2many'] and getattr(field, 'comodel_name', '') == 'ir.attachment':
                     vals[image_field] = [(6, 0, [attachment.id])]
                     break
         post = SocialPost.create(vals)

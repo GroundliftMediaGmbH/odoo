@@ -188,6 +188,12 @@ class EventEvent(models.Model):
             vals['account_ids'] = [(6, 0, accounts.ids)]
         elif 'social_account_ids' in post_fields:
             vals['social_account_ids'] = [(6, 0, accounts.ids)]
+        # Odoo Social expects the selected networks (social.media) to match the
+        # media of the selected accounts. Without this, its
+        # _compute_live_posts_by_media can crash with KeyError.
+        media_field = post_fields.get('media_ids')
+        if media_field and getattr(media_field, 'comodel_name', '') == 'social.media':
+            vals['media_ids'] = [(6, 0, accounts.mapped('media_id').ids)]
         if 'scheduled_date' in post_fields:
             vals['scheduled_date'] = planned_date
         if 'post_method' in post_fields:
@@ -196,8 +202,10 @@ class EventEvent(models.Model):
                 vals['post_method'] = scheduled_key
         attachment = self._gl_create_event_image_attachment()
         if attachment:
-            for image_field in ['image_ids', 'attachment_ids', 'media_ids']:
-                if image_field in post_fields and getattr(post_fields[image_field], 'type', '') in ['many2many', 'one2many']:
+            # media_ids is the list of social networks, not an attachment field.
+            for image_field in ['image_ids', 'attachment_ids']:
+                field = post_fields.get(image_field)
+                if field and getattr(field, 'type', '') in ['many2many', 'one2many'] and getattr(field, 'comodel_name', '') == 'ir.attachment':
                     vals[image_field] = [(6, 0, [attachment.id])]
                     break
         if 'company_id' in post_fields and 'company_id' in self._fields and self.company_id:
