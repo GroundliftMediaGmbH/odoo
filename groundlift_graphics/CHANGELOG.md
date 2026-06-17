@@ -1,8 +1,16 @@
+# Changelog
+
+## 19.0.1.0.3
+
+- Korrigiert die Größe von `Kino_Logo.png`, `Kino_Rahmen.png` und `Kino_Stoerer.png`: Die sichtbaren Alpha-Bereiche werden unabhängig von einer Odoo-seitigen Skalierung der transparenten Gesamtfläche auf die Referenzkoordinaten gesetzt.
+- Export auf JPG mit 96 % Qualität umgestellt.
+- Automatische Dateinamen im Schema `Erstelldatum-Veranstaltungsdatum Veranstaltungsname_Ausspielformat.jpg`.
+- Der Suffix des Ausspielformats ist in der Grafikvorlage konfigurierbar; Standard ist `Kino`.
+- Bestehende ältere `.png`-Dateinamen werden beim nächsten Öffnen des Editors automatisch durch den neuen Vorschlag ersetzt.
+
 ## 19.0.1.0.2
 
 - Behebt die SCSS-Kompilierung in Odoo: `width: min(100%, 1420px)` wurde durch `width: 100%` plus `max-width: 1420px` ersetzt. Ältere Sass-Compiler interpretieren CSS-`min()` als Sass-Funktion und brechen bei gemischten Einheiten `%` und `px` ab.
-
-# Changelog
 
 ## 19.0.1.0.1
 

@@ -12,6 +12,7 @@ STAGE</field>
         <field name="default_sticker_color">#D6331F</field>
         <field name="default_color_1">#000033</field>
         <field name="default_color_2">#002E59</field>
+        <field name="output_suffix">Kino</field>
         <field name="logo_image" type="base64" file="groundlift_graphics/static/src/img/reference/Kino_Logo.png"/>
         <field name="logo_filename">Kino_Logo.png</field>
         <field name="frame_image" type="base64" file="groundlift_graphics/static/src/img/reference/Kino_Rahmen.png"/>

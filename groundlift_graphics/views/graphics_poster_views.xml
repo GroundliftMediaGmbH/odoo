@@ -39,7 +39,7 @@
             <form string="Veranstaltungsgrafik">
                 <header>
                     <button name="action_open_editor" type="object" string="Grafik-Editor öffnen" class="btn-primary" icon="fa-paint-brush"/>
-                    <button name="action_download_output" type="object" string="PNG herunterladen" icon="fa-download" invisible="not output_image"/>
+                    <button name="action_download_output" type="object" string="JPG herunterladen" icon="fa-download" invisible="not output_image"/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box"/>

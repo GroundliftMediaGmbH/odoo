@@ -14,7 +14,7 @@ Odoo-App zum Erstellen der 2048 × 1045 px großen Kino-Veranstaltungsankündigu
 - Änderbare Texte, Fotocredit, Störer, Ticketzeile und QR-Ziel
 - Austauschbares Logo und austauschbare feste Ebenen über die Vorlagenkonfiguration
 - Generierter QR-Code zur Eventseite
-- Ausgabe und Speicherung als PNG
+- Ausgabe und Speicherung als JPG
 - Integration in die Veranstaltungsansicht über „Grafik erstellen“ und den Smart-Button „Grafiken“
 
 ## Aktualisierung von Version 19.0.1.0.0
@@ -56,7 +56,20 @@ Die Veranstaltungsart kommt zunächst aus der Odoo-Veranstaltungsvorlage (`event
 ## Technische Hinweise
 
 - Zielauflösung: 2048 × 1045 px
-- Ausgabeformat: PNG
+- Ausgabeformat: JPG (Qualität 96 %)
 - QR-Code: Python-Paket `qrcode`, das in den offiziellen Odoo-19-Abhängigkeiten enthalten ist
 - Frontend: native Canvas-API in einer Odoo-Owl-Client-Action; keine externen CDN-Abhängigkeiten
 - Bilder und Schriften werden als Odoo-Attachments gespeichert
+
+
+## Automatische Dateinamen
+
+Das Kino-Ausspielformat verwendet standardmäßig:
+
+`JJJJMMTT-JJJJMMTT Veranstaltungsname_Kino.jpg`
+
+Das erste Datum ist das Erstellungsdatum des Grafikdatensatzes, das zweite Datum das lokale Veranstaltungsdatum. Umlaute werden dateisystemfreundlich umgesetzt (`ä` → `ae`, `ü` → `ue`, `ß` → `ss`). Der Suffix `Kino` wird in der Grafikvorlage gepflegt, sodass weitere Ausspielformate später eigene Suffixe erhalten können.
+
+## Feste PNG-Ebenen
+
+Logo, Rahmen und Original-Störer werden vor dem Zeichnen automatisch auf ihren sichtbaren Alpha-Bereich zugeschnitten. Dadurch bleiben Position und Größe auch dann korrekt, wenn Odoo die transparente Gesamtfläche eines hochgeladenen PNGs auf eine andere Auflösung skaliert.

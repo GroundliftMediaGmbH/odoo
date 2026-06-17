@@ -27,6 +27,11 @@ class GraphicsTemplate(models.Model):
     default_sticker_color = fields.Char(default="#D6331F")
     default_color_1 = fields.Char(default="#000033")
     default_color_2 = fields.Char(default="#002E59")
+    output_suffix = fields.Char(
+        string="Dateisuffix des Ausspielformats",
+        default="Kino",
+        help="Wird im automatisch erzeugten Dateinamen verwendet, z. B. Kino, Social_4x5 oder Screen.",
+    )
 
     logo_image = fields.Binary(string="Logo", attachment=True)
     logo_filename = fields.Char(default="Kino_Logo.png")

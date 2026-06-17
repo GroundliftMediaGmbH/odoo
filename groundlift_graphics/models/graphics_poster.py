@@ -55,7 +55,7 @@ class GraphicsPoster(models.Model):
         readonly=True,
         copy=False,
     )
-    output_filename = fields.Char(default="veranstaltungsplakat.png")
+    output_filename = fields.Char(default="veranstaltungsplakat.jpg")
 
     claim = fields.Text(string="Claim")
     event_title = fields.Char(string="Titel")
@@ -106,7 +106,11 @@ class GraphicsPoster(models.Model):
                 if not template:
                     template = self.env["gl.graphics.template"].get_default_template()
                     vals["template_id"] = template.id
-                defaults = self._prepare_event_values(event, template)
+                defaults = self._prepare_event_values(
+                    event,
+                    template,
+                    creation_date=fields.Date.context_today(self),
+                )
                 for key, value in defaults.items():
                     vals.setdefault(key, value)
                 vals.setdefault("company_id", event.company_id.id or self.env.company.id)
@@ -119,11 +123,15 @@ class GraphicsPoster(models.Model):
             if not poster.event_id:
                 continue
             template = poster.template_id or self.env["gl.graphics.template"].get_default_template()
-            values = poster._prepare_event_values(poster.event_id, template)
+            values = poster._prepare_event_values(
+                poster.event_id,
+                template,
+                creation_date=poster._creation_date_local(),
+            )
             poster.update(values)
 
     @api.model
-    def _prepare_event_values(self, event, template):
+    def _prepare_event_values(self, event, template, creation_date=None):
         event.ensure_one()
         title, subtitle = self._split_event_name(event.name or "")
         local_dt = self._event_datetime_local(event)
@@ -145,7 +153,13 @@ class GraphicsPoster(models.Model):
         base_name = title or event.name or _("Veranstaltung")
         company_id = event.company_id.id or self.env.company.id
         unique_name = self._make_unique_name(f"{base_name} – {date_text}", company_id)
-        slug_name = re.sub(r"[^A-Za-z0-9ÄÖÜäöüß_-]+", "-", base_name).strip("-") or "event"
+        output_filename = self._build_output_filename(
+            event=event,
+            template=template,
+            base_name=base_name,
+            creation_date=creation_date,
+            event_local_dt=local_dt,
+        )
 
         return {
             "name": unique_name,
@@ -164,7 +178,7 @@ class GraphicsPoster(models.Model):
             "color_2": template.default_color_2 or "#002E59",
             "sticker_text": template.default_sticker_text or "LIVE\nON\nSTAGE",
             "sticker_color": template.default_sticker_color or "#D6331F",
-            "output_filename": f"{slug_name}.png",
+            "output_filename": output_filename,
         }
 
     @api.model
@@ -183,6 +197,67 @@ class GraphicsPoster(models.Model):
         if value.tzinfo is None:
             value = pytz.UTC.localize(value)
         return value.astimezone(timezone)
+
+    def _creation_date_local(self):
+        self.ensure_one()
+        if self.create_date:
+            return fields.Datetime.context_timestamp(self, self.create_date).date()
+        return fields.Date.context_today(self)
+
+    @api.model
+    def _filename_component(self, value):
+        transliteration = str.maketrans(
+            {
+                "Ä": "ae",
+                "Ö": "oe",
+                "Ü": "ue",
+                "ä": "ae",
+                "ö": "oe",
+                "ü": "ue",
+                "ß": "ss",
+            }
+        )
+        value = (value or "").translate(transliteration)
+        value = re.sub(r"[^A-Za-z0-9]+", "_", value).strip("_")
+        return value or "Veranstaltung"
+
+    @api.model
+    def _build_output_filename(
+        self,
+        event,
+        template,
+        base_name=None,
+        creation_date=None,
+        event_local_dt=None,
+    ):
+        event.ensure_one()
+        creation_date = creation_date or fields.Date.context_today(self)
+        event_local_dt = event_local_dt or self._event_datetime_local(event)
+        event_date = event_local_dt.date() if event_local_dt else creation_date
+        if not base_name:
+            base_name, _subtitle = self._split_event_name(event.name or "")
+            base_name = base_name or event.name or _("Veranstaltung")
+        suffix = self._filename_component(template.output_suffix or "Kino")
+        event_name = self._filename_component(base_name)
+        return (
+            f"{creation_date:%Y%m%d}-{event_date:%Y%m%d} "
+            f"{event_name}_{suffix}.jpg"
+        )
+
+    def _suggested_output_filename(self):
+        self.ensure_one()
+        title, _subtitle = self._split_event_name(self.event_id.name or "")
+        return self._build_output_filename(
+            event=self.event_id,
+            template=self.template_id,
+            base_name=title or self.event_id.name,
+            creation_date=self._creation_date_local(),
+        )
+
+    @api.model
+    def _is_legacy_output_filename(self, filename):
+        filename = (filename or "").strip().lower()
+        return not filename or filename.endswith(".png") or filename == "veranstaltungsplakat.jpg"
 
     @api.model
     def _display_url(self, url):
@@ -234,6 +309,9 @@ class GraphicsPoster(models.Model):
         self.check_access("read")
         template = self.template_id
         qr_base64 = self.generate_qr_base64(self.qr_url or self.ticket_url or "")
+        output_filename = self.output_filename or ""
+        if self._is_legacy_output_filename(output_filename):
+            output_filename = self._suggested_output_filename()
         return {
             "poster": {
                 "id": self.id,
@@ -259,7 +337,7 @@ class GraphicsPoster(models.Model):
                 "sticker_text": self.sticker_text or "",
                 "sticker_color": self.sticker_color or "#D6331F",
                 "editor_state": self.editor_state or {},
-                "output_filename": self.output_filename or "veranstaltungsplakat.png",
+                "output_filename": output_filename,
             },
             "template": {
                 "logo_image": self._b64_text(template.logo_image),

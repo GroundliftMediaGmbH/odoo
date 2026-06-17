@@ -163,12 +163,13 @@ export class GraphicsEditor extends Component {
             sticker_mode: "original",
             sticker_text: "LIVE\nON\nSTAGE",
             sticker_color: "#D6331F",
-            output_filename: "veranstaltungsplakat.png",
+            output_filename: "veranstaltungsplakat.jpg",
             transform: { x: 475.5, y: 508, scale: 1, rotation: 0 },
         });
         this.templateData = {};
         this.images = {};
         this.paletteBase = null;
+        this.alphaBoundsCache = new WeakMap();
         this.drag = null;
         this.renderFrame = null;
         this._wheelHandler = (event) => this.onWheel(event);
@@ -231,7 +232,7 @@ export class GraphicsEditor extends Component {
                 sticker_mode: poster.sticker_mode,
                 sticker_text: poster.sticker_text,
                 sticker_color: poster.sticker_color,
-                output_filename: poster.output_filename,
+                output_filename: poster.output_filename || "veranstaltungsplakat.jpg",
                 transform: savedState.transform || this.state.transform,
             });
             this.paletteBase = savedState.paletteBase || null;
@@ -325,7 +326,7 @@ export class GraphicsEditor extends Component {
         ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         this.drawGradient(ctx);
         this.drawSourceImage(ctx);
-        this.drawLayer(ctx, this.images.frame, { x: 140, y: 156, width: 665, height: 677 });
+        this.drawTrimmedLayer(ctx, this.images.frame, { x: 140, y: 156, width: 665, height: 677 });
         this.drawSticker(ctx);
         this.drawLogo(ctx);
         this.drawClaim(ctx);
@@ -376,31 +377,72 @@ export class GraphicsEditor extends Component {
         ctx.restore();
     }
 
-    drawLayer(ctx, image, fallbackBox) {
-        if (!image) return;
-        if (image.naturalWidth === CANVAS_WIDTH && image.naturalHeight === CANVAS_HEIGHT) {
-            ctx.drawImage(image, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-            return;
+    getVisibleImageBounds(image) {
+        if (!image) return null;
+        const cached = this.alphaBoundsCache.get(image);
+        if (cached) return cached;
+
+        const width = image.naturalWidth || image.width;
+        const height = image.naturalHeight || image.height;
+        if (!width || !height) return null;
+
+        const workCanvas = document.createElement("canvas");
+        workCanvas.width = width;
+        workCanvas.height = height;
+        const workCtx = workCanvas.getContext("2d", { willReadFrequently: true });
+        workCtx.clearRect(0, 0, width, height);
+        workCtx.drawImage(image, 0, 0, width, height);
+
+        const pixels = workCtx.getImageData(0, 0, width, height).data;
+        let minX = width;
+        let minY = height;
+        let maxX = -1;
+        let maxY = -1;
+        for (let y = 0; y < height; y++) {
+            const rowStart = y * width * 4;
+            for (let x = 0; x < width; x++) {
+                if (pixels[rowStart + x * 4 + 3] > 8) {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
         }
-        const scale = Math.min(
-            fallbackBox.width / image.naturalWidth,
-            fallbackBox.height / image.naturalHeight
+
+        const bounds = maxX >= minX && maxY >= minY
+            ? { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 }
+            : { x: 0, y: 0, width, height };
+        this.alphaBoundsCache.set(image, bounds);
+        return bounds;
+    }
+
+    drawTrimmedLayer(ctx, image, targetBox) {
+        if (!image) return;
+        const source = this.getVisibleImageBounds(image);
+        if (!source) return;
+
+        ctx.drawImage(
+            image,
+            source.x,
+            source.y,
+            source.width,
+            source.height,
+            targetBox.x,
+            targetBox.y,
+            targetBox.width,
+            targetBox.height
         );
-        const width = image.naturalWidth * scale;
-        const height = image.naturalHeight * scale;
-        const x = fallbackBox.x + (fallbackBox.width - width) / 2;
-        const y = fallbackBox.y + (fallbackBox.height - height) / 2;
-        ctx.drawImage(image, x, y, width, height);
     }
 
     drawLogo(ctx) {
-        this.drawLayer(ctx, this.images.logo, { x: 1267, y: 174, width: 356, height: 120 });
+        this.drawTrimmedLayer(ctx, this.images.logo, { x: 1267, y: 174, width: 356, height: 120 });
     }
 
     drawSticker(ctx) {
         if (this.state.sticker_mode === "hidden") return;
         if (this.state.sticker_mode === "original" && this.images.sticker) {
-            this.drawLayer(ctx, this.images.sticker, { x: 801, y: 7, width: 336, height: 337 });
+            this.drawTrimmedLayer(ctx, this.images.sticker, { x: 801, y: 7, width: 336, height: 337 });
             return;
         }
         const center = { x: 969, y: 175 };
@@ -840,8 +882,10 @@ export class GraphicsEditor extends Component {
         }
         this.state.saving = true;
         try {
+            const rawFilename = (this.state.output_filename || "veranstaltungsplakat").trim();
+            this.state.output_filename = `${rawFilename.replace(/\.[^.]+$/, "")}.jpg`;
             this.renderPoster(false);
-            const rendered = this.canvasRef.el.toDataURL("image/png");
+            const rendered = this.canvasRef.el.toDataURL("image/jpeg", 0.96);
             const values = {
                 source_image: this.state.sourceImageBase64,
                 source_image_filename: this.state.sourceImageFilename,

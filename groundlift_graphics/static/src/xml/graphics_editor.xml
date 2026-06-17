@@ -16,7 +16,7 @@
                     <i t-att-class="state.saving ? 'fa fa-spinner fa-spin me-1' : 'fa fa-save me-1'"/> Speichern
                 </button>
                 <button class="btn btn-primary" t-on-click="saveAndDownload" t-att-disabled="state.saving">
-                    <i class="fa fa-download me-1"/> Speichern &amp; PNG
+                    <i class="fa fa-download me-1"/> Speichern &amp; JPG
                 </button>
             </div>
 
@@ -130,7 +130,7 @@
 
                         <section>
                             <h5>Datei</h5>
-                            <label class="form-label">PNG-Dateiname</label>
+                            <label class="form-label">JPG-Dateiname</label>
                             <input class="form-control" data-field="output_filename" t-att-value="state.output_filename" t-on-input="onFieldInput"/>
                         </section>
                     </div>
