@@ -24,7 +24,7 @@
                 <field name="event_id"/>
                 <field name="event_title"/>
                 <filter name="has_output" string="Gerendert" domain="[('output_image', '!=', False)]"/>
-                <group expand="0" string="Gruppieren nach">
+                <group>
                     <filter name="group_event" string="Veranstaltung" context="{'group_by': 'event_id'}"/>
                     <filter name="group_company" string="Unternehmen" context="{'group_by': 'company_id'}" groups="base.group_multi_company"/>
                 </group>

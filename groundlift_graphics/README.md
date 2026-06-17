@@ -17,6 +17,10 @@ Odoo-App zum Erstellen der 2048 × 1045 px großen Kino-Veranstaltungsankündigu
 - Ausgabe und Speicherung als PNG
 - Integration in die Veranstaltungsansicht über „Grafik erstellen“ und den Smart-Button „Grafiken“
 
+## Aktualisierung von Version 19.0.1.0.0
+
+Die Version 19.0.1.0.1 behebt die Installation unter Odoo 19, indem die Suchansicht an die aktuelle Odoo-19-Syntax angepasst wurde. Den bestehenden Modulordner vollständig durch diese Version ersetzen, committen, den Odoo.sh-Build abwarten und anschließend die App installieren bzw. aktualisieren.
+
 ## Installation auf Odoo.sh 19
 
 1. Den Ordner `groundlift_graphics` in das Custom-Addons-Repository kopieren.
