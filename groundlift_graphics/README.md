@@ -73,3 +73,6 @@ Das erste Datum ist das Erstellungsdatum des Grafikdatensatzes, das zweite Datum
 ## Feste PNG-Ebenen
 
 Logo, Rahmen und Original-Störer werden vor dem Zeichnen automatisch auf ihren sichtbaren Alpha-Bereich zugeschnitten. Dadurch bleiben Position und Größe auch dann korrekt, wenn Odoo die transparente Gesamtfläche eines hochgeladenen PNGs auf eine andere Auflösung skaliert.
+
+
+- Veranstaltungsart unter der Uhrzeit: bevorzugt aus dem Event-Feld `Kategorie (Label)` (Groundlift Website), sonst Eventtyp/Tag

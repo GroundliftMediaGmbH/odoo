@@ -141,7 +141,9 @@ class GraphicsPoster(models.Model):
             date_text = f"{WEEKDAYS_DE[local_dt.weekday()]} {local_dt:%d.%m.}"
             time_text = f"{local_dt:%H.%M} UHR"
 
-        event_type = event.event_type_id.name if event.event_type_id else ""
+        event_type = self._get_groundlift_category_label(event)
+        if not event_type:
+            event_type = event.event_type_id.name if event.event_type_id else ""
         if not event_type and event.tag_ids:
             event_type = event.tag_ids[0].name
 
@@ -203,6 +205,47 @@ class GraphicsPoster(models.Model):
         if self.create_date:
             return fields.Datetime.context_timestamp(self, self.create_date).date()
         return fields.Date.context_today(self)
+
+    @api.model
+    def _field_value_to_text(self, value):
+        if not value:
+            return ""
+        if isinstance(value, models.BaseModel):
+            if not value:
+                return ""
+            return ", ".join(value.mapped("display_name"))
+        return str(value)
+
+    @api.model
+    def _get_groundlift_category_label(self, event):
+        event.ensure_one()
+        candidate_field_names = [
+            "x_studio_kategorie_label",
+            "x_kategorie_label",
+            "website_category_label",
+            "category_label",
+            "groundlift_category_label",
+            "groundlift_website_category_label",
+        ]
+        for field_name in candidate_field_names:
+            if field_name in event._fields:
+                value = self._field_value_to_text(event[field_name])
+                if value:
+                    return value
+
+        fields_meta = event.fields_get()
+        preferred_labels = {
+            "kategorie (label)",
+            "category (label)",
+            "category label",
+        }
+        for field_name, meta in fields_meta.items():
+            label = (meta.get("string") or "").strip().lower()
+            if label in preferred_labels and field_name in event._fields:
+                value = self._field_value_to_text(event[field_name])
+                if value:
+                    return value
+        return ""
 
     @api.model
     def _filename_component(self, value):

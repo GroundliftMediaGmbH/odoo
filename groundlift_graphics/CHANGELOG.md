@@ -1,5 +1,10 @@
 # Changelog
 
+## 19.0.1.0.4
+
+- Unter der Uhrzeit wird nun bevorzugt der Wert aus dem Event-Feld mit dem Anzeigenamen `Kategorie (Label)` verwendet (Groundlift-Website-Tab).
+- Fallbacks bleiben erhalten: Wenn kein solches Feld vorhanden oder befüllt ist, verwendet die App weiterhin Eventtyp bzw. Tag.
+
 ## 19.0.1.0.3
 
 - Korrigiert die Größe von `Kino_Logo.png`, `Kino_Rahmen.png` und `Kino_Stoerer.png`: Die sichtbaren Alpha-Bereiche werden unabhängig von einer Odoo-seitigen Skalierung der transparenten Gesamtfläche auf die Referenzkoordinaten gesetzt.
