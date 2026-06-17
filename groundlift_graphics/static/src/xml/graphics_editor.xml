@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="groundlift_graphics.GraphicsEditor">
+        <div class="o_gl_graphics_editor h-100 d-flex flex-column">
+            <div class="o_gl_graphics_toolbar d-flex align-items-center gap-2 px-3 py-2 border-bottom bg-white">
+                <button class="btn btn-light" t-on-click="backToRecord" title="Zurück zum Datensatz">
+                    <i class="fa fa-arrow-left me-1"/> Zurück
+                </button>
+                <div class="vr mx-1"/>
+                <strong class="text-truncate" t-esc="state.eventName || 'Grafik-Editor'"/>
+                <div class="flex-grow-1"/>
+                <button class="btn btn-outline-secondary" t-on-click="resetTransform" t-att-disabled="!state.sourceImageBase64">
+                    <i class="fa fa-undo me-1"/> Bild zurücksetzen
+                </button>
+                <button class="btn btn-outline-primary" t-on-click="save" t-att-disabled="state.saving">
+                    <i t-att-class="state.saving ? 'fa fa-spinner fa-spin me-1' : 'fa fa-save me-1'"/> Speichern
+                </button>
+                <button class="btn btn-primary" t-on-click="saveAndDownload" t-att-disabled="state.saving">
+                    <i class="fa fa-download me-1"/> Speichern &amp; PNG
+                </button>
+            </div>
+
+            <div t-if="state.loading" class="flex-grow-1 d-flex align-items-center justify-content-center">
+                <div class="text-center text-muted">
+                    <i class="fa fa-spinner fa-spin fa-3x mb-3"/>
+                    <div>Grafik-Editor wird geladen …</div>
+                </div>
+            </div>
+
+            <div t-else="" class="o_gl_graphics_workspace flex-grow-1 d-flex overflow-hidden">
+                <aside class="o_gl_graphics_sidebar border-end bg-white overflow-auto">
+                    <div class="p-3">
+                        <section class="mb-4">
+                            <h5>Veranstaltungsbild</h5>
+                            <input t-ref="sourceFile" class="d-none" type="file" accept="image/*" t-on-change="onSourceFile"/>
+                            <button class="btn btn-outline-primary w-100" t-on-click="openFilePicker">
+                                <i class="fa fa-upload me-1"/> Bild hochladen / ersetzen
+                            </button>
+                            <p class="small text-muted mt-2 mb-2">
+                                Im Bild ziehen: verschieben. Kanten: an der jeweiligen Kante croppen. Ecken: drehen. Mausrad: sanft zoomen.
+                            </p>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-sm btn-outline-secondary" t-on-click="resetTransform" t-att-disabled="!state.sourceImageBase64">
+                                    Bildausschnitt zurücksetzen
+                                </button>
+                            </div>
+                        </section>
+
+                        <section class="mb-4">
+                            <h5>Farben</h5>
+                            <button class="btn btn-sm btn-outline-secondary w-100 mb-2" t-on-click="extractPalette" t-att-disabled="!state.sourceImageBase64">
+                                <i class="fa fa-magic me-1"/> Palette neu aus Bild bestimmen
+                            </button>
+                            <div class="form-check form-switch mb-3">
+                                <input id="gl_color_contrast" class="form-check-input" type="checkbox" t-att-checked="state.color_contrast" t-on-change="onContrastChange"/>
+                                <label class="form-check-label" for="gl_color_contrast">Farbkontrast</label>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label">Farbe 1</label>
+                                    <input class="form-control form-control-color w-100" type="color" data-field="color_1" t-att-value="state.color_1" t-on-input="onFieldInput"/>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Farbe 2</label>
+                                    <input class="form-control form-control-color w-100" type="color" data-field="color_2" t-att-value="state.color_2" t-on-input="onFieldInput"/>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="mb-4">
+                            <h5>Texte</h5>
+                            <div class="mb-3">
+                                <label class="form-label">Claim</label>
+                                <textarea class="form-control" rows="2" data-field="claim" t-on-input="onFieldInput"><t t-esc="state.claim"/></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Datum</label>
+                                <input class="form-control" data-field="date_text" t-att-value="state.date_text" t-on-input="onFieldInput"/>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Titel</label>
+                                <input class="form-control" data-field="event_title" t-att-value="state.event_title" t-on-input="onFieldInput"/>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Uhrzeit</label>
+                                <input class="form-control" data-field="time_text" t-att-value="state.time_text" t-on-input="onFieldInput"/>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Veranstaltungsart</label>
+                                <input class="form-control" data-field="event_type_text" t-att-value="state.event_type_text" t-on-input="onFieldInput"/>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Untertitel / Text nach dem Bindestrich</label>
+                                <textarea class="form-control" rows="2" data-field="event_subtitle" t-on-input="onFieldInput"><t t-esc="state.event_subtitle"/></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Fotocredit</label>
+                                <input class="form-control" data-field="photo_credit" t-att-value="state.photo_credit" t-on-input="onFieldInput" placeholder="© FOTOWUNDER/SARIPICTURE"/>
+                            </div>
+                        </section>
+
+                        <section class="mb-4">
+                            <h5>Störer</h5>
+                            <select class="form-select mb-2" data-field="sticker_mode" t-on-change="onFieldInput">
+                                <option value="original" t-att-selected="state.sticker_mode === 'original'">Originalgrafik</option>
+                                <option value="custom" t-att-selected="state.sticker_mode === 'custom'">Individuell</option>
+                                <option value="hidden" t-att-selected="state.sticker_mode === 'hidden'">Ausblenden</option>
+                            </select>
+                            <t t-if="state.sticker_mode === 'custom'">
+                                <textarea class="form-control mb-2" rows="3" data-field="sticker_text" t-on-input="onFieldInput"><t t-esc="state.sticker_text"/></textarea>
+                                <input class="form-control form-control-color w-100" type="color" data-field="sticker_color" t-att-value="state.sticker_color" t-on-input="onFieldInput"/>
+                            </t>
+                        </section>
+
+                        <section class="mb-4">
+                            <h5>Links und QR-Code</h5>
+                            <div class="mb-3">
+                                <label class="form-label">Event-/Ticketseite</label>
+                                <input class="form-control" type="url" data-field="ticket_url" t-att-value="state.ticket_url" t-on-input="onFieldInput"/>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Ticketlink-Zeile</label>
+                                <input class="form-control" data-field="ticket_link_text" t-att-value="state.ticket_link_text" t-on-input="onFieldInput"/>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">QR-Code-Ziel</label>
+                                <input class="form-control" type="url" t-att-value="state.qr_url" t-on-change="onQrUrlChange"/>
+                            </div>
+                        </section>
+
+                        <section>
+                            <h5>Datei</h5>
+                            <label class="form-label">PNG-Dateiname</label>
+                            <input class="form-control" data-field="output_filename" t-att-value="state.output_filename" t-on-input="onFieldInput"/>
+                        </section>
+                    </div>
+                </aside>
+
+                <main class="o_gl_graphics_canvas_area flex-grow-1 overflow-auto d-flex align-items-center justify-content-center p-4">
+                    <div class="o_gl_graphics_canvas_shell shadow-lg">
+                        <canvas
+                            t-ref="posterCanvas"
+                            width="2048"
+                            height="1045"
+                            t-on-pointerdown="onPointerDown"
+                            t-on-dblclick="resetTransform"
+                        />
+                    </div>
+                </main>
+            </div>
+        </div>
+    </t>
+</templates>
