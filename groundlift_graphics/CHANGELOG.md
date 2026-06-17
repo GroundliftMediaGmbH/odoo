@@ -1,3 +1,7 @@
+## 19.0.1.0.2
+
+- Behebt die SCSS-Kompilierung in Odoo: `width: min(100%, 1420px)` wurde durch `width: 100%` plus `max-width: 1420px` ersetzt. Ältere Sass-Compiler interpretieren CSS-`min()` als Sass-Funktion und brechen bei gemischten Einheiten `%` und `px` ab.
+
 # Changelog
 
 ## 19.0.1.0.1

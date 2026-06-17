@@ -39,7 +39,8 @@
     }
 
     .o_gl_graphics_canvas_shell {
-        width: min(100%, 1420px);
+        width: 100%;
+        max-width: 1420px;
         aspect-ratio: 2048 / 1045;
         background: #000;
         line-height: 0;
