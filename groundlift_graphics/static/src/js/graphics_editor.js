@@ -134,6 +134,178 @@ function alphaBBox(image) {
     return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
 }
 
+
+function unionBoxes(boxes = []) {
+    const valid = boxes.filter(Boolean);
+    if (!valid.length) return null;
+    const minX = Math.min(...valid.map((b) => b.x));
+    const minY = Math.min(...valid.map((b) => b.y));
+    const maxX = Math.max(...valid.map((b) => b.x + b.width));
+    const maxY = Math.max(...valid.map((b) => b.y + b.height));
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+function insetBox(box, dx = 0, dy = dx) {
+    if (!box) return null;
+    return {
+        x: box.x + dx,
+        y: box.y + dy,
+        width: Math.max(1, box.width - dx * 2),
+        height: Math.max(1, box.height - dy * 2),
+    };
+}
+
+function groupedAlphaRegions(image, options = {}) {
+    if (!image) return [];
+    const threshold = options.threshold || 8;
+    const base = Math.max(image.width, image.height);
+    const downsample = Math.max(1, options.downsample || Math.round(base / 900));
+    const width = Math.max(1, Math.round(image.width / downsample));
+    const height = Math.max(1, Math.round(image.height / downsample));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(image, 0, 0, width, height);
+    const { data } = ctx.getImageData(0, 0, width, height);
+    const occupied = new Uint8Array(width * height);
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const alpha = data[(y * width + x) * 4 + 3];
+            if (alpha > threshold) occupied[y * width + x] = 1;
+        }
+    }
+    const dilate = options.dilate || 2;
+    const expanded = new Uint8Array(width * height);
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            if (!occupied[y * width + x]) continue;
+            for (let dy = -dilate; dy <= dilate; dy++) {
+                for (let dx = -dilate; dx <= dilate; dx++) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    if (nx >= 0 && ny >= 0 && nx < width && ny < height) {
+                        expanded[ny * width + nx] = 1;
+                    }
+                }
+            }
+        }
+    }
+    const visited = new Uint8Array(width * height);
+    const boxes = [];
+    const queueX = [];
+    const queueY = [];
+    const minArea = options.minArea || Math.max(6, Math.round((width * height) * 0.00006));
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = y * width + x;
+            if (!expanded[idx] || visited[idx]) continue;
+            let head = 0;
+            queueX.length = 0;
+            queueY.length = 0;
+            queueX.push(x);
+            queueY.push(y);
+            visited[idx] = 1;
+            let minX = x;
+            let minY = y;
+            let maxX = x;
+            let maxY = y;
+            let area = 0;
+            while (head < queueX.length) {
+                const cx = queueX[head];
+                const cy = queueY[head];
+                head += 1;
+                area += 1;
+                minX = Math.min(minX, cx);
+                minY = Math.min(minY, cy);
+                maxX = Math.max(maxX, cx);
+                maxY = Math.max(maxY, cy);
+                const neighbors = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+                for (const [dx, dy] of neighbors) {
+                    const nx = cx + dx;
+                    const ny = cy + dy;
+                    if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+                    const nidx = ny * width + nx;
+                    if (!expanded[nidx] || visited[nidx]) continue;
+                    visited[nidx] = 1;
+                    queueX.push(nx);
+                    queueY.push(ny);
+                }
+            }
+            if (area < minArea) continue;
+            boxes.push({
+                x: minX * downsample,
+                y: minY * downsample,
+                width: (maxX - minX + 1) * downsample,
+                height: (maxY - minY + 1) * downsample,
+            });
+        }
+    }
+    return boxes.sort((a, b) => a.y - b.y || a.x - b.x);
+}
+
+function rotatedRectFromAlpha(image, options = {}) {
+    if (!image) return null;
+    const step = Math.max(1, options.step || Math.round(Math.max(image.width, image.height) / 700));
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(image, 0, 0);
+    const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let count = 0;
+    let sumX = 0;
+    let sumY = 0;
+    const points = [];
+    for (let y = 0; y < height; y += step) {
+        for (let x = 0; x < width; x += step) {
+            const alpha = data[(y * width + x) * 4 + 3];
+            if (alpha <= 8) continue;
+            points.push([x, y]);
+            count += 1;
+            sumX += x;
+            sumY += y;
+        }
+    }
+    if (!count) return null;
+    const cx = sumX / count;
+    const cy = sumY / count;
+    let covXX = 0;
+    let covYY = 0;
+    let covXY = 0;
+    for (const [x, y] of points) {
+        const dx = x - cx;
+        const dy = y - cy;
+        covXX += dx * dx;
+        covYY += dy * dy;
+        covXY += dx * dy;
+    }
+    const angle = 0.5 * Math.atan2(2 * covXY, covXX - covYY);
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    let minRX = Infinity;
+    let minRY = Infinity;
+    let maxRX = -Infinity;
+    let maxRY = -Infinity;
+    for (const [x, y] of points) {
+        const dx = x - cx;
+        const dy = y - cy;
+        const rx = dx * cos + dy * sin;
+        const ry = -dx * sin + dy * cos;
+        minRX = Math.min(minRX, rx);
+        minRY = Math.min(minRY, ry);
+        maxRX = Math.max(maxRX, rx);
+        maxRY = Math.max(maxRY, ry);
+    }
+    return {
+        cx,
+        cy,
+        width: maxRX - minRX,
+        height: maxRY - minRY,
+        angle,
+    };
+}
+
 class GraphicsEditor extends Component {
     static template = "groundlift_graphics.GraphicsEditor";
     static props = ["action"];
@@ -291,6 +463,8 @@ class GraphicsEditor extends Component {
         if (!template || this.templateCache.has(template.key)) return this.templateCache.get(template.key);
         const imagesByRole = {};
         const bboxes = {};
+        const regionsByRole = {};
+        const shapesByRole = {};
         const staticOverlays = [];
         for (const asset of template.assets) {
             try {
@@ -299,11 +473,17 @@ class GraphicsEditor extends Component {
                 if (!imagesByRole[asset.role]) imagesByRole[asset.role] = image;
                 if (asset.role.startsWith("static_")) staticOverlays.push({ role: asset.role, image });
                 bboxes[asset.role] = alphaBBox(image);
+                if (["date_title", "time_subtitle", "time_ticketlink", "title", "subtitle"].includes(asset.role)) {
+                    regionsByRole[asset.role] = groupedAlphaRegions(image);
+                }
+                if (asset.role === "image_mask") {
+                    shapesByRole[asset.role] = rotatedRectFromAlpha(image);
+                }
             } catch {
                 // ignore missing asset
             }
         }
-        const info = { template, imagesByRole, bboxes, staticOverlays };
+        const info = { template, imagesByRole, bboxes, regionsByRole, shapesByRole, staticOverlays };
         this.templateCache.set(template.key, info);
         return info;
     }
@@ -546,7 +726,7 @@ class GraphicsEditor extends Component {
             ctx.drawImage(overlay.image, 0, 0, template.canvas_width, template.canvas_height);
         }
         this.drawMainLayers(ctx, info, variant, dynamicImages);
-        if (showGuides) this.drawMaskOutline(ctx, info.bboxes.image_mask);
+        if (showGuides) this.drawMaskOutline(ctx, info.bboxes.image_mask, info.shapesByRole.image_mask);
     }
 
     drawGradient(ctx, template) {
@@ -563,19 +743,25 @@ class GraphicsEditor extends Component {
         const image = await loadImage(src);
         if (!image) return;
         const box = info.bboxes.image_mask;
+        const shape = info.shapesByRole.image_mask;
         const tr = variant.image;
-        const coverScale = Math.max(box.width / image.width, box.height / image.height);
+        const clipWidth = shape?.width || box.width;
+        const clipHeight = shape?.height || box.height;
+        const clipCx = (shape?.cx || (box.x + box.width / 2)) + (tr.offsetX || 0);
+        const clipCy = (shape?.cy || (box.y + box.height / 2)) + (tr.offsetY || 0);
+        const baseAngle = shape?.angle || 0;
+        const imageAngle = baseAngle + ((tr.rotation || 0) * Math.PI / 180);
+        const coverScale = Math.max(clipWidth / image.width, clipHeight / image.height);
         const scale = coverScale * (tr.scale || 1);
         const drawW = image.width * scale;
         const drawH = image.height * scale;
-        const cx = box.x + box.width / 2 + (tr.offsetX || 0);
-        const cy = box.y + box.height / 2 + (tr.offsetY || 0);
         ctx.save();
+        ctx.translate(clipCx, clipCy);
+        ctx.rotate(baseAngle);
         ctx.beginPath();
-        ctx.rect(box.x, box.y, box.width, box.height);
+        ctx.rect(-clipWidth / 2, -clipHeight / 2, clipWidth, clipHeight);
         ctx.clip();
-        ctx.translate(cx, cy);
-        ctx.rotate((tr.rotation || 0) * Math.PI / 180);
+        ctx.rotate(imageAngle - baseAngle);
         ctx.drawImage(image, -drawW / 2, -drawH / 2, drawW, drawH);
         ctx.restore();
     }
@@ -583,21 +769,22 @@ class GraphicsEditor extends Component {
     drawMainLayers(ctx, info, variant, dynamicImages = {}) {
         const img = info.imagesByRole;
         const box = info.bboxes;
+        const regions = info.regionsByRole || {};
         if (img.frame) ctx.drawImage(img.frame, 0, 0, info.template.canvas_width, info.template.canvas_height);
         if (this.state.sticker_mode !== "hidden") this.drawSticker(ctx, img.sticker, box.sticker, variant.sticker);
         if (img.logo) ctx.drawImage(img.logo, 0, 0, info.template.canvas_width, info.template.canvas_height);
         this.drawTextByRole(ctx, "claim", box.claim);
-        this.drawDateTitle(ctx, box.date_title || box.title);
-        this.drawTimeSubtitle(ctx, box.time_subtitle);
-        this.drawTimeTicketlink(ctx, box.time_ticketlink);
-        this.drawTitleOnly(ctx, box.title);
-        this.drawSubtitleOnly(ctx, box.subtitle);
+        this.drawDateTitle(ctx, box.date_title || box.title, regions.date_title || regions.title || []);
+        this.drawTimeSubtitle(ctx, box.time_subtitle, regions.time_subtitle || []);
+        this.drawTimeTicketlink(ctx, box.time_ticketlink, regions.time_ticketlink || []);
+        this.drawTitleOnly(ctx, box.title, regions.title || []);
+        this.drawSubtitleOnly(ctx, box.subtitle, regions.subtitle || []);
         this.drawSummary(ctx, box.summary);
         this.drawPhotoCredit(ctx, box.photo_credit);
         this.drawTicketLink(ctx, box.ticket_link);
         this.drawQr(ctx, dynamicImages.qr, box.qr, variant.qr);
         this.drawExternalLogo(ctx, dynamicImages.external || img.external_logo, box.external_logo, variant.externalLogo);
-        this.drawDrinkCard(ctx, box.drink_card);
+        this.drawDrinkCard(ctx, box.drink_card, info.template);
     }
 
     drawSticker(ctx, stickerImage, bbox, variantBox) {
@@ -620,52 +807,86 @@ class GraphicsEditor extends Component {
     drawTextByRole(ctx, role, bbox) {
         if (!bbox) return;
         if (role === "claim") {
-            const lines = (this.state.claim || "").split(/\n+/).filter(Boolean).map((l) => l.toUpperCase());
+            const lines = (this.state.claim || "").split(/
++/).filter(Boolean).map((l) => l.toUpperCase());
             this.drawFitText(ctx, lines, bbox, { font: "500 54px GroundliftRegular, Arial, sans-serif", color: "#FFFFFF", align: "center", valign: "middle", lineHeight: 1.12 });
         }
     }
 
-    drawDateTitle(ctx, bbox) {
+    drawDateTitle(ctx, bbox, regions = []) {
         if (!bbox) return;
         const title = (this.state.event_title || "").toUpperCase();
         const date = (this.state.date_text || "").toUpperCase();
-        this.drawSplitInfo(ctx, bbox, [date], [title], { leftRatio: 0.42 });
+        const layout = this.resolveDateTitleLayout(bbox, regions);
+        if (layout?.divider) this.drawDivider(ctx, layout.divider);
+        if (layout?.left) this.drawFitText(ctx, [date], insetBox(layout.left, 4), { font: "900 64px GroundliftBold, Arial Black, sans-serif", color: "#FFFFFF", align: "center", valign: "middle", lineHeight: 1.0 });
+        if (layout?.right) this.drawFitText(ctx, [title], insetBox(layout.right, 6), { font: "900 64px GroundliftBold, Arial Black, sans-serif", color: "#FFFFFF", align: "left", valign: "middle", lineHeight: 1.0 });
+        if (!layout) this.drawSplitInfo(ctx, bbox, [date], [title], { leftRatio: 0.42, drawDivider: true });
     }
 
-    drawTimeSubtitle(ctx, bbox) {
+    drawTimeSubtitle(ctx, bbox, regions = []) {
         if (!bbox) return;
-        const lines = (this.state.event_subtitle || "").split(/\n+/).filter(Boolean).map((l) => l.toUpperCase());
-        this.drawSplitInfo(ctx, bbox, [(this.state.time_text || "").toUpperCase()], lines, { leftRatio: 0.38, leftBottom: (this.state.event_type_text || "").toUpperCase() });
+        const lines = (this.state.event_subtitle || "").split(/
++/).filter(Boolean).map((l) => l.toUpperCase());
+        const layout = this.resolveInfoRegions(bbox, regions);
+        if (layout) {
+            if (layout.leftTop) this.drawFitText(ctx, [(this.state.time_text || "").toUpperCase()], insetBox(layout.leftTop, 4), { font: "900 58px GroundliftBold, Arial Black, sans-serif", color: "#FFFFFF", align: "center", valign: "middle", lineHeight: 1.0 });
+            if (layout.leftBottom) this.drawFitText(ctx, [(this.state.event_type_text || "").toUpperCase()], insetBox(layout.leftBottom, 4), { font: "500 36px GroundliftRegular, Arial, sans-serif", color: "#FFFFFF", align: "center", valign: "middle", lineHeight: 1.0 });
+            if (layout.right) this.drawFitText(ctx, lines, insetBox(layout.right, 4), { font: "700 52px GroundliftBold, Arial Black, sans-serif", color: "#FFFFFF", align: "left", valign: "middle", lineHeight: 1.06 });
+            return;
+        }
+        this.drawSplitInfo(ctx, bbox, [(this.state.time_text || "").toUpperCase()], lines, { leftRatio: 0.38, leftBottom: (this.state.event_type_text || "").toUpperCase(), drawDivider: false });
     }
 
-    drawTimeTicketlink(ctx, bbox) {
+    drawTimeTicketlink(ctx, bbox, regions = []) {
         if (!bbox) return;
         const lines = [(this.state.ticket_link_text || "").toUpperCase()];
-        this.drawSplitInfo(ctx, bbox, [(this.state.time_text || "").toUpperCase()], lines, { leftRatio: 0.42, leftBottom: (this.state.event_type_text || "").toUpperCase(), compactRight: true });
+        const layout = this.resolveInfoRegions(bbox, regions);
+        if (layout) {
+            if (layout.leftTop) this.drawFitText(ctx, [(this.state.time_text || "").toUpperCase()], insetBox(layout.leftTop, 4), { font: "900 56px GroundliftBold, Arial Black, sans-serif", color: "#FFFFFF", align: "center", valign: "middle", lineHeight: 1.0 });
+            if (layout.leftBottom) this.drawFitText(ctx, [(this.state.event_type_text || "").toUpperCase()], insetBox(layout.leftBottom, 4), { font: "500 34px GroundliftRegular, Arial, sans-serif", color: "#FFFFFF", align: "center", valign: "middle", lineHeight: 1.0 });
+            if (layout.right) this.drawFitText(ctx, lines, insetBox(layout.right, 4), { font: "500 44px GroundliftRegular, Arial, sans-serif", color: "#FFFFFF", align: "left", valign: "middle", lineHeight: 1.04 });
+            return;
+        }
+        this.drawSplitInfo(ctx, bbox, [(this.state.time_text || "").toUpperCase()], lines, { leftRatio: 0.42, leftBottom: (this.state.event_type_text || "").toUpperCase(), compactRight: true, drawDivider: false });
     }
 
     drawSplitInfo(ctx, bbox, leftTopLines, rightLines, options = {}) {
         const leftRatio = options.leftRatio || 0.4;
-        const leftBox = { x: bbox.x, y: bbox.y, width: bbox.width * leftRatio, height: bbox.height };
-        const rightBox = { x: bbox.x + bbox.width * leftRatio + 18, y: bbox.y, width: bbox.width * (1 - leftRatio) - 18, height: bbox.height };
+        const gutter = 18;
+        const dividerWidth = options.drawDivider ? Math.max(4, Math.round(bbox.width * 0.008)) : 0;
+        const leftWidth = bbox.width * leftRatio;
+        const leftBox = { x: bbox.x, y: bbox.y, width: leftWidth, height: bbox.height };
+        if (dividerWidth) {
+            this.drawDivider(ctx, { x: bbox.x + leftWidth + gutter / 2 - dividerWidth / 2, y: bbox.y, width: dividerWidth, height: bbox.height });
+        }
+        const rightBox = { x: bbox.x + leftWidth + gutter, y: bbox.y, width: bbox.width - leftWidth - gutter, height: bbox.height };
         const leftTopBox = { ...leftBox, height: leftBox.height * (options.leftBottom ? 0.68 : 1) };
-        this.drawFitText(ctx, leftTopLines.filter(Boolean), leftTopBox, { font: "900 64px GroundliftBold, Arial Black, sans-serif", color: "#FFFFFF", align: "center", valign: "middle", lineHeight: 1.0 });
+        this.drawFitText(ctx, leftTopLines.filter(Boolean), insetBox(leftTopBox, 4), { font: "900 64px GroundliftBold, Arial Black, sans-serif", color: "#FFFFFF", align: "center", valign: "middle", lineHeight: 1.0 });
         if (options.leftBottom) {
             const bottomBox = { x: leftBox.x, y: leftBox.y + leftBox.height * 0.66, width: leftBox.width, height: leftBox.height * 0.34 };
-            this.drawFitText(ctx, [options.leftBottom], bottomBox, { font: "500 34px GroundliftRegular, Arial, sans-serif", color: "#FFFFFF", align: "center", valign: "middle", lineHeight: 1.0 });
+            this.drawFitText(ctx, [options.leftBottom], insetBox(bottomBox, 4), { font: "500 34px GroundliftRegular, Arial, sans-serif", color: "#FFFFFF", align: "center", valign: "middle", lineHeight: 1.0 });
         }
-        this.drawFitText(ctx, rightLines.filter(Boolean), rightBox, { font: `${options.compactRight ? 500 : 800} 52px GroundliftBold, Arial Black, sans-serif`, color: "#FFFFFF", align: "left", valign: "middle", lineHeight: 1.05 });
+        this.drawFitText(ctx, rightLines.filter(Boolean), insetBox(rightBox, 4), { font: `${options.compactRight ? 500 : 800} 52px GroundliftBold, Arial Black, sans-serif`, color: "#FFFFFF", align: "left", valign: "middle", lineHeight: 1.05 });
     }
 
-    drawTitleOnly(ctx, bbox) {
+    drawTitleOnly(ctx, bbox, regions = []) {
         if (!bbox) return;
+        const layout = this.resolveTitleOnlyLayout(bbox, regions);
+        if (layout?.divider) this.drawDivider(ctx, layout.divider);
+        if (layout?.right) {
+            this.drawFitText(ctx, [(this.state.event_title || "").toUpperCase()], insetBox(layout.right, 6), { font: "900 64px GroundliftBold, Arial Black, sans-serif", color: "#FFFFFF", align: "left", valign: "middle", lineHeight: 1.0 });
+            return;
+        }
         this.drawFitText(ctx, [(this.state.event_title || "").toUpperCase()], bbox, { font: "900 64px GroundliftBold, Arial Black, sans-serif", color: "#FFFFFF", align: "center", valign: "middle", lineHeight: 1.0 });
     }
 
-    drawSubtitleOnly(ctx, bbox) {
+    drawSubtitleOnly(ctx, bbox, regions = []) {
         if (!bbox) return;
-        const lines = (this.state.event_subtitle || "").split(/\n+/).filter(Boolean).map((l) => l.toUpperCase());
-        this.drawFitText(ctx, lines, bbox, { font: "500 46px GroundliftRegular, Arial, sans-serif", color: "#FFFFFF", align: "left", valign: "middle", lineHeight: 1.08 });
+        const lines = (this.state.event_subtitle || "").split(/
++/).filter(Boolean).map((l) => l.toUpperCase());
+        const target = regions?.length ? insetBox(unionBoxes(regions), 4) : bbox;
+        this.drawFitText(ctx, lines, target, { font: "500 46px GroundliftRegular, Arial, sans-serif", color: "#FFFFFF", align: "left", valign: "middle", lineHeight: 1.08 });
     }
 
     drawSummary(ctx, bbox) {
@@ -685,6 +906,45 @@ class GraphicsEditor extends Component {
         this.drawFitText(ctx, [(this.state.ticket_link_text || "").toUpperCase()], bbox, { font: "600 28px GroundliftCondensed, Arial Narrow, sans-serif", color: "#FFFFFF", align: "center", valign: "middle", lineHeight: 1.0 });
     }
 
+    resolveDateTitleLayout(bbox, regions = []) {
+        if (!regions.length) return null;
+        const divider = regions.find((r) => r.width < bbox.width * 0.08 && r.height > bbox.height * 0.45);
+        const usable = regions.filter((r) => r !== divider);
+        if (!usable.length) return null;
+        const splitX = divider ? divider.x + divider.width / 2 : bbox.x + bbox.width * 0.42;
+        const left = unionBoxes(usable.filter((r) => r.x + r.width / 2 <= splitX));
+        const right = unionBoxes(usable.filter((r) => r.x + r.width / 2 > splitX));
+        if (!left && !right) return null;
+        return { left: left || { x: bbox.x, y: bbox.y, width: bbox.width * 0.38, height: bbox.height }, right: right || { x: bbox.x + bbox.width * 0.45, y: bbox.y, width: bbox.width * 0.55, height: bbox.height }, divider };
+    }
+
+    resolveInfoRegions(bbox, regions = []) {
+        if (!regions.length) return null;
+        const splitX = bbox.x + bbox.width * 0.42;
+        const rightRegions = regions.filter((r) => r.x + r.width / 2 > splitX);
+        const leftRegions = regions.filter((r) => r.x + r.width / 2 <= splitX).sort((a, b) => a.y - b.y || a.x - b.x);
+        if (!rightRegions.length || !leftRegions.length) return null;
+        const right = unionBoxes(rightRegions);
+        const leftTop = leftRegions[0];
+        const leftBottom = leftRegions.length > 1 ? unionBoxes(leftRegions.slice(1)) : null;
+        return { leftTop, leftBottom, right };
+    }
+
+    resolveTitleOnlyLayout(bbox, regions = []) {
+        if (!regions.length) return null;
+        const divider = regions.find((r) => r.width < bbox.width * 0.08 && r.height > bbox.height * 0.45);
+        const right = unionBoxes(regions.filter((r) => r !== divider && (!divider || r.x > divider.x)));
+        return right ? { divider, right } : null;
+    }
+
+    drawDivider(ctx, bbox) {
+        if (!bbox) return;
+        ctx.save();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(bbox.x, bbox.y, Math.max(2, bbox.width), bbox.height);
+        ctx.restore();
+    }
+
     drawQr(ctx, image, bbox, variant) {
         if (!bbox || !image) return;
         const box = this.applyBoxVariant(bbox, variant);
@@ -697,8 +957,8 @@ class GraphicsEditor extends Component {
         ctx.drawImage(image, box.x, box.y, box.width, box.height);
     }
 
-    drawDrinkCard(ctx, bbox) {
-        if (!bbox || !this.currentTemplate?.is_drink_card) return;
+    drawDrinkCard(ctx, bbox, template) {
+        if (!bbox || !template?.is_drink_card) return;
         const config = this.state.editor_state.drink_card || defaultDrinkCard();
         ctx.save();
         ctx.fillStyle = "#FFFFFF";
@@ -797,12 +1057,18 @@ class GraphicsEditor extends Component {
         };
     }
 
-    drawMaskOutline(ctx, bbox) {
+    drawMaskOutline(ctx, bbox, shape = null) {
         if (!bbox) return;
         ctx.save();
         ctx.strokeStyle = "rgba(255,255,255,0.9)";
         ctx.lineWidth = 2;
-        ctx.strokeRect(bbox.x, bbox.y, bbox.width, bbox.height);
+        if (shape) {
+            ctx.translate(shape.cx, shape.cy);
+            ctx.rotate(shape.angle || 0);
+            ctx.strokeRect(-shape.width / 2, -shape.height / 2, shape.width, shape.height);
+        } else {
+            ctx.strokeRect(bbox.x, bbox.y, bbox.width, bbox.height);
+        }
         ctx.restore();
     }
 
