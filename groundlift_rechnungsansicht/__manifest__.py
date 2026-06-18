@@ -2,7 +2,7 @@
 {
     "name": "Groundlift Rechnungsansicht",
     "summary": "GROUNDLIFT PDF-Rechnungslayout mit Freitexten und USt.-Aufschlüsselung",
-    "version": "19.0.3.6.2",
+    "version": "19.0.3.6.3",
     "category": "Accounting/Accounting",
     "author": "GROUNDLIFT Media GmbH",
     "website": "https://www.groundlift.de",
