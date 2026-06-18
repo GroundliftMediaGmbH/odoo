@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <menuitem id="menu_graphics_root" name="Grafiken" sequence="62" web_icon="groundlift_graphics,static/description/icon.png" groups="base.group_user"/>
-    <menuitem id="menu_graphics_posters" name="Veranstaltungsplakate" parent="menu_graphics_root" action="action_graphics_poster" sequence="10" groups="base.group_user"/>
-    <menuitem id="menu_graphics_configuration" name="Konfiguration" parent="menu_graphics_root" sequence="90" groups="base.group_system"/>
-    <menuitem id="menu_graphics_templates" name="Grafikvorlagen" parent="menu_graphics_configuration" action="action_graphics_template" sequence="10" groups="base.group_system"/>
-</odoo>
