@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!--
-        Replace the invoice document call in account.report_invoice, instead of xpatching
+        Replace the invoice document call in account.report_invoice, instead of xpathing
         account.report_invoice_document internally. This is intentionally more stable on
         customized Odoo.sh databases where the inner document view may be extended by Studio,
         localization modules or previous tests.
@@ -28,28 +28,68 @@
                         font-family: Arial, Helvetica, sans-serif !important;
                         color: #111111;
                         line-height: 1.18 !important;
+                        box-sizing: border-box !important;
                     }
                     .gl_invoice_page {
                         font-size: 8.4pt !important;
                     }
-                    .gl_invoice_page .gl_invoice_title {
+
+                    /* Title on the left, optional project/cost-center block on the right. */
+                    .gl_invoice_page table.gl_invoice_heading_table {
+                        width: 100% !important;
+                        table-layout: fixed !important;
+                        border-collapse: collapse !important;
+                        border-spacing: 0 !important;
                         margin: 0 0 13mm 0 !important;
+                        padding: 0 !important;
+                        page-break-inside: avoid !important;
+                    }
+                    .gl_invoice_page table.gl_invoice_heading_table td {
+                        padding: 0 !important;
+                        border: none !important;
+                        background: transparent !important;
+                        vertical-align: top !important;
+                    }
+                    .gl_invoice_page table.gl_invoice_heading_table td.gl_invoice_heading_left {
+                        width: 58% !important;
+                        padding-right: 5mm !important;
+                    }
+                    .gl_invoice_page table.gl_invoice_heading_table td.gl_invoice_heading_right {
+                        width: 42% !important;
+                        padding-left: 2mm !important;
+                    }
+                    .gl_invoice_page .gl_invoice_title {
+                        margin: 0 !important;
                         padding: 0 !important;
                         font-size: 12.2pt !important;
                         line-height: 1.15 !important;
                         font-weight: 400 !important;
                         color: #111111 !important;
                     }
+                    .gl_invoice_page .gl_invoice_side_note {
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        font-size: 8.4pt !important;
+                        line-height: 1.22 !important;
+                        white-space: pre-line !important;
+                        overflow-wrap: break-word !important;
+                        word-wrap: break-word !important;
+                    }
                     .gl_invoice_page .gl_invoice_origin,
                     .gl_invoice_page .gl_invoice_narrative {
                         margin: 0 0 5mm 0 !important;
                         padding: 0 !important;
                         font-size: 8.4pt !important;
-                        line-height: 1.18 !important;
+                        line-height: 1.22 !important;
                         white-space: pre-line !important;
+                        overflow-wrap: break-word !important;
+                        word-wrap: break-word !important;
+                    }
+                    .gl_invoice_page .gl_invoice_narrative {
+                        margin-bottom: 6mm !important;
                     }
 
-                    /* Invoice table. Borders are in the actual invoice body, not in the external layout preview. */
+                    /* Invoice table. */
                     .gl_invoice_page table.gl_invoice_line_table {
                         width: 100% !important;
                         border-collapse: collapse !important;
@@ -66,9 +106,11 @@
                         border-bottom: 0.55pt solid #111111 !important;
                     }
                     .gl_invoice_page table.gl_invoice_line_table thead th {
-                        padding: 0 1.2mm 1.4mm 0 !important;
+                        padding: 1.5mm 1.3mm 1.6mm 1.3mm !important;
                         font-size: 7.7pt !important;
+                        line-height: 1.16 !important;
                         font-weight: 400 !important;
+                        vertical-align: middle !important;
                         color: #555555 !important;
                         background: transparent !important;
                         border-top: none !important;
@@ -77,15 +119,22 @@
                         border-bottom: 0.55pt solid #111111 !important;
                     }
                     .gl_invoice_page table.gl_invoice_line_table tbody td {
-                        padding: 2.2mm 1.2mm 0.6mm 0 !important;
+                        padding: 2.2mm 1.3mm 0.8mm 1.3mm !important;
                         font-size: 8.0pt !important;
                         line-height: 1.16 !important;
                         vertical-align: top !important;
                         border: none !important;
                         background: transparent !important;
                     }
-                    .gl_invoice_page table.gl_invoice_line_table .gl_col_pos { width: 9mm !important; text-align: left !important; }
-                    .gl_invoice_page table.gl_invoice_line_table .gl_col_desc { width: 68mm !important; text-align: left !important; white-space: pre-line !important; }
+                    .gl_invoice_page table.gl_invoice_line_table .gl_col_pos {
+                        width: 11mm !important;
+                        min-width: 11mm !important;
+                        padding-left: 2mm !important;
+                        padding-right: 2mm !important;
+                        text-align: center !important;
+                        white-space: nowrap !important;
+                    }
+                    .gl_invoice_page table.gl_invoice_line_table .gl_col_desc { width: 66mm !important; text-align: left !important; white-space: pre-line !important; }
                     .gl_invoice_page table.gl_invoice_line_table .gl_col_qty { width: 17mm !important; text-align: right !important; white-space: nowrap !important; }
                     .gl_invoice_page table.gl_invoice_line_table .gl_col_uom { width: 18mm !important; text-align: left !important; white-space: nowrap !important; }
                     .gl_invoice_page table.gl_invoice_line_table .gl_col_price { width: 20mm !important; text-align: right !important; white-space: nowrap !important; }
@@ -139,14 +188,29 @@
                     }
                 </style>
 
-                <h2 class="gl_invoice_title">
-                    <t t-if="o.move_type == 'out_refund'">Gutschrift </t>
-                    <t t-else="">Rechnung </t>
-                    <span t-out="gl_invoice_number"/>
-                </h2>
+                <table class="gl_invoice_heading_table">
+                    <tr>
+                        <td class="gl_invoice_heading_left">
+                            <h2 class="gl_invoice_title">
+                                <t t-if="o.move_type == 'out_refund'">Gutschrift </t>
+                                <t t-else="">Rechnung </t>
+                                <span t-out="gl_invoice_number"/>
+                            </h2>
+                        </td>
+                        <td class="gl_invoice_heading_right">
+                            <div class="gl_invoice_side_note" t-if="o.groundlift_invoice_side_note">
+                                <span t-field="o.groundlift_invoice_side_note"/>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
 
                 <div class="gl_invoice_origin" t-if="o.invoice_origin">
                     <span t-out="o.invoice_origin"/>
+                </div>
+
+                <div class="gl_invoice_narrative" t-if="o.groundlift_invoice_description">
+                    <span t-field="o.groundlift_invoice_description"/>
                 </div>
 
                 <table class="gl_invoice_line_table">

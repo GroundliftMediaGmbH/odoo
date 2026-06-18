@@ -2,11 +2,28 @@
 import re
 from collections import OrderedDict
 
-from odoo import models
+from odoo import fields, models
 
 
 class AccountMove(models.Model):
     _inherit = "account.move"
+
+    groundlift_invoice_description = fields.Text(
+        string="Beschreibung der Rechnung",
+        help=(
+            "Frei formatierbarer Einleitungstext, der im PDF oberhalb der "
+            "Rechnungspositionen ausgegeben wird. Zeilenumbrüche bleiben erhalten."
+        ),
+        copy=True,
+    )
+    groundlift_invoice_side_note = fields.Text(
+        string="Zusatzangaben rechts",
+        help=(
+            "Optionaler Textblock rechts neben der Dokumentüberschrift, zum Beispiel "
+            "für Kostenstelle, PSP-Element oder projektspezifische Angaben."
+        ),
+        copy=True,
+    )
 
     def _groundlift_invoice_display_number(self):
         """Return the customer-facing invoice number for the Groundlift PDF layout.
@@ -81,7 +98,13 @@ class AccountMove(models.Model):
                 )
 
         result = list(groups.values())
-        result.sort(key=lambda item: (item["rate"] is None, item["rate"] if item["rate"] is not None else 999999.0, item["label"]))
+        result.sort(
+            key=lambda item: (
+                item["rate"] is None,
+                item["rate"] if item["rate"] is not None else 999999.0,
+                item["label"],
+            )
+        )
 
         for item in result:
             if currency:
