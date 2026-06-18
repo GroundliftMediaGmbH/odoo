@@ -1,8 +1,18 @@
 # Groundlift Rechnungsansicht für Odoo 19 SH
 
-Version **19.0.3.6.2**
+Version **19.0.3.6.3**
 
 Diese Version erweitert das bestehende Modul, ohne Modul- oder Verzeichnisnamen zu ändern.
+
+## Änderung in Version 3.6.3
+
+- Die **Beschreibung der Rechnung** wird im PDF jetzt als reiner Text mit
+  `white-space: pre-wrap` ausgegeben, nicht mehr über `t-field`.
+- Dadurch erzeugt ein normaler Zeilenumbruch per Enter denselben vertikalen
+  Abstand wie ein automatischer Umbruch innerhalb einer langen Zeile.
+- Zusätzliche Absatzabstände, die Odoo über Kind-Elemente oder globale Report-Styles
+  einbringen könnte, werden für diesen Textblock unterdrückt.
+- Alle übrigen Funktionen und Layout-Einstellungen bleiben unverändert.
 
 ## Änderung in Version 3.6.2
 

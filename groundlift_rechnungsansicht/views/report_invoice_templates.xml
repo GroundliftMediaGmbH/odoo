@@ -84,16 +84,24 @@
                         padding: 0 !important;
                         font-size: 8.4pt !important;
                         line-height: 1 !important;
-                        white-space: pre-line !important;
                         overflow-wrap: break-word !important;
                         word-wrap: break-word !important;
+                    }
+                    .gl_invoice_page .gl_invoice_origin {
+                        white-space: pre-line !important;
+                    }
+                    .gl_invoice_page .gl_invoice_narrative {
+                        display: block !important;
+                        white-space: pre-wrap !important;
+                        margin-bottom: 6mm !important;
                     }
                     .gl_invoice_page .gl_invoice_narrative,
                     .gl_invoice_page .gl_invoice_narrative * {
                         line-height: 1 !important;
-                    }
-                    .gl_invoice_page .gl_invoice_narrative {
-                        margin-bottom: 6mm !important;
+                        margin-top: 0 !important;
+                        margin-bottom: 0 !important;
+                        padding-top: 0 !important;
+                        padding-bottom: 0 !important;
                     }
 
                     /* Invoice table. */
@@ -236,9 +244,7 @@
                     <span t-out="o.invoice_origin"/>
                 </div>
 
-                <div class="gl_invoice_narrative" t-if="o.groundlift_invoice_description">
-                    <span t-field="o.groundlift_invoice_description"/>
-                </div>
+                <div class="gl_invoice_narrative" t-if="o.groundlift_invoice_description"><t t-out="o.groundlift_invoice_description"/></div>
 
                 <table class="gl_invoice_line_table">
                     <thead>
