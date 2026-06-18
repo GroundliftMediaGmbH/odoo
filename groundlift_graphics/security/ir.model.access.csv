@@ -2,3 +2,5 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_gl_graphics_poster_user,gl.graphics.poster user,model_gl_graphics_poster,base.group_user,1,1,1,1
 access_gl_graphics_template_user,gl.graphics.template user read,model_gl_graphics_template,base.group_user,1,0,0,0
 access_gl_graphics_template_admin,gl.graphics.template admin,model_gl_graphics_template,base.group_system,1,1,1,1
+access_gl_graphics_output_user,gl.graphics.output user,model_gl_graphics_output,base.group_user,1,1,1,1
+access_gl_drink_card_profile_user,gl.drink.card.profile user,model_gl_drink_card_profile,base.group_user,1,1,1,1

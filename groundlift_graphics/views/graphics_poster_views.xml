@@ -40,6 +40,7 @@
                 <header>
                     <button name="action_open_editor" type="object" string="Grafik-Editor öffnen" class="btn-primary" icon="fa-paint-brush"/>
                     <button name="action_download_output" type="object" string="JPG herunterladen" icon="fa-download" invisible="not output_image"/>
+                    <button name="action_download_outputs_zip" type="object" string="Alle Ausgaben als ZIP" icon="fa-file-archive-o" invisible="not output_count"/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box"/>
@@ -54,6 +55,7 @@
                         <group>
                             <field name="last_rendered_at" readonly="1"/>
                             <field name="output_filename"/>
+                            <field name="output_count" readonly="1"/>
                             <field name="active"/>
                         </group>
                     </group>
@@ -62,6 +64,8 @@
                             <group>
                                 <field name="source_image" widget="image" filename="source_image_filename" options="{'size': [640, 360]}"/>
                                 <field name="source_image_filename" invisible="1"/>
+                                <field name="external_logo_image" widget="image" filename="external_logo_filename" options="{'size': [240, 160]}"/>
+                                <field name="external_logo_filename" invisible="1"/>
                                 <field name="output_image" widget="image" filename="output_filename" readonly="1" options="{'size': [640, 360]}"/>
                             </group>
                         </page>
@@ -74,6 +78,7 @@
                                     <field name="date_text"/>
                                     <field name="time_text"/>
                                     <field name="event_type_text"/>
+                                    <field name="summary_text"/>
                                 </group>
                                 <group>
                                     <field name="photo_credit"/>

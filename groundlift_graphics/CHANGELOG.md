@@ -1,5 +1,13 @@
 # Changelog
 
+## 19.0.1.1.0
+
+- Multi-Format-Editor auf Basis aller gelieferten PNG-Vorlagen ergänzt (Kino, Plakat, Social, Foyer, Stream, Sudhaus Main usw.).
+- Ein Bild kann jetzt für mehrere Ausspielformate verwendet und pro Format separat justiert werden.
+- Automatische Vorausfüllung der Übersichtstexte erweitert, inkl. Kurzzusammenfassung und Kategorie-Label.
+- Download der aktuellen Ausgabe als JPG sowie aller gespeicherten Ausgaben als ZIP ergänzt.
+- Einfaches Getränkekarten-Setup mit speicherbaren Profilen und Odoo-Produkten ergänzt.
+
 ## 19.0.1.0.4
 
 - Unter der Uhrzeit wird nun bevorzugt der Wert aus dem Event-Feld mit dem Anzeigenamen `Kategorie (Label)` verwendet (Groundlift-Website-Tab).

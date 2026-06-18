@@ -1,6 +1,7 @@
 import base64
 import io
 import re
+from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 import pytz
@@ -11,6 +12,32 @@ from odoo.exceptions import UserError, ValidationError
 
 
 WEEKDAYS_DE = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"]
+TEMPLATE_ORDER = [
+    "kino",
+    "plakat",
+    "social_post",
+    "social_story",
+    "foyer",
+    "foyer_eingang",
+    "theater_konzert",
+    "stream_start",
+    "stream_pause",
+    "stream_problem",
+    "stream_ende",
+    "sudhaus_main",
+]
+SHORT_DESCRIPTION_FIELD_CANDIDATES = [
+    "website_short_description",
+    "short_description",
+    "description_short",
+    "subtitle",
+    "x_short_description",
+    "x_kurzbeschreibung",
+]
+
+
+def _normalize_key(value):
+    return re.sub(r"[^a-z0-9]+", "_", (value or "").lower()).strip("_")
 
 
 class GraphicsPoster(models.Model):
@@ -43,19 +70,15 @@ class GraphicsPoster(models.Model):
         default=lambda self: self.env["gl.graphics.template"].get_default_template(),
     )
 
-    source_image = fields.Binary(
-        string="Veranstaltungsbild",
-        attachment=True,
-        copy=False,
-    )
+    source_image = fields.Binary(string="Veranstaltungsbild", attachment=True, copy=False)
     source_image_filename = fields.Char(default="veranstaltungsbild.jpg")
-    output_image = fields.Binary(
-        string="Fertiges Plakat",
-        attachment=True,
-        readonly=True,
-        copy=False,
-    )
+    external_logo_image = fields.Binary(string="Externes Logo", attachment=True, copy=False)
+    external_logo_filename = fields.Char(default="externes_logo.png")
+
+    output_image = fields.Binary(string="Fertiges Plakat", attachment=True, readonly=True, copy=False)
     output_filename = fields.Char(default="veranstaltungsplakat.jpg")
+    output_ids = fields.One2many("gl.graphics.output", "poster_id", string="Ausgaben", copy=False)
+    output_count = fields.Integer(compute="_compute_output_count")
 
     claim = fields.Text(string="Claim")
     event_title = fields.Char(string="Titel")
@@ -63,6 +86,7 @@ class GraphicsPoster(models.Model):
     date_text = fields.Char(string="Datum")
     time_text = fields.Char(string="Uhrzeit")
     event_type_text = fields.Char(string="Veranstaltungsart")
+    summary_text = fields.Text(string="Kurzzusammenfassung")
     photo_credit = fields.Char(string="Fotocredit")
     ticket_url = fields.Char(string="Event-/Ticketseite")
     ticket_link_text = fields.Char(string="Ticketlink-Zeile")
@@ -73,11 +97,7 @@ class GraphicsPoster(models.Model):
     color_2 = fields.Char(default="#002E59")
 
     sticker_mode = fields.Selection(
-        [
-            ("original", "Originalgrafik"),
-            ("custom", "Individuell"),
-            ("hidden", "Ausblenden"),
-        ],
+        [("original", "Originalgrafik"), ("custom", "Individuell"), ("hidden", "Ausblenden")],
         default="original",
         required=True,
         string="Störer",
@@ -85,16 +105,144 @@ class GraphicsPoster(models.Model):
     sticker_text = fields.Text(default="LIVE\nON\nSTAGE")
     sticker_color = fields.Char(default="#D6331F")
 
+    drink_card_profile_id = fields.Many2one("gl.drink.card.profile", string="Getränkekarten-Profil")
     editor_state = fields.Json(default=dict, copy=True)
     last_rendered_at = fields.Datetime(readonly=True, copy=False)
 
     _sql_constraints = [
-        (
-            "name_company_uniq",
-            "unique(name, company_id)",
-            "Der Name der Grafik muss pro Unternehmen eindeutig sein.",
-        )
+        ("name_company_uniq", "unique(name, company_id)", "Der Name der Grafik muss pro Unternehmen eindeutig sein."),
     ]
+
+    def _compute_output_count(self):
+        for poster in self:
+            poster.output_count = len(poster.output_ids)
+
+    # --- Template library -------------------------------------------------
+
+    @api.model
+    def _templates_root(self):
+        return Path(__file__).resolve().parents[1] / "static" / "src" / "img" / "templates"
+
+    @api.model
+    def _template_folder_to_title(self, folder_name):
+        return folder_name.replace("_", " ").title()
+
+    @api.model
+    def _template_output_suffix(self, key):
+        mapping = {
+            "kino": "Kino",
+            "plakat": "Plakat",
+            "social_post": "SocialPost",
+            "social_story": "SocialStory",
+            "foyer": "Foyer",
+            "foyer_eingang": "FoyerEingang",
+            "theater_konzert": "TheaterKonzert",
+            "stream_start": "StreamStart",
+            "stream_pause": "StreamPause",
+            "stream_problem": "StreamProblem",
+            "stream_ende": "StreamEnde",
+            "sudhaus_main": "SudhausMain",
+        }
+        return mapping.get(key, self._template_folder_to_title(key).replace(" ", ""))
+
+    @api.model
+    def _asset_role(self, filename):
+        name = Path(filename).stem.lower()
+        if "beispiel" in name:
+            return "example"
+        if "bildausschnitt" in name:
+            return "image_mask"
+        if "verlauf" in name:
+            return "gradient"
+        if "claim" in name:
+            return "claim"
+        if "datum_titel" in name:
+            return "date_title"
+        if name.endswith("fotocredits") or name.endswith("fotocredit"):
+            return "photo_credit"
+        if "uhrzeit_untertitel" in name:
+            return "time_subtitle"
+        if "uhrzeit_ticketlink" in name:
+            return "time_ticketlink"
+        if "ticketlink" in name:
+            return "ticket_link"
+        if name.endswith("_qr") or name == "qr":
+            return "qr"
+        if "logo_extern" in name:
+            return "external_logo"
+        if name.endswith("_logo") or name == "logo":
+            return "logo"
+        if "rahmen" in name:
+            return "frame"
+        if "einlass_stoerer" in name:
+            return "static_admission_sticker"
+        if "stoerer" in name:
+            return "sticker"
+        if "kurzzusammenfassung" in name:
+            return "summary"
+        if "getränkekarte" in name or "getraenkekarte" in name:
+            return "drink_card"
+        if name.endswith("_titel") or name == "titel":
+            return "title"
+        if name.endswith("_untertitel") or name == "untertitel":
+            return "subtitle"
+        if "beginn" in name:
+            return "static_begin"
+        if "pause" in name and "stream pause" in name:
+            return "static_pause"
+        if "gleich_gehts_los" in name:
+            return "static_stream_start"
+        if "schoen_dass_ihr_dabei_wart" in name:
+            return "static_stream_end"
+        if "technische_herausforderung" in name:
+            return "static_stream_problem"
+        if "einlass_kartenpreis" in name:
+            return "static_admission_price"
+        return f"static_{_normalize_key(name)}"
+
+    @api.model
+    def _get_template_library(self):
+        root = self._templates_root()
+        specs = []
+        order_index = {key: idx for idx, key in enumerate(TEMPLATE_ORDER)}
+        if not root.exists():
+            return []
+        for folder in root.iterdir():
+            if not folder.is_dir():
+                continue
+            key = folder.name
+            assets = []
+            canvas_width = 1920
+            canvas_height = 1080
+            for file in sorted(folder.iterdir()):
+                if file.suffix.lower() not in {'.png', '.jpg', '.jpeg', '.webp'}:
+                    continue
+                url = f"/groundlift_graphics/static/src/img/templates/{key}/{file.name}"
+                role = self._asset_role(file.name)
+                if role in {"gradient", "example", "image_mask"}:
+                    try:
+                        from PIL import Image
+                        with Image.open(file) as im:
+                            canvas_width, canvas_height = im.size
+                    except Exception:
+                        pass
+                assets.append({"role": role, "filename": file.name, "url": url})
+            if not assets:
+                continue
+            specs.append({
+                "key": key,
+                "name": self._template_folder_to_title(key),
+                "folder_name": key,
+                "output_suffix": self._template_output_suffix(key),
+                "canvas_width": canvas_width,
+                "canvas_height": canvas_height,
+                "assets": assets,
+                "is_drink_card": key == "sudhaus_main",
+            })
+        specs.sort(key=lambda s: (order_index.get(s["key"], 999), s["name"]))
+        return specs
+
+    # --- Defaults / event field extraction --------------------------------
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -106,11 +254,7 @@ class GraphicsPoster(models.Model):
                 if not template:
                     template = self.env["gl.graphics.template"].get_default_template()
                     vals["template_id"] = template.id
-                defaults = self._prepare_event_values(
-                    event,
-                    template,
-                    creation_date=fields.Date.context_today(self),
-                )
+                defaults = self._prepare_event_values(event, template, creation_date=fields.Date.context_today(self))
                 for key, value in defaults.items():
                     vals.setdefault(key, value)
                 vals.setdefault("company_id", event.company_id.id or self.env.company.id)
@@ -123,11 +267,7 @@ class GraphicsPoster(models.Model):
             if not poster.event_id:
                 continue
             template = poster.template_id or self.env["gl.graphics.template"].get_default_template()
-            values = poster._prepare_event_values(
-                poster.event_id,
-                template,
-                creation_date=poster._creation_date_local(),
-            )
+            values = poster._prepare_event_values(poster.event_id, template, creation_date=poster._creation_date_local())
             poster.update(values)
 
     @api.model
@@ -157,7 +297,7 @@ class GraphicsPoster(models.Model):
         unique_name = self._make_unique_name(f"{base_name} – {date_text}", company_id)
         output_filename = self._build_output_filename(
             event=event,
-            template=template,
+            format_suffix="Kino",
             base_name=base_name,
             creation_date=creation_date,
             event_local_dt=local_dt,
@@ -171,11 +311,10 @@ class GraphicsPoster(models.Model):
             "date_text": date_text.upper(),
             "time_text": time_text.upper(),
             "event_type_text": (event_type or "EVENT").upper(),
+            "summary_text": (self._get_event_short_description(event) or "").strip(),
             "ticket_url": ticket_url,
             "qr_url": ticket_url,
-            "ticket_link_text": (
-                f"TICKETS & INFOS UNTER: {display_url.upper()}" if display_url else ""
-            ),
+            "ticket_link_text": (f"TICKETS & INFOS UNTER: {display_url.upper()}" if display_url else ""),
             "color_1": template.default_color_1 or "#000033",
             "color_2": template.default_color_2 or "#002E59",
             "sticker_text": template.default_sticker_text or "LIVE\nON\nSTAGE",
@@ -232,13 +371,26 @@ class GraphicsPoster(models.Model):
                 value = self._field_value_to_text(event[field_name])
                 if value:
                     return value
-
         fields_meta = event.fields_get()
-        preferred_labels = {
-            "kategorie (label)",
-            "category (label)",
-            "category label",
-        }
+        preferred_labels = {"kategorie (label)", "category (label)", "category label"}
+        for field_name, meta in fields_meta.items():
+            label = (meta.get("string") or "").strip().lower()
+            if label in preferred_labels and field_name in event._fields:
+                value = self._field_value_to_text(event[field_name])
+                if value:
+                    return value
+        return ""
+
+    @api.model
+    def _get_event_short_description(self, event):
+        event.ensure_one()
+        for field_name in SHORT_DESCRIPTION_FIELD_CANDIDATES:
+            if field_name in event._fields:
+                value = self._field_value_to_text(event[field_name])
+                if value:
+                    return value
+        fields_meta = event.fields_get()
+        preferred_labels = {"kurzbeschreibung", "short description", "kurzbeschreibung website"}
         for field_name, meta in fields_meta.items():
             label = (meta.get("string") or "").strip().lower()
             if label in preferred_labels and field_name in event._fields:
@@ -249,30 +401,13 @@ class GraphicsPoster(models.Model):
 
     @api.model
     def _filename_component(self, value):
-        transliteration = str.maketrans(
-            {
-                "Ä": "ae",
-                "Ö": "oe",
-                "Ü": "ue",
-                "ä": "ae",
-                "ö": "oe",
-                "ü": "ue",
-                "ß": "ss",
-            }
-        )
+        transliteration = str.maketrans({"Ä": "ae", "Ö": "oe", "Ü": "ue", "ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
         value = (value or "").translate(transliteration)
         value = re.sub(r"[^A-Za-z0-9]+", "_", value).strip("_")
         return value or "Veranstaltung"
 
     @api.model
-    def _build_output_filename(
-        self,
-        event,
-        template,
-        base_name=None,
-        creation_date=None,
-        event_local_dt=None,
-    ):
+    def _build_output_filename(self, event, format_suffix="Kino", base_name=None, creation_date=None, event_local_dt=None):
         event.ensure_one()
         creation_date = creation_date or fields.Date.context_today(self)
         event_local_dt = event_local_dt or self._event_datetime_local(event)
@@ -280,19 +415,16 @@ class GraphicsPoster(models.Model):
         if not base_name:
             base_name, _subtitle = self._split_event_name(event.name or "")
             base_name = base_name or event.name or _("Veranstaltung")
-        suffix = self._filename_component(template.output_suffix or "Kino")
+        suffix = self._filename_component(format_suffix or "Kino")
         event_name = self._filename_component(base_name)
-        return (
-            f"{creation_date:%Y%m%d}-{event_date:%Y%m%d} "
-            f"{event_name}_{suffix}.jpg"
-        )
+        return f"{creation_date:%Y%m%d}-{event_date:%Y%m%d} {event_name}_{suffix}.jpg"
 
-    def _suggested_output_filename(self):
+    def _suggested_output_filename(self, format_suffix="Kino"):
         self.ensure_one()
         title, _subtitle = self._split_event_name(self.event_id.name or "")
         return self._build_output_filename(
             event=self.event_id,
-            template=self.template_id,
+            format_suffix=format_suffix,
             base_name=title or self.event_id.name,
             creation_date=self._creation_date_local(),
         )
@@ -324,6 +456,8 @@ class GraphicsPoster(models.Model):
             suffix += 1
         return candidate
 
+    # --- Editor actions ---------------------------------------------------
+
     def action_open_editor(self):
         self.ensure_one()
         return {
@@ -340,21 +474,46 @@ class GraphicsPoster(models.Model):
             raise UserError(_("Es wurde noch kein fertiges Plakat gespeichert."))
         return {
             "type": "ir.actions.act_url",
-            "url": (
-                f"/web/content?model=gl.graphics.poster&id={self.id}"
-                "&field=output_image&filename_field=output_filename&download=true"
-            ),
+            "url": f"/web/content?model=gl.graphics.poster&id={self.id}&field=output_image&filename_field=output_filename&download=true",
             "target": "self",
         }
 
+    def action_download_specific_output(self, template_key):
+        self.ensure_one()
+        output = self.output_ids.filtered(lambda x: x.template_key == template_key)[:1]
+        if not output:
+            raise UserError(_("Für dieses Format wurde noch keine Grafik gespeichert."))
+        return {
+            "type": "ir.actions.act_url",
+            "url": f"/web/content?model=gl.graphics.output&id={output.id}&field=image&filename_field=filename&download=true",
+            "target": "self",
+        }
+
+    def action_download_outputs_zip(self):
+        self.ensure_one()
+        if not self.output_ids:
+            raise UserError(_("Es wurden noch keine Ausgaben gespeichert."))
+        return {
+            "type": "ir.actions.act_url",
+            "url": f"/groundlift_graphics/poster/{self.id}/outputs.zip",
+            "target": "self",
+        }
+
+    # --- Data for JS editor ----------------------------------------------
+
     def get_editor_data(self):
         self.ensure_one()
-        self.check_access("read")
+        self.check_access_rights("read")
+        self.check_access_rule("read")
         template = self.template_id
         qr_base64 = self.generate_qr_base64(self.qr_url or self.ticket_url or "")
         output_filename = self.output_filename or ""
         if self._is_legacy_output_filename(output_filename):
-            output_filename = self._suggested_output_filename()
+            output_filename = self._suggested_output_filename("Kino")
+        products = self.env["product.product"].search([("sale_ok", "=", True), ("active", "=", True)], order="name", limit=500)
+        drink_profiles = self.env["gl.drink.card.profile"].search([("company_id", "in", [False, self.company_id.id])], order="name")
+        library = self._get_template_library()
+        output_map = {out.template_key: {"filename": out.filename} for out in self.output_ids}
         return {
             "poster": {
                 "id": self.id,
@@ -363,12 +522,15 @@ class GraphicsPoster(models.Model):
                 "event_name": self.event_id.display_name,
                 "source_image": self._b64_text(self.source_image),
                 "source_image_filename": self.source_image_filename or "veranstaltungsbild.jpg",
+                "external_logo_image": self._b64_text(self.external_logo_image),
+                "external_logo_filename": self.external_logo_filename or "externes_logo.png",
                 "claim": self.claim or "",
                 "event_title": self.event_title or "",
                 "event_subtitle": self.event_subtitle or "",
                 "date_text": self.date_text or "",
                 "time_text": self.time_text or "",
                 "event_type_text": self.event_type_text or "",
+                "summary_text": self.summary_text or "",
                 "photo_credit": self.photo_credit or "",
                 "ticket_url": self.ticket_url or "",
                 "ticket_link_text": self.ticket_link_text or "",
@@ -379,6 +541,7 @@ class GraphicsPoster(models.Model):
                 "sticker_mode": self.sticker_mode or "original",
                 "sticker_text": self.sticker_text or "",
                 "sticker_color": self.sticker_color or "#D6331F",
+                "drink_card_profile_id": self.drink_card_profile_id.id or False,
                 "editor_state": self.editor_state or {},
                 "output_filename": output_filename,
             },
@@ -397,39 +560,50 @@ class GraphicsPoster(models.Model):
                 "font_condensed_filename": template.font_condensed_filename or "",
             },
             "qr_image": qr_base64,
+            "templates": library,
+            "products": [{"id": p.id, "name": p.display_name, "price": p.lst_price} for p in products],
+            "drink_profiles": [{"id": p.id, "name": p.name, "config": p.config_json or {}} for p in drink_profiles],
+            "outputs": output_map,
         }
 
-    def save_editor_data(self, values, rendered_image=False):
+    def save_editor_data(self, values, rendered_image=False, rendered_outputs=None):
         self.ensure_one()
-        self.check_access("write")
+        self.check_access_rights("write")
+        self.check_access_rule("write")
         allowed = {
-            "source_image",
-            "source_image_filename",
-            "claim",
-            "event_title",
-            "event_subtitle",
-            "date_text",
-            "time_text",
-            "event_type_text",
-            "photo_credit",
-            "ticket_url",
-            "ticket_link_text",
-            "qr_url",
-            "color_contrast",
-            "color_1",
-            "color_2",
-            "sticker_mode",
-            "sticker_text",
-            "sticker_color",
-            "editor_state",
-            "output_filename",
+            "source_image", "source_image_filename", "external_logo_image", "external_logo_filename", "claim", "event_title", "event_subtitle",
+            "date_text", "time_text", "event_type_text", "summary_text", "photo_credit", "ticket_url", "ticket_link_text", "qr_url",
+            "color_contrast", "color_1", "color_2", "sticker_mode", "sticker_text", "sticker_color", "drink_card_profile_id", "editor_state", "output_filename",
         }
         write_values = {key: value for key, value in (values or {}).items() if key in allowed}
         if rendered_image:
             write_values["output_image"] = self._strip_data_url(rendered_image)
             write_values["last_rendered_at"] = fields.Datetime.now()
         self.write(write_values)
+        if rendered_outputs:
+            self._save_rendered_outputs(rendered_outputs)
         return True
+
+    def _save_rendered_outputs(self, rendered_outputs):
+        self.ensure_one()
+        existing = {o.template_key: o for o in self.output_ids}
+        for template_key, payload in (rendered_outputs or {}).items():
+            image_data = payload.get("data")
+            filename = payload.get("filename") or f"{template_key}.jpg"
+            template_name = payload.get("template_name") or template_key
+            if not image_data:
+                continue
+            values = {
+                "poster_id": self.id,
+                "template_key": template_key,
+                "template_name": template_name,
+                "filename": filename,
+                "image": self._strip_data_url(image_data),
+            }
+            if template_key in existing:
+                existing[template_key].write(values)
+            else:
+                self.env["gl.graphics.output"].create(values)
 
     @api.model
     def generate_qr_base64(self, url):
@@ -438,18 +612,33 @@ class GraphicsPoster(models.Model):
             return ""
         if len(url) > 2048:
             raise ValidationError(_("Die QR-Code-URL ist zu lang."))
-        qr = qrcode.QRCode(
-            version=None,
-            error_correction=qrcode.constants.ERROR_CORRECT_M,
-            box_size=10,
-            border=3,
-        )
+        qr = qrcode.QRCode(version=None, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=10, border=3)
         qr.add_data(url)
         qr.make(fit=True)
         image = qr.make_image(fill_color="black", back_color="white")
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
         return base64.b64encode(buffer.getvalue()).decode("ascii")
+
+    def save_drink_profile(self, name, config):
+        self.ensure_one()
+        if not name:
+            raise ValidationError(_("Bitte einen Namen für das Getränkekarten-Setup eingeben."))
+        profile = self.env["gl.drink.card.profile"].create({
+            "name": name,
+            "company_id": self.company_id.id,
+            "config_json": config or {},
+        })
+        self.drink_card_profile_id = profile.id
+        return {"id": profile.id, "name": profile.name, "config": profile.config_json or {}}
+
+    @api.model
+    def _b64_text(self, value):
+        if not value:
+            return ""
+        if isinstance(value, bytes):
+            return value.decode("ascii")
+        return value
 
     @staticmethod
     def _strip_data_url(value):
@@ -459,12 +648,4 @@ class GraphicsPoster(models.Model):
             value = value.decode("ascii")
         if value.startswith("data:"):
             value = value.split(",", 1)[1]
-        return value
-
-    @staticmethod
-    def _b64_text(value):
-        if not value:
-            return ""
-        if isinstance(value, bytes):
-            return value.decode("ascii")
         return value
