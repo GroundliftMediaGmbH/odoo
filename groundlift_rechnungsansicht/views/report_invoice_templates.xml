@@ -88,6 +88,10 @@
                         overflow-wrap: break-word !important;
                         word-wrap: break-word !important;
                     }
+                    .gl_invoice_page .gl_invoice_narrative,
+                    .gl_invoice_page .gl_invoice_narrative * {
+                        line-height: 1 !important;
+                    }
                     .gl_invoice_page .gl_invoice_narrative {
                         margin-bottom: 6mm !important;
                     }
