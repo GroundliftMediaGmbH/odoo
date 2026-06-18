@@ -83,10 +83,14 @@
                         margin: 0 0 5mm 0 !important;
                         padding: 0 !important;
                         font-size: 8.4pt !important;
-                        line-height: 1.22 !important;
+                        line-height: 1 !important;
                         white-space: pre-line !important;
                         overflow-wrap: break-word !important;
                         word-wrap: break-word !important;
+                    }
+                    .gl_invoice_page .gl_invoice_narrative,
+                    .gl_invoice_page .gl_invoice_narrative * {
+                        line-height: 1 !important;
                     }
                     .gl_invoice_page .gl_invoice_narrative {
                         margin-bottom: 6mm !important;
