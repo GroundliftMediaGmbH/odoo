@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_graphics_template_list" model="ir.ui.view">
+        <field name="name">gl.graphics.template.list</field>
+        <field name="model">gl.graphics.template</field>
+        <field name="arch" type="xml">
+            <list string="Grafikvorlagen">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_graphics_template_form" model="ir.ui.view">
+        <field name="name">gl.graphics.template.form</field>
+        <field name="model">gl.graphics.template</field>
+        <field name="arch" type="xml">
+            <form string="Grafikvorlage">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="sequence"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="active"/>
+                            <field name="output_suffix"/>
+                        </group>
+                        <group>
+                            <field name="default_color_1"/>
+                            <field name="default_color_2"/>
+                            <field name="default_sticker_color"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Standardtexte">
+                            <group>
+                                <field name="default_claim"/>
+                                <field name="default_sticker_text"/>
+                            </group>
+                        </page>
+                        <page string="Logo und feste Ebenen">
+                            <group>
+                                <group string="Logo">
+                                    <field name="logo_image" widget="image" filename="logo_filename"/>
+                                    <field name="logo_filename" invisible="1"/>
+                                </group>
+                                <group string="Rahmen">
+                                    <field name="frame_image" widget="image" filename="frame_filename"/>
+                                    <field name="frame_filename" invisible="1"/>
+                                </group>
+                                <group string="Original-Störer">
+                                    <field name="sticker_image" widget="image" filename="sticker_filename"/>
+                                    <field name="sticker_filename" invisible="1"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Schriften">
+                            <div class="alert alert-info" role="alert">
+                                Die gelieferten PNG-Ebenen enthalten keine Schriftdateien. Für pixelgenaue Buchstabenformen hier die tatsächlich verwendeten OTF-, TTF- oder WOFF2-Dateien hochladen. Ohne Upload verwendet der Editor die angegebenen CSS-Schriftfamilien.
+                            </div>
+                            <group>
+                                <group string="Normal">
+                                    <field name="font_regular_name"/>
+                                    <field name="font_regular_file" filename="font_regular_filename"/>
+                                    <field name="font_regular_filename" invisible="1"/>
+                                </group>
+                                <group string="Fett">
+                                    <field name="font_bold_name"/>
+                                    <field name="font_bold_file" filename="font_bold_filename"/>
+                                    <field name="font_bold_filename" invisible="1"/>
+                                </group>
+                                <group string="Schmal">
+                                    <field name="font_condensed_name"/>
+                                    <field name="font_condensed_file" filename="font_condensed_filename"/>
+                                    <field name="font_condensed_filename" invisible="1"/>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_graphics_template" model="ir.actions.act_window">
+        <field name="name">Grafikvorlagen</field>
+        <field name="res_model">gl.graphics.template</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>
