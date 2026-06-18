@@ -1,8 +1,13 @@
 # Groundlift Rechnungsansicht für Odoo 19 SH
 
-Version **19.0.3.6.0**
+Version **19.0.3.6.1**
 
 Diese Version erweitert das bestehende Modul, ohne Modul- oder Verzeichnisnamen zu ändern.
+
+## Änderung in Version 3.6.1
+
+- Der Zeilenabstand der **Beschreibung der Rechnung** wurde auf **1,0** gesetzt.
+- Alle übrigen Funktionen und Layout-Einstellungen bleiben unverändert.
 
 ## Änderungen in Version 3.6
 
