@@ -1,52 +1,58 @@
 # Groundlift Rechnungsansicht für Odoo 19 SH
 
-Version 19.0.3.4.0
+Version **19.0.3.6.0**
 
-Diese Version ergänzt die bestehende Groundlift-Rechnungsansicht um die gewünschte USt.-Darstellung:
+Diese Version erweitert das bestehende Modul, ohne Modul- oder Verzeichnisnamen zu ändern.
 
-1. Die Positionstabelle enthält eine zusätzliche Spalte **USt. %**.
-2. Der angezeigte Steuersatz kommt aus den tatsächlich auf der Rechnungszeile gesetzten Odoo-Steuern (`account.move.line.tax_ids`). Diese werden in Odoo aus Produktsteuer und ggf. Steuerzuordnung/Fiscal Position erzeugt.
-3. Im Summenbereich wird die Umsatzsteuer je verwendetem USt.-Satz getrennt ausgewiesen, z. B.:
-   - `Umsatzsteuer 7,00 % (aus 700,00 € netto)`
-   - `Umsatzsteuer 19,00 % (aus 610,00 € netto)`
-4. Auch Rechnungen mit 0,00 % USt. zeigen eine eigene 0,00-%-Zeile im Summenbereich.
-5. Bestehende Funktionen bleiben erhalten: eigenes Groundlift-Layout, Belegnummernformat, Header/Footer, Paperformat und PDF-Dateiname.
+## Änderungen in Version 3.6
 
-## Dateien
+1. **Zusatzangaben rechts** beginnen im PDF auf derselben Höhe wie die Überschrift
+   **Rechnung / Gutschrift** und die Belegnummer.
+2. Der Zeilenabstand des rechten Zusatzblocks wurde auf **1,0** gesetzt.
+3. Rechnungspositionen unterstützen jetzt vollständig:
+   - **Abschnitte** (`line_section`)
+   - **Unterabschnitte** (`line_subsection`, neu in Odoo 19)
+   - **Notizen** (`line_note`)
+4. Fehlen Abschnitts- oder Notizzeilen auf der erzeugten Rechnung, obwohl die
+   Produktpositionen mit einem Angebot/Auftrag verknüpft sind, rekonstruiert der
+   PDF-Bericht die fehlenden Anzeigezeilen aus dem verknüpften Angebot. Dabei werden
+   ausschließlich Überschriften und Notizen ergänzt. Mengen, Preise, Steuern und
+   Summen stammen weiterhin unverändert aus den tatsächlichen Rechnungszeilen.
+5. Bereits vorhandene manuelle Rechnungszeilen bleiben erhalten und werden weiterhin
+   anhand ihrer Rechnungsreihenfolge ausgegeben.
 
-- `data/cleanup_legacy_views.xml`  
-  Entfernt ältere Views aus vorherigen Modulversionen.
+## Bereits enthaltene Funktionen
 
-- `views/report_external_layout_invoice.xml`  
-  Eigenes Header-/Footer-Layout nur für GROUNDLIFT-Rechnungen.
+- **Beschreibung der Rechnung** als mehrzeiliger Einleitungstext oberhalb der Positionen.
+- **Zusatzangaben rechts** für Kostenstelle, PSP-Element und ähnliche Angaben.
+- Eigenes Groundlift-Layout mit Header, Footer und Papierformat.
+- Groundlift-Belegnummernformat und passender PDF-Dateiname.
+- USt.-Satz je Position und getrennte USt.-Summen je Steuersatz.
+- Verbreiterte und zentrierte Positionsspalte sowie optimierte Tabellenkopf-Abstände.
 
-- `views/report_invoice_templates.xml`  
-  Eigener Rechnungsbody mit Positionstabelle, USt.-Spalte, USt.-Summen je Steuersatz und Zahlungsbedingungen.
+## Technische Felder
 
-- `data/report_paperformat.xml`  
-  Papierformat mit passenden Rändern für wiederholte Header/Footer.
+- `account.move.groundlift_invoice_description`
+- `account.move.groundlift_invoice_side_note`
 
-- `models/account_move.py`  
-  Formatiert die sichtbare Rechnungsnummer und liefert USt.-Satz je Position sowie USt.-Summen je Steuersatz.
+## Abhängigkeiten
 
-- `models/ir_actions_report.py`  
-  Setzt PDF-Dateiname und Paperformat für Rechnungsreports.
+- `account`
+- `sale`
+- `web`
+
+Die Abhängigkeit `sale` wird benötigt, damit fehlende Abschnitte, Unterabschnitte und
+Notizen zuverlässig aus dem zugehörigen Angebot/Auftrag übernommen werden können.
 
 ## Update auf Odoo.sh
 
-```bash
-cd ~/src/user
-rm -rf groundlift_rechnungsansicht
-unzip /pfad/zu/groundlift_rechnungsansicht_odoo19_v34.zip
-git add -A groundlift_rechnungsansicht
-git commit -m "Update Groundlift Rechnungsansicht VAT breakdown v34"
-git push origin HEAD:staging/19.0
-```
+Den vorhandenen Ordner `groundlift_rechnungsansicht` im GitHub-Repository durch den
+gleichnamigen Ordner aus diesem ZIP ersetzen und committen.
 
 Danach in Odoo:
 
-1. Odoo.sh Build abwarten, bis er grün ist.
+1. Odoo.sh-Build abwarten.
 2. Apps-Liste aktualisieren.
 3. Modul **Groundlift Rechnungsansicht** aktualisieren.
-4. Bereits erzeugte PDF-Anhänge an der Testrechnung löschen, sonst zeigt Odoo eventuell noch das alte PDF.
+4. Bei bereits gedruckten Rechnungen eventuell vorhandene alte PDF-Anhänge löschen.
 5. Rechnung neu drucken.

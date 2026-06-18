@@ -2,11 +2,28 @@
 import re
 from collections import OrderedDict
 
-from odoo import models
+from odoo import fields, models
 
 
 class AccountMove(models.Model):
     _inherit = "account.move"
+
+    groundlift_invoice_description = fields.Text(
+        string="Beschreibung der Rechnung",
+        help=(
+            "Frei formatierbarer Einleitungstext, der im PDF oberhalb der "
+            "Rechnungspositionen ausgegeben wird. Zeilenumbrüche bleiben erhalten."
+        ),
+        copy=True,
+    )
+    groundlift_invoice_side_note = fields.Text(
+        string="Zusatzangaben rechts",
+        help=(
+            "Optionaler Textblock rechts neben der Dokumentüberschrift, zum Beispiel "
+            "für Kostenstelle, PSP-Element oder projektspezifische Angaben."
+        ),
+        copy=True,
+    )
 
     def _groundlift_invoice_display_number(self):
         """Return the customer-facing invoice number for the Groundlift PDF layout.
@@ -24,6 +41,164 @@ class AccountMove(models.Model):
             return "".join(parts[:-1]) + parts[-1].zfill(5)
 
         return re.sub(r"[^0-9A-Za-z]+", "", raw_number) or "Entwurf"
+
+    def _groundlift_invoice_report_lines(self):
+        """Return ordered invoice rows for the custom PDF report.
+
+        Odoo normally copies sections, subsections and notes from a sales order to
+        the generated invoice. In customized databases, older invoices or special
+        invoicing flows, those non-product rows can be missing from
+        ``invoice_line_ids`` even though the product rows remain linked to their
+        originating sales-order lines.
+
+        The report therefore uses the real invoice rows first and reconstructs only
+        missing display rows from the linked quotation/order. Product quantities and
+        amounts always come from ``account.move.line``; no accounting values are
+        synthesized or changed.
+        """
+        self.ensure_one()
+
+        invoice_lines = self.invoice_line_ids.sorted(
+            key=lambda line: (line.sequence, line.id)
+        )
+
+        def _invoice_entry(line):
+            return {
+                "display_type": line.display_type or "product",
+                "line": line,
+                "name": line.name or "",
+            }
+
+        default_result = [_invoice_entry(line) for line in invoice_lines]
+        if not invoice_lines:
+            return default_result
+
+        # ``sale_line_ids`` is supplied by the official sale module. Keep a safe
+        # fallback so the accounting report still works if the field is unavailable
+        # in an unusual installation state.
+        if "sale_line_ids" not in self.env["account.move.line"]._fields:
+            return default_result
+
+        linked_invoice_lines = invoice_lines.filtered(lambda line: line.sale_line_ids)
+        if not linked_invoice_lines:
+            return default_result
+
+        invoice_by_sale_line_id = {}
+        for invoice_line in linked_invoice_lines:
+            for sale_line in invoice_line.sale_line_ids:
+                invoice_by_sale_line_id.setdefault(sale_line.id, invoice_line)
+
+        sale_orders = linked_invoice_lines.mapped("sale_line_ids.order_id")
+
+        def _order_first_invoice_sequence(order):
+            sequences = [
+                invoice_line.sequence
+                for invoice_line in linked_invoice_lines
+                if invoice_line.sale_line_ids.filtered(
+                    lambda sale_line: sale_line.order_id == order
+                )
+            ]
+            return min(sequences) if sequences else 999999999
+
+        sale_orders = sale_orders.sorted(key=_order_first_invoice_sequence)
+        report_lines = []
+        represented_invoice_line_ids = set()
+
+        for order in sale_orders:
+            linked_sale_line_ids = {
+                sale_line.id
+                for invoice_line in linked_invoice_lines
+                for sale_line in invoice_line.sale_line_ids
+                if sale_line.order_id == order
+            }
+            if not linked_sale_line_ids:
+                continue
+
+            expected_sale_lines = []
+            pending_section_lines = []
+            pending_subsection_lines = []
+
+            # Mirror Odoo's invoiceable-line ordering, but use the sale lines that
+            # are actually linked to this invoice instead of current qty_to_invoice.
+            # This also works for already posted or fully invoiced quotations.
+            for sale_line in order.order_line.sorted(
+                key=lambda line: (line.sequence, line.id)
+            ):
+                display_type = sale_line.display_type
+
+                if display_type == "line_section":
+                    pending_section_lines = [sale_line]
+                    pending_subsection_lines = []
+                    continue
+
+                if display_type == "line_subsection":
+                    pending_subsection_lines = [sale_line]
+                    continue
+
+                if display_type == "line_note":
+                    if pending_subsection_lines:
+                        pending_subsection_lines.append(sale_line)
+                        continue
+                    if pending_section_lines:
+                        pending_section_lines.append(sale_line)
+                        continue
+                    expected_sale_lines.append(sale_line)
+                    continue
+
+                if sale_line.id not in linked_sale_line_ids:
+                    continue
+
+                if pending_subsection_lines:
+                    expected_sale_lines.extend(
+                        pending_section_lines + pending_subsection_lines
+                    )
+                    pending_section_lines = []
+                    pending_subsection_lines = []
+                elif pending_section_lines:
+                    expected_sale_lines.extend(pending_section_lines)
+                    pending_section_lines = []
+                    pending_subsection_lines = []
+
+                expected_sale_lines.append(sale_line)
+
+            for sale_line in expected_sale_lines:
+                invoice_line = invoice_by_sale_line_id.get(sale_line.id)
+                if invoice_line:
+                    if invoice_line.id in represented_invoice_line_ids:
+                        continue
+                    report_lines.append(_invoice_entry(invoice_line))
+                    represented_invoice_line_ids.add(invoice_line.id)
+                    continue
+
+                if sale_line.display_type in (
+                    "line_section",
+                    "line_subsection",
+                    "line_note",
+                ):
+                    report_lines.append({
+                        "display_type": sale_line.display_type,
+                        "line": False,
+                        "name": sale_line.name or "",
+                    })
+
+        # Keep manual invoice rows and any rows from other modules. Insert them by
+        # invoice sequence without disturbing reconstructed display rows placed
+        # directly before their linked product row.
+        for invoice_line in invoice_lines:
+            if invoice_line.id in represented_invoice_line_ids:
+                continue
+
+            entry = _invoice_entry(invoice_line)
+            insert_at = len(report_lines)
+            for index, existing in enumerate(report_lines):
+                existing_line = existing.get("line")
+                if existing_line and existing_line.sequence > invoice_line.sequence:
+                    insert_at = index
+                    break
+            report_lines.insert(insert_at, entry)
+            represented_invoice_line_ids.add(invoice_line.id)
+
+        return report_lines or default_result
 
     def _groundlift_invoice_tax_summary_by_rate(self):
         """Return VAT/tax summary lines grouped by percentage rate for the PDF.
@@ -81,7 +256,13 @@ class AccountMove(models.Model):
                 )
 
         result = list(groups.values())
-        result.sort(key=lambda item: (item["rate"] is None, item["rate"] if item["rate"] is not None else 999999.0, item["label"]))
+        result.sort(
+            key=lambda item: (
+                item["rate"] is None,
+                item["rate"] if item["rate"] is not None else 999999.0,
+                item["label"],
+            )
+        )
 
         for item in result:
             if currency:
