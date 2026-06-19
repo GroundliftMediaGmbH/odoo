@@ -17,6 +17,8 @@
         fields: {},
         editorState: {},
         templateCache: new Map(),
+        imageEditMode: "global",
+        activeHandle: null,
     };
 
     function clamp(value, min, max) {
@@ -31,6 +33,38 @@
         const extension = (filename || "").split(".").pop().toLowerCase();
         return ({ png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp" }[extension]) || fallback;
     }
+
+    function fontMime(filename) {
+        const extension = (filename || "").split(".").pop().toLowerCase();
+        return ({ ttf: "font/ttf", otf: "font/otf", woff: "font/woff", woff2: "font/woff2" }[extension]) || "font/ttf";
+    }
+
+    async function registerEditorFonts(templateInfo) {
+        const fonts = [
+            ["GroundliftRegular", templateInfo?.font_regular_file, templateInfo?.font_regular_filename],
+            ["GroundliftBold", templateInfo?.font_bold_file, templateInfo?.font_bold_filename],
+            ["GroundliftCondensed", templateInfo?.font_condensed_file, templateInfo?.font_condensed_filename],
+        ];
+        for (const [family, base64, filename] of fonts) {
+            if (!base64 || !("FontFace" in window)) continue;
+            try {
+                const face = new FontFace(family, `url(${dataUrlFromBase64(base64, fontMime(filename))})`);
+                await face.load();
+                document.fonts.add(face);
+            } catch (error) {
+                console.warn(`Font konnte nicht geladen werden: ${family}`, error);
+            }
+        }
+        try {
+            await document.fonts.ready;
+        } catch {
+            // ignore
+        }
+    }
+
+    const FONT_REGULAR = "GroundliftRegular, Arial, sans-serif";
+    const FONT_BOLD = "GroundliftBold, Arial Black, Arial, sans-serif";
+    const FONT_CONDENSED = "GroundliftCondensed, Arial Narrow, Arial, sans-serif";
 
     async function rpc(model, method, args = [], kwargs = {}) {
         const response = await fetch("/web/dataset/call_kw", {
@@ -246,17 +280,62 @@
         return state.data.templates.find((t) => t.key === state.selectedTemplateKey) || state.data.templates[0];
     }
 
+    function defaultImageTransform() {
+        return { offsetX: 0, offsetY: 0, scale: 1, rotation: 0 };
+    }
+
+    function ensureGlobalImageTransform() {
+        state.editorState.globalImage = state.editorState.globalImage || defaultImageTransform();
+        for (const key of ["offsetX", "offsetY", "scale", "rotation"]) {
+            if (typeof state.editorState.globalImage[key] !== "number") {
+                state.editorState.globalImage[key] = defaultImageTransform()[key];
+            }
+        }
+        return state.editorState.globalImage;
+    }
+
     function ensureVariant(templateKey) {
         state.editorState.variants = state.editorState.variants || {};
         if (!state.editorState.variants[templateKey]) {
             state.editorState.variants[templateKey] = {
-                image: { offsetX: 0, offsetY: 0, scale: 1, rotation: 0 },
+                image: { ...defaultImageTransform() },
+                imageCustom: false,
                 qr: { dx: 0, dy: 0, scale: 1 },
                 externalLogo: { dx: 0, dy: 0, scale: 1 },
                 sticker: { dx: 0, dy: 0, scale: 1 },
             };
         }
+        state.editorState.variants[templateKey].image = state.editorState.variants[templateKey].image || { ...defaultImageTransform() };
+        state.editorState.variants[templateKey].qr = state.editorState.variants[templateKey].qr || { dx: 0, dy: 0, scale: 1 };
+        state.editorState.variants[templateKey].externalLogo = state.editorState.variants[templateKey].externalLogo || { dx: 0, dy: 0, scale: 1 };
+        state.editorState.variants[templateKey].sticker = state.editorState.variants[templateKey].sticker || { dx: 0, dy: 0, scale: 1 };
         return state.editorState.variants[templateKey];
+    }
+
+    function getImageTransform(templateKey) {
+        const variant = ensureVariant(templateKey);
+        if (variant.imageCustom) return variant.image;
+        return ensureGlobalImageTransform();
+    }
+
+    function setImageTransform(templateKey, transform, forceLocal = false) {
+        const variant = ensureVariant(templateKey);
+        const clean = {
+            offsetX: Number(transform.offsetX || 0),
+            offsetY: Number(transform.offsetY || 0),
+            scale: clamp(Number(transform.scale || 1), 0.2, 5),
+            rotation: Number(transform.rotation || 0),
+        };
+        if (state.imageEditMode === "local" || forceLocal) {
+            variant.imageCustom = true;
+            variant.image = clean;
+        } else {
+            state.editorState.globalImage = clean;
+            for (const tmpl of state.data?.templates || []) {
+                const v = ensureVariant(tmpl.key);
+                if (!v.imageCustom) v.image = { ...clean };
+            }
+        }
     }
 
     async function ensureTemplateAssets(template) {
@@ -321,7 +400,15 @@
                         <div class="gl-section">
                             <button class="gl-btn gl-btn-secondary w-100 mb-2" id="uploadBtn">Bild hochladen / ersetzen</button>
                             <input type="file" accept="image/*" id="sourceFile" class="gl-hidden"/>
-                            <div class="gl-small">Im Bild ziehen = verschieben, Mausrad = sanft zoomen. Zahlenwerte gelten je Format.</div>
+                            <div class="gl-small">Im Bild ziehen = verschieben, Mausrad = sanft zoomen. Seiten-Anfasser = Crop/Position, Eck-Anfasser = Drehen.</div>
+                        </div>
+                        <div class="gl-section">
+                            <label class="gl-label gl-label-strong">Bildposition übernehmen</label>
+                            <select class="gl-input" id="imageModeSelect">
+                                <option value="global">Global für alle Formate</option>
+                                <option value="local">Nur aktuelles Format nachbearbeiten</option>
+                            </select>
+                            <div class="gl-small">Standard: zuerst global positionieren. Danach pro Ausspielformat auf „Nur aktuelles Format“ stellen und feinjustieren.</div>
                         </div>
                         <div class="gl-section">
                             ${input("date_text", "Datum")}
@@ -395,6 +482,18 @@
             syncVariantInputs();
             await renderCanvas();
         };
+        document.getElementById("imageModeSelect").value = state.imageEditMode;
+        document.getElementById("imageModeSelect").onchange = (ev) => {
+            state.imageEditMode = ev.target.value;
+            if (state.imageEditMode === "local") {
+                const variant = ensureVariant(state.selectedTemplateKey);
+                if (!variant.imageCustom) {
+                    variant.image = { ...getImageTransform(state.selectedTemplateKey) };
+                    variant.imageCustom = true;
+                }
+            }
+            syncVariantInputs();
+        };
         root.querySelectorAll(".gl-field").forEach((node) => {
             node.addEventListener("input", async (ev) => {
                 state.fields[ev.target.dataset.field] = ev.target.value;
@@ -408,7 +507,13 @@
             node.addEventListener("input", async (ev) => {
                 const variant = ensureVariant(state.selectedTemplateKey);
                 const [group, field] = ev.target.dataset.path.split(".");
-                variant[group][field] = parseFloat(ev.target.value || 0);
+                if (group === "image") {
+                    const transform = { ...getImageTransform(state.selectedTemplateKey) };
+                    transform[field] = parseFloat(ev.target.value || 0);
+                    setImageTransform(state.selectedTemplateKey, transform);
+                } else {
+                    variant[group][field] = parseFloat(ev.target.value || 0);
+                }
                 await renderCanvas();
             });
         });
@@ -419,8 +524,9 @@
         const canvas = document.getElementById("posterCanvas");
         canvas.addEventListener("wheel", async (ev) => {
             ev.preventDefault();
-            const variant = ensureVariant(state.selectedTemplateKey);
-            variant.image.scale = clamp((variant.image.scale || 1) * (ev.deltaY < 0 ? 1.03 : 0.97), 0.2, 5);
+            const transform = { ...getImageTransform(state.selectedTemplateKey) };
+            transform.scale = clamp((transform.scale || 1) * (ev.deltaY < 0 ? 1.03 : 0.97), 0.2, 5);
+            setImageTransform(state.selectedTemplateKey, transform);
             syncVariantInputs();
             await renderCanvas();
         }, { passive: false });
@@ -429,10 +535,13 @@
 
     function syncVariantInputs() {
         const variant = ensureVariant(state.selectedTemplateKey);
+        const imageTransform = getImageTransform(state.selectedTemplateKey);
         root.querySelectorAll(".gl-number").forEach((node) => {
             const [group, field] = node.dataset.path.split(".");
-            node.value = variant[group]?.[field] ?? 0;
+            node.value = group === "image" ? (imageTransform[field] ?? 0) : (variant[group]?.[field] ?? 0);
         });
+        const modeSelect = document.getElementById("imageModeSelect");
+        if (modeSelect) modeSelect.value = state.imageEditMode;
     }
 
     function fileToBase64(file) {
@@ -471,7 +580,7 @@
         const template = info.template;
         ctx.clearRect(0, 0, template.canvas_width, template.canvas_height);
         drawGradient(ctx, template);
-        await drawSourceImage(ctx, info, variant);
+        await drawSourceImage(ctx, info, getImageTransform(template.key));
 
         const qrImg = state.qrImageBase64 ? await loadImage(dataUrlFromBase64(state.qrImageBase64, "image/png")) : null;
         for (const overlay of info.staticOverlays) {
@@ -499,19 +608,11 @@
         drawTitleOnly(ctx, box.title, regions.title || []);
         drawSubtitleOnly(ctx, box.subtitle, regions.subtitle || []);
         drawParagraphBox(ctx, state.fields.summary_text, box.summary);
-        drawSingleLine(ctx, state.fields.photo_credit, box.photo_credit, "400 28px Arial, sans-serif", "center");
-        drawSingleLine(ctx, state.fields.ticket_link_text, box.ticket_link, "600 28px Arial Narrow, Arial, sans-serif", "center");
+        drawSingleLine(ctx, state.fields.photo_credit, box.photo_credit, "400 28px GroundliftRegular, Arial, sans-serif", "center");
+        drawSingleLine(ctx, state.fields.ticket_link_text, box.ticket_link, "600 28px GroundliftCondensed, Arial Narrow, Arial, sans-serif", "center");
         if (qrImg && box.qr) drawImageBox(ctx, qrImg, applyBoxVariant(box.qr, variant.qr));
 
-        if (showGuides && info.geometries.image_mask?.corners) {
-            ctx.save();
-            ctx.strokeStyle = "rgba(255,255,255,.85)";
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            drawPolygonPath(ctx, info.geometries.image_mask.corners);
-            ctx.stroke();
-            ctx.restore();
-        }
+        if (showGuides) drawImageHandles(ctx, info.geometries.image_mask || { bbox: info.bboxes.image_mask });
     }
 
     function drawGradient(ctx, template) {
@@ -553,8 +654,8 @@
         const layout = resolveDateTitleLayout(bbox, regions);
         if (layout) {
             if (layout.divider) drawDivider(ctx, layout.divider);
-            if (layout.left) drawFitText(ctx, [date], insetBox(layout.left, 3), "900 64px Arial Black, Arial, sans-serif", "center");
-            if (layout.right) drawFitText(ctx, [title], insetBox(layout.right, 3), "900 64px Arial Black, Arial, sans-serif", "left");
+            if (layout.left) drawFitText(ctx, [date], insetBox(layout.left, 3), "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "center");
+            if (layout.right) drawFitText(ctx, [title], insetBox(layout.right, 3), "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "left");
             return;
         }
         drawSplit(ctx, bbox, [date], [title], { leftRatio: 0.42, boldRight: true });
@@ -565,9 +666,9 @@
         const lines = String(state.fields.event_subtitle || "").split(/\n+/).filter(Boolean);
         const layout = resolveTimeSubtitleLayout(bbox, regions);
         if (layout) {
-            if (layout.leftTop) drawFitText(ctx, [state.fields.time_text], insetBox(layout.leftTop, 2), "900 46px Arial Black, Arial, sans-serif", "center");
-            if (layout.leftBottom) drawFitText(ctx, [state.fields.event_type_text], insetBox(layout.leftBottom, 2), "400 34px Arial, sans-serif", "center");
-            if (layout.right) drawFitText(ctx, lines, insetBox(layout.right, 2), "500 46px Arial, sans-serif", "left");
+            if (layout.leftTop) drawFitText(ctx, [state.fields.time_text], insetBox(layout.leftTop, 2), "900 46px GroundliftBold, Arial Black, Arial, sans-serif", "center");
+            if (layout.leftBottom) drawFitText(ctx, [state.fields.event_type_text], insetBox(layout.leftBottom, 2), "400 34px GroundliftRegular, Arial, sans-serif", "center");
+            if (layout.right) drawFitText(ctx, lines, insetBox(layout.right, 2), "500 46px GroundliftRegular, Arial, sans-serif", "left");
             return;
         }
         drawSplit(ctx, bbox, [state.fields.time_text], lines, { leftRatio: 0.38, leftBottom: state.fields.event_type_text, boldRight: false });
@@ -577,7 +678,7 @@
         if (!bbox) return;
         const lines = String(state.fields.ticket_link_text || "").split(/\n+/).filter(Boolean);
         const target = regions.length ? insetBox(unionBoxes(regions), 2) : bbox;
-        drawFitText(ctx, lines, target, "600 30px Arial Narrow, Arial, sans-serif", "center");
+        drawFitText(ctx, lines, target, "600 30px GroundliftCondensed, Arial Narrow, Arial, sans-serif", "center");
     }
 
     function drawSplit(ctx, bbox, leftTopLines, rightLines, options = {}) {
@@ -587,11 +688,11 @@
         const leftBox = { x: bbox.x, y: bbox.y, width: Math.max(1, bbox.width * leftRatio - dividerGap), height: bbox.height };
         const rightBox = { x: dividerX + dividerGap, y: bbox.y, width: Math.max(1, bbox.x + bbox.width - dividerX - dividerGap), height: bbox.height };
         drawDivider(ctx, { x: dividerX - 2, y: bbox.y + 4, width: 4, height: Math.max(1, bbox.height - 8) });
-        drawFitText(ctx, leftTopLines, { ...leftBox, height: options.leftBottom ? leftBox.height * 0.68 : leftBox.height }, "900 64px Arial Black, Arial, sans-serif", "center");
+        drawFitText(ctx, leftTopLines, { ...leftBox, height: options.leftBottom ? leftBox.height * 0.68 : leftBox.height }, "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "center");
         if (options.leftBottom) {
-            drawFitText(ctx, [options.leftBottom], { x: leftBox.x, y: leftBox.y + leftBox.height * 0.66, width: leftBox.width, height: leftBox.height * 0.34 }, "400 34px Arial, sans-serif", "center");
+            drawFitText(ctx, [options.leftBottom], { x: leftBox.x, y: leftBox.y + leftBox.height * 0.66, width: leftBox.width, height: leftBox.height * 0.34 }, "400 34px GroundliftRegular, Arial, sans-serif", "center");
         }
-        drawFitText(ctx, rightLines, rightBox, `${options.boldRight === false ? 500 : 900} 52px Arial Black, Arial, sans-serif`, "left");
+        drawFitText(ctx, rightLines, rightBox, `${options.boldRight === false ? 500 : 900} 52px GroundliftBold, Arial Black, Arial, sans-serif`, "left");
     }
 
     function drawTitleOnly(ctx, bbox, regions = []) {
@@ -600,17 +701,17 @@
             const layout = resolveDateTitleLayout(bbox, regions);
             if (layout?.divider) drawDivider(ctx, layout.divider);
             const target = layout?.right || unionBoxes(regions);
-            drawFitText(ctx, [state.fields.event_title], insetBox(target, 2), "900 64px Arial Black, Arial, sans-serif", layout?.right ? "left" : "center");
+            drawFitText(ctx, [state.fields.event_title], insetBox(target, 2), "900 64px GroundliftBold, Arial Black, Arial, sans-serif", layout?.right ? "left" : "center");
             return;
         }
-        drawFitText(ctx, [state.fields.event_title], bbox, "900 64px Arial Black, Arial, sans-serif", "center");
+        drawFitText(ctx, [state.fields.event_title], bbox, "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "center");
     }
 
     function drawSubtitleOnly(ctx, bbox, regions = []) {
         if (!bbox) return;
         const lines = String(state.fields.event_subtitle || "").split(/\n+/).filter(Boolean);
         const target = regions.length ? insetBox(unionBoxes(regions), 2) : bbox;
-        drawFitText(ctx, lines, target, "500 46px Arial, sans-serif", "left");
+        drawFitText(ctx, lines, target, "500 46px GroundliftRegular, Arial, sans-serif", "left");
     }
 
     function resolveDateTitleLayout(bbox, regions) {
@@ -652,12 +753,65 @@
 
     function drawParagraphBox(ctx, text, bbox) {
         if (!bbox || !text) return;
-        drawParagraph(ctx, String(text), bbox, "400 34px Arial, sans-serif");
+        drawParagraph(ctx, String(text), bbox, "400 34px GroundliftRegular, Arial, sans-serif");
     }
 
     function drawSingleLine(ctx, text, bbox, font, align = "left") {
         if (!bbox || !text) return;
         drawFitText(ctx, [String(text).toUpperCase()], bbox, font, align);
+    }
+
+    function drawFitText(ctx, lines, bbox, font, align = "left") {
+        const clean = (lines || []).filter(Boolean).map((l) => String(l).toUpperCase());
+        if (!clean.length || !bbox || bbox.width <= 0 || bbox.height <= 0) return;
+        let size = parseInt((font.match(/(\d+)px/) || ["", "40"])[1], 10);
+        const fontTemplate = font;
+        while (size > 8) {
+            ctx.font = fontTemplate.replace(/\d+px/, `${size}px`);
+            const maxWidth = Math.max(...clean.map((line) => ctx.measureText(line).width));
+            const totalHeight = clean.length * size * 1.08;
+            if (maxWidth <= bbox.width && totalHeight <= bbox.height) break;
+            size -= 2;
+        }
+        ctx.save();
+        ctx.font = fontTemplate.replace(/\d+px/, `${size}px`);
+        ctx.fillStyle = "#fff";
+        ctx.textAlign = align;
+        ctx.textBaseline = "middle";
+        const lineHeight = size * 1.08;
+        let y = bbox.y + (bbox.height - clean.length * lineHeight) / 2 + lineHeight / 2;
+        for (const line of clean) {
+            const x = align === "center" ? bbox.x + bbox.width / 2 : align === "right" ? bbox.x + bbox.width : bbox.x;
+            ctx.fillText(line, x, y);
+            y += lineHeight;
+        }
+        ctx.restore();
+    }
+
+    function drawParagraph(ctx, text, bbox, font) {
+        if (!text || !bbox) return;
+        const words = String(text).split(/\s+/).filter(Boolean);
+        if (!words.length) return;
+        let size = parseInt((font.match(/(\d+)px/) || ["", "32"])[1], 10);
+        const fontTemplate = font;
+        let lines = [];
+        while (size > 9) {
+            ctx.font = fontTemplate.replace(/\d+px/, `${size}px`);
+            lines = [];
+            let current = "";
+            for (const word of words) {
+                const probe = current ? `${current} ${word}` : word;
+                if (ctx.measureText(probe).width <= bbox.width) current = probe;
+                else {
+                    if (current) lines.push(current);
+                    current = word;
+                }
+            }
+            if (current) lines.push(current);
+            if (lines.length * size * 1.25 <= bbox.height) break;
+            size -= 2;
+        }
+        drawFitText(ctx, lines, bbox, fontTemplate.replace(/\d+px/, `${size}px`), "left");
     }
 
     function drawImageBox(ctx, image, box) {
@@ -674,27 +828,114 @@
         };
     }
 
+    function imageHandlePoints(geometry) {
+        const box = geometry?.bbox;
+        if (!box) return [];
+        const corners = geometry?.corners?.length === 4 ? geometry.corners : [
+            { x: box.x, y: box.y },
+            { x: box.x + box.width, y: box.y },
+            { x: box.x + box.width, y: box.y + box.height },
+            { x: box.x, y: box.y + box.height },
+        ];
+        const midpoint = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+        return [
+            { type: "rotate", name: "tl", ...corners[0] },
+            { type: "edge", name: "top", ...midpoint(corners[0], corners[1]) },
+            { type: "rotate", name: "tr", ...corners[1] },
+            { type: "edge", name: "right", ...midpoint(corners[1], corners[2]) },
+            { type: "rotate", name: "br", ...corners[2] },
+            { type: "edge", name: "bottom", ...midpoint(corners[2], corners[3]) },
+            { type: "rotate", name: "bl", ...corners[3] },
+            { type: "edge", name: "left", ...midpoint(corners[3], corners[0]) },
+        ];
+    }
+
+    function drawImageHandles(ctx, geometry) {
+        const box = geometry?.bbox;
+        if (!box) return;
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,255,255,.9)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        if (geometry?.corners?.length === 4) drawPolygonPath(ctx, geometry.corners);
+        else ctx.rect(box.x, box.y, box.width, box.height);
+        ctx.stroke();
+
+        for (const handle of imageHandlePoints(geometry)) {
+            ctx.beginPath();
+            ctx.fillStyle = handle.type === "rotate" ? "#714b67" : "#ffffff";
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 2;
+            ctx.arc(handle.x, handle.y, handle.type === "rotate" ? 9 : 7, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    function hitImageHandle(x, y, geometry, canvas) {
+        const radius = Math.max(11, canvas.width / 180);
+        for (const handle of imageHandlePoints(geometry)) {
+            const dx = x - handle.x;
+            const dy = y - handle.y;
+            if (Math.sqrt(dx * dx + dy * dy) <= radius) return handle;
+        }
+        return null;
+    }
+
     function onPointerDown(ev) {
         const canvas = document.getElementById("posterCanvas");
         const template = currentTemplate();
         const info = state.templateCache.get(template.key);
-        const geometry = info?.geometries?.image_mask;
-        const bbox = geometry?.bbox || info?.bboxes?.image_mask;
+        const geometry = info?.geometries?.image_mask || { bbox: info?.bboxes?.image_mask };
+        const bbox = geometry?.bbox;
         if (!bbox) return;
         const rect = canvas.getBoundingClientRect();
-        const x = ((ev.clientX - rect.left) / rect.width) * canvas.width;
-        const y = ((ev.clientY - rect.top) / rect.height) * canvas.height;
-        const inside = geometry?.corners?.length === 4 ? pointInPolygon(x, y, geometry.corners) : (x >= bbox.x && x <= bbox.x + bbox.width && y >= bbox.y && y <= bbox.y + bbox.height);
+        const toCanvas = (event) => ({
+            x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+            y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+        });
+        const startPoint = toCanvas(ev);
+        const handle = hitImageHandle(startPoint.x, startPoint.y, geometry, canvas);
+        const inside = handle ? true : (geometry?.corners?.length === 4
+            ? pointInPolygon(startPoint.x, startPoint.y, geometry.corners)
+            : (startPoint.x >= bbox.x && startPoint.x <= bbox.x + bbox.width && startPoint.y >= bbox.y && startPoint.y <= bbox.y + bbox.height));
         if (!inside) return;
         ev.preventDefault();
-        const variant = ensureVariant(state.selectedTemplateKey);
-        const start = { x: ev.clientX, y: ev.clientY, ox: variant.image.offsetX || 0, oy: variant.image.offsetY || 0 };
+
+        const center = { x: bbox.x + bbox.width / 2, y: bbox.y + bbox.height / 2 };
+        const initial = { ...getImageTransform(state.selectedTemplateKey) };
+        const startAngle = Math.atan2(startPoint.y - center.y, startPoint.x - center.x);
+
         const move = async (moveEv) => {
-            variant.image.offsetX = start.ox + (moveEv.clientX - start.x) * (canvas.width / rect.width);
-            variant.image.offsetY = start.oy + (moveEv.clientY - start.y) * (canvas.height / rect.height);
+            const point = toCanvas(moveEv);
+            const dx = point.x - startPoint.x;
+            const dy = point.y - startPoint.y;
+            const next = { ...initial };
+
+            if (handle?.type === "rotate") {
+                const angle = Math.atan2(point.y - center.y, point.x - center.x);
+                next.rotation = initial.rotation + (angle - startAngle) * 180 / Math.PI;
+            } else if (handle?.type === "edge") {
+                const direction = {
+                    left: -dx,
+                    right: dx,
+                    top: -dy,
+                    bottom: dy,
+                }[handle.name] || 0;
+                next.scale = clamp(initial.scale * (1 + direction / 650), 0.2, 5);
+                if (handle.name === "left" || handle.name === "right") next.offsetX = initial.offsetX + dx * 0.45;
+                if (handle.name === "top" || handle.name === "bottom") next.offsetY = initial.offsetY + dy * 0.45;
+            } else {
+                next.offsetX = initial.offsetX + dx;
+                next.offsetY = initial.offsetY + dy;
+            }
+
+            setImageTransform(state.selectedTemplateKey, next);
             syncVariantInputs();
             await renderCanvas();
         };
+
         const up = () => {
             window.removeEventListener("pointermove", move);
             window.removeEventListener("pointerup", up);
@@ -760,6 +1001,7 @@
             if (!posterId) throw new Error("Keine Grafik-ID übergeben.");
             const data = await rpc("gl.graphics.poster", "get_editor_data", [[posterId]]);
             state.data = data;
+            await registerEditorFonts(data.template || {});
             const p = data.poster;
             state.sourceImageBase64 = p.source_image;
             state.sourceImageFilename = p.source_image_filename;
@@ -768,6 +1010,10 @@
             state.qrImageBase64 = data.qr_image || "";
             state.editorState = p.editor_state || {};
             state.selectedTemplateKey = state.editorState.selectedTemplateKey || (data.templates[0] && data.templates[0].key) || "";
+            if (!state.editorState.globalImage) {
+                const firstVariant = state.editorState.variants && state.editorState.variants[state.selectedTemplateKey];
+                state.editorState.globalImage = firstVariant?.image || defaultImageTransform();
+            }
             state.fields = {
                 claim: p.claim || "",
                 event_title: p.event_title || "",

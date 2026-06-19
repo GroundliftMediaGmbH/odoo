@@ -1,5 +1,6 @@
 import base64
 import io
+import html as html_tools
 import re
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
@@ -27,6 +28,7 @@ TEMPLATE_ORDER = [
     "sudhaus_main",
 ]
 SHORT_DESCRIPTION_FIELD_CANDIDATES = [
+    "x_studio_event_kurzbeschreibung",
     "website_short_description",
     "short_description",
     "description_short",
@@ -382,11 +384,24 @@ class GraphicsPoster(models.Model):
         return ""
 
     @api.model
+    def _clean_summary_text(self, value):
+        value = self._field_value_to_text(value)
+        if not value:
+            return ""
+        value = re.sub(r"<br\s*/?>", "\n", value, flags=re.I)
+        value = re.sub(r"</p\s*>", "\n", value, flags=re.I)
+        value = re.sub(r"<[^>]+>", " ", value)
+        value = html_tools.unescape(value)
+        value = re.sub(r"[ \t\r\f\v]+", " ", value)
+        value = re.sub(r"\n\s*\n+", "\n\n", value)
+        return value.strip()
+
+    @api.model
     def _get_event_short_description(self, event):
         event.ensure_one()
         for field_name in SHORT_DESCRIPTION_FIELD_CANDIDATES:
             if field_name in event._fields:
-                value = self._field_value_to_text(event[field_name])
+                value = self._clean_summary_text(event[field_name])
                 if value:
                     return value
         fields_meta = event.fields_get()
@@ -394,7 +409,7 @@ class GraphicsPoster(models.Model):
         for field_name, meta in fields_meta.items():
             label = (meta.get("string") or "").strip().lower()
             if label in preferred_labels and field_name in event._fields:
-                value = self._field_value_to_text(event[field_name])
+                value = self._clean_summary_text(event[field_name])
                 if value:
                     return value
         return ""
