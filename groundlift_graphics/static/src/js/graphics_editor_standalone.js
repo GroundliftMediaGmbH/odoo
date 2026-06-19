@@ -125,6 +125,123 @@
         return inside;
     }
 
+    function unionBoxes(boxes) {
+        const valid = (boxes || []).filter(Boolean);
+        if (!valid.length) return null;
+        const minX = Math.min(...valid.map((b) => b.x));
+        const minY = Math.min(...valid.map((b) => b.y));
+        const maxX = Math.max(...valid.map((b) => b.x + b.width));
+        const maxY = Math.max(...valid.map((b) => b.y + b.height));
+        return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+    }
+
+    function insetBox(box, xInset = 0, yInset = xInset) {
+        if (!box) return null;
+        return {
+            x: box.x + xInset,
+            y: box.y + yInset,
+            width: Math.max(1, box.width - xInset * 2),
+            height: Math.max(1, box.height - yInset * 2),
+        };
+    }
+
+    function boxCenter(box) {
+        return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    }
+
+    function groupedAlphaRegions(image) {
+        if (!image) return [];
+        const base = Math.max(image.width, image.height);
+        const downsample = Math.max(1, Math.round(base / 900));
+        const width = Math.max(1, Math.round(image.width / downsample));
+        const height = Math.max(1, Math.round(image.height / downsample));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(image, 0, 0, width, height);
+        const { data } = ctx.getImageData(0, 0, width, height);
+        const occupied = new Uint8Array(width * height);
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (data[(y * width + x) * 4 + 3] > 8) occupied[y * width + x] = 1;
+            }
+        }
+
+        const dilate = 2;
+        const expanded = new Uint8Array(width * height);
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (!occupied[y * width + x]) continue;
+                for (let dy = -dilate; dy <= dilate; dy++) {
+                    for (let dx = -dilate; dx <= dilate; dx++) {
+                        const nx = x + dx;
+                        const ny = y + dy;
+                        if (nx >= 0 && ny >= 0 && nx < width && ny < height) expanded[ny * width + nx] = 1;
+                    }
+                }
+            }
+        }
+
+        const visited = new Uint8Array(width * height);
+        const boxes = [];
+        const minArea = Math.max(4, Math.round(width * height * 0.000035));
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const startIdx = y * width + x;
+                if (!expanded[startIdx] || visited[startIdx]) continue;
+                const qx = [x], qy = [y];
+                visited[startIdx] = 1;
+                let head = 0, area = 0, minX = x, minY = y, maxX = x, maxY = y;
+                while (head < qx.length) {
+                    const cx = qx[head], cy = qy[head];
+                    head += 1;
+                    area += 1;
+                    minX = Math.min(minX, cx); minY = Math.min(minY, cy);
+                    maxX = Math.max(maxX, cx); maxY = Math.max(maxY, cy);
+                    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+                        const nx = cx + dx, ny = cy + dy;
+                        if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+                        const idx = ny * width + nx;
+                        if (!expanded[idx] || visited[idx]) continue;
+                        visited[idx] = 1;
+                        qx.push(nx); qy.push(ny);
+                    }
+                }
+                if (area >= minArea) {
+                    boxes.push({
+                        x: minX * downsample,
+                        y: minY * downsample,
+                        width: (maxX - minX + 1) * downsample,
+                        height: (maxY - minY + 1) * downsample,
+                    });
+                }
+            }
+        }
+        return boxes
+            .filter((b) => b.width > 2 && b.height > 2)
+            .sort((a, b) => a.y - b.y || a.x - b.x);
+    }
+
+    function drawCroppedLayer(ctx, image, sourceBox, targetBox) {
+        if (!ctx || !image || !sourceBox || !targetBox) return;
+        ctx.drawImage(
+            image,
+            sourceBox.x, sourceBox.y, sourceBox.width, sourceBox.height,
+            targetBox.x, targetBox.y, targetBox.width, targetBox.height
+        );
+    }
+
+    function drawLayerPreserveAspect(ctx, image, sourceBox, targetBox) {
+        if (!ctx || !image || !sourceBox || !targetBox) return;
+        const scale = Math.min(targetBox.width / sourceBox.width, targetBox.height / sourceBox.height);
+        const width = sourceBox.width * scale;
+        const height = sourceBox.height * scale;
+        const x = targetBox.x + (targetBox.width - width) / 2;
+        const y = targetBox.y + (targetBox.height - height) / 2;
+        ctx.drawImage(image, sourceBox.x, sourceBox.y, sourceBox.width, sourceBox.height, x, y, width, height);
+    }
+
     function currentTemplate() {
         return state.data.templates.find((t) => t.key === state.selectedTemplateKey) || state.data.templates[0];
     }
@@ -148,6 +265,7 @@
         const imagesByRole = {};
         const bboxes = {};
         const geometries = {};
+        const regions = {};
         const staticOverlays = [];
         for (const asset of template.assets || []) {
             try {
@@ -158,11 +276,14 @@
                 const geometry = alphaGeometry(image);
                 geometries[asset.role] = geometry;
                 bboxes[asset.role] = geometry ? geometry.bbox : null;
+                if (["date_title", "time_subtitle", "time_ticketlink", "title", "subtitle"].includes(asset.role)) {
+                    regions[asset.role] = groupedAlphaRegions(image);
+                }
             } catch (error) {
                 console.warn("Template asset konnte nicht geladen werden", asset, error);
             }
         }
-        const info = { template, imagesByRole, bboxes, geometries, staticOverlays };
+        const info = { template, imagesByRole, bboxes, geometries, regions, staticOverlays };
         state.templateCache.set(template.key, info);
         return info;
     }
@@ -180,25 +301,25 @@
     function buildApp() {
         const p = state.data.poster;
         root.innerHTML = `
-            <div class="gl-editor">
+            <div class="gl-editor o_form_view">
                 <div class="gl-toolbar">
-                    <button class="btn btn-light btn-sm" id="backBtn"><i class="fa fa-arrow-left"></i> Zurück</button>
+                    <button class="gl-btn gl-btn-light" id="backBtn"><i class="fa fa-arrow-left"></i> Zurück</button>
                     <strong class="text-truncate">${escapeHtml(p.event_name || "Grafikeditor")}</strong>
                     <span class="flex-grow-1"></span>
-                    <button class="btn btn-outline-primary btn-sm" id="saveBtn"><i class="fa fa-save"></i> Speichern</button>
-                    <button class="btn btn-outline-secondary btn-sm" id="downloadBtn"><i class="fa fa-download"></i> Aktuelles JPG</button>
-                    <button class="btn btn-primary btn-sm" id="zipBtn"><i class="fa fa-file-archive-o"></i> Alle als ZIP</button>
+                    <button class="gl-btn gl-btn-secondary" id="saveBtn"><i class="fa fa-save"></i> Speichern</button>
+                    <button class="gl-btn gl-btn-secondary" id="downloadBtn"><i class="fa fa-download"></i> Aktuelles JPG</button>
+                    <button class="gl-btn gl-btn-primary" id="zipBtn"><i class="fa fa-file-archive-o"></i> Alle als ZIP</button>
                 </div>
                 <div class="gl-workspace">
                     <aside class="gl-sidebar">
                         <div class="gl-section">
-                            <label class="form-label fw-bold">Ausspielformat</label>
-                            <select class="form-select form-select-sm" id="templateSelect">
+                            <label class="gl-label gl-label-strong">Ausspielformat</label>
+                            <select class="gl-input" id="templateSelect">
                                 ${state.data.templates.map((t) => `<option value="${escapeHtml(t.key)}">${escapeHtml(t.name)}</option>`).join("")}
                             </select>
                         </div>
                         <div class="gl-section">
-                            <button class="btn btn-outline-primary btn-sm w-100 mb-2" id="uploadBtn">Bild hochladen / ersetzen</button>
+                            <button class="gl-btn gl-btn-secondary w-100 mb-2" id="uploadBtn">Bild hochladen / ersetzen</button>
                             <input type="file" accept="image/*" id="sourceFile" class="gl-hidden"/>
                             <div class="gl-small">Im Bild ziehen = verschieben, Mausrad = sanft zoomen. Zahlenwerte gelten je Format.</div>
                         </div>
@@ -214,15 +335,15 @@
                             ${input("qr_url", "QR-Code-Ziel")}
                         </div>
                         <div class="gl-section">
-                            <label class="form-label fw-bold">Verlauf</label>
+                            <label class="gl-label gl-label-strong">Verlauf</label>
                             <div class="d-flex gap-2">
-                                <input type="color" class="form-control form-control-color flex-fill gl-field" data-field="color_1" value="${escapeHtml(state.fields.color_1)}"/>
-                                <input type="color" class="form-control form-control-color flex-fill gl-field" data-field="color_2" value="${escapeHtml(state.fields.color_2)}"/>
+                                <input type="color" class="gl-color gl-field" data-field="color_1" value="${escapeHtml(state.fields.color_1)}"/>
+                                <input type="color" class="gl-color gl-field" data-field="color_2" value="${escapeHtml(state.fields.color_2)}"/>
                             </div>
                         </div>
                         <div class="gl-section">
-                            <label class="form-label fw-bold">Aktuelles Format justieren</label>
-                            <div class="row g-2">
+                            <label class="gl-label gl-label-strong">Aktuelles Format justieren</label>
+                            <div class="gl-grid-2">
                                 ${numberInput("image.offsetX", "Bild X")}
                                 ${numberInput("image.offsetY", "Bild Y")}
                                 ${numberInput("image.scale", "Zoom", "0.05")}
@@ -244,15 +365,15 @@
     }
 
     function input(field, label) {
-        return `<div class="mb-2"><label class="form-label">${label}</label><input class="form-control form-control-sm gl-field" data-field="${field}" value="${escapeHtml(state.fields[field] || "")}"/></div>`;
+        return `<div class="mb-2"><label class="gl-label">${label}</label><input class="gl-input gl-field" data-field="${field}" value="${escapeHtml(state.fields[field] || "")}"/></div>`;
     }
 
     function textarea(field, label, rows) {
-        return `<div class="mb-2"><label class="form-label">${label}</label><textarea class="form-control form-control-sm gl-field" rows="${rows}" data-field="${field}">${escapeHtml(state.fields[field] || "")}</textarea></div>`;
+        return `<div class="mb-2"><label class="gl-label">${label}</label><textarea class="gl-input gl-field" rows="${rows}" data-field="${field}">${escapeHtml(state.fields[field] || "")}</textarea></div>`;
     }
 
     function numberInput(path, label, step = "1") {
-        return `<div class="col-6"><label class="form-label">${label}</label><input class="form-control form-control-sm gl-number" type="number" step="${step}" data-path="${path}"/></div>`;
+        return `<div class="gl-col"><label class="gl-label">${label}</label><input class="gl-input gl-number" type="number" step="${step}" data-path="${path}"/></div>`;
     }
 
     function bindEvents() {
@@ -359,15 +480,24 @@
 
         const img = info.imagesByRole;
         const box = info.bboxes;
+        const regions = info.regions || {};
         if (img.frame) ctx.drawImage(img.frame, 0, 0, template.canvas_width, template.canvas_height);
-        if (img.sticker && state.fields.sticker_mode !== "hidden" && box.sticker) ctx.drawImage(img.sticker, box.sticker.x, box.sticker.y, box.sticker.width, box.sticker.height);
-        if (img.logo) ctx.drawImage(img.logo, 0, 0, template.canvas_width, template.canvas_height);
+        if (img.sticker && state.fields.sticker_mode !== "hidden" && box.sticker) {
+            drawCroppedLayer(ctx, img.sticker, box.sticker, applyBoxVariant(box.sticker, variant.sticker));
+        }
+        if (img.logo) {
+            if (img.logo.width === template.canvas_width && img.logo.height === template.canvas_height) {
+                ctx.drawImage(img.logo, 0, 0, template.canvas_width, template.canvas_height);
+            } else if (box.logo) {
+                drawLayerPreserveAspect(ctx, img.logo, box.logo, box.logo);
+            }
+        }
 
-        drawDateTitle(ctx, box.date_title || box.title);
-        drawTimeSubtitle(ctx, box.time_subtitle);
-        drawTimeTicketlink(ctx, box.time_ticketlink);
-        drawTitleOnly(ctx, box.title);
-        drawSubtitleOnly(ctx, box.subtitle);
+        drawDateTitle(ctx, box.date_title || box.title, regions.date_title || regions.title || []);
+        drawTimeSubtitle(ctx, box.time_subtitle, regions.time_subtitle || []);
+        drawTimeTicketlink(ctx, box.time_ticketlink, regions.time_ticketlink || []);
+        drawTitleOnly(ctx, box.title, regions.title || []);
+        drawSubtitleOnly(ctx, box.subtitle, regions.subtitle || []);
         drawParagraphBox(ctx, state.fields.summary_text, box.summary);
         drawSingleLine(ctx, state.fields.photo_credit, box.photo_credit, "400 28px Arial, sans-serif", "center");
         drawSingleLine(ctx, state.fields.ticket_link_text, box.ticket_link, "600 28px Arial Narrow, Arial, sans-serif", "center");
@@ -416,21 +546,38 @@
         ctx.restore();
     }
 
-    function drawDateTitle(ctx, bbox) {
+    function drawDateTitle(ctx, bbox, regions = []) {
         if (!bbox) return;
-        drawSplit(ctx, bbox, [state.fields.date_text], [state.fields.event_title], { leftRatio: 0.42, boldRight: true });
+        const title = state.fields.event_title || "";
+        const date = state.fields.date_text || "";
+        const layout = resolveDateTitleLayout(bbox, regions);
+        if (layout) {
+            if (layout.divider) drawDivider(ctx, layout.divider);
+            if (layout.left) drawFitText(ctx, [date], insetBox(layout.left, 3), "900 64px Arial Black, Arial, sans-serif", "center");
+            if (layout.right) drawFitText(ctx, [title], insetBox(layout.right, 3), "900 64px Arial Black, Arial, sans-serif", "left");
+            return;
+        }
+        drawSplit(ctx, bbox, [date], [title], { leftRatio: 0.42, boldRight: true });
     }
 
-    function drawTimeSubtitle(ctx, bbox) {
+    function drawTimeSubtitle(ctx, bbox, regions = []) {
         if (!bbox) return;
         const lines = String(state.fields.event_subtitle || "").split(/\n+/).filter(Boolean);
+        const layout = resolveTimeSubtitleLayout(bbox, regions);
+        if (layout) {
+            if (layout.leftTop) drawFitText(ctx, [state.fields.time_text], insetBox(layout.leftTop, 2), "900 46px Arial Black, Arial, sans-serif", "center");
+            if (layout.leftBottom) drawFitText(ctx, [state.fields.event_type_text], insetBox(layout.leftBottom, 2), "400 34px Arial, sans-serif", "center");
+            if (layout.right) drawFitText(ctx, lines, insetBox(layout.right, 2), "500 46px Arial, sans-serif", "left");
+            return;
+        }
         drawSplit(ctx, bbox, [state.fields.time_text], lines, { leftRatio: 0.38, leftBottom: state.fields.event_type_text, boldRight: false });
     }
 
-    function drawTimeTicketlink(ctx, bbox) {
+    function drawTimeTicketlink(ctx, bbox, regions = []) {
         if (!bbox) return;
         const lines = String(state.fields.ticket_link_text || "").split(/\n+/).filter(Boolean);
-        drawSplit(ctx, bbox, [state.fields.time_text], lines, { leftRatio: 0.42, leftBottom: state.fields.event_type_text, boldRight: false });
+        const target = regions.length ? insetBox(unionBoxes(regions), 2) : bbox;
+        drawFitText(ctx, lines, target, "600 30px Arial Narrow, Arial, sans-serif", "center");
     }
 
     function drawSplit(ctx, bbox, leftTopLines, rightLines, options = {}) {
@@ -439,14 +586,7 @@
         const dividerX = bbox.x + bbox.width * leftRatio;
         const leftBox = { x: bbox.x, y: bbox.y, width: Math.max(1, bbox.width * leftRatio - dividerGap), height: bbox.height };
         const rightBox = { x: dividerX + dividerGap, y: bbox.y, width: Math.max(1, bbox.x + bbox.width - dividerX - dividerGap), height: bbox.height };
-        ctx.save();
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = Math.max(4, bbox.height * 0.018);
-        ctx.beginPath();
-        ctx.moveTo(dividerX, bbox.y + 4);
-        ctx.lineTo(dividerX, bbox.y + bbox.height - 4);
-        ctx.stroke();
-        ctx.restore();
+        drawDivider(ctx, { x: dividerX - 2, y: bbox.y + 4, width: 4, height: Math.max(1, bbox.height - 8) });
         drawFitText(ctx, leftTopLines, { ...leftBox, height: options.leftBottom ? leftBox.height * 0.68 : leftBox.height }, "900 64px Arial Black, Arial, sans-serif", "center");
         if (options.leftBottom) {
             drawFitText(ctx, [options.leftBottom], { x: leftBox.x, y: leftBox.y + leftBox.height * 0.66, width: leftBox.width, height: leftBox.height * 0.34 }, "400 34px Arial, sans-serif", "center");
@@ -454,15 +594,60 @@
         drawFitText(ctx, rightLines, rightBox, `${options.boldRight === false ? 500 : 900} 52px Arial Black, Arial, sans-serif`, "left");
     }
 
-    function drawTitleOnly(ctx, bbox) {
+    function drawTitleOnly(ctx, bbox, regions = []) {
         if (!bbox) return;
+        if (regions.length && state.fields.event_title) {
+            const layout = resolveDateTitleLayout(bbox, regions);
+            if (layout?.divider) drawDivider(ctx, layout.divider);
+            const target = layout?.right || unionBoxes(regions);
+            drawFitText(ctx, [state.fields.event_title], insetBox(target, 2), "900 64px Arial Black, Arial, sans-serif", layout?.right ? "left" : "center");
+            return;
+        }
         drawFitText(ctx, [state.fields.event_title], bbox, "900 64px Arial Black, Arial, sans-serif", "center");
     }
 
-    function drawSubtitleOnly(ctx, bbox) {
+    function drawSubtitleOnly(ctx, bbox, regions = []) {
         if (!bbox) return;
         const lines = String(state.fields.event_subtitle || "").split(/\n+/).filter(Boolean);
-        drawFitText(ctx, lines, bbox, "500 46px Arial, sans-serif", "left");
+        const target = regions.length ? insetBox(unionBoxes(regions), 2) : bbox;
+        drawFitText(ctx, lines, target, "500 46px Arial, sans-serif", "left");
+    }
+
+    function resolveDateTitleLayout(bbox, regions) {
+        const useful = (regions || []).filter((r) => r.width > 3 && r.height > 3);
+        if (!useful.length) return null;
+        const divider = useful.find((r) => r.width < bbox.width * 0.08 && r.height > bbox.height * 0.35);
+        const splitX = divider ? divider.x + divider.width / 2 : bbox.x + bbox.width * 0.42;
+        const left = unionBoxes(useful.filter((r) => r !== divider && boxCenter(r).x < splitX));
+        const right = unionBoxes(useful.filter((r) => r !== divider && boxCenter(r).x >= splitX));
+        if (!left && !right) return null;
+        return {
+            divider: divider || { x: splitX - 2, y: bbox.y + 4, width: 4, height: Math.max(1, bbox.height - 8) },
+            left: left || { x: bbox.x, y: bbox.y, width: bbox.width * 0.38, height: bbox.height },
+            right: right || { x: splitX + 20, y: bbox.y, width: bbox.x + bbox.width - splitX - 20, height: bbox.height },
+        };
+    }
+
+    function resolveTimeSubtitleLayout(bbox, regions) {
+        const useful = (regions || []).filter((r) => r.width > 3 && r.height > 3);
+        if (!useful.length) return null;
+        const splitX = bbox.x + bbox.width * 0.42;
+        const leftRegions = useful.filter((r) => boxCenter(r).x < splitX).sort((a, b) => a.y - b.y || a.x - b.x);
+        const rightRegions = useful.filter((r) => boxCenter(r).x >= splitX);
+        if (!leftRegions.length && !rightRegions.length) return null;
+        return {
+            leftTop: leftRegions[0] || null,
+            leftBottom: leftRegions.length > 1 ? unionBoxes(leftRegions.slice(1)) : null,
+            right: rightRegions.length ? unionBoxes(rightRegions) : null,
+        };
+    }
+
+    function drawDivider(ctx, bbox) {
+        if (!bbox) return;
+        ctx.save();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(bbox.x, bbox.y, Math.max(2, bbox.width), bbox.height);
+        ctx.restore();
     }
 
     function drawParagraphBox(ctx, text, bbox) {
@@ -473,57 +658,6 @@
     function drawSingleLine(ctx, text, bbox, font, align = "left") {
         if (!bbox || !text) return;
         drawFitText(ctx, [String(text).toUpperCase()], bbox, font, align);
-    }
-
-    function drawFitText(ctx, lines, bbox, font, align = "left") {
-        const clean = (lines || []).filter(Boolean).map((l) => String(l).toUpperCase());
-        if (!clean.length || !bbox) return;
-        let size = parseInt((font.match(/(\d+)px/) || ["", "40"])[1], 10);
-        const fontTemplate = font;
-        while (size > 8) {
-            ctx.font = fontTemplate.replace(/\d+px/, `${size}px`);
-            const maxWidth = Math.max(...clean.map((line) => ctx.measureText(line).width));
-            const totalHeight = clean.length * size * 1.08;
-            if (maxWidth <= bbox.width && totalHeight <= bbox.height) break;
-            size -= 2;
-        }
-        ctx.save();
-        ctx.font = fontTemplate.replace(/\d+px/, `${size}px`);
-        ctx.fillStyle = "#fff";
-        ctx.textAlign = align;
-        ctx.textBaseline = "middle";
-        const lineHeight = size * 1.08;
-        let y = bbox.y + (bbox.height - clean.length * lineHeight) / 2 + lineHeight / 2;
-        for (const line of clean) {
-            const x = align === "center" ? bbox.x + bbox.width / 2 : align === "right" ? bbox.x + bbox.width : bbox.x;
-            ctx.fillText(line, x, y);
-            y += lineHeight;
-        }
-        ctx.restore();
-    }
-
-    function drawParagraph(ctx, text, bbox, font) {
-        const words = text.split(/\s+/).filter(Boolean);
-        let size = parseInt((font.match(/(\d+)px/) || ["", "32"])[1], 10);
-        const fontTemplate = font;
-        let lines = [];
-        while (size > 9) {
-            ctx.font = fontTemplate.replace(/\d+px/, `${size}px`);
-            lines = [];
-            let current = "";
-            for (const word of words) {
-                const probe = current ? `${current} ${word}` : word;
-                if (ctx.measureText(probe).width <= bbox.width) current = probe;
-                else {
-                    if (current) lines.push(current);
-                    current = word;
-                }
-            }
-            if (current) lines.push(current);
-            if (lines.length * size * 1.25 <= bbox.height) break;
-            size -= 2;
-        }
-        drawFitText(ctx, lines, bbox, fontTemplate.replace(/\d+px/, `${size}px`), "left");
     }
 
     function drawImageBox(ctx, image, box) {
