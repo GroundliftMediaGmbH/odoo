@@ -1,7 +1,7 @@
 {
     "name": "Grafiken",
     "summary": "Erstellt Kino-Veranstaltungsplakate direkt aus Odoo-Events",
-    "version": "19.0.1.2.2",
+    "version": "19.0.1.2.3",
     "category": "Marketing",
     "author": "GROUNDLIFT",
     "website": "https://groundlift.de",
@@ -16,13 +16,7 @@
         "views/event_event_views.xml",
         "views/graphics_menus.xml",
     ],
-    "assets": {
-        "web.assets_backend": [
-            "groundlift_graphics/static/src/js/graphics_editor.js",
-            "groundlift_graphics/static/src/xml/graphics_editor.xml",
-            "groundlift_graphics/static/src/scss/graphics_editor.scss",
-        ],
-    },
+    "assets": {},
     "images": ["static/description/icon.png"],
     "application": True,
     "installable": True,
