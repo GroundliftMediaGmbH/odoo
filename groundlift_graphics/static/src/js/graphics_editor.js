@@ -112,6 +112,12 @@ async function loadImage(src) {
 
 function alphaBBox(image) {
     if (!image) return null;
+    const geometry = alphaGeometry(image);
+    return geometry ? geometry.bbox : null;
+}
+
+function alphaGeometry(image) {
+    if (!image) return null;
     const canvas = document.createElement("canvas");
     canvas.width = image.width;
     canvas.height = image.height;
@@ -119,19 +125,61 @@ function alphaBBox(image) {
     ctx.drawImage(image, 0, 0);
     const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
     let minX = width, minY = height, maxX = -1, maxY = -1;
+    let tl = null, tr = null, br = null, bl = null;
+    let tlScore = Infinity, trScore = -Infinity, brScore = -Infinity, blScore = Infinity;
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const alpha = data[(y * width + x) * 4 + 3];
-            if (alpha > 8) {
-                minX = Math.min(minX, x);
-                minY = Math.min(minY, y);
-                maxX = Math.max(maxX, x);
-                maxY = Math.max(maxY, y);
+            if (alpha <= 8) continue;
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+            const sum = x + y;
+            const diff = x - y;
+            if (sum < tlScore) {
+                tlScore = sum;
+                tl = { x, y };
+            }
+            if (diff > trScore) {
+                trScore = diff;
+                tr = { x, y };
+            }
+            if (sum > brScore) {
+                brScore = sum;
+                br = { x, y };
+            }
+            if (diff < blScore) {
+                blScore = diff;
+                bl = { x, y };
             }
         }
     }
     if (maxX < minX || maxY < minY) return null;
-    return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
+    const bbox = { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
+    const corners = tl && tr && br && bl ? [tl, tr, br, bl] : null;
+    return { bbox, corners };
+}
+
+function drawPolygonPath(ctx, points) {
+    if (!ctx || !points || !points.length) return;
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
+    }
+    ctx.closePath();
+}
+
+function pointInPolygon(x, y, points) {
+    if (!points || points.length < 3) return false;
+    let inside = false;
+    for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+        const xi = points[i].x, yi = points[i].y;
+        const xj = points[j].x, yj = points[j].y;
+        const intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / ((yj - yi) || 1e-6) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
 }
 
 class GraphicsEditor extends Component {
@@ -188,7 +236,13 @@ class GraphicsEditor extends Component {
         this.fontFaces = [];
         this.pointerDrag = null;
         onMounted(async () => {
-            await this.loadData();
+            try {
+                await this.loadData();
+            } catch (error) {
+                console.error("Groundlift graphics editor could not be loaded", error);
+                this.state.loading = false;
+                this.notification.add("Der Grafikeditor konnte nicht geladen werden. Bitte Seite neu laden oder das letzte Update prüfen.", { type: "danger" });
+            }
         });
     }
 
@@ -291,6 +345,7 @@ class GraphicsEditor extends Component {
         if (!template || this.templateCache.has(template.key)) return this.templateCache.get(template.key);
         const imagesByRole = {};
         const bboxes = {};
+        const geometries = {};
         const staticOverlays = [];
         for (const asset of template.assets) {
             try {
@@ -298,12 +353,14 @@ class GraphicsEditor extends Component {
                 if (!image) continue;
                 if (!imagesByRole[asset.role]) imagesByRole[asset.role] = image;
                 if (asset.role.startsWith("static_")) staticOverlays.push({ role: asset.role, image });
-                bboxes[asset.role] = alphaBBox(image);
+                const geometry = alphaGeometry(image);
+                geometries[asset.role] = geometry;
+                bboxes[asset.role] = geometry ? geometry.bbox : null;
             } catch {
                 // ignore missing asset
             }
         }
-        const info = { template, imagesByRole, bboxes, staticOverlays };
+        const info = { template, imagesByRole, bboxes, geometries, staticOverlays };
         this.templateCache.set(template.key, info);
         return info;
     }
@@ -526,11 +583,15 @@ class GraphicsEditor extends Component {
 
     async renderCanvas() {
         if (this.state.loading || !this.canvasRef.el || !this.currentTemplate) return;
-        const info = await this.ensureTemplateAssets(this.currentTemplate);
-        const canvas = this.canvasRef.el;
-        canvas.width = this.currentTemplate.canvas_width;
-        canvas.height = this.currentTemplate.canvas_height;
-        await this.paintTemplate(canvas.getContext("2d"), info, this.currentVariant, true);
+        try {
+            const info = await this.ensureTemplateAssets(this.currentTemplate);
+            const canvas = this.canvasRef.el;
+            canvas.width = this.currentTemplate.canvas_width;
+            canvas.height = this.currentTemplate.canvas_height;
+            await this.paintTemplate(canvas.getContext("2d"), info, this.currentVariant, true);
+        } catch (error) {
+            console.error("Groundlift graphics preview render failed", error);
+        }
     }
 
     async paintTemplate(ctx, info, variant, showGuides = false) {
@@ -546,7 +607,7 @@ class GraphicsEditor extends Component {
             ctx.drawImage(overlay.image, 0, 0, template.canvas_width, template.canvas_height);
         }
         this.drawMainLayers(ctx, info, variant, dynamicImages);
-        if (showGuides) this.drawMaskOutline(ctx, info.bboxes.image_mask);
+        if (showGuides) this.drawMaskOutline(ctx, info.bboxes.image_mask, info.geometries?.image_mask);
     }
 
     drawGradient(ctx, template) {
@@ -558,11 +619,12 @@ class GraphicsEditor extends Component {
     }
 
     async drawSourceImage(ctx, info, variant) {
-        if (!this.state.sourceImageBase64 || !info.bboxes.image_mask) return;
+        const maskGeometry = info.geometries?.image_mask;
+        const box = maskGeometry?.bbox || info.bboxes.image_mask;
+        if (!this.state.sourceImageBase64 || !box) return;
         const src = dataUrlFromBase64(this.state.sourceImageBase64, extensionMime(this.state.sourceImageFilename, "image/jpeg"));
         const image = await loadImage(src);
         if (!image) return;
-        const box = info.bboxes.image_mask;
         const tr = variant.image;
         const coverScale = Math.max(box.width / image.width, box.height / image.height);
         const scale = coverScale * (tr.scale || 1);
@@ -572,7 +634,8 @@ class GraphicsEditor extends Component {
         const cy = box.y + box.height / 2 + (tr.offsetY || 0);
         ctx.save();
         ctx.beginPath();
-        ctx.rect(box.x, box.y, box.width, box.height);
+        if (maskGeometry?.corners?.length === 4) drawPolygonPath(ctx, maskGeometry.corners);
+        else ctx.rect(box.x, box.y, box.width, box.height);
         ctx.clip();
         ctx.translate(cx, cy);
         ctx.rotate((tr.rotation || 0) * Math.PI / 180);
@@ -640,15 +703,26 @@ class GraphicsEditor extends Component {
 
     drawTimeTicketlink(ctx, bbox) {
         if (!bbox) return;
-        const lines = [(this.state.ticket_link_text || "").toUpperCase()];
+        const lines = (this.state.ticket_link_text || "").split(/
++/).filter(Boolean).map((l) => l.toUpperCase());
         this.drawSplitInfo(ctx, bbox, [(this.state.time_text || "").toUpperCase()], lines, { leftRatio: 0.42, leftBottom: (this.state.event_type_text || "").toUpperCase(), compactRight: true });
     }
 
     drawSplitInfo(ctx, bbox, leftTopLines, rightLines, options = {}) {
         const leftRatio = options.leftRatio || 0.4;
-        const leftBox = { x: bbox.x, y: bbox.y, width: bbox.width * leftRatio, height: bbox.height };
-        const rightBox = { x: bbox.x + bbox.width * leftRatio + 18, y: bbox.y, width: bbox.width * (1 - leftRatio) - 18, height: bbox.height };
+        const dividerGap = Math.max(20, Math.round(bbox.width * 0.018));
+        const dividerX = bbox.x + bbox.width * leftRatio;
+        const leftBox = { x: bbox.x, y: bbox.y, width: Math.max(0, bbox.width * leftRatio - dividerGap), height: bbox.height };
+        const rightBox = { x: dividerX + dividerGap, y: bbox.y, width: Math.max(0, bbox.x + bbox.width - (dividerX + dividerGap)), height: bbox.height };
         const leftTopBox = { ...leftBox, height: leftBox.height * (options.leftBottom ? 0.68 : 1) };
+        ctx.save();
+        ctx.strokeStyle = "#FFFFFF";
+        ctx.lineWidth = Math.max(4, Math.round(bbox.height * 0.018));
+        ctx.beginPath();
+        ctx.moveTo(dividerX, bbox.y + 6);
+        ctx.lineTo(dividerX, bbox.y + bbox.height - 6);
+        ctx.stroke();
+        ctx.restore();
         this.drawFitText(ctx, leftTopLines.filter(Boolean), leftTopBox, { font: "900 64px GroundliftBold, Arial Black, sans-serif", color: "#FFFFFF", align: "center", valign: "middle", lineHeight: 1.0 });
         if (options.leftBottom) {
             const bottomBox = { x: leftBox.x, y: leftBox.y + leftBox.height * 0.66, width: leftBox.width, height: leftBox.height * 0.34 };
@@ -797,12 +871,18 @@ class GraphicsEditor extends Component {
         };
     }
 
-    drawMaskOutline(ctx, bbox) {
+    drawMaskOutline(ctx, bbox, geometry = null) {
         if (!bbox) return;
         ctx.save();
         ctx.strokeStyle = "rgba(255,255,255,0.9)";
         ctx.lineWidth = 2;
-        ctx.strokeRect(bbox.x, bbox.y, bbox.width, bbox.height);
+        if (geometry?.corners?.length === 4) {
+            ctx.beginPath();
+            drawPolygonPath(ctx, geometry.corners);
+            ctx.stroke();
+        } else {
+            ctx.strokeRect(bbox.x, bbox.y, bbox.width, bbox.height);
+        }
         ctx.restore();
     }
 
@@ -835,12 +915,17 @@ class GraphicsEditor extends Component {
     }
 
     onPointerDown(ev) {
-        const bbox = this.templateCache.get(this.currentTemplate.key)?.bboxes.image_mask;
+        const templateInfo = this.templateCache.get(this.currentTemplate.key);
+        const geometry = templateInfo?.geometries?.image_mask;
+        const bbox = geometry?.bbox || templateInfo?.bboxes.image_mask;
         if (!bbox) return;
         const canvasRect = this.canvasRef.el.getBoundingClientRect();
         const x = ((ev.clientX - canvasRect.left) / canvasRect.width) * this.canvasRef.el.width;
         const y = ((ev.clientY - canvasRect.top) / canvasRect.height) * this.canvasRef.el.height;
-        if (!(x >= bbox.x && x <= bbox.x + bbox.width && y >= bbox.y && y <= bbox.y + bbox.height)) return;
+        const inside = geometry?.corners?.length === 4
+            ? pointInPolygon(x, y, geometry.corners)
+            : (x >= bbox.x && x <= bbox.x + bbox.width && y >= bbox.y && y <= bbox.y + bbox.height);
+        if (!inside) return;
         ev.preventDefault();
         const variant = this.currentVariant;
         const start = { x: ev.clientX, y: ev.clientY, offsetX: variant.image.offsetX || 0, offsetY: variant.image.offsetY || 0 };
