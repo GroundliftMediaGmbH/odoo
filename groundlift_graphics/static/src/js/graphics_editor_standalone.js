@@ -651,7 +651,7 @@
         else ctx.rect(box.x, box.y, box.width, box.height);
         ctx.clip();
         ctx.translate(cx, cy);
-        ctx.rotate((variant.image.rotation || 0) * Math.PI / 180);
+        ctx.rotate((imageTransform.rotation || 0) * Math.PI / 180);
         ctx.drawImage(image, -drawW / 2, -drawH / 2, drawW, drawH);
         ctx.restore();
     }
