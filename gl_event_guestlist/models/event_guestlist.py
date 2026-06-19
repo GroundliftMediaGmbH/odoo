@@ -17,6 +17,8 @@ ORDERED_BY_SELECTION = [
     ('personal', 'Persönlich'),
 ]
 
+SOLD_OUT_SUFFIX = ' (Ausverkauft)'
+
 
 class EventEvent(models.Model):
     _inherit = 'event.event'
@@ -55,6 +57,16 @@ class EventEvent(models.Model):
         compute='_compute_guestlist_stats',
         readonly=True,
     )
+    guestlist_reserved_qty = fields.Integer(
+        string='Verbindliche Gästelistenplätze',
+        compute='_compute_guestlist_stats',
+        readonly=True,
+    )
+    guestlist_waitlist_qty = fields.Integer(
+        string='Warteliste',
+        compute='_compute_guestlist_stats',
+        readonly=True,
+    )
     guestlist_checked_in_qty = fields.Integer(
         string='Eingecheckt',
         compute='_compute_guestlist_stats',
@@ -67,6 +79,11 @@ class EventEvent(models.Model):
     )
     guestlist_capacity_info = fields.Char(
         string='Kapazitätsstatus',
+        compute='_compute_guestlist_stats',
+        readonly=True,
+    )
+    guestlist_sold_out_with_guestlist = fields.Boolean(
+        string='Ausverkauft inkl. Gästeliste',
         compute='_compute_guestlist_stats',
         readonly=True,
     )
@@ -103,6 +120,8 @@ class EventEvent(models.Model):
         'guestlist_line_ids.quantity',
         'guestlist_line_ids.checked_in',
         'guestlist_line_ids.active',
+        'guestlist_line_ids.is_waitlist',
+        'guestlist_line_ids.price_option_id.is_waitlist',
         'seats_limited',
         'seats_max',
         'seats_available',
@@ -110,27 +129,79 @@ class EventEvent(models.Model):
     def _compute_guestlist_stats(self):
         for event in self:
             lines = event.guestlist_line_ids.filtered('active')
+            counted_lines = lines.filtered(lambda line: not line.is_waitlist)
+            waitlist_lines = lines.filtered(lambda line: line.is_waitlist)
             total_qty = sum(lines.mapped('quantity_int'))
+            counted_qty = sum(counted_lines.mapped('quantity_int'))
+            waitlist_qty = sum(waitlist_lines.mapped('quantity_int'))
             checked_qty = sum(lines.filtered('checked_in').mapped('quantity_int'))
             event.guestlist_total_qty = total_qty
+            event.guestlist_reserved_qty = counted_qty
+            event.guestlist_waitlist_qty = waitlist_qty
             event.guestlist_checked_in_qty = checked_qty
+            event.guestlist_sold_out_with_guestlist = event._is_sold_out_with_guestlist()
             if event.seats_limited and event.seats_max:
-                remaining = event.seats_available - total_qty
+                remaining = event.seats_available - counted_qty
                 event.guestlist_remaining_qty = remaining
                 event.guestlist_capacity_info = _(
-                    '%(remaining)s von %(available)s aktuell verfügbaren Plätzen bleiben nach Gästeliste verfügbar.',
+                    '%(remaining)s von %(available)s aktuell verfügbaren Plätzen bleiben nach verbindlicher Gästeliste verfügbar. Warteliste: %(waitlist)s.',
                     remaining=remaining,
                     available=event.seats_available,
+                    waitlist=waitlist_qty,
                 )
             else:
                 event.guestlist_remaining_qty = 0
-                event.guestlist_capacity_info = _('Diese Veranstaltung hat keine globale Teilnehmerbegrenzung.')
+                event.guestlist_capacity_info = _('Diese Veranstaltung hat keine globale Teilnehmerbegrenzung. Wartelistenplätze werden nicht auf die Kapazität angerechnet.')
+
+    def _guestlist_counted_lines(self):
+        self.ensure_one()
+        return self.guestlist_line_ids.filtered(lambda line: line.active and not line.is_waitlist)
+
+    def _guestlist_waitlist_lines(self):
+        self.ensure_one()
+        return self.guestlist_line_ids.filtered(lambda line: line.active and line.is_waitlist)
+
+    def _get_guestlist_counted_qty(self):
+        self.ensure_one()
+        return sum(self._guestlist_counted_lines().mapped('quantity_int'))
+
+    def _get_guestlist_waitlist_qty(self):
+        self.ensure_one()
+        return sum(self._guestlist_waitlist_lines().mapped('quantity_int'))
+
+    def _get_remaining_seats_after_guestlist(self):
+        self.ensure_one()
+        if not self.seats_limited or not self.seats_max:
+            return False
+        return (self.seats_available or 0) - self._get_guestlist_counted_qty()
+
+    def _is_sold_out_with_guestlist(self):
+        self.ensure_one()
+        remaining = self._get_remaining_seats_after_guestlist()
+        return remaining is not False and remaining <= 0
+
+    def _clean_sold_out_suffix(self, name):
+        clean_name = name or ''
+        while clean_name.endswith(SOLD_OUT_SUFFIX):
+            clean_name = clean_name[:-len(SOLD_OUT_SUFFIX)].rstrip()
+        return clean_name
+
+    def _sync_guestlist_sold_out_status(self):
+        if self.env.context.get('gl_guestlist_skip_sold_out_name'):
+            return True
+        for event in self.sudo().exists():
+            clean_name = event._clean_sold_out_suffix(event.name)
+            target_name = clean_name + SOLD_OUT_SUFFIX if event._is_sold_out_with_guestlist() else clean_name
+            if target_name and target_name != event.name:
+                event.with_context(gl_guestlist_skip_sold_out_name=True).write({'name': target_name})
+        return True
 
     @api.model_create_multi
     def create(self, vals_list):
         events = super().create(vals_list)
         events._sync_guestlist_price_options()
         events._sync_guestlist_summary_ticket()
+        events._sync_guestlist_sold_out_status()
         return events
 
     def write(self, vals):
@@ -141,12 +212,15 @@ class EventEvent(models.Model):
         capacity_fields = {'seats_max', 'seats_limited'}
         if capacity_fields.intersection(vals):
             self._check_guestlist_capacity()
+        self._sync_guestlist_sold_out_status()
         return res
 
     @api.model
     def _sync_guestlist_summary_ticket_for_all(self):
         events = self.search([])
+        events._sync_guestlist_price_options()
         events._sync_guestlist_summary_ticket()
+        events._sync_guestlist_sold_out_status()
         return True
 
     def _sync_guestlist_summary_ticket(self):
@@ -218,6 +292,10 @@ class EventEvent(models.Model):
         'seats_max',
         'event_ticket_ids.sale_available',
         'event_ticket_ids.gl_is_guestlist_summary_ticket',
+        'guestlist_line_ids.quantity_int',
+        'guestlist_line_ids.active',
+        'guestlist_line_ids.is_waitlist',
+        'guestlist_line_ids.price_option_id.is_waitlist',
     )
     def _compute_event_registrations_open(self):
         super()._compute_event_registrations_open()
@@ -227,11 +305,13 @@ class EventEvent(models.Model):
             event_in_tz = event._set_tz_context()
             current_datetime = fields.Datetime.context_timestamp(event_in_tz, fields.Datetime.now())
             date_end_tz = event.date_end.astimezone(event_tz) if event.date_end else False
+            remaining_after_guestlist = event._get_remaining_seats_after_guestlist()
+            capacity_open = (remaining_after_guestlist is False or remaining_after_guestlist > 0)
             base_open = (
                 event.kanban_state != 'cancel'
                 and event.event_registrations_started
                 and (date_end_tz >= current_datetime if date_end_tz else True)
-                and (not event.seats_limited or not event.seats_max or event.seats_available)
+                and capacity_open
             )
             if not real_tickets:
                 event.event_registrations_open = base_open
@@ -255,12 +335,17 @@ class EventEvent(models.Model):
         'event_ticket_ids.gl_is_guestlist_summary_ticket',
         'seats_available',
         'seats_limited',
+        'seats_max',
+        'guestlist_line_ids.quantity_int',
+        'guestlist_line_ids.active',
+        'guestlist_line_ids.is_waitlist',
+        'guestlist_line_ids.price_option_id.is_waitlist',
     )
     def _compute_event_registrations_sold_out(self):
         super()._compute_event_registrations_sold_out()
         for event in self:
             real_tickets = event.event_ticket_ids.filtered(lambda ticket: not ticket.gl_is_guestlist_summary_ticket)
-            global_sold_out = event.seats_limited and event.seats_max and not event.seats_available > 0
+            global_sold_out = event._is_sold_out_with_guestlist()
             if not real_tickets:
                 event.event_registrations_sold_out = bool(global_sold_out)
             elif event.is_multi_slots:
@@ -279,6 +364,7 @@ class EventEvent(models.Model):
         self.ensure_one()
         self._sync_guestlist_price_options()
         self._sync_guestlist_summary_ticket()
+        self._sync_guestlist_sold_out_status()
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
@@ -334,13 +420,37 @@ class EventEvent(models.Model):
                     'sequence': 0,
                     'ticket_id': False,
                     'product_id': False,
+                    'is_waitlist': False,
                 })
             else:
                 Option.create({
                     'name': _('gratis'),
                     'event_id': event.id,
                     'is_free': True,
+                    'is_waitlist': False,
                     'sequence': 0,
+                })
+
+            waitlist_option = Option.search([
+                ('event_id', '=', event.id),
+                ('is_waitlist', '=', True),
+            ], limit=1)
+            if waitlist_option:
+                waitlist_option.write({
+                    'name': _('Warteliste'),
+                    'active': True,
+                    'sequence': 1,
+                    'ticket_id': False,
+                    'product_id': False,
+                    'is_free': False,
+                })
+            else:
+                Option.create({
+                    'name': _('Warteliste'),
+                    'event_id': event.id,
+                    'is_waitlist': True,
+                    'is_free': False,
+                    'sequence': 1,
                 })
 
             sellable_tickets = event.event_ticket_ids.filtered(lambda ticket: not ticket.gl_is_guestlist_summary_ticket)
@@ -348,6 +458,7 @@ class EventEvent(models.Model):
             existing_ticket_options = Option.search([
                 ('event_id', '=', event.id),
                 ('is_free', '=', False),
+                ('is_waitlist', '=', False),
             ])
 
             for ticket in sellable_tickets:
@@ -358,6 +469,7 @@ class EventEvent(models.Model):
                     'ticket_id': ticket.id,
                     'product_id': ticket.product_id.id if getattr(ticket, 'product_id', False) else False,
                     'is_free': False,
+                    'is_waitlist': False,
                     'active': True,
                     'sequence': ticket.sequence or 10,
                 }
@@ -371,7 +483,7 @@ class EventEvent(models.Model):
 
     def _check_guestlist_capacity(self):
         for event in self:
-            lines = event.guestlist_line_ids.filtered('active')
+            lines = event._guestlist_counted_lines()
             guest_qty = sum(lines.mapped('quantity_int'))
 
             if event.seats_limited and event.seats_max and guest_qty > event.seats_available:
@@ -417,6 +529,7 @@ class EventEventTicket(models.Model):
             affected_events = tickets.mapped('event_id')
             affected_events._sync_guestlist_price_options()
             affected_events._sync_guestlist_summary_ticket()
+            affected_events._sync_guestlist_sold_out_status()
         return tickets
 
     def write(self, vals):
@@ -429,6 +542,7 @@ class EventEventTicket(models.Model):
             capacity_fields = {'seats_max', 'seats_limited', 'event_id'}
             if capacity_fields.intersection(vals):
                 affected_events._check_guestlist_capacity()
+            affected_events._sync_guestlist_sold_out_status()
         return res
 
     def unlink(self):
@@ -437,6 +551,7 @@ class EventEventTicket(models.Model):
         if not self.env.context.get('gl_guestlist_sync'):
             events._sync_guestlist_price_options()
             events._sync_guestlist_summary_ticket()
+            events._sync_guestlist_sold_out_status()
         return res
 
     @api.depends(
@@ -447,11 +562,13 @@ class EventEventTicket(models.Model):
         'event_id.guestlist_line_ids.quantity_int',
         'event_id.guestlist_line_ids.checked_in',
         'event_id.guestlist_line_ids.active',
+        'event_id.guestlist_line_ids.is_waitlist',
+        'event_id.guestlist_line_ids.price_option_id.is_waitlist',
     )
     def _compute_seats(self):
         super()._compute_seats()
         for ticket in self.filtered('gl_is_guestlist_summary_ticket'):
-            lines = ticket.event_id.guestlist_line_ids.filtered('active')
+            lines = ticket.event_id._guestlist_counted_lines()
             total_qty = sum(lines.mapped('quantity_int'))
             ticket.seats_reserved = total_qty
             ticket.seats_used = 0
@@ -464,17 +581,50 @@ class EventEventTicket(models.Model):
         for ticket in self.filtered('gl_is_guestlist_summary_ticket'):
             ticket.is_expired = True
 
-    @api.depends('seats_limited', 'seats_available', 'event_id.event_registrations_sold_out', 'gl_is_guestlist_summary_ticket')
+    def _get_guestlist_counted_qty_for_ticket(self):
+        self.ensure_one()
+        lines = self.event_id._guestlist_counted_lines().filtered(lambda line: line.price_option_id.ticket_id == self)
+        return sum(lines.mapped('quantity_int'))
+
+    @api.depends(
+        'seats_limited',
+        'seats_available',
+        'event_id.event_registrations_sold_out',
+        'gl_is_guestlist_summary_ticket',
+        'event_id.guestlist_line_ids.quantity_int',
+        'event_id.guestlist_line_ids.active',
+        'event_id.guestlist_line_ids.is_waitlist',
+        'event_id.guestlist_line_ids.price_option_id',
+        'event_id.guestlist_line_ids.price_option_id.ticket_id',
+    )
     def _compute_is_sold_out(self):
         super()._compute_is_sold_out()
         for ticket in self.filtered('gl_is_guestlist_summary_ticket'):
             ticket.is_sold_out = True
+        for ticket in self.filtered(lambda t: not t.gl_is_guestlist_summary_ticket):
+            if ticket.seats_limited and ticket.seats_max and (ticket.seats_available or 0) - ticket._get_guestlist_counted_qty_for_ticket() <= 0:
+                ticket.is_sold_out = True
 
-    @api.depends('is_expired', 'start_sale_datetime', 'event_id.date_tz', 'seats_available', 'seats_max', 'gl_is_guestlist_summary_ticket')
+    @api.depends(
+        'is_expired',
+        'start_sale_datetime',
+        'event_id.date_tz',
+        'seats_available',
+        'seats_max',
+        'gl_is_guestlist_summary_ticket',
+        'event_id.guestlist_line_ids.quantity_int',
+        'event_id.guestlist_line_ids.active',
+        'event_id.guestlist_line_ids.is_waitlist',
+        'event_id.guestlist_line_ids.price_option_id',
+        'event_id.guestlist_line_ids.price_option_id.ticket_id',
+    )
     def _compute_sale_available(self):
         super()._compute_sale_available()
         for ticket in self.filtered('gl_is_guestlist_summary_ticket'):
             ticket.sale_available = False
+        for ticket in self.filtered(lambda t: not t.gl_is_guestlist_summary_ticket):
+            if ticket.seats_limited and ticket.seats_max and (ticket.seats_available or 0) - ticket._get_guestlist_counted_qty_for_ticket() <= 0:
+                ticket.sale_available = False
 
 
 class EventRegistration(models.Model):
@@ -483,7 +633,9 @@ class EventRegistration(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         registrations = super().create(vals_list)
-        registrations.mapped('event_id')._check_guestlist_capacity()
+        affected_events = registrations.mapped('event_id')
+        affected_events._check_guestlist_capacity()
+        affected_events._sync_guestlist_sold_out_status()
         return registrations
 
     def write(self, vals):
@@ -491,7 +643,16 @@ class EventRegistration(models.Model):
         res = super().write(vals)
         capacity_fields = {'event_id', 'event_ticket_id', 'event_slot_id', 'state', 'active'}
         if capacity_fields.intersection(vals):
-            (events_before | self.mapped('event_id'))._check_guestlist_capacity()
+            affected_events = events_before | self.mapped('event_id')
+            affected_events._check_guestlist_capacity()
+            affected_events._sync_guestlist_sold_out_status()
+        return res
+
+    def unlink(self):
+        events = self.mapped('event_id')
+        res = super().unlink()
+        events._check_guestlist_capacity()
+        events._sync_guestlist_sold_out_status()
         return res
 
 
@@ -505,6 +666,7 @@ class GuestlistPriceOption(models.Model):
     ticket_id = fields.Many2one('event.event.ticket', string='Ticketart', ondelete='set null', index=True)
     product_id = fields.Many2one('product.product', string='Produkt', ondelete='set null')
     is_free = fields.Boolean(string='Gratis')
+    is_waitlist = fields.Boolean(string='Warteliste')
     active = fields.Boolean(default=True)
     sequence = fields.Integer(default=10)
 
@@ -518,7 +680,7 @@ class GuestlistPriceOption(models.Model):
 class GuestlistLine(models.Model):
     _name = 'gl.event.guestlist.line'
     _description = 'Event-Gästelisten-Eintrag'
-    _order = 'checked_in, name, id'
+    _order = 'is_waitlist, checked_in, name, id'
 
     active = fields.Boolean(default=True)
     event_id = fields.Many2one('event.event', string='Veranstaltung', required=True, ondelete='cascade', index=True)
@@ -532,8 +694,14 @@ class GuestlistLine(models.Model):
     )
     price_option_id = fields.Many2one(
         'gl.event.guestlist.price.option',
-        string='Preis',
+        string='Kategorie / Preis',
         domain="[('event_id', '=', event_id), ('active', '=', True)]",
+    )
+    is_waitlist = fields.Boolean(
+        string='Warteliste',
+        related='price_option_id.is_waitlist',
+        store=True,
+        readonly=True,
     )
     ordered_by = fields.Selection(ORDERED_BY_SELECTION, string='Bestellt per', default='email', required=True)
     ordered_by_label = fields.Char(string='Bestellt per', compute='_compute_ordered_by_label')
@@ -600,6 +768,7 @@ class GuestlistLine(models.Model):
         affected_events = lines.mapped('event_id')
         affected_events._sync_guestlist_summary_ticket()
         affected_events._check_guestlist_capacity()
+        affected_events._sync_guestlist_sold_out_status()
         return lines
 
     def write(self, vals):
@@ -614,6 +783,7 @@ class GuestlistLine(models.Model):
         if capacity_fields.intersection(vals):
             affected_events._sync_guestlist_summary_ticket()
             affected_events._check_guestlist_capacity()
+            affected_events._sync_guestlist_sold_out_status()
         elif 'checked_in' in vals:
             affected_events._sync_guestlist_summary_ticket()
         return res
@@ -623,6 +793,7 @@ class GuestlistLine(models.Model):
         res = super().unlink()
         events._sync_guestlist_summary_ticket()
         events._check_guestlist_capacity()
+        events._sync_guestlist_sold_out_status()
         return res
 
     @api.constrains('event_id', 'price_option_id')

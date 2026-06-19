@@ -21,13 +21,17 @@ class EventGuestlistController(http.Controller):
         event = self._get_event_by_token(event_id, token)
         if not event:
             return request.not_found()
-        lines = event.guestlist_line_ids.sudo().filtered('active').sorted(lambda line: (line.checked_in, (line.name or '').lower(), line.id))
+        lines = event.guestlist_line_ids.sudo().filtered('active').sorted(
+            lambda line: (line.is_waitlist, line.checked_in, (line.name or '').lower(), line.id)
+        )
+        waitlist_lines = lines.filtered('is_waitlist')
         return request.render('gl_event_guestlist.public_guestlist_page', {
             'event': event,
             'guestlist_lines': lines,
             'token': token,
             'total_qty': sum(lines.mapped('quantity_int')),
             'checked_qty': sum(lines.filtered('checked_in').mapped('quantity_int')),
+            'waitlist_qty': sum(waitlist_lines.mapped('quantity_int')),
         })
 
     @http.route('/event/guestlist/check/<int:line_id>/<string:token>', type='http', auth='public', methods=['POST'], csrf=False, sitemap=False)
@@ -59,11 +63,13 @@ class EventGuestlistController(http.Controller):
 
         event = line.event_id
         active_lines = event.guestlist_line_ids.sudo().filtered('active')
+        waitlist_lines = active_lines.filtered('is_waitlist')
         response = {
             'ok': True,
             'line_id': line.id,
             'checked': line.checked_in,
             'checked_qty': sum(active_lines.filtered('checked_in').mapped('quantity_int')),
             'total_qty': sum(active_lines.mapped('quantity_int')),
+            'waitlist_qty': sum(waitlist_lines.mapped('quantity_int')),
         }
         return Response(json.dumps(response), content_type='application/json; charset=utf-8')
