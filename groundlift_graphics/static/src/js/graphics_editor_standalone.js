@@ -579,6 +579,12 @@
     async function paintTemplate(ctx, info, variant, showGuides = false) {
         const template = info.template;
         ctx.clearRect(0, 0, template.canvas_width, template.canvas_height);
+
+        // Ebenenreihenfolge:
+        // 1) Verlauf ganz hinten
+        // 2) hochgeladenes Bild
+        // 3) alle sonstigen Overlays / Texte / QR / Logos
+        // 4) Störer immer ganz oben
         drawGradient(ctx, template);
         await drawSourceImage(ctx, info, getImageTransform(template.key));
 
@@ -590,10 +596,8 @@
         const img = info.imagesByRole;
         const box = info.bboxes;
         const regions = info.regions || {};
+
         if (img.frame) ctx.drawImage(img.frame, 0, 0, template.canvas_width, template.canvas_height);
-        if (img.sticker && state.fields.sticker_mode !== "hidden" && box.sticker) {
-            drawCroppedLayer(ctx, img.sticker, box.sticker, applyBoxVariant(box.sticker, variant.sticker));
-        }
         if (img.logo) {
             if (img.logo.width === template.canvas_width && img.logo.height === template.canvas_height) {
                 ctx.drawImage(img.logo, 0, 0, template.canvas_width, template.canvas_height);
@@ -612,6 +616,10 @@
         drawSingleLine(ctx, state.fields.ticket_link_text, box.ticket_link, "600 28px GroundliftCondensed, Arial Narrow, Arial, sans-serif", "center");
         if (qrImg && box.qr) drawImageBox(ctx, qrImg, applyBoxVariant(box.qr, variant.qr));
 
+        if (img.sticker && state.fields.sticker_mode !== "hidden" && box.sticker) {
+            drawCroppedLayer(ctx, img.sticker, box.sticker, applyBoxVariant(box.sticker, variant.sticker));
+        }
+
         if (showGuides) drawImageHandles(ctx, info.geometries.image_mask || { bbox: info.bboxes.image_mask });
     }
 
@@ -623,18 +631,19 @@
         ctx.fillRect(0, 0, template.canvas_width, template.canvas_height);
     }
 
-    async function drawSourceImage(ctx, info, variant) {
+    async function drawSourceImage(ctx, info, transform) {
         const geometry = info.geometries.image_mask;
         const box = geometry?.bbox || info.bboxes.image_mask;
         if (!state.sourceImageBase64 || !box) return;
         const src = dataUrlFromBase64(state.sourceImageBase64, extensionMime(state.sourceImageFilename, "image/jpeg"));
         const image = await loadImage(src);
+        const imageTransform = transform || { offsetX: 0, offsetY: 0, scale: 1, rotation: 0 };
         const coverScale = Math.max(box.width / image.width, box.height / image.height);
-        const scale = coverScale * (variant.image.scale || 1);
+        const scale = coverScale * (imageTransform.scale || 1);
         const drawW = image.width * scale;
         const drawH = image.height * scale;
-        const cx = box.x + box.width / 2 + (variant.image.offsetX || 0);
-        const cy = box.y + box.height / 2 + (variant.image.offsetY || 0);
+        const cx = box.x + box.width / 2 + (imageTransform.offsetX || 0);
+        const cy = box.y + box.height / 2 + (imageTransform.offsetY || 0);
 
         ctx.save();
         ctx.beginPath();
