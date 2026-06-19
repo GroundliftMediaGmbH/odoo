@@ -1,5 +1,11 @@
 # Changelog
 
+## 19.0.1.3.6
+
+- Verbessert das Text-Layout im Standalone-Grafikeditor: Titel, Untertitel, Uhrzeit-/Untertitel-Blöcke und Stream-Texte nutzen jetzt automatische Wortumbrüche und ausgewogenere Zeilenaufteilung, damit lange Inhalte deutlich näher an den Beispielgrafiken bleiben.
+- Verhindert Überlagerungen zwischen Titel, Untertitel und Kategorie, indem die Textbereiche aus den Ebenen großzügiger abgeleitet und vertikal sinnvoller ausgerichtet werden (z. B. Untertitel oben statt mittig in Mehrzeilen-Zonen).
+- Passt die Cache-Busting-Version des isolierten Editors an, damit Browser und Odoo.sh die neue Layout-Logik sicher laden.
+
 ## 19.0.1.3.5
 
 - Macht den Canvas-Renderer fehlertolerant: Ein defektes/ungeladenes Veranstaltungsbild, QR-Bild oder Overlay stoppt nicht mehr alle weiteren Ebenen. Dadurch werden Logos, Rahmen, Störer, Textmasken und Getränkekarten weiterhin gezeichnet.

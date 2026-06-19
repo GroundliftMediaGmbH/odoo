@@ -742,8 +742,21 @@
         const layout = resolveDateTitleLayout(bbox, regions);
         if (layout) {
             if (layout.divider) drawDivider(ctx, layout.divider);
-            if (layout.left) drawFitText(ctx, [date], insetBox(layout.left, 3), "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "center");
-            if (layout.right) drawFitText(ctx, [title], insetBox(layout.right, 3), "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "left");
+            if (layout.left) {
+                drawFitText(ctx, [date], insetBox(layout.left, 4), "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "center", {
+                    allowWrap: false,
+                    valign: "middle",
+                    lineHeight: 1.0,
+                });
+            }
+            if (layout.right) {
+                drawFitText(ctx, title, insetBox(layout.right, 6, 4), "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "left", {
+                    allowWrap: true,
+                    maxLines: preferredTitleLineCount(title, layout.right),
+                    valign: "middle",
+                    lineHeight: 1.0,
+                });
+            }
             return;
         }
         drawSplit(ctx, bbox, [date], [title], { leftRatio: 0.42, boldRight: true });
@@ -751,12 +764,32 @@
 
     function drawTimeSubtitle(ctx, bbox, regions = []) {
         if (!bbox) return;
-        const lines = String(state.fields.event_subtitle || "").split(/\n+/).filter(Boolean);
+        const subtitle = state.fields.event_subtitle || "";
+        const lines = String(subtitle).split(/\n+/).filter(Boolean);
         const layout = resolveTimeSubtitleLayout(bbox, regions);
         if (layout) {
-            if (layout.leftTop) drawFitText(ctx, [state.fields.time_text], insetBox(layout.leftTop, 2), "900 46px GroundliftBold, Arial Black, Arial, sans-serif", "center");
-            if (layout.leftBottom) drawFitText(ctx, [state.fields.event_type_text], insetBox(layout.leftBottom, 2), "400 34px GroundliftRegular, Arial, sans-serif", "center");
-            if (layout.right) drawFitText(ctx, lines, insetBox(layout.right, 2), "500 46px GroundliftRegular, Arial, sans-serif", "left");
+            if (layout.leftTop) {
+                drawFitText(ctx, [state.fields.time_text], insetBox(layout.leftTop, 3, 2), "900 46px GroundliftBold, Arial Black, Arial, sans-serif", "center", {
+                    allowWrap: false,
+                    valign: "middle",
+                    lineHeight: 1.0,
+                });
+            }
+            if (layout.leftBottom) {
+                drawFitText(ctx, [state.fields.event_type_text], insetBox(layout.leftBottom, 3, 2), "400 34px GroundliftRegular, Arial, sans-serif", "center", {
+                    allowWrap: false,
+                    valign: "middle",
+                    lineHeight: 1.0,
+                });
+            }
+            if (layout.right) {
+                drawFitText(ctx, lines.length > 1 ? lines : subtitle, insetBox(layout.right, 6, 2), "500 46px GroundliftRegular, Arial, sans-serif", "left", {
+                    allowWrap: true,
+                    maxLines: preferredSubtitleLineCount(subtitle, layout.right),
+                    valign: "top",
+                    lineHeight: 1.05,
+                });
+            }
             return;
         }
         drawSplit(ctx, bbox, [state.fields.time_text], lines, { leftRatio: 0.38, leftBottom: state.fields.event_type_text, boldRight: false });
@@ -788,46 +821,100 @@
         if (regions.length && state.fields.event_title) {
             const layout = resolveDateTitleLayout(bbox, regions);
             if (layout?.divider) drawDivider(ctx, layout.divider);
-            const target = layout?.right || unionBoxes(regions);
-            drawFitText(ctx, [state.fields.event_title], insetBox(target, 2), "900 64px GroundliftBold, Arial Black, Arial, sans-serif", layout?.right ? "left" : "center");
+            const target = layout?.right || unionBoxes(regions) || bbox;
+            drawFitText(ctx, state.fields.event_title, insetBox(target, 6, 4), "900 64px GroundliftBold, Arial Black, Arial, sans-serif", layout?.right ? "left" : "center", {
+                allowWrap: true,
+                maxLines: preferredTitleLineCount(state.fields.event_title, target),
+                valign: "middle",
+                lineHeight: 1.0,
+            });
             return;
         }
-        drawFitText(ctx, [state.fields.event_title], bbox, "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "center");
+        drawFitText(ctx, state.fields.event_title, bbox, "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "center", {
+            allowWrap: true,
+            maxLines: preferredTitleLineCount(state.fields.event_title, bbox),
+            valign: "middle",
+            lineHeight: 1.0,
+        });
     }
 
     function drawSubtitleOnly(ctx, bbox, regions = []) {
         if (!bbox) return;
-        const lines = String(state.fields.event_subtitle || "").split(/\n+/).filter(Boolean);
-        const target = regions.length ? insetBox(unionBoxes(regions), 2) : bbox;
-        drawFitText(ctx, lines, target, "500 46px GroundliftRegular, Arial, sans-serif", "left");
+        const subtitle = state.fields.event_subtitle || "";
+        const lines = String(subtitle).split(/\n+/).filter(Boolean);
+        const target = regions.length ? insetBox(unionBoxes(regions) || bbox, 4, 2) : bbox;
+        drawFitText(ctx, lines.length > 1 ? lines : subtitle, target, "500 46px GroundliftRegular, Arial, sans-serif", "left", {
+            allowWrap: true,
+            maxLines: preferredSubtitleLineCount(subtitle, target),
+            valign: "top",
+            lineHeight: 1.05,
+        });
     }
 
     function resolveDateTitleLayout(bbox, regions) {
         const useful = (regions || []).filter((r) => r.width > 3 && r.height > 3);
         if (!useful.length) return null;
         const divider = useful.find((r) => r.width < bbox.width * 0.08 && r.height > bbox.height * 0.35);
-        const splitX = divider ? divider.x + divider.width / 2 : bbox.x + bbox.width * 0.42;
-        const left = unionBoxes(useful.filter((r) => r !== divider && boxCenter(r).x < splitX));
-        const right = unionBoxes(useful.filter((r) => r !== divider && boxCenter(r).x >= splitX));
-        if (!left && !right) return null;
+        let splitX = divider ? divider.x + divider.width / 2 : null;
+        if (!splitX) {
+            const sorted = [...useful].sort((a, b) => boxCenter(a).x - boxCenter(b).x);
+            const mid = Math.floor(sorted.length / 2);
+            const leftSeed = sorted.slice(0, Math.max(1, mid));
+            const rightSeed = sorted.slice(Math.max(1, mid));
+            const leftEdge = Math.max(...leftSeed.map((r) => r.x + r.width));
+            const rightEdge = Math.min(...rightSeed.map((r) => r.x));
+            splitX = Number.isFinite(leftEdge) && Number.isFinite(rightEdge) ? (leftEdge + rightEdge) / 2 : bbox.x + bbox.width * 0.42;
+        }
+        const gap = Math.max(16, bbox.width * 0.02);
+        const left = { x: bbox.x, y: bbox.y, width: Math.max(1, splitX - gap - bbox.x), height: bbox.height };
+        const right = { x: splitX + gap, y: bbox.y, width: Math.max(1, bbox.x + bbox.width - (splitX + gap)), height: bbox.height };
         return {
             divider: divider || { x: splitX - 2, y: bbox.y + 4, width: 4, height: Math.max(1, bbox.height - 8) },
-            left: left || { x: bbox.x, y: bbox.y, width: bbox.width * 0.38, height: bbox.height },
-            right: right || { x: splitX + 20, y: bbox.y, width: bbox.x + bbox.width - splitX - 20, height: bbox.height },
+            left,
+            right,
         };
     }
 
     function resolveTimeSubtitleLayout(bbox, regions) {
         const useful = (regions || []).filter((r) => r.width > 3 && r.height > 3);
         if (!useful.length) return null;
-        const splitX = bbox.x + bbox.width * 0.42;
-        const leftRegions = useful.filter((r) => boxCenter(r).x < splitX).sort((a, b) => a.y - b.y || a.x - b.x);
-        const rightRegions = useful.filter((r) => boxCenter(r).x >= splitX);
+
+        let splitGuess = bbox.x + bbox.width * 0.4;
+        let leftRegions = useful.filter((r) => boxCenter(r).x < splitGuess);
+        let rightRegions = useful.filter((r) => boxCenter(r).x >= splitGuess);
+        if (!leftRegions.length || !rightRegions.length) {
+            const sorted = [...useful].sort((a, b) => boxCenter(a).x - boxCenter(b).x);
+            const mid = Math.floor(sorted.length / 2);
+            leftRegions = sorted.slice(0, Math.max(1, mid));
+            rightRegions = sorted.slice(Math.max(1, mid));
+        }
+        leftRegions.sort((a, b) => a.y - b.y || a.x - b.x);
+        rightRegions.sort((a, b) => a.y - b.y || a.x - b.x);
         if (!leftRegions.length && !rightRegions.length) return null;
+
+        const leftEdge = leftRegions.length ? Math.max(...leftRegions.map((r) => r.x + r.width)) : bbox.x + bbox.width * 0.32;
+        const rightEdge = rightRegions.length ? Math.min(...rightRegions.map((r) => r.x)) : bbox.x + bbox.width * 0.5;
+        const splitX = (leftEdge + rightEdge) / 2;
+        const gap = Math.max(14, bbox.width * 0.02);
+        const leftColumn = { x: bbox.x, y: bbox.y, width: Math.max(1, splitX - gap - bbox.x), height: bbox.height };
+        const rightColumn = { x: splitX + gap, y: bbox.y, width: Math.max(1, bbox.x + bbox.width - (splitX + gap)), height: bbox.height };
+
+        let leftTop = null;
+        let leftBottom = null;
+        if (leftRegions.length === 1) {
+            leftTop = leftColumn;
+        } else if (leftRegions.length > 1) {
+            const topRegion = leftRegions[0];
+            const bottomUnion = unionBoxes(leftRegions.slice(1));
+            const splitY = clamp((topRegion.y + topRegion.height + bottomUnion.y) / 2, bbox.y + bbox.height * 0.35, bbox.y + bbox.height * 0.7);
+            leftTop = { x: leftColumn.x, y: bbox.y, width: leftColumn.width, height: Math.max(1, splitY - bbox.y) };
+            leftBottom = { x: leftColumn.x, y: splitY, width: leftColumn.width, height: Math.max(1, bbox.y + bbox.height - splitY) };
+        }
+
         return {
-            leftTop: leftRegions[0] || null,
-            leftBottom: leftRegions.length > 1 ? unionBoxes(leftRegions.slice(1)) : null,
-            right: rightRegions.length ? unionBoxes(rightRegions) : null,
+            leftTop,
+            leftBottom,
+            right: rightRegions.length ? rightColumn : null,
         };
     }
 
@@ -846,60 +933,133 @@
 
     function drawSingleLine(ctx, text, bbox, font, align = "left") {
         if (!bbox || !text) return;
-        drawFitText(ctx, [String(text).toUpperCase()], bbox, font, align);
+        drawFitText(ctx, [String(text).toUpperCase()], bbox, font, align, {
+            allowWrap: false,
+            valign: "middle",
+            lineHeight: 1.0,
+        });
     }
 
-    function drawFitText(ctx, lines, bbox, font, align = "left") {
-        const clean = (lines || []).filter(Boolean).map((l) => String(l).toUpperCase());
-        if (!clean.length || !bbox || bbox.width <= 0 || bbox.height <= 0) return;
-        let size = parseInt((font.match(/(\d+)px/) || ["", "40"])[1], 10);
-        const fontTemplate = font;
-        while (size > 8) {
-            ctx.font = fontTemplate.replace(/\d+px/, `${size}px`);
-            const maxWidth = Math.max(...clean.map((line) => ctx.measureText(line).width));
-            const totalHeight = clean.length * size * 1.08;
-            if (maxWidth <= bbox.width && totalHeight <= bbox.height) break;
-            size -= 2;
+    function normalizedLines(content) {
+        const parts = Array.isArray(content) ? content : [content];
+        return parts
+            .flatMap((part) => String(part ?? "").split(/\n+/))
+            .map((part) => part.trim())
+            .filter(Boolean)
+            .map((part) => part.toUpperCase());
+    }
+
+    function wrapWordsToLines(ctx, text, maxWidth, maxLines) {
+        const words = String(text || "").trim().split(/\s+/).filter(Boolean);
+        if (!words.length) return [];
+        const lines = [""];
+        for (const word of words) {
+            let placed = false;
+            while (!placed) {
+                const idx = lines.length - 1;
+                const probe = lines[idx] ? `${lines[idx]} ${word}` : word;
+                if (!lines[idx] || ctx.measureText(probe).width <= maxWidth) {
+                    lines[idx] = probe;
+                    placed = true;
+                } else if (lines.length < maxLines) {
+                    lines.push("");
+                } else {
+                    return null;
+                }
+            }
         }
+        if (lines.some((line) => !line)) return null;
+        return lines;
+    }
+
+    function preferredTitleLineCount(text, bbox) {
+        const words = String(text || "").trim().split(/\s+/).filter(Boolean);
+        if (words.length <= 1) return 1;
+        if ((bbox?.height || 0) > 170 && (bbox?.width || 0) < 420 && words.length >= 4) return 3;
+        return 2;
+    }
+
+    function preferredSubtitleLineCount(text, bbox) {
+        const explicit = String(text || "").split(/\n+/).filter(Boolean).length;
+        const words = String(text || "").trim().split(/\s+/).filter(Boolean).length;
+        return Math.max(explicit || 1, ((bbox?.height || 0) > 110 && words > 6) ? 3 : 2);
+    }
+
+    function fitTextLayout(ctx, content, bbox, font, options = {}) {
+        const clean = normalizedLines(content);
+        if (!clean.length || !bbox || bbox.width <= 0 || bbox.height <= 0) return null;
+        const fontTemplate = font;
+        const maxSize = options.maxSize || parseInt((font.match(/(\d+)px/) || ["", "40"])[1], 10);
+        const minSize = options.minSize || 10;
+        const maxLines = Math.max(1, options.maxLines || clean.length || 1);
+        const allowWrap = options.allowWrap !== false;
+        const lineHeightFactor = options.lineHeight || 1.08;
+
+        for (let size = maxSize; size >= minSize; size -= 2) {
+            ctx.font = fontTemplate.replace(/\d+px/, `${size}px`);
+            const candidate = [];
+            let possible = true;
+            for (const line of clean) {
+                const needsWrap = allowWrap && (candidate.length < maxLines) && (ctx.measureText(line).width > bbox.width || maxLines > clean.length);
+                if (needsWrap) {
+                    const wrapped = wrapWordsToLines(ctx, line, bbox.width, maxLines - candidate.length);
+                    if (!wrapped || candidate.length + wrapped.length > maxLines) {
+                        possible = false;
+                        break;
+                    }
+                    candidate.push(...wrapped);
+                } else {
+                    candidate.push(line);
+                }
+            }
+            if (!possible || !candidate.length || candidate.length > maxLines) continue;
+            const widest = Math.max(...candidate.map((line) => ctx.measureText(line).width));
+            const lineHeight = size * lineHeightFactor;
+            const totalHeight = candidate.length * lineHeight;
+            if (widest <= bbox.width && totalHeight <= bbox.height) {
+                return { size, lines: candidate, lineHeight };
+            }
+        }
+
+        const fallbackSize = Math.max(minSize, Math.min(maxSize, 12));
+        ctx.font = fontTemplate.replace(/\d+px/, `${fallbackSize}px`);
+        const fallbackLines = allowWrap ? (wrapWordsToLines(ctx, clean.join(" "), bbox.width, maxLines) || clean.slice(0, maxLines)) : clean.slice(0, maxLines);
+        return { size: fallbackSize, lines: fallbackLines, lineHeight: fallbackSize * lineHeightFactor };
+    }
+
+    function drawFitText(ctx, content, bbox, font, align = "left", options = {}) {
+        const layout = fitTextLayout(ctx, content, bbox, font, options);
+        if (!layout) return;
         ctx.save();
-        ctx.font = fontTemplate.replace(/\d+px/, `${size}px`);
+        ctx.font = font.replace(/\d+px/, `${layout.size}px`);
         ctx.fillStyle = "#fff";
         ctx.textAlign = align;
         ctx.textBaseline = "middle";
-        const lineHeight = size * 1.08;
-        let y = bbox.y + (bbox.height - clean.length * lineHeight) / 2 + lineHeight / 2;
-        for (const line of clean) {
+        const totalHeight = layout.lines.length * layout.lineHeight;
+        const valign = options.valign || "center";
+        let y = bbox.y + layout.lineHeight / 2;
+        if (valign === "middle" || valign === "center") {
+            y = bbox.y + (bbox.height - totalHeight) / 2 + layout.lineHeight / 2;
+        } else if (valign === "bottom") {
+            y = bbox.y + bbox.height - totalHeight + layout.lineHeight / 2;
+        }
+        for (const line of layout.lines) {
             const x = align === "center" ? bbox.x + bbox.width / 2 : align === "right" ? bbox.x + bbox.width : bbox.x;
             ctx.fillText(line, x, y);
-            y += lineHeight;
+            y += layout.lineHeight;
         }
         ctx.restore();
     }
 
     function drawParagraph(ctx, text, bbox, font) {
         if (!text || !bbox) return;
-        const words = String(text).split(/\s+/).filter(Boolean);
-        if (!words.length) return;
-        let size = parseInt((font.match(/(\d+)px/) || ["", "32"])[1], 10);
-        const fontTemplate = font;
-        let lines = [];
-        while (size > 9) {
-            ctx.font = fontTemplate.replace(/\d+px/, `${size}px`);
-            lines = [];
-            let current = "";
-            for (const word of words) {
-                const probe = current ? `${current} ${word}` : word;
-                if (ctx.measureText(probe).width <= bbox.width) current = probe;
-                else {
-                    if (current) lines.push(current);
-                    current = word;
-                }
-            }
-            if (current) lines.push(current);
-            if (lines.length * size * 1.25 <= bbox.height) break;
-            size -= 2;
-        }
-        drawFitText(ctx, lines, bbox, fontTemplate.replace(/\d+px/, `${size}px`), "left");
+        drawFitText(ctx, String(text), bbox, font, "left", {
+            allowWrap: true,
+            maxLines: Math.max(3, Math.floor(bbox.height / 30)),
+            valign: "top",
+            lineHeight: 1.16,
+            minSize: 9,
+        });
     }
 
     function drawImageBox(ctx, image, box) {
