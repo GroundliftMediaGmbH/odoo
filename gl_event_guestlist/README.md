@@ -9,17 +9,20 @@ Odoo 19 SH Modul für Gästelisten in der Veranstaltungsapp.
   - Vor-/Nachname
   - Anzahl 1 bis 20
   - Bearbeiter
-  - Preisoption: `gratis` plus Ticket-/Produktoptionen der Veranstaltung
+  - Kategorie / Preis: `gratis`, `Warteliste` plus Ticket-/Produktoptionen der Veranstaltung
   - Bestellt per: E-Mail, Telefon, Persönlich
   - Kontaktdaten
   - Bemerkung
 - Kapazitätsprüfung gegen globale Event-Kapazität und begrenzte Ticketarten
+- automatische Kennzeichnung des Veranstaltungsnamens mit **(Ausverkauft)**, sobald verkaufte/registrierte Plätze plus verbindliche Gästelistenplätze die Registrierungsbeschränkung erreichen
+- automatische Schließung der Website-Registrierung, damit auf der Landingpage kein Ticketkauf-Link mehr angezeigt wird
+- neue Gästelisten-Kategorie **Warteliste**; diese wird nicht auf Kapazität, Ausverkauft-Status oder Ticketart-Kontingente angerechnet
 - QR-Code und token-geschützte öffentliche Check-in-Seite
 - abhakbare Einlassliste mit Suchfunktion und Live-Zähler
 - technische Summenzeile **Gästeliste** im Tickets-Tab:
   - kein Produkt
   - kein Maximum (`seats_max = 0`, Odoo-Logik: unbegrenzt)
-  - Spalte `Registration` zeigt die Summe der Gästelistenplätze
+  - Spalte `Registration` zeigt die Summe der verbindlichen Gästelistenplätze ohne Warteliste
   - nicht verkaufbar (`sale_available = False`) und nicht für Preisoptionen auswählbar
 - kein eigenes App-Menü und kein Desktop-Icon (`application = False`)
 

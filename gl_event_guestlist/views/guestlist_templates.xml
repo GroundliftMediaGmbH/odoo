@@ -95,6 +95,10 @@
                             background: #f0fdf4;
                             opacity: .78;
                         }
+                        .gl-row.is-waitlist {
+                            background: #fffbeb;
+                            border-color: #f59e0b;
+                        }
                         .gl-checkbox {
                             width: 34px;
                             height: 34px;
@@ -121,6 +125,10 @@
                             padding: 5px 10px;
                             font-size: 13px;
                             font-weight: 650;
+                        }
+                        .gl-badge-waitlist {
+                            background: #fef3c7;
+                            color: #92400e;
                         }
                         .gl-note {
                             color: #6b7280;
@@ -177,6 +185,10 @@
                                     <div class="gl-stat-value" id="glOpenQty" t-esc="total_qty - checked_qty"/>
                                     <div class="gl-stat-label">noch offen</div>
                                 </div>
+                                <div class="gl-stat-card">
+                                    <div class="gl-stat-value" id="glWaitlistQty" t-esc="waitlist_qty"/>
+                                    <div class="gl-stat-label">Warteliste</div>
+                                </div>
                             </div>
                         </header>
 
@@ -189,8 +201,8 @@
                                 <div class="gl-empty">Für diese Veranstaltung sind noch keine Gäste eingetragen.</div>
                             </t>
                             <t t-foreach="guestlist_lines" t-as="line">
-                                <div t-att-class="'gl-row is-checked' if line.checked_in else 'gl-row'"
-                                     t-att-data-search="'%s %s %s %s' % (line.name or '', line.contact_data or '', line.note or '', line.price_option_id.name or '')">
+                                <div t-att-class="'gl-row%s%s' % (' is-checked' if line.checked_in else '', ' is-waitlist' if line.is_waitlist else '')"
+                                     t-att-data-search="'%s %s %s %s %s' % (line.name or '', line.contact_data or '', line.note or '', line.price_option_id.name or '', 'Warteliste' if line.is_waitlist else '')">
                                     <input class="gl-checkbox"
                                            type="checkbox"
                                            t-att-checked="line.checked_in and 'checked'"
@@ -198,6 +210,7 @@
                                     <div>
                                         <div class="gl-guest-name" t-esc="line.name"/>
                                         <div class="gl-meta">
+                                            <span class="gl-badge gl-badge-waitlist" t-if="line.is_waitlist">Warteliste</span>
                                             <span class="gl-badge">Anzahl: <t t-esc="line.quantity_int"/></span>
                                             <span class="gl-badge" t-if="line.price_option_id" t-esc="line.price_option_id.name"/>
                                             <span class="gl-badge" t-if="line.ordered_by_label" t-esc="line.ordered_by_label"/>
@@ -217,12 +230,16 @@
                             const checkedQtyEl = document.getElementById('glCheckedQty');
                             const totalQtyEl = document.getElementById('glTotalQty');
                             const openQtyEl = document.getElementById('glOpenQty');
+                            const waitlistQtyEl = document.getElementById('glWaitlistQty');
 
                             function updateCounters(data) {
                                 if (!data || !data.ok) { return; }
                                 checkedQtyEl.textContent = data.checked_qty;
                                 totalQtyEl.textContent = data.total_qty;
                                 openQtyEl.textContent = data.total_qty - data.checked_qty;
+                                if (waitlistQtyEl &amp;&amp; typeof data.waitlist_qty !== 'undefined') {
+                                    waitlistQtyEl.textContent = data.waitlist_qty;
+                                }
                             }
 
                             document.querySelectorAll('.gl-checkbox').forEach(function (checkbox) {
