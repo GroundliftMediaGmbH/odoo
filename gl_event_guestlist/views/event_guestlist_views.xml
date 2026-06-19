@@ -10,8 +10,11 @@
                     <group>
                         <group string="Übersicht">
                             <field name="guestlist_total_qty" readonly="1"/>
+                            <field name="guestlist_reserved_qty" readonly="1"/>
+                            <field name="guestlist_waitlist_qty" readonly="1"/>
                             <field name="guestlist_checked_in_qty" readonly="1"/>
                             <field name="guestlist_remaining_qty" readonly="1"/>
+                            <field name="guestlist_sold_out_with_guestlist" readonly="1"/>
                             <field name="guestlist_capacity_info" readonly="1" nolabel="1"/>
                         </group>
                         <group string="QR-Code / Einlass-Link">
@@ -32,12 +35,13 @@
                     </group>
                     <separator string="Gäste"/>
                     <field name="guestlist_line_ids" context="{'default_event_id': id}">
-                        <list editable="bottom" decoration-success="checked_in">
+                        <list editable="bottom" decoration-success="checked_in" decoration-warning="is_waitlist">
                             <field name="name" string="Vor-/Nachname" required="1"/>
                             <field name="quantity" string="Anzahl" required="1"/>
                             <field name="employee_id" string="Bearbeiter" options="{'no_create_edit': True}"/>
+                            <field name="is_waitlist" invisible="1"/>
                             <field name="price_option_id"
-                                   string="Preis"
+                                   string="Kategorie / Preis"
                                    domain="[('event_id', '=', parent.id), ('active', '=', True)]"
                                    options="{'no_create': True, 'no_open': True}"/>
                             <field name="ordered_by" string="Bestellt per" required="1"/>
