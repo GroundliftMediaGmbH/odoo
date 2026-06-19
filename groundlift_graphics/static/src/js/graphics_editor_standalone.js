@@ -597,6 +597,13 @@
         const box = info.bboxes;
         const regions = info.regions || {};
 
+        // Feste grafische Ebenen, die nicht als "static_*" erkannt werden,
+        // aber trotzdem echte sichtbare Layer sind (z. B. Kino-Claim,
+        // Sudhaus-Getränkekarte und externe Partnerlogos).
+        if (img.claim) ctx.drawImage(img.claim, 0, 0, template.canvas_width, template.canvas_height);
+        if (img.drink_card) ctx.drawImage(img.drink_card, 0, 0, template.canvas_width, template.canvas_height);
+        await drawExternalLogo(ctx, img, box, variant, template);
+
         if (img.frame) ctx.drawImage(img.frame, 0, 0, template.canvas_width, template.canvas_height);
         if (img.logo) {
             if (img.logo.width === template.canvas_width && img.logo.height === template.canvas_height) {
@@ -651,9 +658,33 @@
         else ctx.rect(box.x, box.y, box.width, box.height);
         ctx.clip();
         ctx.translate(cx, cy);
-        ctx.rotate((imageTransform.rotation || 0) * Math.PI / 180);
+        ctx.rotate((Number(imageTransform.rotation || 0)) * Math.PI / 180);
         ctx.drawImage(image, -drawW / 2, -drawH / 2, drawW, drawH);
         ctx.restore();
+    }
+
+    async function drawExternalLogo(ctx, img, box, variant, template) {
+        const targetBox = box.external_logo;
+        if (!targetBox) {
+            if (img.external_logo) ctx.drawImage(img.external_logo, 0, 0, template.canvas_width, template.canvas_height);
+            return;
+        }
+
+        let logoImage = img.external_logo || null;
+        if (state.externalLogoBase64) {
+            logoImage = await loadImage(dataUrlFromBase64(
+                state.externalLogoBase64,
+                extensionMime(state.externalLogoFilename, "image/png")
+            ));
+        }
+        if (!logoImage) return;
+
+        if (!state.externalLogoBase64 && logoImage.width === template.canvas_width && logoImage.height === template.canvas_height) {
+            ctx.drawImage(logoImage, 0, 0, template.canvas_width, template.canvas_height);
+            return;
+        }
+
+        drawLayerPreserveAspect(ctx, logoImage, { x: 0, y: 0, width: logoImage.width, height: logoImage.height }, applyBoxVariant(targetBox, variant.externalLogo));
     }
 
     function drawDateTitle(ctx, bbox, regions = []) {

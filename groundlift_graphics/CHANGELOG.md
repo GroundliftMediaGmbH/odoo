@@ -1,5 +1,10 @@
 # Changelog
 
+## 19.0.1.3.4
+
+- Behebt den Canvas-Renderabbruch nach der Verlaufsebene: Die Bildrotation verwendet nun die tatsächlich übergebene Bildtransformation statt einer nicht vorhandenen Variant-Variable.
+- Feste sichtbare Ebenen für Claim, externe Logos und die Sudhaus-Getränkekarte werden wieder in der korrekten Ebenenreihenfolge gerendert.
+
 ## 19.0.1.1.0
 
 - Multi-Format-Editor auf Basis aller gelieferten PNG-Vorlagen ergänzt (Kino, Plakat, Social, Foyer, Stream, Sudhaus Main usw.).
