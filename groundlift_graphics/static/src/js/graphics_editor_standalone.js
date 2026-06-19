@@ -3,6 +3,7 @@
 
     const root = document.getElementById("gl-editor-root");
     const posterId = parseInt(root?.dataset?.posterId || "0", 10);
+    const APP_VERSION = "19.0.1.3.5";
 
     const state = {
         loading: true,
@@ -102,11 +103,40 @@
                 return;
             }
             const img = new Image();
-            img.crossOrigin = "anonymous";
+            try {
+                const parsed = new URL(src, window.location.href);
+                if (parsed.protocol.startsWith("http") && parsed.origin !== window.location.origin) {
+                    img.crossOrigin = "anonymous";
+                }
+            } catch {
+                // Relative oder data:-URL. Kein crossOrigin setzen, damit Odoo-Static-Dateien und Base64-Bilder sicher laden.
+            }
             img.onload = () => resolve(img);
-            img.onerror = reject;
+            img.onerror = () => reject(new Error(`Bild konnte nicht geladen werden: ${String(src).slice(0, 160)}`));
             img.src = src;
         });
+    }
+
+    async function safeLayer(label, fn) {
+        try {
+            return await fn();
+        } catch (error) {
+            console.warn(`Grafik-Layer übersprungen: ${label}`, error);
+            return null;
+        }
+    }
+
+    function safeDrawImage(ctx, image, x, y, width, height, label = "Bild") {
+        if (!ctx || !image) return;
+        try {
+            if (Number.isFinite(width) && Number.isFinite(height)) {
+                ctx.drawImage(image, x, y, width, height);
+            } else {
+                ctx.drawImage(image, x || 0, y || 0);
+            }
+        } catch (error) {
+            console.warn(`Grafik-Layer konnte nicht gezeichnet werden: ${label}`, error);
+        }
     }
 
     function alphaGeometry(image) {
@@ -259,6 +289,7 @@
 
     function drawCroppedLayer(ctx, image, sourceBox, targetBox) {
         if (!ctx || !image || !sourceBox || !targetBox) return;
+        if (sourceBox.width <= 0 || sourceBox.height <= 0 || targetBox.width <= 0 || targetBox.height <= 0) return;
         ctx.drawImage(
             image,
             sourceBox.x, sourceBox.y, sourceBox.width, sourceBox.height,
@@ -268,6 +299,7 @@
 
     function drawLayerPreserveAspect(ctx, image, sourceBox, targetBox) {
         if (!ctx || !image || !sourceBox || !targetBox) return;
+        if (sourceBox.width <= 0 || sourceBox.height <= 0 || targetBox.width <= 0 || targetBox.height <= 0) return;
         const scale = Math.min(targetBox.width / sourceBox.width, targetBox.height / sourceBox.height);
         const width = sourceBox.width * scale;
         const height = sourceBox.height * scale;
@@ -318,6 +350,12 @@
         return ensureGlobalImageTransform();
     }
 
+    function cacheBustedUrl(url) {
+        if (!url || String(url).startsWith("data:")) return url;
+        const separator = String(url).includes("?") ? "&" : "?";
+        return `${url}${separator}v=${encodeURIComponent(APP_VERSION)}`;
+    }
+
     function setImageTransform(templateKey, transform, forceLocal = false) {
         const variant = ensureVariant(templateKey);
         const clean = {
@@ -348,7 +386,7 @@
         const staticOverlays = [];
         for (const asset of template.assets || []) {
             try {
-                const image = await loadImage(asset.url);
+                const image = await loadImage(cacheBustedUrl(asset.url));
                 if (!image) continue;
                 if (!imagesByRole[asset.role]) imagesByRole[asset.role] = image;
                 if (asset.role.startsWith("static_")) staticOverlays.push({ role: asset.role, image });
@@ -577,6 +615,7 @@
     }
 
     async function paintTemplate(ctx, info, variant, showGuides = false) {
+        if (!ctx || !info || !info.template) return;
         const template = info.template;
         ctx.clearRect(0, 0, template.canvas_width, template.canvas_height);
 
@@ -586,48 +625,57 @@
         // 3) alle sonstigen Overlays / Texte / QR / Logos
         // 4) Störer immer ganz oben
         drawGradient(ctx, template);
-        await drawSourceImage(ctx, info, getImageTransform(template.key));
 
-        const qrImg = state.qrImageBase64 ? await loadImage(dataUrlFromBase64(state.qrImageBase64, "image/png")) : null;
-        for (const overlay of info.staticOverlays) {
-            ctx.drawImage(overlay.image, 0, 0, template.canvas_width, template.canvas_height);
+        // Wichtig: Einzelne fehlerhafte Bilder dürfen den gesamten Renderer nicht mehr abbrechen.
+        // Genau sonst bleibt nach dem Verlauf alles leer und Download/Speichern brechen ebenfalls ab.
+        await safeLayer("Veranstaltungsbild", () => drawSourceImage(ctx, info, getImageTransform(template.key)));
+
+        const qrImg = state.qrImageBase64
+            ? await safeLayer("QR-Code laden", () => loadImage(dataUrlFromBase64(state.qrImageBase64, "image/png")))
+            : null;
+        for (const overlay of info.staticOverlays || []) {
+            safeDrawImage(ctx, overlay.image, 0, 0, template.canvas_width, template.canvas_height, overlay.role || "Static Overlay");
         }
 
-        const img = info.imagesByRole;
-        const box = info.bboxes;
+        const img = info.imagesByRole || {};
+        const box = info.bboxes || {};
         const regions = info.regions || {};
 
         // Feste grafische Ebenen, die nicht als "static_*" erkannt werden,
         // aber trotzdem echte sichtbare Layer sind (z. B. Kino-Claim,
         // Sudhaus-Getränkekarte und externe Partnerlogos).
-        if (img.claim) ctx.drawImage(img.claim, 0, 0, template.canvas_width, template.canvas_height);
-        if (img.drink_card) ctx.drawImage(img.drink_card, 0, 0, template.canvas_width, template.canvas_height);
-        await drawExternalLogo(ctx, img, box, variant, template);
+        safeDrawImage(ctx, img.claim, 0, 0, template.canvas_width, template.canvas_height, "Claim");
+        safeDrawImage(ctx, img.drink_card, 0, 0, template.canvas_width, template.canvas_height, "Getränkekarte");
+        await safeLayer("Externes Logo", () => drawExternalLogo(ctx, img, box, variant, template));
 
-        if (img.frame) ctx.drawImage(img.frame, 0, 0, template.canvas_width, template.canvas_height);
+        safeDrawImage(ctx, img.frame, 0, 0, template.canvas_width, template.canvas_height, "Rahmen");
         if (img.logo) {
-            if (img.logo.width === template.canvas_width && img.logo.height === template.canvas_height) {
-                ctx.drawImage(img.logo, 0, 0, template.canvas_width, template.canvas_height);
-            } else if (box.logo) {
-                drawLayerPreserveAspect(ctx, img.logo, box.logo, box.logo);
-            }
+            await safeLayer("Logo", () => {
+                if (img.logo.width === template.canvas_width && img.logo.height === template.canvas_height) {
+                    safeDrawImage(ctx, img.logo, 0, 0, template.canvas_width, template.canvas_height, "Logo");
+                } else if (box.logo) {
+                    drawLayerPreserveAspect(ctx, img.logo, box.logo, box.logo);
+                }
+            });
         }
 
-        drawDateTitle(ctx, box.date_title || box.title, regions.date_title || regions.title || []);
-        drawTimeSubtitle(ctx, box.time_subtitle, regions.time_subtitle || []);
-        drawTimeTicketlink(ctx, box.time_ticketlink, regions.time_ticketlink || []);
-        drawTitleOnly(ctx, box.title, regions.title || []);
-        drawSubtitleOnly(ctx, box.subtitle, regions.subtitle || []);
-        drawParagraphBox(ctx, state.fields.summary_text, box.summary);
-        drawSingleLine(ctx, state.fields.photo_credit, box.photo_credit, "400 28px GroundliftRegular, Arial, sans-serif", "center");
-        drawSingleLine(ctx, state.fields.ticket_link_text, box.ticket_link, "600 28px GroundliftCondensed, Arial Narrow, Arial, sans-serif", "center");
-        if (qrImg && box.qr) drawImageBox(ctx, qrImg, applyBoxVariant(box.qr, variant.qr));
+        safeLayer("Datum/Titel", () => drawDateTitle(ctx, box.date_title || box.title, regions.date_title || regions.title || []));
+        safeLayer("Uhrzeit/Untertitel", () => drawTimeSubtitle(ctx, box.time_subtitle, regions.time_subtitle || []));
+        safeLayer("Uhrzeit/Ticketlink", () => drawTimeTicketlink(ctx, box.time_ticketlink, regions.time_ticketlink || []));
+        safeLayer("Titel", () => drawTitleOnly(ctx, box.title, regions.title || []));
+        safeLayer("Untertitel", () => drawSubtitleOnly(ctx, box.subtitle, regions.subtitle || []));
+        safeLayer("Kurzzusammenfassung", () => drawParagraphBox(ctx, state.fields.summary_text, box.summary));
+        safeLayer("Fotocredit", () => drawSingleLine(ctx, state.fields.photo_credit, box.photo_credit, "400 28px GroundliftRegular, Arial, sans-serif", "center"));
+        safeLayer("Ticketlink", () => drawSingleLine(ctx, state.fields.ticket_link_text, box.ticket_link, "600 28px GroundliftCondensed, Arial Narrow, Arial, sans-serif", "center"));
+        if (qrImg && box.qr) safeLayer("QR-Code zeichnen", () => drawImageBox(ctx, qrImg, applyBoxVariant(box.qr, variant.qr)));
 
         if (img.sticker && state.fields.sticker_mode !== "hidden" && box.sticker) {
-            drawCroppedLayer(ctx, img.sticker, box.sticker, applyBoxVariant(box.sticker, variant.sticker));
+            await safeLayer("Störer", () => drawCroppedLayer(ctx, img.sticker, box.sticker, applyBoxVariant(box.sticker, variant.sticker)));
         }
 
-        if (showGuides) drawImageHandles(ctx, info.geometries.image_mask || { bbox: info.bboxes.image_mask });
+        if (showGuides) {
+            safeLayer("Bildgriffe", () => drawImageHandles(ctx, info.geometries.image_mask || { bbox: info.bboxes.image_mask }));
+        }
     }
 
     function drawGradient(ctx, template) {
@@ -855,6 +903,7 @@
     }
 
     function drawImageBox(ctx, image, box) {
+        if (!ctx || !image || !box || box.width <= 0 || box.height <= 0) return;
         ctx.drawImage(image, box.x, box.y, box.width, box.height);
     }
 

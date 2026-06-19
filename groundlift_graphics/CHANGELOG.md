@@ -1,5 +1,12 @@
 # Changelog
 
+## 19.0.1.3.5
+
+- Macht den Canvas-Renderer fehlertolerant: Ein defektes/ungeladenes Veranstaltungsbild, QR-Bild oder Overlay stoppt nicht mehr alle weiteren Ebenen. Dadurch werden Logos, Rahmen, Störer, Textmasken und Getränkekarten weiterhin gezeichnet.
+- Lädt Template-Assets mit URL-kodierten Dateinamen, damit Ordner/Dateien mit Leerzeichen oder Umlauten zuverlässig funktionieren.
+- Ergänzt Cache-Busting für den isolierten Editor und das Standalone-JavaScript, damit Odoo.sh/Browser nicht versehentlich die alte fehlerhafte JS-Datei weiterverwenden.
+- Stabilisiert den JPG-/ZIP-Export, weil `renderAllOutputs()` nicht mehr an einer einzelnen fehlerhaften Ebene scheitert.
+
 ## 19.0.1.3.4
 
 - Behebt den Canvas-Renderabbruch nach der Verlaufsebene: Die Bildrotation verwendet nun die tatsächlich übergebene Bildtransformation statt einer nicht vorhandenen Variant-Variable.

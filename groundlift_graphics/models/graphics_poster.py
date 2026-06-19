@@ -3,7 +3,7 @@ import io
 import html as html_tools
 import re
 from pathlib import Path
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import quote, urlsplit, urlunsplit
 
 import pytz
 import qrcode
@@ -219,7 +219,8 @@ class GraphicsPoster(models.Model):
             for file in sorted(folder.iterdir()):
                 if file.suffix.lower() not in {'.png', '.jpg', '.jpeg', '.webp'}:
                     continue
-                url = f"/groundlift_graphics/static/src/img/templates/{key}/{file.name}"
+                # URLs mit Leerzeichen/Umlauten sauber kodieren, damit Browser/Odoo die Template-Assets zuverlässig laden.
+                url = f"/groundlift_graphics/static/src/img/templates/{quote(key)}/{quote(file.name)}"
                 role = self._asset_role(file.name)
                 if role in {"gradient", "example", "image_mask"}:
                     try:
