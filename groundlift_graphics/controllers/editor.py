@@ -1,3 +1,4 @@
+import json
 from markupsafe import Markup
 
 from odoo import http
@@ -37,7 +38,7 @@ class GroundliftGraphicsEditorPage(http.Controller):
         .gl-toolbar { flex: 0 0 auto; min-height: 58px; display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #fff; color: var(--gl-text); border-bottom: 1px solid var(--gl-border); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
         .gl-toolbar strong { font-size: 15px; font-weight: 600; max-width: 580px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .gl-workspace { flex: 1 1 auto; min-height: 0; display: flex; background: var(--gl-bg); }
-        .gl-sidebar { width: 410px; flex: 0 0 410px; overflow: auto; background: var(--gl-panel); color: var(--gl-text); border-right: 1px solid var(--gl-border); padding: 18px; }
+        .gl-sidebar { width: 480px; flex: 0 0 480px; overflow: auto; background: var(--gl-panel); color: var(--gl-text); border-right: 1px solid var(--gl-border); padding: 18px; }
         .gl-canvas-area { flex: 1 1 auto; min-width: 0; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 28px; background: radial-gradient(circle at 50% 30%, #252a36 0%, #151821 55%, #10131a 100%); }
         .gl-canvas-shell { background: #080a10; box-shadow: 0 18px 48px rgba(0,0,0,.55); border-radius: 6px; overflow: hidden; }
         #posterCanvas { display: block; max-width: min(100%, 1200px); max-height: calc(100vh - 126px); width: auto; height: auto; }
@@ -70,11 +71,32 @@ class GroundliftGraphicsEditorPage(http.Controller):
 </head>
 <body>
     <div id="gl-editor-root" data-poster-id="__POSTER_ID__"></div>
-    <script src="/groundlift_graphics/static/src/js/graphics_editor_standalone.js?v=19.0.1.4.7"></script>
+    <script src="/groundlift_graphics/static/src/js/graphics_editor_standalone.js?v=19.0.1.5.1"></script>
 </body>
 </html>"""
         html = html.replace("__POSTER_ID__", str(poster_id))
         return request.make_response(Markup(html), headers=[("Content-Type", "text/html; charset=utf-8")])
+
+
+
+    @http.route("/groundlift_graphics/template_defaults/<string:template_key>/save", type="http", auth="user", methods=["POST"], csrf=False)
+    def save_template_defaults(self, template_key, **kwargs):
+        payload = json.loads(request.httprequest.get_data(as_text=True) or "{}")
+        defaults = payload.get("defaults") or {}
+        key = f"groundlift_graphics.template_defaults.{template_key}"
+        request.env["ir.config_parameter"].sudo().set_param(key, json.dumps(defaults))
+        return request.make_json_response({"ok": True})
+
+    @http.route("/groundlift_graphics/template_defaults/<string:template_key>/load", type="http", auth="user", methods=["POST"], csrf=False)
+    def load_template_defaults(self, template_key, **kwargs):
+        key = f"groundlift_graphics.template_defaults.{template_key}"
+        raw = request.env["ir.config_parameter"].sudo().get_param(key)
+        if not raw:
+            return request.make_json_response({"found": False, "defaults": None})
+        try:
+            return request.make_json_response({"found": True, "defaults": json.loads(raw)})
+        except Exception:
+            return request.make_json_response({"found": False, "defaults": None, "error": "Ungültige gespeicherte Standarddaten."})
 
     @http.route("/groundlift_graphics/editor/missing", type="http", auth="user")
     def graphics_editor_missing(self, **kwargs):
