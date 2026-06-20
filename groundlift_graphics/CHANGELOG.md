@@ -1,6 +1,6 @@
 # Changelog
 
-## 19.0.1.3.7
+## 19.0.1.3.8
 
 - Richtet Datum und Titel nun an der Oberkante des senkrechten Trennstrichs aus und verwendet links/rechts am Trennstrich eine konsequente rechts- bzw. linksbündige Ausrichtung mit identischem Abstand.
 - Richtet Kategorie und Untertitel nun an der Unterkante des Trennstrichs aus; die Uhrzeit wird im linken Block zwischen oberem Bereich und Kategorie sauber positioniert.

@@ -896,8 +896,10 @@
         const useful = (regions || []).filter((r) => r.width > 3 && r.height > 3);
         if (!useful.length) return null;
 
-        const divider = findDividerBox(bbox, useful, 0.40);
-        const columns = buildDividerColumns(bbox, divider, Math.max(14, bbox.width * 0.02));
+        // Use the exact same divider logic and horizontal spacing as the
+        // date/title block so time/category/subtitle line up perfectly with it.
+        const divider = findDividerBox(bbox, useful, 0.42);
+        const columns = buildDividerColumns(bbox, divider);
         const top = divider.y;
         const bottom = divider.y + divider.height;
 
