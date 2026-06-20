@@ -3,7 +3,7 @@
 
     const root = document.getElementById("gl-editor-root");
     const posterId = parseInt(root?.dataset?.posterId || "0", 10);
-    const APP_VERSION = "19.0.1.3.9";
+    const APP_VERSION = "19.0.1.4.0";
 
     const state = {
         loading: true,
@@ -18,8 +18,10 @@
         fields: {},
         editorState: {},
         templateCache: new Map(),
+        imageObjectCache: new Map(),
         imageEditMode: "global",
         activeHandle: null,
+        renderToken: 0,
     };
 
     function clamp(value, min, max) {
@@ -115,6 +117,14 @@
             img.onerror = () => reject(new Error(`Bild konnte nicht geladen werden: ${String(src).slice(0, 160)}`));
             img.src = src;
         });
+    }
+
+    function loadImageCached(src) {
+        if (!src) return Promise.resolve(null);
+        if (!state.imageObjectCache.has(src)) {
+            state.imageObjectCache.set(src, loadImage(src));
+        }
+        return state.imageObjectCache.get(src);
     }
 
     async function safeLayer(label, fn) {
@@ -600,14 +610,22 @@
     }
 
     async function renderCanvas() {
+        const token = ++state.renderToken;
         try {
             const template = currentTemplate();
             if (!template) return;
             const info = await ensureTemplateAssets(template);
-            const canvas = document.getElementById("posterCanvas");
-            canvas.width = template.canvas_width;
-            canvas.height = template.canvas_height;
-            await paintTemplate(canvas.getContext("2d"), info, ensureVariant(template.key), true);
+            const visibleCanvas = document.getElementById("posterCanvas");
+            const buffer = document.createElement("canvas");
+            buffer.width = template.canvas_width;
+            buffer.height = template.canvas_height;
+            await paintTemplate(buffer.getContext("2d"), info, ensureVariant(template.key), true);
+            if (token !== state.renderToken) return;
+            if (visibleCanvas.width !== template.canvas_width) visibleCanvas.width = template.canvas_width;
+            if (visibleCanvas.height !== template.canvas_height) visibleCanvas.height = template.canvas_height;
+            const ctx = visibleCanvas.getContext("2d");
+            ctx.clearRect(0, 0, visibleCanvas.width, visibleCanvas.height);
+            ctx.drawImage(buffer, 0, 0);
         } catch (error) {
             console.error(error);
             setStatus(`Render-Fehler: ${error.message}`, true);
@@ -617,38 +635,74 @@
     async function paintTemplate(ctx, info, variant, showGuides = false) {
         if (!ctx || !info || !info.template) return;
         const template = info.template;
+        const templateKey = template.key;
         ctx.clearRect(0, 0, template.canvas_width, template.canvas_height);
 
         // Ebenenreihenfolge:
         // 1) Verlauf ganz hinten
-        // 2) hochgeladenes Bild
-        // 3) alle sonstigen Overlays / Texte / QR / Logos
+        // 2) hochgeladenes Bild / Content
+        // 3) feste Logos / Rahmen / Texte / QR
         // 4) Störer immer ganz oben
         drawGradient(ctx, template);
 
-        // Wichtig: Einzelne fehlerhafte Bilder dürfen den gesamten Renderer nicht mehr abbrechen.
-        // Genau sonst bleibt nach dem Verlauf alles leer und Download/Speichern brechen ebenfalls ab.
-        await safeLayer("Veranstaltungsbild", () => drawSourceImage(ctx, info, getImageTransform(template.key)));
-
         const qrImg = state.qrImageBase64
-            ? await safeLayer("QR-Code laden", () => loadImage(dataUrlFromBase64(state.qrImageBase64, "image/png")))
+            ? await safeLayer("QR-Code laden", () => loadImageCached(dataUrlFromBase64(state.qrImageBase64, "image/png")))
             : null;
-        for (const overlay of info.staticOverlays || []) {
-            safeDrawImage(ctx, overlay.image, 0, 0, template.canvas_width, template.canvas_height, overlay.role || "Static Overlay");
-        }
-
         const img = info.imagesByRole || {};
         const box = info.bboxes || {};
         const regions = info.regions || {};
+        const contentShift = resolveTemplateContentShift(template, box);
+
+        for (const overlay of info.staticOverlays || []) {
+            safeDrawImage(ctx, overlay.image, 0, 0, template.canvas_width, template.canvas_height, overlay.role || "Static Overlay");
+        }
 
         // Feste grafische Ebenen, die nicht als "static_*" erkannt werden,
         // aber trotzdem echte sichtbare Layer sind (z. B. Kino-Claim,
         // Sudhaus-Getränkekarte und externe Partnerlogos).
         safeDrawImage(ctx, img.claim, 0, 0, template.canvas_width, template.canvas_height, "Claim");
         safeDrawImage(ctx, img.drink_card, 0, 0, template.canvas_width, template.canvas_height, "Getränkekarte");
-        await safeLayer("Externes Logo", () => drawExternalLogo(ctx, img, box, variant, template));
 
-        safeDrawImage(ctx, img.frame, 0, 0, template.canvas_width, template.canvas_height, "Rahmen");
+        const dateTitleLayout = box.date_title ? resolveDateTitleLayout(box.date_title, regions.date_title || []) : null;
+        const photoCreditBox = resolvePhotoCreditTargetBox(template, box);
+        const qrBox = resolveQrTargetBox(template, box);
+        const ticketLinkBox = resolveTicketLinkTargetBox(template, box);
+
+        const drawShiftedContent = async () => {
+            await safeLayer("Veranstaltungsbild", () => drawSourceImage(ctx, info, getImageTransform(template.key)));
+            safeDrawImage(ctx, img.frame, 0, 0, template.canvas_width, template.canvas_height, "Rahmen");
+            safeLayer("Datum/Titel", () => {
+                if (templateKey === "theater_konzert") {
+                    drawTitleSubtitleStack(ctx, box.date_title, state.fields.event_title, state.fields.event_subtitle, {
+                        titleRatio: 0.66,
+                        gap: Math.max(8, template.canvas_height * 0.008),
+                    });
+                } else {
+                    drawDateTitle(ctx, box.date_title, regions.date_title || [], dateTitleLayout);
+                }
+            });
+            safeLayer("Uhrzeit/Untertitel", () => drawTimeSubtitle(ctx, box.time_subtitle, regions.time_subtitle || [], dateTitleLayout));
+            safeLayer("Uhrzeit/Ticketlink", () => drawTimeTicketlink(ctx, box.time_ticketlink, regions.time_ticketlink || []));
+            safeLayer("Titel", () => drawTitleOnly(ctx, box.title, regions.title || []));
+            safeLayer("Untertitel", () => drawSubtitleOnly(ctx, box.subtitle, regions.subtitle || []));
+            safeLayer("Kurzzusammenfassung", () => drawParagraphBox(ctx, state.fields.summary_text, box.summary));
+            safeLayer("Fotocredit", () => drawSingleLine(ctx, state.fields.photo_credit, photoCreditBox, "400 28px GroundliftRegular, Arial, sans-serif", "center"));
+            if (ticketLinkBox) {
+                safeLayer("Ticketlink", () => drawSingleLine(ctx, state.fields.ticket_link_text, ticketLinkBox, "600 28px GroundliftCondensed, Arial Narrow, Arial, sans-serif", "center"));
+            }
+            if (qrImg && qrBox) safeLayer("QR-Code zeichnen", () => drawImageBox(ctx, qrImg, applyBoxVariant(qrBox, variant.qr)));
+            await safeLayer("Externes Logo", () => drawExternalLogo(ctx, img, box, variant, template));
+        };
+
+        if (contentShift.dx || contentShift.dy) {
+            ctx.save();
+            ctx.translate(contentShift.dx, contentShift.dy);
+            await drawShiftedContent();
+            ctx.restore();
+        } else {
+            await drawShiftedContent();
+        }
+
         if (img.logo) {
             await safeLayer("Logo", () => {
                 if (img.logo.width === template.canvas_width && img.logo.height === template.canvas_height) {
@@ -659,24 +713,135 @@
             });
         }
 
-        const dateTitleLayout = box.date_title ? resolveDateTitleLayout(box.date_title, regions.date_title || []) : null;
-        safeLayer("Datum/Titel", () => drawDateTitle(ctx, box.date_title, regions.date_title || [], dateTitleLayout));
-        safeLayer("Uhrzeit/Untertitel", () => drawTimeSubtitle(ctx, box.time_subtitle, regions.time_subtitle || [], dateTitleLayout));
-        safeLayer("Uhrzeit/Ticketlink", () => drawTimeTicketlink(ctx, box.time_ticketlink, regions.time_ticketlink || []));
-        safeLayer("Titel", () => drawTitleOnly(ctx, box.title, regions.title || []));
-        safeLayer("Untertitel", () => drawSubtitleOnly(ctx, box.subtitle, regions.subtitle || []));
-        safeLayer("Kurzzusammenfassung", () => drawParagraphBox(ctx, state.fields.summary_text, box.summary));
-        safeLayer("Fotocredit", () => drawSingleLine(ctx, state.fields.photo_credit, box.photo_credit, "400 28px GroundliftRegular, Arial, sans-serif", "center"));
-        safeLayer("Ticketlink", () => drawSingleLine(ctx, state.fields.ticket_link_text, box.ticket_link, "600 28px GroundliftCondensed, Arial Narrow, Arial, sans-serif", "center"));
-        if (qrImg && box.qr) safeLayer("QR-Code zeichnen", () => drawImageBox(ctx, qrImg, applyBoxVariant(box.qr, variant.qr)));
-
         if (img.sticker && state.fields.sticker_mode !== "hidden" && box.sticker) {
-            await safeLayer("Störer", () => drawCroppedLayer(ctx, img.sticker, box.sticker, applyBoxVariant(box.sticker, variant.sticker)));
+            if (contentShift.dx || contentShift.dy) {
+                ctx.save();
+                ctx.translate(contentShift.dx, contentShift.dy);
+                await safeLayer("Störer", () => drawCroppedLayer(ctx, img.sticker, box.sticker, applyBoxVariant(box.sticker, variant.sticker)));
+                ctx.restore();
+            } else {
+                await safeLayer("Störer", () => drawCroppedLayer(ctx, img.sticker, box.sticker, applyBoxVariant(box.sticker, variant.sticker)));
+            }
         }
 
         if (showGuides) {
             safeLayer("Bildgriffe", () => drawImageHandles(ctx, info.geometries.image_mask || { bbox: info.bboxes.image_mask }));
         }
+    }
+
+    function resolveTemplateContentShift(template, box = {}) {
+        if (!template || template.key !== "social_post") return { dx: 0, dy: 0 };
+        const group = unionBoxes([box.image_mask, box.frame, box.sticker, box.date_title, box.time_subtitle, box.photo_credit, box.ticket_link].filter(Boolean));
+        if (!group) return { dx: 0, dy: 0 };
+        return {
+            dx: Math.round(template.canvas_width / 2 - (group.x + group.width / 2)),
+            dy: 0,
+        };
+    }
+
+    function resolvePhotoCreditTargetBox(template, box = {}) {
+        if (!template) return box.photo_credit || null;
+        if (template.key === "social_post") return box.photo_credit || null;
+        const frame = box.frame;
+        if (!frame) return box.photo_credit || null;
+        const original = box.photo_credit || null;
+        const width = original?.width || Math.max(160, Math.round(frame.width * 0.48));
+        const height = original?.height || Math.max(22, Math.round(template.canvas_height * 0.024));
+        const gap = Math.max(10, Math.round(template.canvas_height * 0.012));
+        const marginRight = Math.max(12, Math.round(frame.width * 0.06));
+        const x = frame.x + frame.width - width - marginRight;
+        const y = Math.min(template.canvas_height - height - 8, frame.y + frame.height + gap);
+        return { x, y, width, height };
+    }
+
+    function resolveQrTargetBox(template, box = {}) {
+        if (!template) return box.qr || null;
+        if (box.qr) return box.qr;
+        if (template.key === "plakat") {
+            const size = Math.round(Math.min(template.canvas_width, template.canvas_height) * 0.09);
+            const margin = Math.round(template.canvas_width * 0.035);
+            const fallbackY = template.canvas_height - size - margin;
+            const y = box.ticket_link ? Math.max(margin, box.ticket_link.y - size - Math.round(template.canvas_height * 0.02)) : fallbackY;
+            return { x: template.canvas_width - size - margin, y, width: size, height: size };
+        }
+        return null;
+    }
+
+    function resolveTicketLinkTargetBox(template, box = {}) {
+        if (!template) return box.ticket_link || null;
+        if (template.key === "sudhaus_main") return null;
+        return box.ticket_link || null;
+    }
+
+    function resolveExternalLogoTargetBox(template, box = {}) {
+        if (!template || !state.externalLogoBase64) return null;
+        if (template.key === "stream_problem") return null;
+        if (["foyer_eingang", "theater_konzert", "stream_start", "stream_pause", "stream_ende"].includes(template.key)) {
+            return box.external_logo || null;
+        }
+        if (template.key === "kino") {
+            const textUnion = unionBoxes([box.date_title, box.time_subtitle].filter(Boolean));
+            if (!textUnion) return null;
+            const width = Math.min(Math.round(template.canvas_width * 0.16), Math.round(textUnion.width * 0.56));
+            const height = Math.round(width * 0.42);
+            return {
+                x: textUnion.x + (textUnion.width - width) / 2,
+                y: Math.min(template.canvas_height - height - 18, textUnion.y + textUnion.height + Math.round(template.canvas_height * 0.028)),
+                width,
+                height,
+            };
+        }
+        if (["plakat", "social_post", "social_story"].includes(template.key)) {
+            const anchor = box.time_subtitle || box.subtitle || null;
+            if (!anchor) return null;
+            const margin = Math.round(template.canvas_width * 0.03);
+            const availableWidth = Math.max(80, template.canvas_width - boxRight(anchor) - margin * 1.5);
+            const width = Math.min(Math.round(template.canvas_width * (template.key === "plakat" ? 0.12 : 0.13)), availableWidth);
+            const height = Math.max(48, Math.round(width * 0.38));
+            return {
+                x: template.canvas_width - width - margin,
+                y: anchor.y + (anchor.height - height) / 2,
+                width,
+                height,
+            };
+        }
+        if (template.key === "foyer") {
+            const summary = box.summary;
+            const ticket = box.ticket_link;
+            if (!summary) return null;
+            const width = Math.round(template.canvas_width * 0.22);
+            const height = Math.round(width * 0.36);
+            const targetY = ticket ? summary.y + summary.height + Math.max(10, (ticket.y - boxBottom(summary) - height) / 2) : summary.y + summary.height + 24;
+            return {
+                x: (template.canvas_width - width) / 2,
+                y: targetY,
+                width,
+                height,
+            };
+        }
+        return box.external_logo || null;
+    }
+
+    function drawTitleSubtitleStack(ctx, bbox, title, subtitle, options = {}) {
+        if (!bbox) return;
+        const ratio = options.titleRatio || 0.7;
+        const gap = options.gap || 8;
+        const titleBox = { x: bbox.x, y: bbox.y, width: bbox.width, height: Math.max(1, bbox.height * ratio - gap / 2) };
+        const subtitleBox = { x: bbox.x, y: bbox.y + bbox.height * ratio + gap / 2, width: bbox.width, height: Math.max(1, bbox.height * (1 - ratio) - gap / 2) };
+        drawFitText(ctx, title || "", titleBox, "900 72px GroundliftBold, Arial Black, Arial, sans-serif", "left", {
+            allowWrap: true,
+            maxLines: preferredTitleLineCount(title, titleBox),
+            valign: "top",
+            lineHeight: 1.0,
+            maxSize: 72,
+        });
+        drawFitText(ctx, subtitle || "", subtitleBox, "500 34px GroundliftRegular, Arial, sans-serif", "left", {
+            allowWrap: true,
+            maxLines: preferredSubtitleLineCount(subtitle, subtitleBox),
+            valign: "bottom",
+            lineHeight: 1.08,
+            maxSize: 34,
+        });
     }
 
     function drawGradient(ctx, template) {
@@ -692,7 +857,7 @@
         const box = geometry?.bbox || info.bboxes.image_mask;
         if (!state.sourceImageBase64 || !box) return;
         const src = dataUrlFromBase64(state.sourceImageBase64, extensionMime(state.sourceImageFilename, "image/jpeg"));
-        const image = await loadImage(src);
+        const image = await loadImageCached(src);
         const imageTransform = transform || { offsetX: 0, offsetY: 0, scale: 1, rotation: 0 };
         const coverScale = Math.max(box.width / image.width, box.height / image.height);
         const scale = coverScale * (imageTransform.scale || 1);
@@ -713,26 +878,13 @@
     }
 
     async function drawExternalLogo(ctx, img, box, variant, template) {
-        const targetBox = box.external_logo;
-        if (!targetBox) {
-            if (img.external_logo) ctx.drawImage(img.external_logo, 0, 0, template.canvas_width, template.canvas_height);
-            return;
-        }
-
-        let logoImage = img.external_logo || null;
-        if (state.externalLogoBase64) {
-            logoImage = await loadImage(dataUrlFromBase64(
-                state.externalLogoBase64,
-                extensionMime(state.externalLogoFilename, "image/png")
-            ));
-        }
+        const targetBox = resolveExternalLogoTargetBox(template, box);
+        if (!targetBox || !state.externalLogoBase64) return;
+        const logoImage = await loadImageCached(dataUrlFromBase64(
+            state.externalLogoBase64,
+            extensionMime(state.externalLogoFilename, "image/png")
+        ));
         if (!logoImage) return;
-
-        if (!state.externalLogoBase64 && logoImage.width === template.canvas_width && logoImage.height === template.canvas_height) {
-            ctx.drawImage(logoImage, 0, 0, template.canvas_width, template.canvas_height);
-            return;
-        }
-
         drawLayerPreserveAspect(ctx, logoImage, { x: 0, y: 0, width: logoImage.width, height: logoImage.height }, applyBoxVariant(targetBox, variant.externalLogo));
     }
 
