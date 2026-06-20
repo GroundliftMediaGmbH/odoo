@@ -3,7 +3,7 @@
 
     const root = document.getElementById("gl-editor-root");
     const posterId = parseInt(root?.dataset?.posterId || "0", 10);
-    const APP_VERSION = "19.0.1.4.4";
+    const APP_VERSION = "19.0.1.4.5";
 
     const state = {
         loading: true,
@@ -783,7 +783,7 @@
     }
 
     function resolvePhotoCreditFont(template) {
-        if (template?.key === "foyer") return "400 22px GroundliftRegular, Arial, sans-serif";
+        if (template?.key === "foyer_eingang") return "400 22px GroundliftRegular, Arial, sans-serif";
         return "400 28px GroundliftRegular, Arial, sans-serif";
     }
 
@@ -793,7 +793,7 @@
         const frame = box.frame;
         if (!frame) return box.photo_credit || null;
         const original = box.photo_credit || null;
-        if (template.key === "foyer") {
+        if (template.key === "foyer_eingang") {
             // Im Foyer-Format muss der Fotocredit direkt unterhalb der unteren weißen Rahmenlinie sitzen.
             const height = Math.max(16, Math.min(original?.height || 22, 22));
             const width = Math.max(240, Math.min(original?.width || Math.round(frame.width * 0.78), Math.round(frame.width * 0.96)));
@@ -815,7 +815,7 @@
         if (!bbox || !text) return;
         drawFitText(ctx, [String(text).toUpperCase()], bbox, font, "center", {
             allowWrap: false,
-            valign: template?.key === "foyer" ? "top" : "middle",
+            valign: template?.key === "foyer_eingang" ? "top" : "middle",
             lineHeight: 1.0,
         });
     }
@@ -897,7 +897,7 @@
                 height,
             };
         }
-        if (template.key === "foyer") {
+        if (template.key === "foyer_eingang") {
             const summary = box.summary;
             const ticket = box.ticket_link;
             if (!summary) return null;

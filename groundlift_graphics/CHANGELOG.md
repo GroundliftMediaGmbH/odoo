@@ -1,5 +1,10 @@
 # Changelog
 
+## 19.0.1.4.5
+
+- Foyer-Ansicht: Fotocredit-Fix jetzt auf den tatsächlichen Template-Key `foyer_eingang` gelegt; dadurch sitzt der Fotocredit direkt unterhalb der weißen Rahmenlinie.
+- Cache-Busting für Standalone-Editor und Asset-Ladung auf `19.0.1.4.5` angehoben.
+
 ## 19.0.1.4.4
 
 - Foyer: Fotocredit sitzt nun direkt unterhalb der unteren weißen Rahmenlinie und nicht mehr zu weit im blauen Zwischenraum.
