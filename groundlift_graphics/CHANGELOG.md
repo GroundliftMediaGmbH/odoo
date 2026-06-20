@@ -1,4 +1,24 @@
+
+## 19.0.1.5.1
+- Standards pro Ausspielformat jetzt global in Odoo gespeichert und geladen (ir.config_parameter).
+- Neue JSON-Routen zum Speichern und Laden der Template-Defaults.
+- Beim Öffnen des Editors werden vorhandene Odoo-Standards automatisch als Startwerte für unbearbeitete Formate geladen.
+
+## 19.0.1.5.0
+- Grafikeditor erweitert: Externes Logo direkt im Editor hochladen/entfernen.
+- PNG-Overlays können nun pro Ausspielformat im Editor ersetzt werden.
+- Neue Text-Einstellungen pro Textelement und Ausspielformat: Schriftart, Position, Schriftgröße und Ausrichtung.
+- Senkrechter Trennbalken pro Ausspielformat anpassbar (Position, Breite, Länge).
+- QR-Code und externes Logo pro Ausspielformat in Position und Größe anpassbar.
+- Browser-Standards pro Ausspielformat speicher- und ladbar.
+
 # Changelog
+
+## 19.0.1.4.8
+
+- Stellt die automatische Farbpalette wieder her: Beim Laden und beim Ersetzen des Veranstaltungsbilds werden zwei dominante Farben aus dem hochgeladenen Foto extrahiert und als Verlaufsfarben gesetzt.
+- Die extrahierte Palette wird über eine Bild-Signatur im Editor-State nur bei einem neuen/geänderten Bild erneut berechnet; manuelle Farbkorrekturen bleiben nach dem Speichern erhalten, solange das Bild gleich bleibt.
+- Cache-Busting für Standalone-Editor und Loader auf `19.0.1.4.8` angehoben.
 
 ## 19.0.1.4.7
 

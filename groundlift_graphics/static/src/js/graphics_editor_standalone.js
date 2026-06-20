@@ -3,7 +3,7 @@
 
     const root = document.getElementById("gl-editor-root");
     const posterId = parseInt(root?.dataset?.posterId || "0", 10);
-    const APP_VERSION = "19.0.1.4.7";
+    const APP_VERSION = "19.0.1.5.1";
 
     const state = {
         loading: true,
@@ -22,6 +22,9 @@
         imageEditMode: "global",
         activeHandle: null,
         renderToken: 0,
+        activeTextField: "event_title",
+        selectedOverlayRole: "",
+        odooTemplateDefaults: {},
     };
 
     function clamp(value, min, max) {
@@ -68,6 +71,62 @@
     const FONT_REGULAR = "GroundliftRegular, Arial, sans-serif";
     const FONT_BOLD = "GroundliftBold, Arial Black, Arial, sans-serif";
     const FONT_CONDENSED = "GroundliftCondensed, Arial Narrow, Arial, sans-serif";
+
+
+    const TEXT_FIELDS = [
+        ["date_text", "Datum"],
+        ["time_text", "Uhrzeit"],
+        ["event_type_text", "Kategorie"],
+        ["event_title", "Titel"],
+        ["event_subtitle", "Untertitel"],
+        ["summary_text", "Kurzzusammenfassung"],
+        ["photo_credit", "Fotocredit"],
+        ["ticket_link_text", "Ticketlink"],
+    ];
+
+    const TEXT_FIELD_LABELS = Object.fromEntries(TEXT_FIELDS);
+
+    function defaultVariantState() {
+        return {
+            image: { ...defaultImageTransform() },
+            imageCustom: false,
+            qr: { dx: 0, dy: 0, scale: 1 },
+            externalLogo: { dx: 0, dy: 0, scale: 1 },
+            sticker: { dx: 0, dy: 0, scale: 1 },
+            divider: { dx: 0, dy: 0, width: 0, height: 0 },
+            textStyles: {},
+            overlayOverrides: {},
+        };
+    }
+
+    function defaultTextStyle() {
+        return { dx: 0, dy: 0, size: 0, font: "auto", align: "auto" };
+    }
+
+    function deepClone(value) {
+        return value ? JSON.parse(JSON.stringify(value)) : value;
+    }
+
+    function fontChoiceLabel(value) {
+        return ({ auto: "Vorlage", regular: "Regular", bold: "Bold", condensed: "Condensed" }[value] || value);
+    }
+
+    function templateDisplayName(templateKey) {
+        const template = state.data?.templates?.find((t) => t.key === templateKey);
+        return template?.name || templateKey;
+    }
+
+    async function fetchJson(url, payload = {}) {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (data?.error) throw new Error(data.error);
+        return data;
+    }
 
     async function rpc(model, method, args = [], kwargs = {}) {
         const response = await fetch("/web/dataset/call_kw", {
@@ -355,19 +414,32 @@
     function ensureVariant(templateKey) {
         state.editorState.variants = state.editorState.variants || {};
         if (!state.editorState.variants[templateKey]) {
-            state.editorState.variants[templateKey] = {
-                image: { ...defaultImageTransform() },
-                imageCustom: false,
-                qr: { dx: 0, dy: 0, scale: 1 },
-                externalLogo: { dx: 0, dy: 0, scale: 1 },
-                sticker: { dx: 0, dy: 0, scale: 1 },
-            };
+            state.editorState.variants[templateKey] = defaultVariantState();
         }
-        state.editorState.variants[templateKey].image = state.editorState.variants[templateKey].image || { ...defaultImageTransform() };
-        state.editorState.variants[templateKey].qr = state.editorState.variants[templateKey].qr || { dx: 0, dy: 0, scale: 1 };
-        state.editorState.variants[templateKey].externalLogo = state.editorState.variants[templateKey].externalLogo || { dx: 0, dy: 0, scale: 1 };
-        state.editorState.variants[templateKey].sticker = state.editorState.variants[templateKey].sticker || { dx: 0, dy: 0, scale: 1 };
-        return state.editorState.variants[templateKey];
+        const variant = state.editorState.variants[templateKey];
+        variant.image = variant.image || { ...defaultImageTransform() };
+        variant.qr = variant.qr || { dx: 0, dy: 0, scale: 1 };
+        variant.externalLogo = variant.externalLogo || { dx: 0, dy: 0, scale: 1 };
+        variant.sticker = variant.sticker || { dx: 0, dy: 0, scale: 1 };
+        variant.divider = variant.divider || { dx: 0, dy: 0, width: 0, height: 0 };
+        variant.textStyles = variant.textStyles || {};
+        variant.overlayOverrides = variant.overlayOverrides || {};
+        return variant;
+    }
+
+    function getTextStyle(templateKey, field) {
+        const variant = ensureVariant(templateKey);
+        if (!variant.textStyles[field]) variant.textStyles[field] = defaultTextStyle();
+        return variant.textStyles[field];
+    }
+
+    function setTextStyle(templateKey, field, patch) {
+        const current = { ...defaultTextStyle(), ...getTextStyle(templateKey, field) };
+        ensureVariant(templateKey).textStyles[field] = { ...current, ...patch };
+    }
+
+    function currentTextStyle() {
+        return getTextStyle(state.selectedTemplateKey, state.activeTextField);
     }
 
     function getImageTransform(templateKey) {
@@ -402,6 +474,169 @@
         }
     }
 
+    function editableOverlayAssets(template) {
+        const ignore = new Set(["image_mask", "date_title", "time_subtitle", "time_ticketlink", "title", "subtitle", "summary", "photo_credit", "ticket_link", "qr", "external_logo"]);
+        const assets = [];
+        for (const asset of template?.assets || []) {
+            if (!asset?.role || ignore.has(asset.role)) continue;
+            if (!assets.find((entry) => entry.role === asset.role)) assets.push(asset);
+        }
+        return assets;
+    }
+
+    function humanizeRole(role) {
+        return String(role || "")
+            .replace(/^static_/, "")
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (m) => m.toUpperCase());
+    }
+
+    function overrideAssetSrc(templateKey, asset) {
+        const variant = ensureVariant(templateKey);
+        const override = variant.overlayOverrides?.[asset.role];
+        if (!override?.base64) return cacheBustedUrl(asset.url);
+        return dataUrlFromBase64(override.base64, extensionMime(override.filename || "overlay.png", "image/png"));
+    }
+
+    function syncOverlayRoleOptions() {
+        const select = document.getElementById("overlayRoleSelect");
+        if (!select) return;
+        const template = currentTemplate();
+        const assets = editableOverlayAssets(template);
+        select.innerHTML = assets.length
+            ? assets.map((asset) => `<option value="${escapeHtml(asset.role)}">${escapeHtml(humanizeRole(asset.role))}</option>`).join("")
+            : '<option value="">Keine austauschbaren PNG-Overlays</option>';
+        if (!assets.find((asset) => asset.role === state.selectedOverlayRole)) {
+            state.selectedOverlayRole = assets[0]?.role || "";
+        }
+        select.value = state.selectedOverlayRole || "";
+        const removeBtn = document.getElementById("removeOverlayBtn");
+        if (removeBtn) removeBtn.disabled = !state.selectedOverlayRole;
+    }
+
+    function syncTextStyleInputs() {
+        const style = currentTextStyle();
+        const fieldSelect = document.getElementById("textStyleTarget");
+        const fontSelect = document.getElementById("textStyleFont");
+        const alignSelect = document.getElementById("textStyleAlign");
+        const sizeInput = document.getElementById("textStyleSize");
+        const dxInput = document.getElementById("textStyleDx");
+        const dyInput = document.getElementById("textStyleDy");
+        const info = document.getElementById("textStyleInfo");
+        if (fieldSelect) fieldSelect.value = state.activeTextField;
+        if (fontSelect) fontSelect.value = style.font || "auto";
+        if (alignSelect) alignSelect.value = style.align || "auto";
+        if (sizeInput) sizeInput.value = style.size || 0;
+        if (dxInput) dxInput.value = style.dx || 0;
+        if (dyInput) dyInput.value = style.dy || 0;
+        if (info) info.textContent = `Aktuell: ${TEXT_FIELD_LABELS[state.activeTextField] || state.activeTextField}`;
+    }
+
+    async function saveCurrentTemplateDefaultsToOdoo() {
+        const templateKey = state.selectedTemplateKey;
+        const defaults = deepClone(ensureVariant(templateKey));
+        await fetchJson(`/groundlift_graphics/template_defaults/${encodeURIComponent(templateKey)}/save`, { defaults });
+        state.odooTemplateDefaults[templateKey] = defaults;
+        setStatus(`Odoo-Standard für ${templateDisplayName(templateKey)} gespeichert.`);
+    }
+
+    async function loadCurrentTemplateDefaultsFromOdoo() {
+        const templateKey = state.selectedTemplateKey;
+        try {
+            const payload = await fetchJson(`/groundlift_graphics/template_defaults/${encodeURIComponent(templateKey)}/load`, {});
+            if (!payload?.found || !payload?.defaults) {
+                setStatus(`Kein Odoo-Standard für ${templateDisplayName(templateKey)} gefunden.`, true);
+                return false;
+            }
+            const merged = { ...defaultVariantState(), ...payload.defaults };
+            merged.textStyles = { ...(payload.defaults.textStyles || {}) };
+            merged.overlayOverrides = { ...(payload.defaults.overlayOverrides || {}) };
+            state.editorState.variants[templateKey] = merged;
+            state.odooTemplateDefaults[templateKey] = deepClone(merged);
+            state.templateCache.delete(templateKey);
+            syncVariantInputs();
+            syncTextStyleInputs();
+            syncOverlayRoleOptions();
+            setStatus(`Odoo-Standard für ${templateDisplayName(templateKey)} geladen.`);
+            return true;
+        } catch (error) {
+            console.error(error);
+            setStatus(`Odoo-Standard konnte nicht geladen werden: ${error.message}`, true);
+            return false;
+        }
+    }
+
+    function hasMeaningfulVariantData(variant) {
+        if (!variant) return false;
+        const hasTransform = (obj = {}, keys = []) => keys.some((key) => Math.abs(Number(obj[key] || 0)) > 0.0001) || Math.abs(Number(obj.scale || 1) - 1) > 0.0001;
+        const hasTextStyle = Object.values(variant.textStyles || {}).some((style) => style && (Math.abs(Number(style.dx || 0)) > 0.0001 || Math.abs(Number(style.dy || 0)) > 0.0001 || Number(style.size || 0) > 0 || (style.font && style.font !== "auto") || (style.align && style.align !== "auto")));
+        const hasDivider = hasTransform(variant.divider || {}, ["dx", "dy", "width", "height"]);
+        const hasQr = hasTransform(variant.qr || {}, ["dx", "dy"]);
+        const hasLogo = hasTransform(variant.externalLogo || {}, ["dx", "dy"]);
+        const hasSticker = hasTransform(variant.sticker || {}, ["dx", "dy"]);
+        const hasImage = Boolean(variant.imageCustom) || hasTransform(variant.image || {}, ["offsetX", "offsetY", "rotation"]);
+        const hasOverlay = Object.keys(variant.overlayOverrides || {}).length > 0;
+        return hasTextStyle || hasDivider || hasQr || hasLogo || hasSticker || hasImage || hasOverlay;
+    }
+
+    async function prefillVariantsFromOdooDefaults() {
+        state.editorState.variants = state.editorState.variants || {};
+        for (const template of state.data?.templates || []) {
+            const key = template.key;
+            const existing = state.editorState.variants[key];
+            if (existing && hasMeaningfulVariantData(existing)) continue;
+            try {
+                const payload = await fetchJson(`/groundlift_graphics/template_defaults/${encodeURIComponent(key)}/load`, {});
+                if (!payload?.found || !payload?.defaults) continue;
+                const merged = { ...defaultVariantState(), ...payload.defaults };
+                merged.textStyles = { ...(payload.defaults.textStyles || {}) };
+                merged.overlayOverrides = { ...(payload.defaults.overlayOverrides || {}) };
+                state.editorState.variants[key] = merged;
+                state.odooTemplateDefaults[key] = deepClone(merged);
+            } catch (error) {
+                console.warn(`Odoo-Standard konnte für ${key} nicht geladen werden`, error);
+            }
+        }
+    }
+
+    function applyTextBoxStyle(box, style) {
+        if (!box) return box;
+        return { ...box, x: box.x + Number(style?.dx || 0), y: box.y + Number(style?.dy || 0) };
+    }
+
+    function overrideFont(baseFont, style) {
+        const parsedSize = parseInt((String(baseFont).match(/(\d+)px/) || ["", "40"])[1], 10);
+        const size = style?.size > 0 ? style.size : parsedSize;
+        if (!style || style.font === "auto") {
+            return String(baseFont).replace(/\d+px/, `${size}px`);
+        }
+        const familyMap = {
+            regular: [400, FONT_REGULAR],
+            bold: [900, FONT_BOLD],
+            condensed: [600, FONT_CONDENSED],
+        };
+        const [weight, family] = familyMap[style.font] || [400, FONT_REGULAR];
+        return `${weight} ${size}px ${family}`;
+    }
+
+    function textAlign(style, fallback = "left") {
+        return style?.align && style.align !== "auto" ? style.align : fallback;
+    }
+
+    function maxFontSize(base, style) {
+        return style?.size > 0 ? style.size : base;
+    }
+
+    function applyDividerVariant(bbox, dividerVariant = {}) {
+        if (!bbox) return bbox;
+        return {
+            x: bbox.x + Number(dividerVariant.dx || 0),
+            y: bbox.y + Number(dividerVariant.dy || 0),
+            width: Math.max(1, dividerVariant.width > 0 ? Number(dividerVariant.width) : bbox.width),
+            height: Math.max(1, dividerVariant.height > 0 ? Number(dividerVariant.height) : bbox.height),
+        };
+    }
+
     async function ensureTemplateAssets(template) {
         if (!template) return null;
         if (state.templateCache.has(template.key)) return state.templateCache.get(template.key);
@@ -412,7 +647,7 @@
         const staticOverlays = [];
         for (const asset of template.assets || []) {
             try {
-                const image = await loadImage(cacheBustedUrl(asset.url));
+                const image = await loadImage(overrideAssetSrc(template.key, asset));
                 if (!image) continue;
                 if (!imagesByRole[asset.role]) imagesByRole[asset.role] = image;
                 if (asset.role.startsWith("static_")) staticOverlays.push({ role: asset.role, image });
@@ -464,7 +699,10 @@
                         <div class="gl-section">
                             <button class="gl-btn gl-btn-secondary w-100 mb-2" id="uploadBtn">Bild hochladen / ersetzen</button>
                             <input type="file" accept="image/*" id="sourceFile" class="gl-hidden"/>
-                            <div class="gl-small">Im Bild ziehen = verschieben, Mausrad = sanft zoomen. Seiten-Anfasser = Crop/Position, Eck-Anfasser = Drehen.</div>
+                            <button class="gl-btn gl-btn-secondary w-100 mb-2" id="uploadExternalLogoBtn">Externes Logo hochladen / ersetzen</button>
+                            <input type="file" accept="image/*" id="externalLogoFile" class="gl-hidden"/>
+                            <button class="gl-btn gl-btn-light w-100" id="removeExternalLogoBtn">Externes Logo entfernen</button>
+                            <div class="gl-small mt-2">Im Bild ziehen = verschieben, Mausrad = sanft zoomen. Seiten-Anfasser = Crop/Position, Eck-Anfasser = Drehen.</div>
                         </div>
                         <div class="gl-section">
                             <label class="gl-label gl-label-strong">Bildposition übernehmen</label>
@@ -501,6 +739,65 @@
                                 ${numberInput("image.rotation", "Rotation")}
                             </div>
                         </div>
+                        <div class="gl-section">
+                            <label class="gl-label gl-label-strong">Text-Einstellungen je Element</label>
+                            <div class="mb-2">
+                                <label class="gl-label">Textelement</label>
+                                <select class="gl-input" id="textStyleTarget">
+                                    ${TEXT_FIELDS.map(([key, label]) => `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`).join("")}
+                                </select>
+                            </div>
+                            <div class="gl-small mb-2" id="textStyleInfo"></div>
+                            <div class="gl-grid-2">
+                                <div class="gl-col"><label class="gl-label">Schriftart</label><select class="gl-input" id="textStyleFont"><option value="auto">Vorlage</option><option value="regular">Regular</option><option value="bold">Bold</option><option value="condensed">Condensed</option></select></div>
+                                <div class="gl-col"><label class="gl-label">Ausrichtung</label><select class="gl-input" id="textStyleAlign"><option value="auto">Vorlage</option><option value="left">Links</option><option value="center">Zentriert</option><option value="right">Rechts</option></select></div>
+                                <div class="gl-col"><label class="gl-label">Schriftgröße</label><input class="gl-input" type="number" step="1" id="textStyleSize"/></div>
+                                <div class="gl-col"><label class="gl-label">Position X</label><input class="gl-input" type="number" step="1" id="textStyleDx"/></div>
+                                <div class="gl-col"><label class="gl-label">Position Y</label><input class="gl-input" type="number" step="1" id="textStyleDy"/></div>
+                            </div>
+                        </div>
+                        <div class="gl-section">
+                            <label class="gl-label gl-label-strong">Trennbalken</label>
+                            <div class="gl-grid-2">
+                                ${numberInput("divider.dx", "Balken X")}
+                                ${numberInput("divider.dy", "Balken Y")}
+                                ${numberInput("divider.width", "Breite px")}
+                                ${numberInput("divider.height", "Länge px")}
+                            </div>
+                        </div>
+                        <div class="gl-section">
+                            <label class="gl-label gl-label-strong">Externes Logo</label>
+                            <div class="gl-grid-2">
+                                ${numberInput("externalLogo.dx", "Logo X")}
+                                ${numberInput("externalLogo.dy", "Logo Y")}
+                                ${numberInput("externalLogo.scale", "Logo Größe", "0.05")}
+                            </div>
+                        </div>
+                        <div class="gl-section">
+                            <label class="gl-label gl-label-strong">QR-Code</label>
+                            <div class="gl-grid-2">
+                                ${numberInput("qr.dx", "QR X")}
+                                ${numberInput("qr.dy", "QR Y")}
+                                ${numberInput("qr.scale", "QR Größe", "0.05")}
+                            </div>
+                        </div>
+                        <div class="gl-section">
+                            <label class="gl-label gl-label-strong">PNG-Overlays im aktuellen Format ersetzen</label>
+                            <div class="mb-2">
+                                <label class="gl-label">Overlay</label>
+                                <select class="gl-input" id="overlayRoleSelect"></select>
+                            </div>
+                            <button class="gl-btn gl-btn-secondary w-100 mb-2" id="uploadOverlayBtn">PNG-Overlay auswählen</button>
+                            <input type="file" accept="image/png,image/webp,image/*" id="overlayFile" class="gl-hidden"/>
+                            <button class="gl-btn gl-btn-light w-100" id="removeOverlayBtn">Overlay-Override entfernen</button>
+                            <div class="gl-small mt-2">Ersetzt nur das ausgewählte PNG im aktuellen Ausspielformat.</div>
+                        </div>
+                        <div class="gl-section">
+                            <label class="gl-label gl-label-strong">Standards für dieses Ausspielformat</label>
+                            <button class="gl-btn gl-btn-secondary w-100 mb-2" id="saveTemplateDefaultsBtn">Aktuelles Format als Odoo-Standard speichern</button>
+                            <button class="gl-btn gl-btn-light w-100" id="loadTemplateDefaultsBtn">Odoo-Standard laden</button>
+                            <div class="gl-small mt-2">Speichert Text-, Divider-, QR-, Logo- und Overlay-Einstellungen global in Odoo für dieses Ausspielformat.</div>
+                        </div>
                         <div id="status" class="gl-small"></div>
                     </aside>
                     <main class="gl-canvas-area">
@@ -513,6 +810,8 @@
         document.getElementById("templateSelect").value = state.selectedTemplateKey;
         bindEvents();
         syncVariantInputs();
+        syncTextStyleInputs();
+        syncOverlayRoleOptions();
     }
 
     function input(field, label) {
@@ -533,17 +832,63 @@
             else window.location.href = "/odoo";
         };
         document.getElementById("uploadBtn").onclick = () => document.getElementById("sourceFile").click();
+        document.getElementById("uploadExternalLogoBtn").onclick = () => document.getElementById("externalLogoFile").click();
+        document.getElementById("removeExternalLogoBtn").onclick = async () => {
+            state.externalLogoBase64 = "";
+            state.externalLogoFilename = "";
+            await renderCanvas();
+        };
+        document.getElementById("uploadOverlayBtn").onclick = () => document.getElementById("overlayFile").click();
+        document.getElementById("removeOverlayBtn").onclick = async () => {
+            const variant = ensureVariant(state.selectedTemplateKey);
+            if (!state.selectedOverlayRole) return;
+            delete variant.overlayOverrides[state.selectedOverlayRole];
+            state.templateCache.delete(state.selectedTemplateKey);
+            await renderCanvas();
+        };
+        document.getElementById("saveTemplateDefaultsBtn").onclick = async () => {
+            try {
+                await saveCurrentTemplateDefaultsToOdoo();
+            } catch (error) {
+                console.error(error);
+                setStatus(`Odoo-Standard konnte nicht gespeichert werden: ${error.message}`, true);
+            }
+        };
+        document.getElementById("loadTemplateDefaultsBtn").onclick = async () => {
+            if (await loadCurrentTemplateDefaultsFromOdoo()) await renderCanvas();
+        };
         document.getElementById("sourceFile").onchange = async (ev) => {
             const file = ev.target.files[0];
             if (!file) return;
             state.sourceImageFilename = file.name;
             state.sourceImageBase64 = await fileToBase64(file);
+            await applyPaletteFromSourceImage({ force: true });
+            await renderCanvas();
+        };
+        document.getElementById("externalLogoFile").onchange = async (ev) => {
+            const file = ev.target.files[0];
+            if (!file) return;
+            state.externalLogoFilename = file.name;
+            state.externalLogoBase64 = await fileToBase64(file);
+            await renderCanvas();
+        };
+        document.getElementById("overlayFile").onchange = async (ev) => {
+            const file = ev.target.files[0];
+            if (!file || !state.selectedOverlayRole) return;
+            const variant = ensureVariant(state.selectedTemplateKey);
+            variant.overlayOverrides[state.selectedOverlayRole] = {
+                base64: await fileToBase64(file),
+                filename: file.name,
+            };
+            state.templateCache.delete(state.selectedTemplateKey);
             await renderCanvas();
         };
         document.getElementById("templateSelect").onchange = async (ev) => {
             state.selectedTemplateKey = ev.target.value;
             state.editorState.selectedTemplateKey = state.selectedTemplateKey;
             syncVariantInputs();
+            syncTextStyleInputs();
+            syncOverlayRoleOptions();
             await renderCanvas();
         };
         document.getElementById("imageModeSelect").value = state.imageEditMode;
@@ -558,6 +903,21 @@
             }
             syncVariantInputs();
         };
+        document.getElementById("overlayRoleSelect").onchange = (ev) => {
+            state.selectedOverlayRole = ev.target.value || "";
+        };
+        document.getElementById("textStyleTarget").onchange = (ev) => {
+            state.activeTextField = ev.target.value;
+            syncTextStyleInputs();
+        };
+        [["textStyleFont", "font"], ["textStyleAlign", "align"], ["textStyleSize", "size"], ["textStyleDx", "dx"], ["textStyleDy", "dy"]].forEach(([id, field]) => {
+            const node = document.getElementById(id);
+            node.addEventListener("input", async (ev) => {
+                const value = ["size", "dx", "dy"].includes(field) ? parseFloat(ev.target.value || 0) : ev.target.value;
+                setTextStyle(state.selectedTemplateKey, state.activeTextField, { [field]: value });
+                await renderCanvas();
+            });
+        });
         root.querySelectorAll(".gl-field").forEach((node) => {
             node.addEventListener("input", async (ev) => {
                 state.fields[ev.target.dataset.field] = ev.target.value;
@@ -606,6 +966,14 @@
         });
         const modeSelect = document.getElementById("imageModeSelect");
         if (modeSelect) modeSelect.value = state.imageEditMode;
+        syncTextStyleInputs();
+        syncOverlayRoleOptions();
+    }
+
+    function syncColorInputs() {
+        root.querySelectorAll('.gl-field[data-field="color_1"], .gl-field[data-field="color_2"]').forEach((node) => {
+            node.value = state.fields[node.dataset.field] || "#000000";
+        });
     }
 
     function fileToBase64(file) {
@@ -615,6 +983,180 @@
             reader.onerror = reject;
             reader.readAsDataURL(file);
         });
+    }
+
+
+    function sourceImageSignature() {
+        const value = state.sourceImageBase64 || "";
+        if (!value) return "";
+        return `${value.length}:${value.slice(0, 48)}:${value.slice(-48)}`;
+    }
+
+    function rgbToHex(color) {
+        const toHex = (value) => clamp(Math.round(value || 0), 0, 255).toString(16).padStart(2, "0");
+        return `#${toHex(color.r)}${toHex(color.g)}${toHex(color.b)}`;
+    }
+
+    function rgbToHsl(r, g, b) {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        let h = 0;
+        let s = 0;
+        const l = (max + min) / 2;
+        if (max !== min) {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r:
+                    h = (g - b) / d + (g < b ? 6 : 0);
+                    break;
+                case g:
+                    h = (b - r) / d + 2;
+                    break;
+                default:
+                    h = (r - g) / d + 4;
+                    break;
+            }
+            h /= 6;
+        }
+        return { h, s, l };
+    }
+
+    function hueToRgb(p, q, t) {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1 / 6) return p + (q - p) * 6 * t;
+        if (t < 1 / 2) return q;
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+        return p;
+    }
+
+    function hslToRgb(h, s, l) {
+        let r, g, b;
+        if (s === 0) {
+            r = g = b = l;
+        } else {
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            r = hueToRgb(p, q, h + 1 / 3);
+            g = hueToRgb(p, q, h);
+            b = hueToRgb(p, q, h - 1 / 3);
+        }
+        return { r: r * 255, g: g * 255, b: b * 255 };
+    }
+
+    function colorDistance(a, b) {
+        const dr = (a.r || 0) - (b.r || 0);
+        const dg = (a.g || 0) - (b.g || 0);
+        const db = (a.b || 0) - (b.b || 0);
+        return Math.sqrt(dr * dr + dg * dg + db * db);
+    }
+
+    function normalizeGradientColor(color, index) {
+        const hsl = rgbToHsl(color.r, color.g, color.b);
+        const saturation = clamp(hsl.s * 1.18 + 0.08, 0.18, 0.92);
+        const lightness = index === 0
+            ? clamp(hsl.l * 0.58, 0.07, 0.24)
+            : clamp(hsl.l * 0.72 + 0.025, 0.12, 0.36);
+        return rgbToHex(hslToRgb(hsl.h, saturation, lightness));
+    }
+
+    function extractDominantPaletteFromImage(image) {
+        if (!image || !image.width || !image.height) return null;
+        const maxSide = 120;
+        const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        const buckets = new Map();
+
+        const addPixel = (r, g, b, weight) => {
+            const key = `${Math.round(r / 24)}:${Math.round(g / 24)}:${Math.round(b / 24)}`;
+            const bucket = buckets.get(key) || { r: 0, g: 0, b: 0, weight: 0, score: 0 };
+            bucket.r += r * weight;
+            bucket.g += g * weight;
+            bucket.b += b * weight;
+            bucket.weight += weight;
+            bucket.score += weight;
+            buckets.set(key, bucket);
+        };
+
+        for (let i = 0; i < data.length; i += 4) {
+            const alpha = data[i + 3];
+            if (alpha < 96) continue;
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const hsl = rgbToHsl(r, g, b);
+            if (hsl.l < 0.035 || hsl.l > 0.965) continue;
+            if (hsl.s < 0.035 && (hsl.l < 0.12 || hsl.l > 0.88)) continue;
+            const midtoneBoost = 1 - Math.abs(hsl.l - 0.48);
+            const saturationBoost = Math.max(0.18, hsl.s);
+            const weight = (0.35 + saturationBoost * 2.8 + midtoneBoost * 0.8) * (alpha / 255);
+            addPixel(r, g, b, weight);
+        }
+
+        let candidates = Array.from(buckets.values())
+            .filter((bucket) => bucket.weight > 0)
+            .map((bucket) => ({
+                r: bucket.r / bucket.weight,
+                g: bucket.g / bucket.weight,
+                b: bucket.b / bucket.weight,
+                score: bucket.score,
+            }))
+            .sort((a, b) => b.score - a.score);
+
+        if (!candidates.length) {
+            // Fallback für sehr kontrastarme Bilder: ohne Filter erneut sammeln.
+            for (let i = 0; i < data.length; i += 16) {
+                if (data[i + 3] < 96) continue;
+                addPixel(data[i], data[i + 1], data[i + 2], 1);
+            }
+            candidates = Array.from(buckets.values())
+                .filter((bucket) => bucket.weight > 0)
+                .map((bucket) => ({
+                    r: bucket.r / bucket.weight,
+                    g: bucket.g / bucket.weight,
+                    b: bucket.b / bucket.weight,
+                    score: bucket.score,
+                }))
+                .sort((a, b) => b.score - a.score);
+        }
+
+        if (!candidates.length) return null;
+        const first = candidates[0];
+        const second = candidates.find((color) => colorDistance(color, first) >= 72) || candidates[1] || first;
+
+        if (second === first) {
+            const hsl = rgbToHsl(first.r, first.g, first.b);
+            const shifted = hslToRgb((hsl.h + 0.08) % 1, clamp(hsl.s + 0.16, 0.22, 0.9), clamp(hsl.l + 0.08, 0.16, 0.42));
+            return [normalizeGradientColor(first, 0), normalizeGradientColor(shifted, 1)];
+        }
+        return [normalizeGradientColor(first, 0), normalizeGradientColor(second, 1)];
+    }
+
+    async function applyPaletteFromSourceImage(options = {}) {
+        const signature = sourceImageSignature();
+        if (!signature) return false;
+        if (!options.force && state.editorState.paletteSourceImageSignature === signature) return false;
+        try {
+            const src = dataUrlFromBase64(state.sourceImageBase64, extensionMime(state.sourceImageFilename, "image/jpeg"));
+            const image = await loadImageCached(src);
+            const palette = extractDominantPaletteFromImage(image);
+            if (!palette || !palette[0] || !palette[1]) return false;
+            state.fields.color_1 = palette[0];
+            state.fields.color_2 = palette[1];
+            state.editorState.paletteSourceImageSignature = signature;
+            syncColorInputs();
+            return true;
+        } catch (error) {
+            console.warn("Automatische Farbpalette konnte nicht erzeugt werden", error);
+            return false;
+        }
     }
 
     async function refreshQr() {
@@ -687,29 +1229,30 @@
         const photoCreditFont = resolvePhotoCreditFont(template);
         const qrBox = resolveQrTargetBox(template, box);
         const ticketLinkBox = resolveTicketLinkTargetBox(template, box);
+        const dividerVariant = variant.divider || {};
 
         const drawShiftedContent = async () => {
             await safeLayer("Veranstaltungsbild", () => drawSourceImage(ctx, info, getImageTransform(template.key)));
             safeDrawImage(ctx, img.frame, 0, 0, template.canvas_width, template.canvas_height, "Rahmen");
             safeLayer("Datum/Titel", () => {
                 if (templateKey === "theater_konzert") {
-                    drawStandaloneDividerLeftOfBox(ctx, textBox("date_title"), template);
+                    drawStandaloneDividerLeftOfBox(ctx, textBox("date_title"), template, dividerVariant);
                     drawTitleSubtitleStack(ctx, textBox("date_title"), state.fields.event_title, state.fields.event_subtitle, {
                         titleRatio: 0.66,
                         gap: Math.max(8, template.canvas_height * 0.008),
                     });
                 } else {
-                    drawDateTitle(ctx, textBox("date_title"), textRegions("date_title"), dateTitleLayout);
+                    drawDateTitle(ctx, textBox("date_title"), textRegions("date_title"), dateTitleLayout, template, dividerVariant);
                 }
             });
-            safeLayer("Uhrzeit/Untertitel", () => drawTimeSubtitle(ctx, textBox("time_subtitle"), textRegions("time_subtitle"), dateTitleLayout));
-            safeLayer("Uhrzeit/Ticketlink", () => drawTimeTicketlink(ctx, textBox("time_ticketlink"), textRegions("time_ticketlink")));
-            safeLayer("Titel", () => drawTitleOnly(ctx, textBox("title"), textRegions("title")));
-            safeLayer("Untertitel", () => drawSubtitleOnly(ctx, textBox("subtitle"), textRegions("subtitle")));
-            safeLayer("Kurzzusammenfassung", () => drawParagraphBox(ctx, state.fields.summary_text, textBox("summary")));
+            safeLayer("Uhrzeit/Untertitel", () => drawTimeSubtitle(ctx, textBox("time_subtitle"), textRegions("time_subtitle"), dateTitleLayout, template));
+            safeLayer("Uhrzeit/Ticketlink", () => drawTimeTicketlink(ctx, textBox("time_ticketlink"), textRegions("time_ticketlink"), template));
+            safeLayer("Titel", () => drawTitleOnly(ctx, textBox("title"), textRegions("title"), template, dividerVariant));
+            safeLayer("Untertitel", () => drawSubtitleOnly(ctx, textBox("subtitle"), textRegions("subtitle"), template));
+            safeLayer("Kurzzusammenfassung", () => drawParagraphBox(ctx, state.fields.summary_text, textBox("summary"), template));
             safeLayer("Fotocredit", () => drawPhotoCredit(ctx, state.fields.photo_credit, photoCreditBox, photoCreditFont, template));
             if (ticketLinkBox) {
-                safeLayer("Ticketlink", () => drawSingleLine(ctx, state.fields.ticket_link_text, ticketLinkBox, "600 28px GroundliftCondensed, Arial Narrow, Arial, sans-serif", "center"));
+                safeLayer("Ticketlink", () => drawSingleLine(ctx, state.fields.ticket_link_text, ticketLinkBox, "600 28px GroundliftCondensed, Arial Narrow, Arial, sans-serif", "center", template, "ticket_link_text"));
             }
             if (qrImg && qrBox) safeLayer("QR-Code zeichnen", () => drawImageBox(ctx, qrImg, applyBoxVariant(qrBox, variant.qr)));
             await safeLayer("Externes Logo", () => drawExternalLogo(ctx, img, box, variant, template));
@@ -876,10 +1419,12 @@
 
     function drawPhotoCredit(ctx, text, bbox, font, template) {
         if (!bbox || !text) return;
-        drawFitText(ctx, [String(text).toUpperCase()], bbox, font, "center", {
+        const style = getTextStyle(template?.key, "photo_credit");
+        drawFitText(ctx, [String(text).toUpperCase()], applyTextBoxStyle(bbox, style), overrideFont(font, style), textAlign(style, "center"), {
             allowWrap: false,
             valign: isFoyerTemplate(template) ? "top" : "middle",
             lineHeight: 1.0,
+            maxSize: maxFontSize(parseInt((String(font).match(/(\d+)px/) || ["", "28"])[1], 10), style),
         });
     }
 
@@ -1046,135 +1591,152 @@
         drawLayerPreserveAspect(ctx, logoImage, { x: 0, y: 0, width: logoImage.width, height: logoImage.height }, applyBoxVariant(targetBox, variant.externalLogo));
     }
 
-    function drawDateTitle(ctx, bbox, regions = [], preparedLayout = null) {
+    function drawDateTitle(ctx, bbox, regions = [], preparedLayout = null, template = null, dividerVariant = null) {
         if (!bbox) return;
         const title = state.fields.event_title || "";
         const date = state.fields.date_text || "";
         const layout = preparedLayout || resolveDateTitleLayout(bbox, regions);
+        const dateStyle = getTextStyle(template?.key, "date_text");
+        const titleStyle = getTextStyle(template?.key, "event_title");
         if (layout) {
-            if (layout.divider) drawDivider(ctx, layout.divider);
+            if (layout.divider) drawDivider(ctx, applyDividerVariant(layout.divider, dividerVariant));
             if (layout.left) {
-                drawFitText(ctx, [date], layout.left, `900 ${layout.dateFontSize || 64}px GroundliftBold, Arial Black, Arial, sans-serif`, "right", {
+                const font = overrideFont(`900 ${layout.dateFontSize || 64}px GroundliftBold, Arial Black, Arial, sans-serif`, dateStyle);
+                const target = applyTextBoxStyle(layout.left, dateStyle);
+                drawFitText(ctx, [date], target, font, textAlign(dateStyle, "right"), {
                     allowWrap: false,
                     valign: "top",
                     lineHeight: 1.0,
-                    maxSize: layout.dateFontSize || 64,
+                    maxSize: maxFontSize(layout.dateFontSize || 64, dateStyle),
                 });
             }
             if (layout.right) {
-                drawFitText(ctx, title, layout.right, `900 ${layout.titleFontSize || 64}px GroundliftBold, Arial Black, Arial, sans-serif`, "left", {
+                const target = applyTextBoxStyle(layout.right, titleStyle);
+                const font = overrideFont(`900 ${layout.titleFontSize || 64}px GroundliftBold, Arial Black, Arial, sans-serif`, titleStyle);
+                drawFitText(ctx, title, target, font, textAlign(titleStyle, "left"), {
                     allowWrap: true,
-                    maxLines: preferredTitleLineCount(title, layout.right),
+                    maxLines: preferredTitleLineCount(title, target),
                     valign: "top",
                     lineHeight: 1.0,
-                    maxSize: layout.titleFontSize || 64,
+                    maxSize: maxFontSize(layout.titleFontSize || 64, titleStyle),
                 });
             }
             return;
         }
-        drawSplit(ctx, bbox, [date], [title], { leftRatio: 0.42, boldRight: true });
+        drawSplit(ctx, bbox, [date], [title], { leftRatio: 0.42, boldRight: true }, template, dividerVariant);
     }
 
-    function drawTimeSubtitle(ctx, bbox, regions = [], dateTitleLayout = null) {
+    function drawTimeSubtitle(ctx, bbox, regions = [], dateTitleLayout = null, template = null) {
         if (!bbox) return;
         const subtitle = state.fields.event_subtitle || "";
         const lines = String(subtitle).split(/\n+/).filter(Boolean);
         const layout = resolveTimeSubtitleLayout(bbox, regions, dateTitleLayout);
+        const timeStyle = getTextStyle(template?.key, "time_text");
+        const categoryStyle = getTextStyle(template?.key, "event_type_text");
+        const subtitleStyle = getTextStyle(template?.key, "event_subtitle");
         if (layout) {
             const timeFontSize = layout.timeFontSize || 46;
             const categoryFontSize = layout.categoryFontSize || timeFontSize;
             const subtitleFontSize = layout.subtitleFontSize || 46;
             if (layout.leftTop) {
-                drawFitText(ctx, [state.fields.time_text], layout.leftTop, `900 ${timeFontSize}px GroundliftBold, Arial Black, Arial, sans-serif`, "right", {
+                drawFitText(ctx, [state.fields.time_text], applyTextBoxStyle(layout.leftTop, timeStyle), overrideFont(`900 ${timeFontSize}px GroundliftBold, Arial Black, Arial, sans-serif`, timeStyle), textAlign(timeStyle, "right"), {
                     allowWrap: false,
                     valign: "middle",
                     lineHeight: 1.0,
-                    maxSize: timeFontSize,
+                    maxSize: maxFontSize(timeFontSize, timeStyle),
                 });
             }
             if (layout.leftBottom) {
-                drawFitText(ctx, [state.fields.event_type_text], layout.leftBottom, `900 ${categoryFontSize}px GroundliftBold, Arial Black, Arial, sans-serif`, "right", {
+                drawFitText(ctx, [state.fields.event_type_text], applyTextBoxStyle(layout.leftBottom, categoryStyle), overrideFont(`900 ${categoryFontSize}px GroundliftBold, Arial Black, Arial, sans-serif`, categoryStyle), textAlign(categoryStyle, "right"), {
                     allowWrap: false,
                     valign: "middle",
                     lineHeight: 1.0,
-                    maxSize: categoryFontSize,
+                    maxSize: maxFontSize(categoryFontSize, categoryStyle),
                 });
             }
             if (layout.right) {
-                const maxLines = Math.max(lines.length || 1, Math.min(preferredSubtitleLineCount(subtitle, layout.right), layout.rowCount || 2));
-                drawFitText(ctx, lines.length > 1 ? lines : subtitle, layout.right, `500 ${subtitleFontSize}px GroundliftRegular, Arial, sans-serif`, "left", {
+                const target = applyTextBoxStyle(layout.right, subtitleStyle);
+                const maxLines = Math.max(lines.length || 1, Math.min(preferredSubtitleLineCount(subtitle, target), layout.rowCount || 2));
+                drawFitText(ctx, lines.length > 1 ? lines : subtitle, target, overrideFont(`500 ${subtitleFontSize}px GroundliftRegular, Arial, sans-serif`, subtitleStyle), textAlign(subtitleStyle, "left"), {
                     allowWrap: true,
                     maxLines,
                     valign: "middle",
                     lineHeight: layout.subtitleLineHeight || 1.18,
-                    maxSize: subtitleFontSize,
+                    maxSize: maxFontSize(subtitleFontSize, subtitleStyle),
                 });
             }
             return;
         }
-        drawSplit(ctx, bbox, [state.fields.time_text], lines, { leftRatio: 0.38, leftBottom: state.fields.event_type_text, boldRight: false });
+        drawSplit(ctx, bbox, [state.fields.time_text], lines, { leftRatio: 0.38, leftBottom: state.fields.event_type_text, boldRight: false }, template);
     }
 
-    function drawTimeTicketlink(ctx, bbox, regions = []) {
+    function drawTimeTicketlink(ctx, bbox, regions = [], template = null) {
         if (!bbox) return;
         const lines = String(state.fields.ticket_link_text || "").split(/\n+/).filter(Boolean);
-        const target = regions.length ? insetBox(unionBoxes(regions), 2) : bbox;
+        const style = getTextStyle(template?.key, "ticket_link_text");
+        const target = applyTextBoxStyle(regions.length ? insetBox(unionBoxes(regions), 2) : bbox, style);
         const fontSize = estimateFontSizeFromRegions(regions, 30, 1.12);
-        drawFitText(ctx, lines, target, `600 ${fontSize}px GroundliftCondensed, Arial Narrow, Arial, sans-serif`, "center", {
-            maxSize: fontSize,
+        drawFitText(ctx, lines, target, overrideFont(`600 ${fontSize}px GroundliftCondensed, Arial Narrow, Arial, sans-serif`, style), textAlign(style, "center"), {
+            maxSize: maxFontSize(fontSize, style),
         });
     }
 
-    function drawSplit(ctx, bbox, leftTopLines, rightLines, options = {}) {
+    function drawSplit(ctx, bbox, leftTopLines, rightLines, options = {}, template = null, dividerVariant = null) {
         const leftRatio = options.leftRatio || 0.4;
         const dividerGap = Math.max(18, bbox.width * 0.018);
         const dividerX = bbox.x + bbox.width * leftRatio;
         const leftBox = { x: bbox.x, y: bbox.y, width: Math.max(1, bbox.width * leftRatio - dividerGap), height: bbox.height };
         const rightBox = { x: dividerX + dividerGap, y: bbox.y, width: Math.max(1, bbox.x + bbox.width - dividerX - dividerGap), height: bbox.height };
-        drawDivider(ctx, { x: dividerX - 2, y: bbox.y + 4, width: 4, height: Math.max(1, bbox.height - 8) });
-        drawFitText(ctx, leftTopLines, { ...leftBox, height: options.leftBottom ? leftBox.height * 0.68 : leftBox.height }, "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "center");
+        drawDivider(ctx, applyDividerVariant({ x: dividerX - 2, y: bbox.y + 4, width: 4, height: Math.max(1, bbox.height - 8) }, dividerVariant));
+        const leftStyle = getTextStyle(template?.key, options.leftBottom ? "time_text" : "date_text");
+        const rightStyle = getTextStyle(template?.key, options.boldRight === false ? "event_subtitle" : "event_title");
+        drawFitText(ctx, leftTopLines, applyTextBoxStyle({ ...leftBox, height: options.leftBottom ? leftBox.height * 0.68 : leftBox.height }, leftStyle), overrideFont("900 64px GroundliftBold, Arial Black, Arial, sans-serif", leftStyle), textAlign(leftStyle, "center"));
         if (options.leftBottom) {
-            drawFitText(ctx, [options.leftBottom], { x: leftBox.x, y: leftBox.y + leftBox.height * 0.66, width: leftBox.width, height: leftBox.height * 0.34 }, "900 46px GroundliftBold, Arial Black, Arial, sans-serif", "center");
+            const categoryStyle = getTextStyle(template?.key, "event_type_text");
+            drawFitText(ctx, [options.leftBottom], applyTextBoxStyle({ x: leftBox.x, y: leftBox.y + leftBox.height * 0.66, width: leftBox.width, height: leftBox.height * 0.34 }, categoryStyle), overrideFont("900 46px GroundliftBold, Arial Black, Arial, sans-serif", categoryStyle), textAlign(categoryStyle, "center"));
         }
-        drawFitText(ctx, rightLines, rightBox, `${options.boldRight === false ? 500 : 900} 52px GroundliftBold, Arial Black, Arial, sans-serif`, "left");
+        drawFitText(ctx, rightLines, applyTextBoxStyle(rightBox, rightStyle), overrideFont(`${options.boldRight === false ? 500 : 900} 52px GroundliftBold, Arial Black, Arial, sans-serif`, rightStyle), textAlign(rightStyle, "left"));
     }
 
-    function drawTitleOnly(ctx, bbox, regions = []) {
+    function drawTitleOnly(ctx, bbox, regions = [], template = null, dividerVariant = null) {
         if (!bbox) return;
+        const style = getTextStyle(template?.key, "event_title");
         if (regions.length && state.fields.event_title) {
             const layout = resolveDateTitleLayout(bbox, regions);
-            if (layout?.divider) drawDivider(ctx, layout.divider);
-            const target = layout?.right || unionBoxes(regions) || bbox;
+            if (layout?.divider) drawDivider(ctx, applyDividerVariant(layout.divider, dividerVariant));
+            const target = applyTextBoxStyle(layout?.right || unionBoxes(regions) || bbox, style);
             const fontSize = layout?.titleFontSize || estimateFontSizeFromRegions(regions, 64, 1.14);
-            drawFitText(ctx, state.fields.event_title, target, `900 ${fontSize}px GroundliftBold, Arial Black, Arial, sans-serif`, layout?.right ? "left" : "center", {
+            drawFitText(ctx, state.fields.event_title, target, overrideFont(`900 ${fontSize}px GroundliftBold, Arial Black, Arial, sans-serif`, style), textAlign(style, layout?.right ? "left" : "center"), {
                 allowWrap: true,
                 maxLines: preferredTitleLineCount(state.fields.event_title, target),
                 valign: layout?.right ? "top" : "middle",
                 lineHeight: 1.0,
-                maxSize: fontSize,
+                maxSize: maxFontSize(fontSize, style),
             });
             return;
         }
-        drawFitText(ctx, state.fields.event_title, bbox, "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "center", {
+        drawFitText(ctx, state.fields.event_title, applyTextBoxStyle(bbox, style), overrideFont("900 64px GroundliftBold, Arial Black, Arial, sans-serif", style), textAlign(style, "center"), {
             allowWrap: true,
             maxLines: preferredTitleLineCount(state.fields.event_title, bbox),
             valign: "middle",
             lineHeight: 1.0,
+            maxSize: maxFontSize(64, style),
         });
     }
 
-    function drawSubtitleOnly(ctx, bbox, regions = []) {
+    function drawSubtitleOnly(ctx, bbox, regions = [], template = null) {
         if (!bbox) return;
         const subtitle = state.fields.event_subtitle || "";
         const lines = String(subtitle).split(/\n+/).filter(Boolean);
-        const target = regions.length ? (unionBoxes(regions) || bbox) : bbox;
+        const style = getTextStyle(template?.key, "event_subtitle");
+        const target = applyTextBoxStyle(regions.length ? (unionBoxes(regions) || bbox) : bbox, style);
         const fontSize = estimateFontSizeFromRegions(regions, 46, 1.12);
-        drawFitText(ctx, lines.length > 1 ? lines : subtitle, target, `500 ${fontSize}px GroundliftRegular, Arial, sans-serif`, "left", {
+        drawFitText(ctx, lines.length > 1 ? lines : subtitle, target, overrideFont(`500 ${fontSize}px GroundliftRegular, Arial, sans-serif`, style), textAlign(style, "left"), {
             allowWrap: true,
             maxLines: preferredSubtitleLineCount(subtitle, target),
             valign: "bottom",
             lineHeight: 1.12,
-            maxSize: fontSize,
+            maxSize: maxFontSize(fontSize, style),
         });
     }
 
@@ -1343,29 +1905,32 @@
         ctx.restore();
     }
 
-    function drawStandaloneDividerLeftOfBox(ctx, bbox, template) {
+    function drawStandaloneDividerLeftOfBox(ctx, bbox, template, dividerVariant = null) {
         if (!bbox) return;
         const width = Math.max(12, Math.round((template?.canvas_width || 1920) * 0.0066));
         const gap = Math.max(24, Math.round(bbox.width * 0.065));
-        drawDivider(ctx, {
+        drawDivider(ctx, applyDividerVariant({
             x: bbox.x - gap,
             y: bbox.y + Math.max(4, Math.round(bbox.height * 0.02)),
             width,
             height: Math.max(1, bbox.height - Math.max(8, Math.round(bbox.height * 0.04))),
-        });
+        }, dividerVariant));
     }
 
-    function drawParagraphBox(ctx, text, bbox) {
+    function drawParagraphBox(ctx, text, bbox, template = null) {
         if (!bbox || !text) return;
-        drawParagraph(ctx, String(text), bbox, "400 34px GroundliftRegular, Arial, sans-serif");
+        const style = getTextStyle(template?.key, "summary_text");
+        drawParagraph(ctx, String(text), applyTextBoxStyle(bbox, style), overrideFont("400 34px GroundliftRegular, Arial, sans-serif", style));
     }
 
-    function drawSingleLine(ctx, text, bbox, font, align = "left") {
+    function drawSingleLine(ctx, text, bbox, font, align = "left", template = null, field = null) {
         if (!bbox || !text) return;
-        drawFitText(ctx, [String(text).toUpperCase()], bbox, font, align, {
+        const style = field ? getTextStyle(template?.key, field) : defaultTextStyle();
+        drawFitText(ctx, [String(text).toUpperCase()], applyTextBoxStyle(bbox, style), overrideFont(font, style), textAlign(style, align), {
             allowWrap: false,
             valign: "middle",
             lineHeight: 1.0,
+            maxSize: maxFontSize(parseInt((String(font).match(/(\d+)px/) || ["", "28"])[1], 10), style),
         });
     }
 
@@ -1714,6 +2279,8 @@
                 drink_card_profile_id: p.drink_card_profile_id || false,
                 output_filename: p.output_filename || "",
             };
+            await prefillVariantsFromOdooDefaults();
+            await applyPaletteFromSourceImage();
             buildApp();
             await renderCanvas();
         } catch (error) {
