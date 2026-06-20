@@ -49,6 +49,12 @@ class GroundliftEventSocialConfig(models.Model):
     event_day_hour = fields.Integer(string='Eventtag Uhrzeit', default=10)
     event_day_minute = fields.Integer(string='Eventtag Minute', default=0)
     soldout_delay_hours = fields.Integer(string='Ausverkauft-Post Verzögerung in Stunden', default=1)
+    soldout_badge_png = fields.Binary(
+        string='Ausverkauft-Störer PNG',
+        attachment=True,
+        help='Optionales transparentes PNG, das als Ausverkauft-Störer verwendet wird. Wird nach dem Social-Bildzuschnitt auf das sichtbare Bild gelegt.',
+    )
+    soldout_badge_png_filename = fields.Char(string='Dateiname Ausverkauft-Störer')
     completed_post_hour = fields.Integer(string='Nachbericht Uhrzeit', default=10)
     completed_post_minute = fields.Integer(string='Nachbericht Minute', default=0)
 

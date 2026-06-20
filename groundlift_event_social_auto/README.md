@@ -1,6 +1,6 @@
 # Groundlift Event Social Automation
 
-Version: 19.0.1.0.19
+Version: 19.0.1.0.20
 
 Dieses Odoo-19-SH-Modul erzeugt automatisch bearbeitbare Social-Marketing-Posts aus Veranstaltungen.
 
@@ -133,3 +133,11 @@ wird nicht von der Event-Planungsautomatik erneut verschoben oder verarbeitet.
 - Fehlende TransientModels `gl.social.post.replace.wizard` und `gl.social.post.image.adjust.wizard` ergänzt.
 - Feldmismatch im Regenerate-Wizard behoben: `extra_information` existiert wieder passend zur XML-View.
 - Bildanpassung bleibt als separater Wizard erhalten; Text-Neugenerierung und Post-Ersetzung funktionieren wieder getrennt.
+
+## Änderungen in 19.0.1.0.20
+
+- In den Einstellungen kann jetzt ein eigenes transparentes PNG als Ausverkauft-Störer hinterlegt werden.
+- Dieses PNG wird standardmäßig für Ausverkauft-Posts und Eventtag-ausverkauft-Posts verwendet.
+- Das PNG wird nach dem Social-Bildzuschnitt als Overlay oben rechts in den sichtbaren Bildbereich gesetzt.
+- Wenn kein PNG hinterlegt ist oder das PNG fehlerhaft ist, verwendet das Modul weiterhin den bisherigen automatisch gerenderten Text-Störer als Fallback.
+- Der Attachment-Cache berücksichtigt Änderungen am hinterlegten PNG, damit nach einem neuen Upload kein alter Störer weiterverwendet wird.

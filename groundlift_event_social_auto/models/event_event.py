@@ -730,8 +730,10 @@ class EventEvent(models.Model):
             return False
 
         normalized_kind = publication_kind or 'story'
+        soldout_config = self.env['gl.event.social.config'].get_config() if sold_out else False
         if sold_out:
-            suffix = '_%s_soldout_adjusted_overlay%s' % (normalized_kind, source_token)
+            badge_token = self._gl_soldout_badge_cache_token(soldout_config)
+            suffix = '_%s_soldout_adjusted_overlay%s%s' % (normalized_kind, source_token, badge_token)
         else:
             suffix = ''
         filename = '%s_website_header_social%s.jpg' % (self._gl_filename_safe(self.name or 'event'), suffix)
@@ -748,7 +750,7 @@ class EventEvent(models.Model):
         if sold_out:
             try:
                 visible_image = self._gl_prepare_image_for_soldout_badge(decoded, publication_kind=normalized_kind)
-                final_data = base64.b64encode(self._gl_add_soldout_badge_to_image(visible_image, publication_kind=normalized_kind))
+                final_data = base64.b64encode(self._gl_add_soldout_badge_to_image(visible_image, publication_kind=normalized_kind, config=soldout_config))
             except Exception:
                 _logger.exception('Could not render sold-out badge for event %s.', self.id)
                 final_data = data
@@ -819,8 +821,24 @@ class EventEvent(models.Model):
             box = (0, max(top, 0), width, min(top + new_height, height))
         return image.crop(box)
 
-    def _gl_add_soldout_badge_to_image(self, image_bytes, publication_kind='story'):
-        if not Image or not ImageDraw:
+    def _gl_soldout_badge_cache_token(self, config=None):
+        """Return a filename suffix so changed custom badges do not reuse old attachments."""
+        if not config or not getattr(config, 'soldout_badge_png', False):
+            return ''
+        raw_stamp = str(config.write_date or fields.Datetime.now())
+        stamp = re.sub(r'\D+', '', raw_stamp)[:14] or 'custom'
+        return '_badge%s_%s' % (config.id, stamp)
+
+    def _gl_add_soldout_badge_to_image(self, image_bytes, publication_kind='story', config=None):
+        if not Image:
+            return image_bytes
+        custom_badge = self._gl_custom_soldout_badge_bytes(config=config)
+        if custom_badge:
+            try:
+                return self._gl_overlay_custom_soldout_badge(image_bytes, custom_badge, publication_kind=publication_kind)
+            except Exception:
+                _logger.exception('Could not render custom sold-out PNG badge for event %s. Falling back to text badge.', self.id)
+        if not ImageDraw:
             return image_bytes
         with Image.open(BytesIO(image_bytes)) as image:
             image = image.convert('RGBA')
@@ -854,6 +872,49 @@ class EventEvent(models.Model):
             image = Image.alpha_composite(image, overlay).convert('RGB')
             output = BytesIO()
             image.save(output, format='JPEG', quality=95)
+            return output.getvalue()
+
+    def _gl_custom_soldout_badge_bytes(self, config=None):
+        config = config or self.env['gl.event.social.config'].get_config()
+        badge_data = getattr(config, 'soldout_badge_png', False) if config else False
+        if not badge_data:
+            return False
+        if isinstance(badge_data, str):
+            badge_data = badge_data.encode()
+        try:
+            return base64.b64decode(badge_data, validate=False)
+        except Exception:
+            _logger.exception('Configured sold-out badge PNG contains invalid binary data.')
+            return False
+
+    def _gl_overlay_custom_soldout_badge(self, image_bytes, badge_bytes, publication_kind='story'):
+        with Image.open(BytesIO(image_bytes)) as image, Image.open(BytesIO(badge_bytes)) as badge:
+            image = image.convert('RGBA')
+            badge = badge.convert('RGBA')
+            width, height = image.size
+            badge_w, badge_h = badge.size
+            if not badge_w or not badge_h:
+                return image_bytes
+
+            # Keep the user-provided PNG fully inside the already-cropped social
+            # image. This prevents the visible sticker from being cut off later.
+            margin = max(12, int(min(width, height) * 0.055))
+            max_w = max(1, int(width * 0.42))
+            max_h = max(1, int(height * (0.16 if (publication_kind or 'story') == 'story' else 0.22)))
+            scale = min(float(max_w) / float(badge_w), float(max_h) / float(badge_h), 1.0)
+            new_w = max(1, int(badge_w * scale))
+            new_h = max(1, int(badge_h * scale))
+            if (new_w, new_h) != (badge_w, badge_h):
+                resampling = getattr(getattr(Image, 'Resampling', Image), 'LANCZOS', Image.BICUBIC)
+                badge = badge.resize((new_w, new_h), resampling)
+
+            x = max(margin, width - margin - new_w)
+            y = margin
+            overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
+            overlay.alpha_composite(badge, (x, y))
+            result = Image.alpha_composite(image, overlay).convert('RGB')
+            output = BytesIO()
+            result.save(output, format='JPEG', quality=95)
             return output.getvalue()
 
     def _gl_badge_font(self, font_size):
