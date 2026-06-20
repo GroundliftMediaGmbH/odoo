@@ -521,6 +521,65 @@ class GroundliftEventSocialConfig(models.Model):
             'mimetype': mimetype,
         })
 
+
+    def _gl_openai_add_soldout_badge_attachment(self, attachment, publication_kind='story'):
+        """Create a sold-out variant via OpenAI image edits.
+
+        The API should visibly place a strong red "AUSVERKAUFT" badge onto the
+        existing event image while preserving the underlying artwork.
+        """
+        self.ensure_one()
+        if not self.openai_api_key:
+            raise UserError('Bitte zuerst einen OpenAI API Key hinterlegen.')
+        if not attachment or not attachment.datas:
+            raise UserError('Kein Bild für die Ausverkauft-Variante gefunden.')
+        image_bytes = base64.b64decode(attachment.datas)
+        target_label = 'Story 9:16' if (publication_kind or 'story') == 'story' else 'Feed 4:5'
+        prompt = (
+            'Bearbeite dieses Veranstaltungsbild für einen Social-Media-%s. '
+            'Platziere gut sichtbar einen professionellen roten Störer mit der exakten Aufschrift '
+            '"AUSVERKAUFT" auf dem Bild. Der Störer soll hochwertig, klar lesbar und werblich wirken, '
+            'am besten oben rechts oder oben mittig. Das ursprüngliche Motiv, Personen, Bühne, Farben '
+            'und Markenoptik sollen erhalten bleiben. Keine zusätzlichen Logos oder frei erfundenen Texte.'
+        ) % (target_label or 'Post')
+        fields_data = {
+            'model': self.openai_image_model or 'gpt-image-1',
+            'prompt': prompt,
+            'n': '1',
+            'size': 'auto',
+        }
+        files = {
+            'image': (attachment.name or 'image.png', image_bytes, attachment.mimetype or 'image/png'),
+        }
+        response = self._gl_openai_multipart_request('https://api.openai.com/v1/images/edits', fields_data, files, timeout=max(self.openai_timeout or 60, 30))
+        image_b64 = ''
+        try:
+            image_b64 = response.get('data', [{}])[0].get('b64_json') or ''
+        except Exception:
+            image_b64 = ''
+        if not image_b64:
+            raise UserError('Die OpenAI Bild-API hat keine Ausverkauft-Grafik zurückgegeben. Bitte Logs prüfen.')
+        mimetype = 'image/png'
+        name = 'soldout_api_%s.png' % (attachment.name or 'social_image')
+        try:
+            from PIL import Image
+            image = Image.open(BytesIO(base64.b64decode(image_b64))).convert('RGB')
+            output = BytesIO()
+            image.save(output, format='JPEG', quality=95)
+            final_b64 = base64.b64encode(output.getvalue())
+            mimetype = 'image/jpeg'
+            name = 'soldout_api_%s.jpg' % (attachment.name or 'social_image')
+        except Exception:
+            final_b64 = image_b64.encode() if isinstance(image_b64, str) else image_b64
+        return self.env['ir.attachment'].sudo().create({
+            'name': re.sub(r'[^A-Za-z0-9_.-]+', '_', name)[:110],
+            'type': 'binary',
+            'datas': final_b64,
+            'res_model': attachment.res_model or 'social.post',
+            'res_id': attachment.res_id or 0,
+            'mimetype': mimetype,
+        })
+
     def _gl_openai_multipart_request(self, url, fields_data, files, timeout=60):
         boundary = ('----GroundliftOpenAI%s' % uuid4().hex).encode('ascii')
         body = BytesIO()

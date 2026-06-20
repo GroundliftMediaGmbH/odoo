@@ -52,7 +52,7 @@ class SocialPost(models.Model):
         ('warning', 'Format prüfen'),
     ], string='Bildformat-Status', default='missing', copy=False, readonly=True)
     gl_image_aspect_message = fields.Text(string='Bildformat-Hinweis', copy=False, readonly=True)
-    gl_adjust_image_crop = fields.Boolean(string='Ausschnitt anpassen', copy=False)
+    gl_adjust_image_crop = fields.Boolean(string='Ausschnitt anpassen', default=True, copy=False)
     gl_adjust_image_generative_fill = fields.Boolean(string='Generativ füllen', copy=False)
 
     gl_retry_source_post_id = fields.Many2one(
@@ -285,9 +285,7 @@ class SocialPost(models.Model):
 
     def action_gl_open_image_adjust_wizard(self):
         self.ensure_one()
-        default_mode = 'crop'
-        if self.gl_adjust_image_generative_fill:
-            default_mode = 'generative_fill'
+        default_mode = 'generative_fill' if self.gl_adjust_image_generative_fill else 'crop'
         return {
             'type': 'ir.actions.act_window',
             'name': 'Bildformat anpassen',
@@ -299,9 +297,9 @@ class SocialPost(models.Model):
 
     def action_gl_apply_selected_image_adjustment(self):
         self.ensure_one()
-        if self.gl_adjust_image_crop and self.gl_adjust_image_generative_fill:
-            raise UserError('Bitte entweder „Ausschnitt anpassen“ oder „Generativ füllen“ wählen, nicht beides gleichzeitig.')
-        if self.gl_adjust_image_crop or self.gl_adjust_image_generative_fill:
+        if self.gl_adjust_image_generative_fill:
+            return self.action_gl_open_image_adjust_wizard()
+        if self.gl_adjust_image_crop:
             return self.action_gl_open_image_adjust_wizard()
         raise UserError('Bitte zuerst „Ausschnitt anpassen“ oder „Generativ füllen“ aktivieren.')
 
@@ -455,6 +453,60 @@ class SocialPost(models.Model):
         image_field = self._gl_attachment_field_name()
         if image_field and attachment:
             self.with_context(gl_skip_groundlift_approval_hook=True).write({image_field: [(6, 0, [attachment.id])]})
+
+    def _gl_replace_multiple_image_attachments(self, attachments):
+        self.ensure_one()
+        image_field = self._gl_attachment_field_name()
+        if image_field and attachments:
+            self.with_context(gl_skip_groundlift_approval_hook=True, gl_skip_auto_image_adjustment=True).write({image_field: [(6, 0, attachments.ids)]})
+
+    def _gl_needs_image_adjustment(self, attachment):
+        self.ensure_one()
+        dims = self._gl_attachment_dimensions(attachment)
+        if not dims:
+            return False
+        width, height = dims
+        ratio = float(width) / float(height or 1)
+        return not self._gl_ratio_is_acceptable(ratio)
+
+    def _gl_auto_apply_default_image_adjustment(self):
+        for post in self:
+            if post.env.context.get('gl_skip_auto_image_adjustment'):
+                continue
+            attachments = post._gl_image_attachments()
+            if not attachments:
+                continue
+            mode = 'generative_fill' if post.gl_adjust_image_generative_fill else ('crop' if post.gl_adjust_image_crop else False)
+            if not mode:
+                continue
+            needs_adjustment = any(post._gl_needs_image_adjustment(attachment) for attachment in attachments)
+            if not needs_adjustment:
+                continue
+            adjusted = post.env['ir.attachment']
+            if mode == 'crop':
+                for attachment in attachments:
+                    adjusted |= post._gl_crop_attachment_to_target(attachment)
+            else:
+                config = post.env['gl.event.social.config'].get_config()
+                for attachment in attachments:
+                    adjusted |= config._gl_openai_expand_image_attachment(
+                        attachment,
+                        target_ratio=post._gl_target_aspect_ratio(),
+                        target_label=post._gl_target_aspect_label(),
+                        extra_instruction='Die endgültige Bildkomposition muss für den Social-Media-Post passend erweitert werden.',
+                    )
+            if adjusted:
+                vals = {
+                    'gl_requires_approval': True,
+                    'gl_approved': False,
+                    'gl_adjust_image_crop': True,
+                    'gl_adjust_image_generative_fill': False if mode == 'crop' else post.gl_adjust_image_generative_fill,
+                }
+                image_field = post._gl_attachment_field_name()
+                if image_field:
+                    vals[image_field] = [(6, 0, adjusted.ids)]
+                post.with_context(gl_skip_groundlift_approval_hook=True, gl_skip_auto_image_adjustment=True).write(vals)
+                post._gl_force_draft_if_possible()
 
     @api.model
     def _gl_pil_cover_crop(self, image, target_ratio, focal_x='center', focal_y='center'):
@@ -839,6 +891,7 @@ class SocialPost(models.Model):
                         vals['media_ids'] = commands
             prepared_vals_list.append(vals)
         posts = super().create(prepared_vals_list)
+        posts._gl_auto_apply_default_image_adjustment()
         posts._gl_update_image_aspect_status()
         return posts
 
@@ -856,8 +909,9 @@ class SocialPost(models.Model):
             posts_to_schedule = self.filtered(lambda post: post.gl_auto_generated and post.gl_approved)
             for post in posts_to_schedule:
                 post._gl_safe_schedule_without_publish(mark_approved=True)
-        image_relevant_fields = {'image_ids', 'attachment_ids', 'gl_publication_kind', 'gl_publish_as_feed_post', 'account_ids', 'social_account_ids'}
+        image_relevant_fields = {'image_ids', 'attachment_ids', 'gl_publication_kind', 'gl_publish_as_feed_post', 'account_ids', 'social_account_ids', 'gl_adjust_image_crop', 'gl_adjust_image_generative_fill'}
         if image_relevant_fields.intersection(original_vals.keys()) and not self.env.context.get('gl_skip_image_aspect_update'):
+            self._gl_auto_apply_default_image_adjustment()
             self._gl_update_image_aspect_status()
         return result
 

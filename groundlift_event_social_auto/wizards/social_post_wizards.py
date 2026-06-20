@@ -111,7 +111,7 @@ class GlSocialPostImageAdjustWizard(models.TransientModel):
             )
         post._gl_replace_image_attachments(new_attachment)
         post.write({
-            'gl_adjust_image_crop': False,
+            'gl_adjust_image_crop': True,
             'gl_adjust_image_generative_fill': False,
             'gl_requires_approval': True,
             'gl_approved': False,

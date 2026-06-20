@@ -717,11 +717,32 @@ class EventEvent(models.Model):
         final_data = data
         mimetype = 'image/jpeg'
         if sold_out:
+            config = self.env['gl.event.social.config'].get_config()
+            temp_attachment = self.env['ir.attachment'].sudo().create({
+                'name': 'tmp_%s' % filename,
+                'type': 'binary',
+                'datas': data,
+                'res_model': 'event.event',
+                'res_id': self.id,
+                'mimetype': mimetype,
+            })
             try:
-                final_data = base64.b64encode(self._gl_add_soldout_badge_to_image(decoded, publication_kind=publication_kind))
+                api_attachment = config._gl_openai_add_soldout_badge_attachment(temp_attachment, publication_kind=publication_kind)
+                if api_attachment and api_attachment.datas:
+                    final_data = api_attachment.datas
+                    mimetype = api_attachment.mimetype or mimetype
             except Exception:
-                _logger.exception('Could not render sold-out badge for event %s.', self.id)
-                final_data = data
+                _logger.exception('OpenAI sold-out badge generation failed for event %s. Falling back to local badge rendering.', self.id)
+                try:
+                    final_data = base64.b64encode(self._gl_add_soldout_badge_to_image(decoded, publication_kind=publication_kind))
+                except Exception:
+                    _logger.exception('Could not render sold-out badge for event %s.', self.id)
+                    final_data = data
+            finally:
+                try:
+                    temp_attachment.unlink()
+                except Exception:
+                    pass
         return self.env['ir.attachment'].sudo().create({
             'name': filename,
             'type': 'binary',
