@@ -3,7 +3,7 @@
 
     const root = document.getElementById("gl-editor-root");
     const posterId = parseInt(root?.dataset?.posterId || "0", 10);
-    const APP_VERSION = "19.0.1.4.2";
+    const APP_VERSION = "19.0.1.4.3";
 
     const state = {
         loading: true,
@@ -679,8 +679,12 @@
         safeDrawImage(ctx, img.claim, 0, 0, template.canvas_width, template.canvas_height, "Claim");
         safeDrawImage(ctx, img.drink_card, 0, 0, template.canvas_width, template.canvas_height, "Getränkekarte");
 
-        const dateTitleLayout = box.date_title ? resolveDateTitleLayout(box.date_title, regions.date_title || []) : null;
+        const adjustedText = resolveTextLayoutAdjustments(template, box, regions);
+        const textBox = (role) => adjustedText.boxes[role] || box[role];
+        const textRegions = (role) => adjustedText.regions[role] || regions[role] || [];
+        const dateTitleLayout = textBox("date_title") ? resolveDateTitleLayout(textBox("date_title"), textRegions("date_title")) : null;
         const photoCreditBox = resolvePhotoCreditTargetBox(template, box);
+        const photoCreditFont = resolvePhotoCreditFont(template);
         const qrBox = resolveQrTargetBox(template, box);
         const ticketLinkBox = resolveTicketLinkTargetBox(template, box);
 
@@ -689,21 +693,21 @@
             safeDrawImage(ctx, img.frame, 0, 0, template.canvas_width, template.canvas_height, "Rahmen");
             safeLayer("Datum/Titel", () => {
                 if (templateKey === "theater_konzert") {
-                    drawStandaloneDividerLeftOfBox(ctx, box.date_title, template);
-                    drawTitleSubtitleStack(ctx, box.date_title, state.fields.event_title, state.fields.event_subtitle, {
+                    drawStandaloneDividerLeftOfBox(ctx, textBox("date_title"), template);
+                    drawTitleSubtitleStack(ctx, textBox("date_title"), state.fields.event_title, state.fields.event_subtitle, {
                         titleRatio: 0.66,
                         gap: Math.max(8, template.canvas_height * 0.008),
                     });
                 } else {
-                    drawDateTitle(ctx, box.date_title, regions.date_title || [], dateTitleLayout);
+                    drawDateTitle(ctx, textBox("date_title"), textRegions("date_title"), dateTitleLayout);
                 }
             });
-            safeLayer("Uhrzeit/Untertitel", () => drawTimeSubtitle(ctx, box.time_subtitle, regions.time_subtitle || [], dateTitleLayout));
-            safeLayer("Uhrzeit/Ticketlink", () => drawTimeTicketlink(ctx, box.time_ticketlink, regions.time_ticketlink || []));
-            safeLayer("Titel", () => drawTitleOnly(ctx, box.title, regions.title || []));
-            safeLayer("Untertitel", () => drawSubtitleOnly(ctx, box.subtitle, regions.subtitle || []));
-            safeLayer("Kurzzusammenfassung", () => drawParagraphBox(ctx, state.fields.summary_text, box.summary));
-            safeLayer("Fotocredit", () => drawSingleLine(ctx, state.fields.photo_credit, photoCreditBox, "400 28px GroundliftRegular, Arial, sans-serif", "center"));
+            safeLayer("Uhrzeit/Untertitel", () => drawTimeSubtitle(ctx, textBox("time_subtitle"), textRegions("time_subtitle"), dateTitleLayout));
+            safeLayer("Uhrzeit/Ticketlink", () => drawTimeTicketlink(ctx, textBox("time_ticketlink"), textRegions("time_ticketlink")));
+            safeLayer("Titel", () => drawTitleOnly(ctx, textBox("title"), textRegions("title")));
+            safeLayer("Untertitel", () => drawSubtitleOnly(ctx, textBox("subtitle"), textRegions("subtitle")));
+            safeLayer("Kurzzusammenfassung", () => drawParagraphBox(ctx, state.fields.summary_text, textBox("summary")));
+            safeLayer("Fotocredit", () => drawSingleLine(ctx, state.fields.photo_credit, photoCreditBox, photoCreditFont, "center"));
             if (ticketLinkBox) {
                 safeLayer("Ticketlink", () => drawSingleLine(ctx, state.fields.ticket_link_text, ticketLinkBox, "600 28px GroundliftCondensed, Arial Narrow, Arial, sans-serif", "center"));
             }
@@ -759,12 +763,44 @@
         };
     }
 
+    function resolveTextLayoutAdjustments(template, box = {}, regions = {}) {
+        const boxes = { ...box };
+        const adjustedRegions = { ...regions };
+        if (template?.key === "sudhaus_main") {
+            // Sudhaus Main: Der gesamte Textblock unter dem Bild soll klar im blauen Bereich sitzen
+            // und nicht in das Veranstaltungsfoto hineinragen.
+            const dy = Math.round((template.canvas_height || 1080) * 0.07);
+            for (const role of ["date_title", "time_subtitle"]) {
+                boxes[role] = shiftBox(boxes[role], 0, dy);
+                adjustedRegions[role] = shiftRegions(regions[role], 0, dy);
+            }
+        }
+        return { boxes, regions: adjustedRegions };
+    }
+
+    function shiftRegions(regionList = [], dx = 0, dy = 0) {
+        return (regionList || []).map((region) => shiftBox(region, dx, dy)).filter(Boolean);
+    }
+
+    function resolvePhotoCreditFont(template) {
+        if (template?.key === "foyer") return "400 24px GroundliftRegular, Arial, sans-serif";
+        return "400 28px GroundliftRegular, Arial, sans-serif";
+    }
+
     function resolvePhotoCreditTargetBox(template, box = {}) {
         if (!template) return box.photo_credit || null;
         if (template.key === "social_post") return box.photo_credit || null;
         const frame = box.frame;
         if (!frame) return box.photo_credit || null;
         const original = box.photo_credit || null;
+        if (template.key === "foyer") {
+            const height = Math.max(24, Math.min(original?.height || 30, 34));
+            const width = Math.max(240, Math.min(original?.width || Math.round(frame.width * 0.72), Math.round(frame.width * 0.92)));
+            const gap = Math.max(5, Math.round(template.canvas_height * 0.0015));
+            const x = frame.x + (frame.width - width) / 2;
+            const y = Math.min(template.canvas_height - height - 6, frame.y + frame.height + gap);
+            return { x, y, width, height };
+        }
         const preferredWidth = original?.width || Math.round(frame.width * 0.62);
         const width = Math.max(150, Math.min(preferredWidth, Math.round(frame.width * 0.78)));
         const height = Math.max(22, Math.min(original?.height || 32, Math.round(template.canvas_height * 0.012)));
@@ -1236,7 +1272,7 @@
 
     function drawStandaloneDividerLeftOfBox(ctx, bbox, template) {
         if (!bbox) return;
-        const width = Math.max(4, Math.round((template?.canvas_width || 1920) * 0.0022));
+        const width = Math.max(12, Math.round((template?.canvas_width || 1920) * 0.0066));
         const gap = Math.max(24, Math.round(bbox.width * 0.065));
         drawDivider(ctx, {
             x: bbox.x - gap,

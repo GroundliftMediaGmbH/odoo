@@ -70,7 +70,7 @@ class GroundliftGraphicsEditorPage(http.Controller):
 </head>
 <body>
     <div id="gl-editor-root" data-poster-id="__POSTER_ID__"></div>
-    <script src="/groundlift_graphics/static/src/js/graphics_editor_standalone.js?v=19.0.1.4.2"></script>
+    <script src="/groundlift_graphics/static/src/js/graphics_editor_standalone.js?v=19.0.1.4.3"></script>
 </body>
 </html>"""
         html = html.replace("__POSTER_ID__", str(poster_id))

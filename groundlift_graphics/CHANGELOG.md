@@ -1,5 +1,12 @@
 # Changelog
 
+## 19.0.1.4.3
+
+- Foyer: Fotocredit präziser direkt unter der weißen Rahmenlinie positioniert und leicht verkleinert, damit er nicht mehr in den Titelblock hineinragt.
+- Theater Konzert: Der manuell ergänzte senkrechte Trennstrich links von Titel/Untertitel ist jetzt ca. dreimal so stark.
+- Sudhaus Main: Textgruppe aus Datum, Uhrzeit, Kategorie, Titel, Untertitel und Trennstrich nach unten verschoben, damit sie nicht mehr in das Foto hineinragt.
+- Cache-Busting für Standalone-Editor und Asset-Ladung auf `19.0.1.4.3` angehoben.
+
 ## 19.0.1.4.2
 
 - Cache-Busting vollständig korrigiert: `controllers/editor.py` lädt den Standalone-Editor jetzt ebenfalls mit Version `19.0.1.4.2`.
