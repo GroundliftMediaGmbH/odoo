@@ -3,7 +3,7 @@
 
     const root = document.getElementById("gl-editor-root");
     const posterId = parseInt(root?.dataset?.posterId || "0", 10);
-    const APP_VERSION = "19.0.1.4.3";
+    const APP_VERSION = "19.0.1.4.4";
 
     const state = {
         loading: true,
@@ -707,7 +707,7 @@
             safeLayer("Titel", () => drawTitleOnly(ctx, textBox("title"), textRegions("title")));
             safeLayer("Untertitel", () => drawSubtitleOnly(ctx, textBox("subtitle"), textRegions("subtitle")));
             safeLayer("Kurzzusammenfassung", () => drawParagraphBox(ctx, state.fields.summary_text, textBox("summary")));
-            safeLayer("Fotocredit", () => drawSingleLine(ctx, state.fields.photo_credit, photoCreditBox, photoCreditFont, "center"));
+            safeLayer("Fotocredit", () => drawPhotoCredit(ctx, state.fields.photo_credit, photoCreditBox, photoCreditFont, template));
             if (ticketLinkBox) {
                 safeLayer("Ticketlink", () => drawSingleLine(ctx, state.fields.ticket_link_text, ticketLinkBox, "600 28px GroundliftCondensed, Arial Narrow, Arial, sans-serif", "center"));
             }
@@ -783,7 +783,7 @@
     }
 
     function resolvePhotoCreditFont(template) {
-        if (template?.key === "foyer") return "400 24px GroundliftRegular, Arial, sans-serif";
+        if (template?.key === "foyer") return "400 22px GroundliftRegular, Arial, sans-serif";
         return "400 28px GroundliftRegular, Arial, sans-serif";
     }
 
@@ -794,11 +794,12 @@
         if (!frame) return box.photo_credit || null;
         const original = box.photo_credit || null;
         if (template.key === "foyer") {
-            const height = Math.max(24, Math.min(original?.height || 30, 34));
-            const width = Math.max(240, Math.min(original?.width || Math.round(frame.width * 0.72), Math.round(frame.width * 0.92)));
-            const gap = Math.max(5, Math.round(template.canvas_height * 0.0015));
+            // Im Foyer-Format muss der Fotocredit direkt unterhalb der unteren weißen Rahmenlinie sitzen.
+            const height = Math.max(16, Math.min(original?.height || 22, 22));
+            const width = Math.max(240, Math.min(original?.width || Math.round(frame.width * 0.78), Math.round(frame.width * 0.96)));
+            const gap = Math.max(1, Math.round(template.canvas_height * 0.0008));
             const x = frame.x + (frame.width - width) / 2;
-            const y = Math.min(template.canvas_height - height - 6, frame.y + frame.height + gap);
+            const y = Math.min(template.canvas_height - height - 6, Math.round(frame.y + frame.height + gap));
             return { x, y, width, height };
         }
         const preferredWidth = original?.width || Math.round(frame.width * 0.62);
@@ -808,6 +809,15 @@
         const x = frame.x + (frame.width - width) / 2;
         const y = Math.min(template.canvas_height - height - 6, frame.y + frame.height + gap);
         return { x, y, width, height };
+    }
+
+    function drawPhotoCredit(ctx, text, bbox, font, template) {
+        if (!bbox || !text) return;
+        drawFitText(ctx, [String(text).toUpperCase()], bbox, font, "center", {
+            allowWrap: false,
+            valign: template?.key === "foyer" ? "top" : "middle",
+            lineHeight: 1.0,
+        });
     }
 
     function resolveQrTargetBox(template, box = {}) {
