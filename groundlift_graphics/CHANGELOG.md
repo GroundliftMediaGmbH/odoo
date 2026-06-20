@@ -1,5 +1,11 @@
 # Changelog
 
+## 19.0.1.4.8
+
+- Stellt die automatische Farbpalette wieder her: Beim Laden und beim Ersetzen des Veranstaltungsbilds werden zwei dominante Farben aus dem hochgeladenen Foto extrahiert und als Verlaufsfarben gesetzt.
+- Die extrahierte Palette wird über eine Bild-Signatur im Editor-State nur bei einem neuen/geänderten Bild erneut berechnet; manuelle Farbkorrekturen bleiben nach dem Speichern erhalten, solange das Bild gleich bleibt.
+- Cache-Busting für Standalone-Editor und Loader auf `19.0.1.4.8` angehoben.
+
 ## 19.0.1.4.7
 
 - Korrigiert ausschließlich das Ausspielformat `Foyer`: Der Fotocredit wird nun unabhängig von der fehleranfälligen Rahmen-Asset-Erkennung fest auf die Position direkt unterhalb der dünnen horizontalen Rahmenlinie gesetzt.

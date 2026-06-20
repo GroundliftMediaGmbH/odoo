@@ -3,7 +3,7 @@
 
     const root = document.getElementById("gl-editor-root");
     const posterId = parseInt(root?.dataset?.posterId || "0", 10);
-    const APP_VERSION = "19.0.1.4.7";
+    const APP_VERSION = "19.0.1.4.8";
 
     const state = {
         loading: true,
@@ -538,6 +538,7 @@
             if (!file) return;
             state.sourceImageFilename = file.name;
             state.sourceImageBase64 = await fileToBase64(file);
+            await applyPaletteFromSourceImage({ force: true });
             await renderCanvas();
         };
         document.getElementById("templateSelect").onchange = async (ev) => {
@@ -608,6 +609,12 @@
         if (modeSelect) modeSelect.value = state.imageEditMode;
     }
 
+    function syncColorInputs() {
+        root.querySelectorAll('.gl-field[data-field="color_1"], .gl-field[data-field="color_2"]').forEach((node) => {
+            node.value = state.fields[node.dataset.field] || "#000000";
+        });
+    }
+
     function fileToBase64(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -615,6 +622,180 @@
             reader.onerror = reject;
             reader.readAsDataURL(file);
         });
+    }
+
+
+    function sourceImageSignature() {
+        const value = state.sourceImageBase64 || "";
+        if (!value) return "";
+        return `${value.length}:${value.slice(0, 48)}:${value.slice(-48)}`;
+    }
+
+    function rgbToHex(color) {
+        const toHex = (value) => clamp(Math.round(value || 0), 0, 255).toString(16).padStart(2, "0");
+        return `#${toHex(color.r)}${toHex(color.g)}${toHex(color.b)}`;
+    }
+
+    function rgbToHsl(r, g, b) {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        let h = 0;
+        let s = 0;
+        const l = (max + min) / 2;
+        if (max !== min) {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r:
+                    h = (g - b) / d + (g < b ? 6 : 0);
+                    break;
+                case g:
+                    h = (b - r) / d + 2;
+                    break;
+                default:
+                    h = (r - g) / d + 4;
+                    break;
+            }
+            h /= 6;
+        }
+        return { h, s, l };
+    }
+
+    function hueToRgb(p, q, t) {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1 / 6) return p + (q - p) * 6 * t;
+        if (t < 1 / 2) return q;
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+        return p;
+    }
+
+    function hslToRgb(h, s, l) {
+        let r, g, b;
+        if (s === 0) {
+            r = g = b = l;
+        } else {
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            r = hueToRgb(p, q, h + 1 / 3);
+            g = hueToRgb(p, q, h);
+            b = hueToRgb(p, q, h - 1 / 3);
+        }
+        return { r: r * 255, g: g * 255, b: b * 255 };
+    }
+
+    function colorDistance(a, b) {
+        const dr = (a.r || 0) - (b.r || 0);
+        const dg = (a.g || 0) - (b.g || 0);
+        const db = (a.b || 0) - (b.b || 0);
+        return Math.sqrt(dr * dr + dg * dg + db * db);
+    }
+
+    function normalizeGradientColor(color, index) {
+        const hsl = rgbToHsl(color.r, color.g, color.b);
+        const saturation = clamp(hsl.s * 1.18 + 0.08, 0.18, 0.92);
+        const lightness = index === 0
+            ? clamp(hsl.l * 0.58, 0.07, 0.24)
+            : clamp(hsl.l * 0.72 + 0.025, 0.12, 0.36);
+        return rgbToHex(hslToRgb(hsl.h, saturation, lightness));
+    }
+
+    function extractDominantPaletteFromImage(image) {
+        if (!image || !image.width || !image.height) return null;
+        const maxSide = 120;
+        const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        const buckets = new Map();
+
+        const addPixel = (r, g, b, weight) => {
+            const key = `${Math.round(r / 24)}:${Math.round(g / 24)}:${Math.round(b / 24)}`;
+            const bucket = buckets.get(key) || { r: 0, g: 0, b: 0, weight: 0, score: 0 };
+            bucket.r += r * weight;
+            bucket.g += g * weight;
+            bucket.b += b * weight;
+            bucket.weight += weight;
+            bucket.score += weight;
+            buckets.set(key, bucket);
+        };
+
+        for (let i = 0; i < data.length; i += 4) {
+            const alpha = data[i + 3];
+            if (alpha < 96) continue;
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const hsl = rgbToHsl(r, g, b);
+            if (hsl.l < 0.035 || hsl.l > 0.965) continue;
+            if (hsl.s < 0.035 && (hsl.l < 0.12 || hsl.l > 0.88)) continue;
+            const midtoneBoost = 1 - Math.abs(hsl.l - 0.48);
+            const saturationBoost = Math.max(0.18, hsl.s);
+            const weight = (0.35 + saturationBoost * 2.8 + midtoneBoost * 0.8) * (alpha / 255);
+            addPixel(r, g, b, weight);
+        }
+
+        let candidates = Array.from(buckets.values())
+            .filter((bucket) => bucket.weight > 0)
+            .map((bucket) => ({
+                r: bucket.r / bucket.weight,
+                g: bucket.g / bucket.weight,
+                b: bucket.b / bucket.weight,
+                score: bucket.score,
+            }))
+            .sort((a, b) => b.score - a.score);
+
+        if (!candidates.length) {
+            // Fallback für sehr kontrastarme Bilder: ohne Filter erneut sammeln.
+            for (let i = 0; i < data.length; i += 16) {
+                if (data[i + 3] < 96) continue;
+                addPixel(data[i], data[i + 1], data[i + 2], 1);
+            }
+            candidates = Array.from(buckets.values())
+                .filter((bucket) => bucket.weight > 0)
+                .map((bucket) => ({
+                    r: bucket.r / bucket.weight,
+                    g: bucket.g / bucket.weight,
+                    b: bucket.b / bucket.weight,
+                    score: bucket.score,
+                }))
+                .sort((a, b) => b.score - a.score);
+        }
+
+        if (!candidates.length) return null;
+        const first = candidates[0];
+        const second = candidates.find((color) => colorDistance(color, first) >= 72) || candidates[1] || first;
+
+        if (second === first) {
+            const hsl = rgbToHsl(first.r, first.g, first.b);
+            const shifted = hslToRgb((hsl.h + 0.08) % 1, clamp(hsl.s + 0.16, 0.22, 0.9), clamp(hsl.l + 0.08, 0.16, 0.42));
+            return [normalizeGradientColor(first, 0), normalizeGradientColor(shifted, 1)];
+        }
+        return [normalizeGradientColor(first, 0), normalizeGradientColor(second, 1)];
+    }
+
+    async function applyPaletteFromSourceImage(options = {}) {
+        const signature = sourceImageSignature();
+        if (!signature) return false;
+        if (!options.force && state.editorState.paletteSourceImageSignature === signature) return false;
+        try {
+            const src = dataUrlFromBase64(state.sourceImageBase64, extensionMime(state.sourceImageFilename, "image/jpeg"));
+            const image = await loadImageCached(src);
+            const palette = extractDominantPaletteFromImage(image);
+            if (!palette || !palette[0] || !palette[1]) return false;
+            state.fields.color_1 = palette[0];
+            state.fields.color_2 = palette[1];
+            state.editorState.paletteSourceImageSignature = signature;
+            syncColorInputs();
+            return true;
+        } catch (error) {
+            console.warn("Automatische Farbpalette konnte nicht erzeugt werden", error);
+            return false;
+        }
     }
 
     async function refreshQr() {
@@ -1714,6 +1895,7 @@
                 drink_card_profile_id: p.drink_card_profile_id || false,
                 output_filename: p.output_filename || "",
             };
+            await applyPaletteFromSourceImage();
             buildApp();
             await renderCanvas();
         } catch (error) {
