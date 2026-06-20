@@ -1,5 +1,14 @@
 # Changelog
 
+## 19.0.1.4.1
+
+- Fotocredits werden in Kino, Plakat, Social Story, Foyer, Stream-Formaten und Sudhaus Main direkt unterhalb der weißen Rahmenlinie platziert.
+- Plakat: externes Logo wird links neben dem QR-Code positioniert und überlappt diesen nicht mehr.
+- Social Post: Bild-Anfasser werden zusammen mit dem zentrierten Content verschoben; das externe Logo bleibt sichtbar.
+- Foyer: externes Logo wird oberhalb des Ticketlinks platziert.
+- Theater Konzert: vertikaler weißer Trennstrich links neben Titel/Untertitel ergänzt.
+
+
 ## 19.0.1.3.8
 
 - Richtet Datum und Titel nun an der Oberkante des senkrechten Trennstrichs aus und verwendet links/rechts am Trennstrich eine konsequente rechts- bzw. linksbündige Ausrichtung mit identischem Abstand.

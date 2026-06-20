@@ -3,7 +3,7 @@
 
     const root = document.getElementById("gl-editor-root");
     const posterId = parseInt(root?.dataset?.posterId || "0", 10);
-    const APP_VERSION = "19.0.1.4.0";
+    const APP_VERSION = "19.0.1.4.1";
 
     const state = {
         loading: true,
@@ -221,6 +221,22 @@
 
     function boxCenter(box) {
         return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    }
+
+    function shiftBox(box, dx = 0, dy = 0) {
+        if (!box || (!dx && !dy)) return box || null;
+        return { ...box, x: box.x + dx, y: box.y + dy };
+    }
+
+    function shiftGeometry(geometry, dx = 0, dy = 0) {
+        if (!geometry || (!dx && !dy)) return geometry || null;
+        return {
+            ...geometry,
+            bbox: shiftBox(geometry.bbox, dx, dy),
+            corners: geometry.corners?.length
+                ? geometry.corners.map((point) => ({ ...point, x: point.x + dx, y: point.y + dy }))
+                : geometry.corners,
+        };
     }
 
     function groupedAlphaRegions(image) {
@@ -673,6 +689,7 @@
             safeDrawImage(ctx, img.frame, 0, 0, template.canvas_width, template.canvas_height, "Rahmen");
             safeLayer("Datum/Titel", () => {
                 if (templateKey === "theater_konzert") {
+                    drawStandaloneDividerLeftOfBox(ctx, box.date_title, template);
                     drawTitleSubtitleStack(ctx, box.date_title, state.fields.event_title, state.fields.event_subtitle, {
                         titleRatio: 0.66,
                         gap: Math.max(8, template.canvas_height * 0.008),
@@ -725,7 +742,10 @@
         }
 
         if (showGuides) {
-            safeLayer("Bildgriffe", () => drawImageHandles(ctx, info.geometries.image_mask || { bbox: info.bboxes.image_mask }));
+            safeLayer("Bildgriffe", () => {
+                const guideGeometry = shiftGeometry(info.geometries.image_mask || { bbox: info.bboxes.image_mask }, contentShift.dx, contentShift.dy);
+                drawImageHandles(ctx, guideGeometry);
+            });
         }
     }
 
@@ -745,12 +765,12 @@
         const frame = box.frame;
         if (!frame) return box.photo_credit || null;
         const original = box.photo_credit || null;
-        const width = original?.width || Math.max(160, Math.round(frame.width * 0.48));
-        const height = original?.height || Math.max(22, Math.round(template.canvas_height * 0.024));
-        const gap = Math.max(10, Math.round(template.canvas_height * 0.012));
-        const marginRight = Math.max(12, Math.round(frame.width * 0.06));
-        const x = frame.x + frame.width - width - marginRight;
-        const y = Math.min(template.canvas_height - height - 8, frame.y + frame.height + gap);
+        const preferredWidth = original?.width || Math.round(frame.width * 0.62);
+        const width = Math.max(150, Math.min(preferredWidth, Math.round(frame.width * 0.78)));
+        const height = Math.max(22, Math.min(original?.height || 32, Math.round(template.canvas_height * 0.012)));
+        const gap = Math.max(4, Math.round(template.canvas_height * 0.006));
+        const x = frame.x + (frame.width - width) / 2;
+        const y = Math.min(template.canvas_height - height - 6, frame.y + frame.height + gap);
         return { x, y, width, height };
     }
 
@@ -791,12 +811,38 @@
                 height,
             };
         }
-        if (["plakat", "social_post", "social_story"].includes(template.key)) {
+        if (template.key === "plakat") {
+            const qr = resolveQrTargetBox(template, box);
+            if (!qr) return null;
+            const gap = Math.max(40, Math.round(template.canvas_width * 0.025));
+            const width = Math.min(Math.round(template.canvas_width * 0.12), Math.max(120, qr.x - gap * 2));
+            const height = Math.max(58, Math.round(width * 0.38));
+            return {
+                x: Math.max(gap, qr.x - width - gap),
+                y: qr.y + (qr.height - height) / 2,
+                width,
+                height,
+            };
+        }
+        if (template.key === "social_post") {
+            const anchor = box.time_subtitle || box.date_title || box.frame || null;
+            if (!anchor) return null;
+            const margin = Math.round(template.canvas_width * 0.028);
+            const width = Math.round(template.canvas_width * 0.13);
+            const height = Math.max(48, Math.round(width * 0.38));
+            return {
+                x: Math.min(template.canvas_width - width - margin, boxRight(anchor) + margin),
+                y: anchor.y + (anchor.height - height) / 2,
+                width,
+                height,
+            };
+        }
+        if (template.key === "social_story") {
             const anchor = box.time_subtitle || box.subtitle || null;
             if (!anchor) return null;
             const margin = Math.round(template.canvas_width * 0.03);
             const availableWidth = Math.max(80, template.canvas_width - boxRight(anchor) - margin * 1.5);
-            const width = Math.min(Math.round(template.canvas_width * (template.key === "plakat" ? 0.12 : 0.13)), availableWidth);
+            const width = Math.min(Math.round(template.canvas_width * 0.13), availableWidth);
             const height = Math.max(48, Math.round(width * 0.38));
             return {
                 x: template.canvas_width - width - margin,
@@ -809,12 +855,15 @@
             const summary = box.summary;
             const ticket = box.ticket_link;
             if (!summary) return null;
-            const width = Math.round(template.canvas_width * 0.22);
+            const width = Math.round(template.canvas_width * 0.18);
             const height = Math.round(width * 0.36);
-            const targetY = ticket ? summary.y + summary.height + Math.max(10, (ticket.y - boxBottom(summary) - height) / 2) : summary.y + summary.height + 24;
+            const gap = Math.max(22, Math.round(template.canvas_height * 0.008));
+            const targetY = ticket
+                ? Math.min(summary.y + summary.height + gap, ticket.y - height - gap)
+                : summary.y + summary.height + gap;
             return {
                 x: (template.canvas_width - width) / 2,
-                y: targetY,
+                y: Math.max(summary.y, targetY),
                 width,
                 height,
             };
@@ -1185,6 +1234,18 @@
         ctx.restore();
     }
 
+    function drawStandaloneDividerLeftOfBox(ctx, bbox, template) {
+        if (!bbox) return;
+        const width = Math.max(4, Math.round((template?.canvas_width || 1920) * 0.0022));
+        const gap = Math.max(24, Math.round(bbox.width * 0.065));
+        drawDivider(ctx, {
+            x: bbox.x - gap,
+            y: bbox.y + Math.max(4, Math.round(bbox.height * 0.02)),
+            width,
+            height: Math.max(1, bbox.height - Math.max(8, Math.round(bbox.height * 0.04))),
+        });
+    }
+
     function drawParagraphBox(ctx, text, bbox) {
         if (!bbox || !text) return;
         drawParagraph(ctx, String(text), bbox, "400 34px GroundliftRegular, Arial, sans-serif");
@@ -1395,7 +1456,8 @@
         const canvas = document.getElementById("posterCanvas");
         const template = currentTemplate();
         const info = state.templateCache.get(template.key);
-        const geometry = info?.geometries?.image_mask || { bbox: info?.bboxes?.image_mask };
+        const contentShift = resolveTemplateContentShift(template, info?.bboxes || {});
+        const geometry = shiftGeometry(info?.geometries?.image_mask || { bbox: info?.bboxes?.image_mask }, contentShift.dx, contentShift.dy);
         const bbox = geometry?.bbox;
         if (!bbox) return;
         const rect = canvas.getBoundingClientRect();
