@@ -1,6 +1,6 @@
 # Groundlift Event Social Automation
 
-Version: 19.0.1.0.9
+Version: 19.0.1.0.12
 
 Dieses Odoo-19-SH-Modul erzeugt automatisch bearbeitbare Social-Marketing-Posts aus Veranstaltungen.
 
@@ -112,3 +112,12 @@ nicht doppelt veröffentlicht.
 
 Der Wiederholungs-Post erhält einen Verweis auf den ursprünglichen Social-Post und
 wird nicht von der Event-Planungsautomatik erneut verschoben oder verarbeitet.
+
+## Änderungen in 19.0.1.0.12
+
+- Standardformat für automatisch erzeugte Beiträge ist jetzt `Story`. Pro geplantem Social-Post kann per Haken `Als Feed-Post statt Story veröffentlichen` auf normalen Feed-Post umgestellt werden.
+- Neue Aktion `Diesen Post neu generieren`: öffnet einen Dialog mit `Variante generieren` oder `Bestimmte Information hinzufügen`; danach wird der Text neu erzeugt, der Beitrag wieder auf Freigabe gesetzt und Bild-/Ausverkauft-Status erneut geprüft.
+- Bei ausverkauften Events wird auf dem Eventbild automatisch ein roter Störer `AUSVERKAUFT` gerendert. Bereits geplante künftige Eventtag-Posts werden beim Ausverkauf ebenfalls auf das Störerbild umgestellt.
+- Neue Bildprüfung für Story/Feed und Facebook/Instagram-Ziel: Status + Hinweistext auf dem Social-Post. Optional kann per Haken `Ausschnitt anpassen` ein Zuschnitt auf das Zielverhältnis erfolgen oder per `Generativ füllen` die OpenAI Bild-API genutzt werden.
+- Neue Aktion `Post ersetzen mit`: ein geplanter Slot kann durch eine andere Veranstaltung oder einen KI-basierten Lückenfüller ersetzt werden, ohne den geplanten Zeitpunkt zu verlieren.
+

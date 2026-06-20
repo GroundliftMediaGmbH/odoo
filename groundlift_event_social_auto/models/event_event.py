@@ -3,6 +3,7 @@
 import base64
 import logging
 import re
+from io import BytesIO
 from datetime import datetime, time, timedelta
 
 import pytz
@@ -10,6 +11,10 @@ import pytz
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 from odoo.tools import html2plaintext
+try:
+    from PIL import Image, ImageDraw, ImageFont
+except Exception:
+    Image = ImageDraw = ImageFont = None
 try:
     from odoo.tools.urls import url_join
 except Exception:
@@ -175,7 +180,17 @@ class EventEvent(models.Model):
         post_fields = SocialPost._fields
         planned_date = spec['planned_date']
         message = spec['message']
-        vals = {'gl_event_id': self.id, 'gl_event_social_type': spec['post_type'], 'gl_auto_generated': True, 'gl_planned_date': planned_date, 'gl_requires_approval': not (config.auto_post_without_approval or self.gl_social_auto_publish_ok), 'gl_approved': bool(config.auto_post_without_approval or self.gl_social_auto_publish_ok)}
+        publication_kind = spec.get('publication_kind') or config.default_publication_kind or 'story'
+        vals = {
+            'gl_event_id': self.id,
+            'gl_event_social_type': spec['post_type'],
+            'gl_auto_generated': True,
+            'gl_planned_date': planned_date,
+            'gl_requires_approval': not (config.auto_post_without_approval or self.gl_social_auto_publish_ok),
+            'gl_approved': bool(config.auto_post_without_approval or self.gl_social_auto_publish_ok),
+            'gl_publication_kind': publication_kind,
+            'gl_publish_as_feed_post': publication_kind == 'feed',
+        }
         if spec.get('latest_planned_date'):
             vals['gl_latest_planned_date'] = spec['latest_planned_date']
         if 'message' in post_fields:
@@ -200,7 +215,7 @@ class EventEvent(models.Model):
             scheduled_key = self.env['social.post']._gl_find_selection_key('post_method', ['scheduled', 'schedule', 'later', 'schedule_later'])
             if scheduled_key:
                 vals['post_method'] = scheduled_key
-        attachment = self._gl_create_event_image_attachment()
+        attachment = self._gl_create_event_image_attachment(sold_out=self._gl_is_sold_out(), publication_kind=publication_kind)
         if attachment:
             # media_ids is the list of social networks, not an attachment field.
             for image_field in ['image_ids', 'attachment_ids']:
@@ -425,8 +440,14 @@ class EventEvent(models.Model):
                 msg = event._gl_render_post_message(config, 'event_day_soldout', sold_out=True)
                 if 'message' in post._fields:
                     vals['message'] = msg
+                elif 'message_deserialized' in post._fields:
+                    vals['message_deserialized'] = msg
                 elif 'body' in post._fields:
                     vals['body'] = msg
+                attachment = event._gl_create_event_image_attachment(sold_out=True, publication_kind=post.gl_publication_kind or config.default_publication_kind or 'story')
+                image_field = post._gl_attachment_field_name() if hasattr(post, '_gl_attachment_field_name') else False
+                if attachment and image_field:
+                    vals[image_field] = [(6, 0, [attachment.id])]
                 post.write(vals)
 
     def _gl_handle_completed_changes(self, config=None):
@@ -446,13 +467,14 @@ class EventEvent(models.Model):
                 event.gl_completed_social_post_created = bool(post)
         return created
 
-    def _gl_render_post_message(self, config, post_type, sold_out=False):
+    def _gl_render_post_message(self, config, post_type, sold_out=False, extra_instruction=''):
         self.ensure_one()
         title = self.name or 'Veranstaltung im Groundlift Studio'
         date_text = self._gl_format_event_datetime(config.timezone)
         description = self._gl_short_description(max_chars=900)
         ticket_url = self._gl_event_ticket_url()
         hashtags = self._gl_hashtags(config)
+        extra_instruction = self._gl_clean_event_description_text(extra_instruction, max_chars=500) if extra_instruction else ''
         fallback_headline = self._gl_fallback_headline(config, post_type, sold_out=sold_out)
         headline = config._gl_openai_generate_headline_for_event(self, post_type, fallback_headline, sold_out=sold_out) or fallback_headline
 
@@ -469,13 +491,13 @@ class EventEvent(models.Model):
         # Für Nachberichte wird kein Ticketlink gesetzt, da die Veranstaltung bereits vorbei ist.
         headline_block = headline_with_link(headline, ticket_url)
         if post_type == 'announcement':
-            parts = [headline_block, title, date_text, description, hashtags]
+            parts = [headline_block, title, date_text, description, extra_instruction, hashtags]
             return join(parts)
         if post_type == 'reminder_3d':
-            parts = [headline_block, title, date_text, description, hashtags]
+            parts = [headline_block, title, date_text, description, extra_instruction, hashtags]
             return join(parts)
         if post_type == 'event_day':
-            parts = [headline_block, title, date_text, description, hashtags]
+            parts = [headline_block, title, date_text, description, extra_instruction, hashtags]
             return join(parts)
         if post_type == 'soldout':
             parts = [headline_block, title, date_text, 'Wir freuen uns auf einen besonderen Abend bei uns in der Alten Brauerei Stegen.', hashtags]
@@ -484,7 +506,7 @@ class EventEvent(models.Model):
             parts = [headline_block, title, date_text, 'Danke an alle, die dabei sind. Wir freuen uns auf euch im Groundlift Studio.', hashtags]
             return join(parts)
         if post_type == 'completed':
-            parts = [headline, title, config.body_completed or 'Postet gerne in die Kommentare und Bilder, wie es für euch war!', hashtags]
+            parts = [headline, title, config.body_completed or 'Postet gerne in die Kommentare und Bilder, wie es für euch war!', extra_instruction, hashtags]
             return join(parts)
         return join([headline_block, title, date_text, hashtags])
 
@@ -670,7 +692,7 @@ class EventEvent(models.Model):
                 return '%s · %s–%s Uhr' % (date_part, time_part, local_end.strftime('%H:%M'))
         return '%s · %s Uhr' % (date_part, time_part)
 
-    def _gl_create_event_image_attachment(self):
+    def _gl_create_event_image_attachment(self, sold_out=False, publication_kind='story'):
         self.ensure_one()
         field_name = 'x_studio_website_header'
         if field_name not in self._fields:
@@ -683,15 +705,85 @@ class EventEvent(models.Model):
         if isinstance(data, str):
             data = data.encode()
         try:
-            base64.b64decode(data, validate=False)
+            decoded = base64.b64decode(data, validate=False)
         except Exception:
             self._gl_note_social_error('Bildfeld x_studio_website_header enthält keine gültigen Bilddaten; kein Social-Bild angehängt.')
             return False
-        filename = '%s_website_header_social.jpg' % self._gl_filename_safe(self.name or 'event')
+        suffix = '_soldout' if sold_out else ''
+        filename = '%s_website_header_social%s.jpg' % (self._gl_filename_safe(self.name or 'event'), suffix)
         existing = self.env['ir.attachment'].sudo().search([('res_model', '=', 'event.event'), ('res_id', '=', self.id), ('name', '=', filename)], limit=1)
         if existing:
             return existing
-        return self.env['ir.attachment'].sudo().create({'name': filename, 'type': 'binary', 'datas': data, 'res_model': 'event.event', 'res_id': self.id, 'mimetype': 'image/jpeg'})
+        final_data = data
+        mimetype = 'image/jpeg'
+        if sold_out:
+            try:
+                final_data = base64.b64encode(self._gl_add_soldout_badge_to_image(decoded, publication_kind=publication_kind))
+            except Exception:
+                _logger.exception('Could not render sold-out badge for event %s.', self.id)
+                final_data = data
+        return self.env['ir.attachment'].sudo().create({
+            'name': filename,
+            'type': 'binary',
+            'datas': final_data,
+            'res_model': 'event.event',
+            'res_id': self.id,
+            'mimetype': mimetype,
+        })
+
+    def _gl_add_soldout_badge_to_image(self, image_bytes, publication_kind='story'):
+        if not Image or not ImageDraw:
+            return image_bytes
+        with Image.open(BytesIO(image_bytes)) as image:
+            image = image.convert('RGBA')
+            width, height = image.size
+            overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
+            draw = ImageDraw.Draw(overlay)
+            label = 'AUSVERKAUFT'
+            font_size = max(34, int(min(width, height) * 0.085))
+            font = self._gl_badge_font(font_size)
+            try:
+                bbox = draw.textbbox((0, 0), label, font=font)
+                text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+            except Exception:
+                text_w, text_h = draw.textsize(label, font=font)
+            pad_x = int(text_w * 0.28)
+            pad_y = int(text_h * 0.45)
+            box_w = text_w + pad_x * 2
+            box_h = text_h + pad_y * 2
+            margin = int(min(width, height) * 0.055)
+            x2 = width - margin
+            y1 = margin
+            x1 = max(margin, x2 - box_w)
+            y2 = y1 + box_h
+            try:
+                draw.rounded_rectangle((x1, y1, x2, y2), radius=int(box_h * 0.22), fill=(210, 0, 0, 230), outline=(255, 255, 255, 245), width=max(3, int(box_h * 0.045)))
+            except Exception:
+                draw.rectangle((x1, y1, x2, y2), fill=(210, 0, 0, 230), outline=(255, 255, 255, 245))
+            text_x = x1 + (box_w - text_w) / 2
+            text_y = y1 + (box_h - text_h) / 2 - int(text_h * 0.08)
+            draw.text((text_x, text_y), label, fill=(255, 255, 255, 255), font=font)
+            image = Image.alpha_composite(image, overlay).convert('RGB')
+            output = BytesIO()
+            image.save(output, format='JPEG', quality=95)
+            return output.getvalue()
+
+    def _gl_badge_font(self, font_size):
+        if not ImageFont:
+            return None
+        for path in (
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+            '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf',
+            '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+        ):
+            try:
+                return ImageFont.truetype(path, font_size)
+            except Exception:
+                continue
+        try:
+            return ImageFont.load_default()
+        except Exception:
+            return None
 
     def _gl_filename_safe(self, value):
         return re.sub(r'[^A-Za-z0-9_.-]+', '_', value).strip('_')[:80]

@@ -8,6 +8,8 @@ import random
 import re
 import urllib.parse
 import urllib.request
+from io import BytesIO
+from uuid import uuid4
 from datetime import datetime, time, timedelta
 
 import pytz
@@ -34,6 +36,10 @@ class GroundliftEventSocialConfig(models.Model):
     account_search_term = fields.Char(string='Fallback-Suche nach Social Accounts', default='groundlift studio')
 
     auto_post_without_approval = fields.Boolean(string='Posts ohne manuelle Freigabe automatisch planen', default=False)
+    default_publication_kind = fields.Selection([
+        ('story', 'Story'),
+        ('feed', 'Feed-Post'),
+    ], string='Standard-Ziel-Format', default='story', required=True)
     default_hashtags = fields.Char(string='Basis-Hashtags', default='#groundlift #ammersee #stegen')
     announcement_min_days_before = fields.Integer(string='Erstankündigung spätestens Tage vorher', default=7)
     timezone = fields.Selection(selection='_selection_timezones', string='Zeitzone für Planung', default='Europe/Berlin', required=True)
@@ -67,7 +73,8 @@ class GroundliftEventSocialConfig(models.Model):
         default='Erzeuge eine kurze, abwechslungsreiche und werbende Headline für einen Instagram/Facebook-Post. Sie darf gerne frisch und modern klingen, soll aber seriös bleiben, maximal 85 Zeichen haben, keine Ticketlinks enthalten und nicht ständig mit denselben Worten beginnen.',
     )
     openai_api_key = fields.Char(string='OpenAI API Key')
-    openai_model = fields.Char(string='OpenAI Modell', default='gpt-4o-mini')
+    openai_model = fields.Char(string='OpenAI Text-Modell', default='gpt-4o-mini')
+    openai_image_model = fields.Char(string='OpenAI Bild-Modell', default='gpt-image-1')
     openai_timeout = fields.Integer(string='OpenAI Timeout Sekunden', default=20)
     openai_extra_hashtag_count = fields.Integer(string='Anzahl API-Hashtags', default=6)
     openai_system_prompt = fields.Text(
@@ -392,6 +399,160 @@ class GroundliftEventSocialConfig(models.Model):
                   'Bild-/Homepage-Kontext:\n%s\n\nAllgemeiner Homepage-Kontext:\n%s') % (self.gap_filler_prompt or '', image_context or '', homepage_context or '')
         return self._gl_openai_chat_json(prompt, max_tokens=450)
 
+    def _gl_openai_regenerate_post_text(self, post, event, mode='variant', extra_information='', sold_out=False):
+        self.ensure_one()
+        if not self.openai_api_key:
+            return ''
+        current_text = post._gl_current_message() if post else ''
+        post_type = post.gl_event_social_type if post else 'announcement'
+        ticket_url = event._gl_event_ticket_url() if event else ''
+        instruction = 'Erzeuge eine deutlich andere, gleichwertige Variante.'
+        if mode == 'add_info':
+            instruction = 'Erzeuge eine neue Variante und baue die folgende Zusatzinformation sauber ein: %s' % (extra_information or '').strip()
+        prompt = (
+            'Gib ausschließlich JSON zurück im Format {"text":"..."}.\n'
+            'Schreibe den vollständigen Social-Media-Text auf Deutsch für Instagram/Facebook. '
+            'Keine erfundenen Fakten, keine erfundenen Preise, keine erfundenen Uhrzeiten. '
+            'Wenn ein Ticketlink vorhanden ist, muss er unverändert im Text bleiben. '
+            'Erhalte sinnvolle Absätze und Hashtags. Maximal 1.100 Zeichen.\n\n'
+            'Aufgabe: %s\n'
+            'Ziel: %s\n'
+            'Post-Typ: %s\n'
+            'Ausverkauft: %s\n'
+            'Titel: %s\n'
+            'Datum: %s\n'
+            'Ticketlink: %s\n'
+            'Beschreibung: %s\n\n'
+            'Bisheriger Text:\n%s'
+        ) % (
+            instruction,
+            dict(post._fields['gl_publication_kind'].selection).get(post.gl_publication_kind or 'story', post.gl_publication_kind or 'Story') if post and 'gl_publication_kind' in post._fields else 'Story',
+            post_type or '',
+            'ja' if sold_out else 'nein',
+            event.name or '',
+            event._gl_format_event_datetime(self.timezone),
+            ticket_url or '',
+            event._gl_short_description(max_chars=1400),
+            current_text or '',
+        )
+        data = self._gl_openai_chat_json(prompt, max_tokens=700, temperature=0.85)
+        text = data.get('text') if isinstance(data, dict) else ''
+        return self._gl_clean_generated_social_text(text)
+
+    def _gl_openai_regenerate_generic_text(self, current_text, mode='variant', extra_information=''):
+        self.ensure_one()
+        if not self.openai_api_key or not current_text:
+            return ''
+        instruction = 'Erzeuge eine deutlich andere, gleichwertige Variante.'
+        if mode == 'add_info':
+            instruction = 'Erzeuge eine neue Variante und baue die folgende Zusatzinformation sauber ein: %s' % (extra_information or '').strip()
+        prompt = (
+            'Gib ausschließlich JSON zurück im Format {"text":"..."}.\n'
+            'Überarbeite den folgenden Groundlift-Social-Media-Text auf Deutsch. '
+            'Keine erfundenen Termine, Preise oder Fakten. Hashtags erhalten oder passend variieren. Maximal 1.100 Zeichen.\n\n'
+            'Aufgabe: %s\n\nBisheriger Text:\n%s'
+        ) % (instruction, current_text or '')
+        data = self._gl_openai_chat_json(prompt, max_tokens=700, temperature=0.85)
+        text = data.get('text') if isinstance(data, dict) else ''
+        return self._gl_clean_generated_social_text(text)
+
+    def _gl_clean_generated_social_text(self, text):
+        text = html2plaintext(text or '')
+        text = re.sub(r'\r\n?', '\n', text)
+        text = re.sub(r'\n{3,}', '\n\n', text).strip().strip('"“”„')
+        if len(text) > 1300:
+            text = text[:1300].rsplit(' ', 1)[0].rstrip('.,;:') + ' …'
+        return text
+
+    def _gl_openai_expand_image_attachment(self, attachment, target_ratio, target_label='Social Media', extra_instruction=''):
+        """Use OpenAI image edits as an optional generative-fill step.
+
+        The returned image is post-processed locally to the exact required aspect
+        ratio because image models may return only their supported canvas sizes.
+        """
+        self.ensure_one()
+        if not self.openai_api_key:
+            raise UserError('Bitte zuerst einen OpenAI API Key hinterlegen.')
+        if not attachment or not attachment.datas:
+            raise UserError('Kein Bild für die generative Erweiterung gefunden.')
+        image_bytes = base64.b64decode(attachment.datas)
+        prompt = (
+            'Erweitere dieses Event-/Location-Bild durch generatives Füllen auf das Format %s. '
+            'Das Originalmotiv soll unverändert im Zentrum erhalten bleiben. '
+            'Ergänze nur plausible Umgebung, Licht, Wand, Bühne oder Hintergrund. '
+            'Keine zusätzlichen Logos, keine falschen Schriftzüge, keine neuen Personen erfinden. %s'
+        ) % (target_label or 'Social Media', extra_instruction or '')
+        fields_data = {
+            'model': self.openai_image_model or 'gpt-image-1',
+            'prompt': prompt,
+            'n': '1',
+            'size': 'auto',
+        }
+        files = {
+            'image': (attachment.name or 'image.png', image_bytes, attachment.mimetype or 'image/png'),
+        }
+        response = self._gl_openai_multipart_request('https://api.openai.com/v1/images/edits', fields_data, files, timeout=max(self.openai_timeout or 60, 30))
+        image_b64 = ''
+        try:
+            image_b64 = response.get('data', [{}])[0].get('b64_json') or ''
+        except Exception:
+            image_b64 = ''
+        if not image_b64:
+            raise UserError('Die OpenAI Bild-API hat kein Bild zurückgegeben. Bitte Logs prüfen.')
+        try:
+            from PIL import Image
+            image = Image.open(BytesIO(base64.b64decode(image_b64))).convert('RGB')
+            output = BytesIO()
+            image = self.env['social.post']._gl_pil_cover_crop(image, target_ratio)
+            image.save(output, format='JPEG', quality=95)
+            final_b64 = base64.b64encode(output.getvalue())
+            mimetype = 'image/jpeg'
+            name = 'generativ_%s.jpg' % (attachment.name or 'social_image')
+        except Exception:
+            final_b64 = image_b64.encode() if isinstance(image_b64, str) else image_b64
+            mimetype = 'image/png'
+            name = 'generativ_%s.png' % (attachment.name or 'social_image')
+        return self.env['ir.attachment'].sudo().create({
+            'name': re.sub(r'[^A-Za-z0-9_.-]+', '_', name)[:110],
+            'type': 'binary',
+            'datas': final_b64,
+            'res_model': attachment.res_model or 'social.post',
+            'res_id': attachment.res_id or 0,
+            'mimetype': mimetype,
+        })
+
+    def _gl_openai_multipart_request(self, url, fields_data, files, timeout=60):
+        boundary = ('----GroundliftOpenAI%s' % uuid4().hex).encode('ascii')
+        body = BytesIO()
+        for name, value in (fields_data or {}).items():
+            body.write(b'--' + boundary + b'\r\n')
+            body.write(('Content-Disposition: form-data; name="%s"\r\n\r\n' % name).encode('utf-8'))
+            body.write(str(value).encode('utf-8'))
+            body.write(b'\r\n')
+        for name, file_tuple in (files or {}).items():
+            filename, content, mimetype = file_tuple
+            body.write(b'--' + boundary + b'\r\n')
+            body.write(('Content-Disposition: form-data; name="%s"; filename="%s"\r\n' % (name, filename)).encode('utf-8'))
+            body.write(('Content-Type: %s\r\n\r\n' % (mimetype or 'application/octet-stream')).encode('utf-8'))
+            body.write(content)
+            body.write(b'\r\n')
+        body.write(b'--' + boundary + b'--\r\n')
+        request = urllib.request.Request(
+            url,
+            data=body.getvalue(),
+            headers={
+                'Authorization': 'Bearer %s' % self.openai_api_key.strip(),
+                'Content-Type': 'multipart/form-data; boundary=%s' % boundary.decode('ascii'),
+            },
+            method='POST',
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                return json.loads(response.read().decode('utf-8'))
+        except Exception as exc:
+            _logger.exception('OpenAI multipart image call failed: %s', exc)
+            raise UserError('OpenAI Bild-API konnte nicht genutzt werden: %s' % exc)
+
     def _gl_clean_homepage_context(self, text, max_chars=900):
         """Convert scraped homepage snippets into editorial text only.
 
@@ -620,7 +781,16 @@ class GroundliftEventSocialConfig(models.Model):
     def _gl_create_generic_social_post(self, accounts, planned_dt, message, attachment=False, post_type='gap_filler', latest_planned_date=False):
         SocialPost = self.env['social.post'].sudo()
         post_fields = SocialPost._fields
-        vals = {'gl_event_social_type': post_type, 'gl_auto_generated': True, 'gl_planned_date': planned_dt, 'gl_requires_approval': not self.auto_post_without_approval, 'gl_approved': bool(self.auto_post_without_approval)}
+        publication_kind = self.default_publication_kind or 'story'
+        vals = {
+            'gl_event_social_type': post_type,
+            'gl_auto_generated': True,
+            'gl_planned_date': planned_dt,
+            'gl_requires_approval': not self.auto_post_without_approval,
+            'gl_approved': bool(self.auto_post_without_approval),
+            'gl_publication_kind': publication_kind,
+            'gl_publish_as_feed_post': publication_kind == 'feed',
+        }
         if latest_planned_date:
             vals['gl_latest_planned_date'] = latest_planned_date
         if 'message' in post_fields:

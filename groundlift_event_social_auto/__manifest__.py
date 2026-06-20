@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Groundlift Event Social Automation',
-    'summary': 'Create approval-based scheduled Facebook/Instagram posts from announced events with collision handling, weekly promo posts and randomized AI headlines, context-aware hashtags and platform-specific retry posting for failed Facebook/Instagram deliveries.',
-    'version': '19.0.1.0.11',
+    'summary': 'Create approval-based scheduled Facebook/Instagram stories/posts from announced events with collision handling, AI regeneration, image format checks, sold-out badges and replacement workflows.',
+    'version': '19.0.1.0.12',
     'category': 'Marketing/Social Marketing',
     'author': 'Groundlift / ChatGPT',
     'website': 'https://groundlift.de',
@@ -19,6 +19,7 @@
         'data/repair_social_posts.xml',
         'views/event_social_config_views.xml',
         'views/event_social_post_views.xml',
+        'views/social_post_wizard_views.xml',
         'views/event_event_views.xml',
     ],
     'installable': True,

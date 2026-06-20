@@ -37,8 +37,9 @@
                             <field name="announcement_stage_name"/>
                             <field name="completed_stage_name"/>
                         </group>
-                        <group string="Freigabe">
+                        <group string="Freigabe / Standardformat">
                             <field name="auto_post_without_approval"/>
+                            <field name="default_publication_kind"/>
                         </group>
                     </group>
                     <notebook>
@@ -102,6 +103,7 @@
                                     <field name="use_openai_headlines"/>
                                     <field name="openai_api_key" password="True"/>
                                     <field name="openai_model"/>
+                                    <field name="openai_image_model"/>
                                     <field name="openai_timeout"/>
                                     <field name="openai_extra_hashtag_count"/>
                                 </group>
