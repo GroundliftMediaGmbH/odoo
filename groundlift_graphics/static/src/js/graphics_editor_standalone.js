@@ -3,7 +3,7 @@
 
     const root = document.getElementById("gl-editor-root");
     const posterId = parseInt(root?.dataset?.posterId || "0", 10);
-    const APP_VERSION = "19.0.1.4.6";
+    const APP_VERSION = "19.0.1.4.7";
 
     const state = {
         loading: true,
@@ -793,6 +793,19 @@
         return /foyer/.test(templateIdentity(template));
     }
 
+    function isFoyerEingangTemplate(template) {
+        return /foyer[_\s-]*eingang|eingang[_\s-]*foyer/.test(templateIdentity(template));
+    }
+
+    function isMainFoyerTemplate(template) {
+        const identity = templateIdentity(template);
+        if (!/foyer/.test(identity) || isFoyerEingangTemplate(template)) return false;
+        const key = String(template?.key || "").trim().toLowerCase();
+        const name = String(template?.name || "").trim().toLowerCase();
+        const suffix = String(template?.output_suffix || "").trim().toLowerCase();
+        return key === "foyer" || name === "foyer" || suffix === "foyer" || /(^|[_\s-])foyer($|[_\s-])/.test(identity);
+    }
+
     function resolveFrameReferenceBox(box = {}) {
         const direct = box.frame || box.rahmen || box.image_frame || box.overlay_frame || box.static_frame || box.static_rahmen;
         if (direct) return direct;
@@ -813,10 +826,25 @@
         if (template.key === "social_post") return box.photo_credit || null;
         const original = box.photo_credit || null;
         const frame = resolveFrameReferenceBox(box);
+        if (isMainFoyerTemplate(template)) {
+            // Nur Ausspielformat "Foyer" – ausdrücklich nicht "Foyer Eingang".
+            // In dieser Vorlage liefert die Asset-Erkennung keinen verlässlichen Referenzrahmen
+            // für die untere dünne horizontale Rahmenlinie. Deshalb wird der Fotocredit
+            // template-fest direkt unter diese Linie gesetzt. Bei 1080x1920 liegt die Linie
+            // bei ca. y=1110; die Textbox beginnt bei ca. y=1114.
+            const height = Math.max(16, Math.min(original?.height || 22, 22));
+            const width = Math.max(240, Math.min(original?.width || Math.round(template.canvas_width * 0.42), Math.round(template.canvas_width * 0.80)));
+            const x = Math.max(0, Math.min(template.canvas_width - width, original?.x ?? Math.round(template.canvas_width * 0.38)));
+            const y = Math.round(template.canvas_height * 0.580);
+            return {
+                x,
+                y: Math.min(template.canvas_height - height - 6, Math.max(0, y)),
+                width,
+                height,
+            };
+        }
         if (isFoyerTemplate(template)) {
-            // Foyer und Foyer Eingang: Fotocredit direkt unter die dünne weiße Rahmenlinie setzen.
-            // Falls die Vorlage den Rahmen nicht als `frame` ausliefert, wird auf einen rahmenartigen
-            // Asset-Namen oder als letzte Sicherheitsstufe auf die bisherige Box minus ca. 105 px zurückgegriffen.
+            // Foyer Eingang und sonstige Foyer-ähnliche Vorlagen behalten die rahmenbasierte Logik.
             const height = Math.max(16, Math.min(original?.height || 22, 22));
             const widthBase = original?.width || Math.round((frame?.width || template.canvas_width) * 0.78);
             const maxWidth = Math.round((frame?.width || template.canvas_width) * 0.96);
@@ -825,7 +853,7 @@
             const x = frame
                 ? frame.x + (frame.width - width) / 2
                 : Math.max(0, Math.min(template.canvas_width - width, original?.x ?? Math.round((template.canvas_width - width) / 2)));
-            const fallbackLift = Math.round(template.canvas_height * 0.055); // 1920 px Vorlage => ca. 106 px
+            const fallbackLift = Math.round(template.canvas_height * 0.055);
             const y = frame
                 ? Math.round(frame.y + frame.height + gap)
                 : Math.max(0, Math.round((original?.y ?? 0) - fallbackLift));

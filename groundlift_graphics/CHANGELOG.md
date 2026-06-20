@@ -1,5 +1,10 @@
 # Changelog
 
+## 19.0.1.4.7
+
+- Korrigiert ausschließlich das Ausspielformat `Foyer`: Der Fotocredit wird nun unabhängig von der fehleranfälligen Rahmen-Asset-Erkennung fest auf die Position direkt unterhalb der dünnen horizontalen Rahmenlinie gesetzt.
+- `Foyer Eingang` bleibt davon ausdrücklich ausgenommen und nutzt weiterhin die bestehende Logik.
+
 ## 19.0.1.4.6
 
 - Foyer-Fotocredit-Fix robuster gemacht: Die Positionierung greift jetzt nicht nur bei `foyer_eingang`, sondern bei allen Foyer-Vorlagen über Key, Name oder Output-Suffix.
