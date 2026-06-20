@@ -74,7 +74,6 @@ class GroundliftEventSocialConfig(models.Model):
     )
     openai_api_key = fields.Char(string='OpenAI API Key')
     openai_model = fields.Char(string='OpenAI Text-Modell', default='gpt-4o-mini')
-    openai_image_model = fields.Char(string='OpenAI Bild-Modell', default='gpt-image-1')
     openai_timeout = fields.Integer(string='OpenAI Timeout Sekunden', default=20)
     openai_extra_hashtag_count = fields.Integer(string='Anzahl API-Hashtags', default=6)
     openai_system_prompt = fields.Text(
@@ -483,7 +482,7 @@ class GroundliftEventSocialConfig(models.Model):
             'Keine zusätzlichen Logos, keine falschen Schriftzüge, keine neuen Personen erfinden. %s'
         ) % (target_label or 'Social Media', extra_instruction or '')
         fields_data = {
-            'model': self.openai_image_model or 'gpt-image-1',
+            'model': 'gpt-image-1',
             'prompt': prompt,
             'n': '1',
             'size': 'auto',
@@ -543,7 +542,7 @@ class GroundliftEventSocialConfig(models.Model):
             'und Markenoptik sollen erhalten bleiben. Keine zusätzlichen Logos oder frei erfundenen Texte.'
         ) % (target_label or 'Post')
         fields_data = {
-            'model': self.openai_image_model or 'gpt-image-1',
+            'model': 'gpt-image-1',
             'prompt': prompt,
             'n': '1',
             'size': 'auto',

@@ -47,11 +47,8 @@ class EventEvent(models.Model):
             self._gl_handle_completed_changes()
         if 'gl_social_auto_publish_ok' in vals and vals.get('gl_social_auto_publish_ok'):
             self.action_gl_approve_social_posts()
-        if {'name', 'seats_available', 'seats_taken', 'seats_max', 'registration_ids', 'event_ticket_ids', 'x_studio_website_header'}.intersection(vals.keys()):
+        if {'name', 'seats_available', 'seats_taken', 'seats_max', 'registration_ids', 'event_ticket_ids'}.intersection(vals.keys()):
             self._gl_handle_soldout_changes()
-            soldout_events = self.filtered(lambda event: event._gl_is_sold_out())
-            if soldout_events:
-                soldout_events._gl_adjust_future_posts_for_soldout()
         return result
 
     @api.model_create_multi
@@ -697,7 +694,6 @@ class EventEvent(models.Model):
 
     def _gl_create_event_image_attachment(self, sold_out=False, publication_kind='story'):
         self.ensure_one()
-        sold_out = bool(sold_out or self._gl_is_sold_out())
         field_name = 'x_studio_website_header'
         if field_name not in self._fields:
             self._gl_note_social_error('Bildfeld x_studio_website_header existiert auf event.event nicht; kein Social-Bild angehängt.')
@@ -713,48 +709,23 @@ class EventEvent(models.Model):
         except Exception:
             self._gl_note_social_error('Bildfeld x_studio_website_header enthält keine gültigen Bilddaten; kein Social-Bild angehängt.')
             return False
-        suffix = '_soldout' if sold_out else ''
+        suffix = '_soldout_overlay' if sold_out else ''
         filename = '%s_website_header_social%s.jpg' % (self._gl_filename_safe(self.name or 'event'), suffix)
-        existing = self.env['ir.attachment'].sudo().search([('res_model', '=', 'event.event'), ('res_id', '=', self.id), ('name', '=', filename)], limit=1)
-        if existing and not sold_out:
+        existing = self.env['ir.attachment'].sudo().search([
+            ('res_model', '=', 'event.event'),
+            ('res_id', '=', self.id),
+            ('name', '=', filename)
+        ], limit=1)
+        if existing:
             return existing
-        if existing and sold_out:
-            # Rebuild sold-out graphics on demand. Older test versions may have
-            # cached an attachment without the badge because the title marker was
-            # not recognized yet or the image API was unavailable.
-            try:
-                existing.unlink()
-            except Exception:
-                _logger.info('Could not remove existing sold-out social image attachment for event %s.', self.id)
         final_data = data
         mimetype = 'image/jpeg'
         if sold_out:
-            config = self.env['gl.event.social.config'].get_config()
-            temp_attachment = self.env['ir.attachment'].sudo().create({
-                'name': 'tmp_%s' % filename,
-                'type': 'binary',
-                'datas': data,
-                'res_model': 'event.event',
-                'res_id': self.id,
-                'mimetype': mimetype,
-            })
             try:
-                api_attachment = config._gl_openai_add_soldout_badge_attachment(temp_attachment, publication_kind=publication_kind)
-                if api_attachment and api_attachment.datas:
-                    final_data = api_attachment.datas
-                    mimetype = api_attachment.mimetype or mimetype
+                final_data = base64.b64encode(self._gl_add_soldout_badge_to_image(decoded, publication_kind=publication_kind))
             except Exception:
-                _logger.exception('OpenAI sold-out badge generation failed for event %s. Falling back to local badge rendering.', self.id)
-                try:
-                    final_data = base64.b64encode(self._gl_add_soldout_badge_to_image(decoded, publication_kind=publication_kind))
-                except Exception:
-                    _logger.exception('Could not render sold-out badge for event %s.', self.id)
-                    final_data = data
-            finally:
-                try:
-                    temp_attachment.unlink()
-                except Exception:
-                    pass
+                _logger.exception('Could not render sold-out badge for event %s.', self.id)
+                final_data = data
         return self.env['ir.attachment'].sudo().create({
             'name': filename,
             'type': 'binary',
@@ -821,14 +792,14 @@ class EventEvent(models.Model):
     def _gl_filename_safe(self, value):
         return re.sub(r'[^A-Za-z0-9_.-]+', '_', value).strip('_')[:80]
 
+    def _gl_title_marks_sold_out(self):
+        self.ensure_one()
+        name = (self.name or '').strip()
+        return bool(re.search(r'\(\s*ausverkauft\s*\)\s*$', name, flags=re.IGNORECASE))
+
     def _gl_is_sold_out(self):
         self.ensure_one()
-        # Groundlift convention: an event is considered sold out when the
-        # Veranstaltungstitel ends exactly with "(Ausverkauft)". This is the
-        # authoritative manual marker used by the team and must work even when
-        # Odoo ticket/seat counters are not reliable or not used.
-        title = re.sub(r'\s+', ' ', self.name or '').strip()
-        if re.search(r'\(\s*ausverkauft\s*\)\s*$', title, flags=re.IGNORECASE):
+        if self._gl_title_marks_sold_out():
             return True
         if 'seats_available' in self._fields and 'seats_max' in self._fields:
             try:

@@ -103,7 +103,6 @@
                                     <field name="use_openai_headlines"/>
                                     <field name="openai_api_key" password="True"/>
                                     <field name="openai_model"/>
-                                    <field name="openai_image_model"/>
                                     <field name="openai_timeout"/>
                                     <field name="openai_extra_hashtag_count"/>
                                 </group>

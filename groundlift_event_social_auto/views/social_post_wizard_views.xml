@@ -54,14 +54,10 @@
                 <sheet>
                     <group>
                         <field name="post_id" readonly="1"/>
-                        <field name="mode" widget="radio"/>
                     </group>
-                    <group string="Ausschnitt" invisible="mode != 'crop'">
+                    <group string="Ausschnitt">
                         <field name="focal_x"/>
                         <field name="focal_y"/>
-                    </group>
-                    <group string="Generatives Füllen" invisible="mode != 'generative_fill'">
-                        <field name="extra_instruction" placeholder="Optional: z. B. Hintergrund natürlich erweitern, keine Schrift hinzufügen."/>
                     </group>
                 </sheet>
                 <footer>

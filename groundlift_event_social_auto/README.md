@@ -1,6 +1,6 @@
 # Groundlift Event Social Automation
 
-Version: 19.0.1.0.14
+Version: 19.0.1.0.15
 
 Dieses Odoo-19-SH-Modul erzeugt automatisch bearbeitbare Social-Marketing-Posts aus Veranstaltungen.
 
@@ -114,8 +114,16 @@ Der Wiederholungs-Post erhält einen Verweis auf den ursprünglichen Social-Post
 wird nicht von der Event-Planungsautomatik erneut verschoben oder verarbeitet.
 
 
-## Änderungen in 19.0.1.0.14
+## Änderungen in 19.0.1.0.13
 
-- Ausverkauft-Erkennung ergänzt: Ein Event gilt jetzt sicher als ausverkauft, wenn der Veranstaltungstitel am Ende exakt `(Ausverkauft)` enthält.
-- Änderungen am Veranstaltungstitel lösen die Ausverkauft-Prüfung und die Aktualisierung künftiger Social-Bilder aus.
-- Ausverkauft-Social-Bilder werden nicht mehr aus alten Cache-Attachments wiederverwendet, sondern neu erzeugt, damit der Störer wirklich eingebrannt ist.
+- `Ausschnitt anpassen` ist jetzt standardmäßig aktiv und wird bei nicht passendem Seitenverhältnis automatisch angewendet.
+- `Generativ füllen` bleibt als optionale Alternative erhalten.
+- Bei ausverkauften Veranstaltungen wird der `AUSVERKAUFT`-Störer bevorzugt direkt über die OpenAI-Bild-API auf das Eventbild erzeugt; falls die API nicht verfügbar ist, greift ein lokaler Fallback.
+
+
+## Änderungen in 19.0.1.0.15
+
+- Generatives Füllen wurde komplett aus der App entfernt, damit keine Gesichter oder Personen unbeabsichtigt verändert werden.
+- Bildanpassung erfolgt nur noch über Zuschneiden (`Ausschnitt anpassen`).
+- Ausverkauf wird jetzt zusätzlich sicher über den Veranstaltungsnamen erkannt, wenn der Titel mit `(Ausverkauft)` endet.
+- Für ausverkaufte Veranstaltungen wird ein fester `AUSVERKAUFT`-Störer als Overlay direkt auf das Social-Post-Bild gelegt.
