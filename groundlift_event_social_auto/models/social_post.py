@@ -53,6 +53,9 @@ class SocialPost(models.Model):
     ], string='Bildformat-Status', default='missing', copy=False, readonly=True)
     gl_image_aspect_message = fields.Text(string='Bildformat-Hinweis', copy=False, readonly=True)
     gl_adjust_image_crop = fields.Boolean(string='Ausschnitt anpassen', default=True, copy=False)
+    # Deprecated compatibility field: kept only so stale views from older builds
+    # do not crash. Generative filling is no longer offered or executed.
+    gl_adjust_image_generative_fill = fields.Boolean(string='Generativ füllen (deaktiviert)', default=False, copy=False, readonly=True)
 
     gl_retry_source_post_id = fields.Many2one(
         'social.post',

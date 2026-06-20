@@ -72,6 +72,10 @@ class GroundliftEventSocialConfig(models.Model):
     )
     openai_api_key = fields.Char(string='OpenAI API Key')
     openai_model = fields.Char(string='OpenAI Text-Modell', default='gpt-4o-mini')
+    # Deprecated compatibility field: kept only so stale Odoo views from older
+    # builds do not crash during/after module upgrades. Image generation is not
+    # used anymore by this module.
+    openai_image_model = fields.Char(string='OpenAI Bild-Modell (deaktiviert)', default='')
     openai_timeout = fields.Integer(string='OpenAI Timeout Sekunden', default=20)
     openai_extra_hashtag_count = fields.Integer(string='Anzahl API-Hashtags', default=6)
     openai_system_prompt = fields.Text(

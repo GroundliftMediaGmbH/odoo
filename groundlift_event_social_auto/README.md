@@ -1,6 +1,6 @@
 # Groundlift Event Social Automation
 
-Version: 19.0.1.0.16
+Version: 19.0.1.0.17
 
 Dieses Odoo-19-SH-Modul erzeugt automatisch bearbeitbare Social-Marketing-Posts aus Veranstaltungen.
 
@@ -118,3 +118,10 @@ wird nicht von der Event-Planungsautomatik erneut verschoben oder verarbeitet.
 
 - Odoo.sh-Build-Bereinigung: alle verbliebenen Bild-API-/Generative-Fill-Methoden wurden entfernt.
 - ZIPs werden ohne `__pycache__` erzeugt.
+
+
+## Änderungen in 19.0.1.0.17
+
+- Hotfix für Odoo.sh/OwlError: `openai_image_model` wird als deaktiviertes Kompatibilitätsfeld beibehalten, damit stale Views aus älteren Builds nicht mehr crashen.
+- `gl_adjust_image_generative_fill` wird ebenfalls nur noch als deaktiviertes Kompatibilitätsfeld beibehalten.
+- Generatives Füllen bleibt funktional entfernt: keine UI-Option und keine Ausführung.

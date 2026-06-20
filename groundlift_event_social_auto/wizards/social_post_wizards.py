@@ -9,6 +9,13 @@ class GlSocialPostRegenerateWizard(models.TransientModel):
     _description = 'Groundlift Social Post neu generieren'
 
     post_id = fields.Many2one('social.post', string='Social Post', required=True, ondelete='cascade')
+    # Deprecated compatibility fields: kept so stale wizard views from older
+    # builds do not crash. The action below always performs a crop only.
+    mode = fields.Selection([
+        ('crop', 'Ausschnitt anpassen'),
+        ('generative_fill', 'Generativ füllen (deaktiviert)'),
+    ], string='Methode', default='crop', required=True)
+    extra_instruction = fields.Text(string='Hinweis für generatives Füllen (deaktiviert)')
     focal_x = fields.Selection([
         ('left', 'Links'),
         ('center', 'Mitte'),
