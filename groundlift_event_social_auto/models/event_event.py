@@ -444,8 +444,15 @@ class EventEvent(models.Model):
                     vals['message_deserialized'] = msg
                 elif 'body' in post._fields:
                     vals['body'] = msg
-                attachment = event._gl_create_event_image_attachment(sold_out=True, publication_kind=post.gl_publication_kind or config.default_publication_kind or 'story')
+                source_attachment = False
                 image_field = post._gl_attachment_field_name() if hasattr(post, '_gl_attachment_field_name') else False
+                if image_field and hasattr(post, '_gl_image_attachments'):
+                    source_attachment = post._gl_image_attachments()[:1]
+                attachment = event._gl_create_event_image_attachment(
+                    sold_out=True,
+                    publication_kind=post.gl_publication_kind or config.default_publication_kind or 'story',
+                    source_attachment=source_attachment,
+                )
                 if attachment and image_field:
                     vals[image_field] = [(6, 0, [attachment.id])]
                 post.write(vals)
@@ -692,24 +699,41 @@ class EventEvent(models.Model):
                 return '%s · %s–%s Uhr' % (date_part, time_part, local_end.strftime('%H:%M'))
         return '%s · %s Uhr' % (date_part, time_part)
 
-    def _gl_create_event_image_attachment(self, sold_out=False, publication_kind='story'):
+    def _gl_create_event_image_attachment(self, sold_out=False, publication_kind='story', source_attachment=False):
         self.ensure_one()
         field_name = 'x_studio_website_header'
-        if field_name not in self._fields:
-            self._gl_note_social_error('Bildfeld x_studio_website_header existiert auf event.event nicht; kein Social-Bild angehängt.')
-            return False
-        data = self[field_name]
-        if not data:
-            self._gl_note_social_error('Bildfeld x_studio_website_header ist leer; kein Social-Bild angehängt.')
-            return False
+        source_token = ''
+
+        if source_attachment and source_attachment.datas:
+            # Used when an already-created post is converted to sold out. In that
+            # case the post image may already have been cropped manually or by the
+            # module. The sold-out badge must be rendered on this visible image,
+            # not on the original event header, otherwise the subsequent crop can
+            # cut the badge off.
+            data = source_attachment.datas
+            source_token = '_src%s' % source_attachment.id
+        else:
+            if field_name not in self._fields:
+                self._gl_note_social_error('Bildfeld x_studio_website_header existiert auf event.event nicht; kein Social-Bild angehängt.')
+                return False
+            data = self[field_name]
+            if not data:
+                self._gl_note_social_error('Bildfeld x_studio_website_header ist leer; kein Social-Bild angehängt.')
+                return False
+
         if isinstance(data, str):
             data = data.encode()
         try:
             decoded = base64.b64decode(data, validate=False)
         except Exception:
-            self._gl_note_social_error('Bildfeld x_studio_website_header enthält keine gültigen Bilddaten; kein Social-Bild angehängt.')
+            self._gl_note_social_error('Das Social-Bild enthält keine gültigen Bilddaten; kein Social-Bild angehängt.')
             return False
-        suffix = '_soldout_overlay' if sold_out else ''
+
+        normalized_kind = publication_kind or 'story'
+        if sold_out:
+            suffix = '_%s_soldout_adjusted_overlay%s' % (normalized_kind, source_token)
+        else:
+            suffix = ''
         filename = '%s_website_header_social%s.jpg' % (self._gl_filename_safe(self.name or 'event'), suffix)
         existing = self.env['ir.attachment'].sudo().search([
             ('res_model', '=', 'event.event'),
@@ -718,11 +742,13 @@ class EventEvent(models.Model):
         ], limit=1)
         if existing:
             return existing
+
         final_data = data
         mimetype = 'image/jpeg'
         if sold_out:
             try:
-                final_data = base64.b64encode(self._gl_add_soldout_badge_to_image(decoded, publication_kind=publication_kind))
+                visible_image = self._gl_prepare_image_for_soldout_badge(decoded, publication_kind=normalized_kind)
+                final_data = base64.b64encode(self._gl_add_soldout_badge_to_image(visible_image, publication_kind=normalized_kind))
             except Exception:
                 _logger.exception('Could not render sold-out badge for event %s.', self.id)
                 final_data = data
@@ -734,6 +760,64 @@ class EventEvent(models.Model):
             'res_id': self.id,
             'mimetype': mimetype,
         })
+
+    def _gl_prepare_image_for_soldout_badge(self, image_bytes, publication_kind='story'):
+        """Return the visible social image bytes before the sold-out badge is drawn.
+
+        The badge must be applied after the image has the ratio that this module
+        will use for the post. Otherwise the image adjustment hook can crop the
+        badge away after it has been rendered. Already suitable images are left
+        unchanged.
+        """
+        if not Image:
+            return image_bytes
+        target_ratio = self._gl_social_target_aspect_ratio(publication_kind=publication_kind)
+        if not target_ratio:
+            return image_bytes
+        with Image.open(BytesIO(image_bytes)) as image:
+            image = image.convert('RGB')
+            width, height = image.size
+            current_ratio = float(width) / float(height or 1)
+            if self._gl_social_ratio_is_acceptable(current_ratio, publication_kind=publication_kind):
+                output = BytesIO()
+                image.save(output, format='JPEG', quality=95)
+                return output.getvalue()
+            image = self._gl_pil_cover_crop_to_ratio(image, target_ratio)
+            output = BytesIO()
+            image.save(output, format='JPEG', quality=95)
+            return output.getvalue()
+
+    def _gl_social_target_aspect_ratio(self, publication_kind='story'):
+        if (publication_kind or 'story') == 'story':
+            return 9.0 / 16.0
+        # For mixed Facebook/Instagram feed posts 4:5 is the safest vertical
+        # target when a crop is necessary. Already acceptable feed images are
+        # not cropped by _gl_prepare_image_for_soldout_badge.
+        return 4.0 / 5.0
+
+    def _gl_social_ratio_is_acceptable(self, ratio, publication_kind='story'):
+        if not ratio:
+            return False
+        if (publication_kind or 'story') == 'story':
+            return abs(ratio - (9.0 / 16.0)) <= 0.035
+        return 0.79 <= ratio <= 1.92
+
+    def _gl_pil_cover_crop_to_ratio(self, image, target_ratio):
+        if not image or not target_ratio:
+            return image
+        width, height = image.size
+        current_ratio = float(width) / float(height or 1)
+        if abs(current_ratio - target_ratio) <= 0.001:
+            return image
+        if current_ratio > target_ratio:
+            new_width = int(height * target_ratio)
+            left = int((width - new_width) / 2)
+            box = (max(left, 0), 0, min(left + new_width, width), height)
+        else:
+            new_height = int(width / target_ratio)
+            top = int((height - new_height) / 2)
+            box = (0, max(top, 0), width, min(top + new_height, height))
+        return image.crop(box)
 
     def _gl_add_soldout_badge_to_image(self, image_bytes, publication_kind='story'):
         if not Image or not ImageDraw:

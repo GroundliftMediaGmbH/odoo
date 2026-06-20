@@ -354,7 +354,12 @@ class SocialPost(models.Model):
                     extra_instruction=extra_information if mode == 'add_info' else '',
                 )
             if sold_out:
-                attachment = event._gl_create_event_image_attachment(sold_out=True, publication_kind=self.gl_publication_kind or 'story')
+                source_attachment = self._gl_image_attachments()[:1]
+                attachment = event._gl_create_event_image_attachment(
+                    sold_out=True,
+                    publication_kind=self.gl_publication_kind or 'story',
+                    source_attachment=source_attachment,
+                )
                 if attachment:
                     self._gl_replace_image_attachments(attachment)
         else:
