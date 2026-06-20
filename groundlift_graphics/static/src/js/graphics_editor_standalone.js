@@ -3,7 +3,7 @@
 
     const root = document.getElementById("gl-editor-root");
     const posterId = parseInt(root?.dataset?.posterId || "0", 10);
-    const APP_VERSION = "19.0.1.4.1";
+    const APP_VERSION = "19.0.1.4.2";
 
     const state = {
         loading: true,

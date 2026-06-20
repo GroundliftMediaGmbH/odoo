@@ -1,5 +1,11 @@
 # Changelog
 
+## 19.0.1.4.2
+
+- Cache-Busting vollständig korrigiert: `controllers/editor.py` lädt den Standalone-Editor jetzt ebenfalls mit Version `19.0.1.4.2`.
+- Patch-Paket zusätzlich als GitHub-Root-Paket mit `groundlift_graphics/...` Pfaden bereitgestellt, damit die Dateien beim Upload nicht eine Ebene zu hoch oder zu tief landen.
+- Layout-Fixes aus 19.0.1.4.1 unverändert enthalten.
+
 ## 19.0.1.4.1
 
 - Fotocredits werden in Kino, Plakat, Social Story, Foyer, Stream-Formaten und Sudhaus Main direkt unterhalb der weißen Rahmenlinie platziert.
