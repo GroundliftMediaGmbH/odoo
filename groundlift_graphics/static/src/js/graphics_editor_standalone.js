@@ -743,17 +743,17 @@
         if (layout) {
             if (layout.divider) drawDivider(ctx, layout.divider);
             if (layout.left) {
-                drawFitText(ctx, [date], insetBox(layout.left, 4), "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "center", {
+                drawFitText(ctx, [date], layout.left, "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "right", {
                     allowWrap: false,
-                    valign: "middle",
+                    valign: "top",
                     lineHeight: 1.0,
                 });
             }
             if (layout.right) {
-                drawFitText(ctx, title, insetBox(layout.right, 6, 4), "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "left", {
+                drawFitText(ctx, title, layout.right, "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "left", {
                     allowWrap: true,
                     maxLines: preferredTitleLineCount(title, layout.right),
-                    valign: "middle",
+                    valign: "top",
                     lineHeight: 1.0,
                 });
             }
@@ -769,24 +769,24 @@
         const layout = resolveTimeSubtitleLayout(bbox, regions);
         if (layout) {
             if (layout.leftTop) {
-                drawFitText(ctx, [state.fields.time_text], insetBox(layout.leftTop, 3, 2), "900 46px GroundliftBold, Arial Black, Arial, sans-serif", "center", {
+                drawFitText(ctx, [state.fields.time_text], layout.leftTop, "900 46px GroundliftBold, Arial Black, Arial, sans-serif", "right", {
                     allowWrap: false,
                     valign: "middle",
                     lineHeight: 1.0,
                 });
             }
             if (layout.leftBottom) {
-                drawFitText(ctx, [state.fields.event_type_text], insetBox(layout.leftBottom, 3, 2), "400 34px GroundliftRegular, Arial, sans-serif", "center", {
+                drawFitText(ctx, [state.fields.event_type_text], layout.leftBottom, "400 34px GroundliftRegular, Arial, sans-serif", "right", {
                     allowWrap: false,
-                    valign: "middle",
+                    valign: "bottom",
                     lineHeight: 1.0,
                 });
             }
             if (layout.right) {
-                drawFitText(ctx, lines.length > 1 ? lines : subtitle, insetBox(layout.right, 6, 2), "500 46px GroundliftRegular, Arial, sans-serif", "left", {
+                drawFitText(ctx, lines.length > 1 ? lines : subtitle, layout.right, "500 46px GroundliftRegular, Arial, sans-serif", "left", {
                     allowWrap: true,
                     maxLines: preferredSubtitleLineCount(subtitle, layout.right),
-                    valign: "top",
+                    valign: "bottom",
                     lineHeight: 1.05,
                 });
             }
@@ -822,10 +822,10 @@
             const layout = resolveDateTitleLayout(bbox, regions);
             if (layout?.divider) drawDivider(ctx, layout.divider);
             const target = layout?.right || unionBoxes(regions) || bbox;
-            drawFitText(ctx, state.fields.event_title, insetBox(target, 6, 4), "900 64px GroundliftBold, Arial Black, Arial, sans-serif", layout?.right ? "left" : "center", {
+            drawFitText(ctx, state.fields.event_title, target, "900 64px GroundliftBold, Arial Black, Arial, sans-serif", layout?.right ? "left" : "center", {
                 allowWrap: true,
                 maxLines: preferredTitleLineCount(state.fields.event_title, target),
-                valign: "middle",
+                valign: layout?.right ? "top" : "middle",
                 lineHeight: 1.0,
             });
             return;
@@ -842,36 +842,53 @@
         if (!bbox) return;
         const subtitle = state.fields.event_subtitle || "";
         const lines = String(subtitle).split(/\n+/).filter(Boolean);
-        const target = regions.length ? insetBox(unionBoxes(regions) || bbox, 4, 2) : bbox;
+        const target = regions.length ? (unionBoxes(regions) || bbox) : bbox;
         drawFitText(ctx, lines.length > 1 ? lines : subtitle, target, "500 46px GroundliftRegular, Arial, sans-serif", "left", {
             allowWrap: true,
             maxLines: preferredSubtitleLineCount(subtitle, target),
-            valign: "top",
+            valign: "bottom",
             lineHeight: 1.05,
         });
+    }
+
+
+    function findDividerBox(bbox, regions = [], fallbackRatio = 0.42) {
+        const useful = (regions || []).filter((r) => r.width > 3 && r.height > 3);
+        const divider = useful.find((r) => r.width < bbox.width * 0.08 && r.height > bbox.height * 0.35);
+        if (divider) return divider;
+        const centerX = bbox.x + bbox.width * fallbackRatio;
+        return { x: centerX - 2, y: bbox.y + 4, width: 4, height: Math.max(1, bbox.height - 8) };
+    }
+
+    function buildDividerColumns(bbox, divider, gap = null) {
+        const actualGap = gap == null ? Math.max(16, bbox.width * 0.02) : gap;
+        const left = {
+            x: bbox.x,
+            y: bbox.y,
+            width: Math.max(1, divider.x - actualGap - bbox.x),
+            height: bbox.height,
+        };
+        const rightStart = divider.x + divider.width + actualGap;
+        const right = {
+            x: rightStart,
+            y: bbox.y,
+            width: Math.max(1, bbox.x + bbox.width - rightStart),
+            height: bbox.height,
+        };
+        return { left, right, gap: actualGap };
     }
 
     function resolveDateTitleLayout(bbox, regions) {
         const useful = (regions || []).filter((r) => r.width > 3 && r.height > 3);
         if (!useful.length) return null;
-        const divider = useful.find((r) => r.width < bbox.width * 0.08 && r.height > bbox.height * 0.35);
-        let splitX = divider ? divider.x + divider.width / 2 : null;
-        if (!splitX) {
-            const sorted = [...useful].sort((a, b) => boxCenter(a).x - boxCenter(b).x);
-            const mid = Math.floor(sorted.length / 2);
-            const leftSeed = sorted.slice(0, Math.max(1, mid));
-            const rightSeed = sorted.slice(Math.max(1, mid));
-            const leftEdge = Math.max(...leftSeed.map((r) => r.x + r.width));
-            const rightEdge = Math.min(...rightSeed.map((r) => r.x));
-            splitX = Number.isFinite(leftEdge) && Number.isFinite(rightEdge) ? (leftEdge + rightEdge) / 2 : bbox.x + bbox.width * 0.42;
-        }
-        const gap = Math.max(16, bbox.width * 0.02);
-        const left = { x: bbox.x, y: bbox.y, width: Math.max(1, splitX - gap - bbox.x), height: bbox.height };
-        const right = { x: splitX + gap, y: bbox.y, width: Math.max(1, bbox.x + bbox.width - (splitX + gap)), height: bbox.height };
+        const divider = findDividerBox(bbox, useful, 0.42);
+        const columns = buildDividerColumns(bbox, divider);
+        const top = divider.y;
+        const height = divider.height;
         return {
-            divider: divider || { x: splitX - 2, y: bbox.y + 4, width: 4, height: Math.max(1, bbox.height - 8) },
-            left,
-            right,
+            divider,
+            left: { x: columns.left.x, y: top, width: columns.left.width, height },
+            right: { x: columns.right.x, y: top, width: columns.right.width, height },
         };
     }
 
@@ -879,42 +896,27 @@
         const useful = (regions || []).filter((r) => r.width > 3 && r.height > 3);
         if (!useful.length) return null;
 
-        let splitGuess = bbox.x + bbox.width * 0.4;
-        let leftRegions = useful.filter((r) => boxCenter(r).x < splitGuess);
-        let rightRegions = useful.filter((r) => boxCenter(r).x >= splitGuess);
-        if (!leftRegions.length || !rightRegions.length) {
-            const sorted = [...useful].sort((a, b) => boxCenter(a).x - boxCenter(b).x);
-            const mid = Math.floor(sorted.length / 2);
-            leftRegions = sorted.slice(0, Math.max(1, mid));
-            rightRegions = sorted.slice(Math.max(1, mid));
-        }
-        leftRegions.sort((a, b) => a.y - b.y || a.x - b.x);
-        rightRegions.sort((a, b) => a.y - b.y || a.x - b.x);
-        if (!leftRegions.length && !rightRegions.length) return null;
+        const divider = findDividerBox(bbox, useful, 0.40);
+        const columns = buildDividerColumns(bbox, divider, Math.max(14, bbox.width * 0.02));
+        const top = divider.y;
+        const bottom = divider.y + divider.height;
 
-        const leftEdge = leftRegions.length ? Math.max(...leftRegions.map((r) => r.x + r.width)) : bbox.x + bbox.width * 0.32;
-        const rightEdge = rightRegions.length ? Math.min(...rightRegions.map((r) => r.x)) : bbox.x + bbox.width * 0.5;
-        const splitX = (leftEdge + rightEdge) / 2;
-        const gap = Math.max(14, bbox.width * 0.02);
-        const leftColumn = { x: bbox.x, y: bbox.y, width: Math.max(1, splitX - gap - bbox.x), height: bbox.height };
-        const rightColumn = { x: splitX + gap, y: bbox.y, width: Math.max(1, bbox.x + bbox.width - (splitX + gap)), height: bbox.height };
+        const leftCandidates = useful.filter((r) => boxCenter(r).x < divider.x).sort((a, b) => a.y - b.y || a.x - b.x);
+        const topHint = leftCandidates[0] || null;
+        const bottomHint = leftCandidates.length > 1 ? unionBoxes(leftCandidates.slice(1)) : null;
 
-        let leftTop = null;
-        let leftBottom = null;
-        if (leftRegions.length === 1) {
-            leftTop = leftColumn;
-        } else if (leftRegions.length > 1) {
-            const topRegion = leftRegions[0];
-            const bottomUnion = unionBoxes(leftRegions.slice(1));
-            const splitY = clamp((topRegion.y + topRegion.height + bottomUnion.y) / 2, bbox.y + bbox.height * 0.35, bbox.y + bbox.height * 0.7);
-            leftTop = { x: leftColumn.x, y: bbox.y, width: leftColumn.width, height: Math.max(1, splitY - bbox.y) };
-            leftBottom = { x: leftColumn.x, y: splitY, width: leftColumn.width, height: Math.max(1, bbox.y + bbox.height - splitY) };
+        let splitY;
+        if (topHint && bottomHint) {
+            splitY = clamp((topHint.y + topHint.height + bottomHint.y) / 2, top + divider.height * 0.40, top + divider.height * 0.72);
+        } else {
+            splitY = top + divider.height * 0.62;
         }
 
         return {
-            leftTop,
-            leftBottom,
-            right: rightRegions.length ? rightColumn : null,
+            divider,
+            leftTop: { x: columns.left.x, y: top, width: columns.left.width, height: Math.max(1, splitY - top) },
+            leftBottom: { x: columns.left.x, y: splitY, width: columns.left.width, height: Math.max(1, bottom - splitY) },
+            right: { x: columns.right.x, y: top, width: columns.right.width, height: divider.height },
         };
     }
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 19.0.1.3.7
+
+- Richtet Datum und Titel nun an der Oberkante des senkrechten Trennstrichs aus und verwendet links/rechts am Trennstrich eine konsequente rechts- bzw. linksbündige Ausrichtung mit identischem Abstand.
+- Richtet Kategorie und Untertitel nun an der Unterkante des Trennstrichs aus; die Uhrzeit wird im linken Block zwischen oberem Bereich und Kategorie sauber positioniert.
+- Vereinheitlicht dadurch die Textplatzierung für Datum, Uhrzeit, Kategorie, Titel und Untertitel über die verschiedenen Ausspielformate hinweg.
+- Erhöht die Cache-Busting-Version des Standalone-Editors, damit die neue Platzierungslogik sicher geladen wird.
+
 ## 19.0.1.3.6
 
 - Verbessert das Text-Layout im Standalone-Grafikeditor: Titel, Untertitel, Uhrzeit-/Untertitel-Blöcke und Stream-Texte nutzen jetzt automatische Wortumbrüche und ausgewogenere Zeilenaufteilung, damit lange Inhalte deutlich näher an den Beispielgrafiken bleiben.
