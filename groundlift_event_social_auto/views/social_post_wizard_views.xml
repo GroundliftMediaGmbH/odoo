@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_social_post_regenerate_wizard_form" model="ir.ui.view">
+        <field name="name">gl.social.post.regenerate.wizard.form</field>
+        <field name="model">gl.social.post.regenerate.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Diesen Post neu generieren">
+                <sheet>
+                    <group>
+                        <field name="post_id" readonly="1"/>
+                        <field name="mode" widget="radio"/>
+                        <field name="extra_information" placeholder="Nur ausfüllen, wenn „Bestimmte Information hinzufügen“ gewählt ist." invisible="mode != 'add_info'"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_apply" type="object" string="Generieren" class="btn-primary"/>
+                    <button string="Abbrechen" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_gl_social_post_replace_wizard_form" model="ir.ui.view">
+        <field name="name">gl.social.post.replace.wizard.form</field>
+        <field name="model">gl.social.post.replace.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Post ersetzen mit">
+                <sheet>
+                    <group>
+                        <field name="post_id" readonly="1"/>
+                        <field name="replacement_mode" widget="radio"/>
+                    </group>
+                    <group invisible="replacement_mode != 'event'">
+                        <field name="event_id"/>
+                        <field name="post_type"/>
+                    </group>
+                    <group>
+                        <field name="extra_information" placeholder="Optional: Fokus, Zusatzinfo oder gewünschter Ton."/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_apply" type="object" string="Ersetzen" class="btn-primary"/>
+                    <button string="Abbrechen" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_gl_social_post_image_adjust_wizard_form" model="ir.ui.view">
+        <field name="name">gl.social.post.image.adjust.wizard.form</field>
+        <field name="model">gl.social.post.image.adjust.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Bildformat anpassen">
+                <sheet>
+                    <group>
+                        <field name="post_id" readonly="1"/>
+                    </group>
+                    <group string="Ausschnitt">
+                        <field name="focal_x"/>
+                        <field name="focal_y"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_apply" type="object" string="Anwenden" class="btn-primary"/>
+                    <button string="Abbrechen" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

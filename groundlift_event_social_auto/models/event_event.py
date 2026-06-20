@@ -3,6 +3,7 @@
 import base64
 import logging
 import re
+from io import BytesIO
 from datetime import datetime, time, timedelta
 
 import pytz
@@ -10,6 +11,10 @@ import pytz
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 from odoo.tools import html2plaintext
+try:
+    from PIL import Image, ImageDraw, ImageFont
+except Exception:
+    Image = ImageDraw = ImageFont = None
 try:
     from odoo.tools.urls import url_join
 except Exception:
@@ -42,7 +47,7 @@ class EventEvent(models.Model):
             self._gl_handle_completed_changes()
         if 'gl_social_auto_publish_ok' in vals and vals.get('gl_social_auto_publish_ok'):
             self.action_gl_approve_social_posts()
-        if {'seats_available', 'seats_taken', 'seats_max', 'registration_ids', 'event_ticket_ids'}.intersection(vals.keys()):
+        if {'name', 'seats_available', 'seats_taken', 'seats_max', 'registration_ids', 'event_ticket_ids'}.intersection(vals.keys()):
             self._gl_handle_soldout_changes()
         return result
 
@@ -175,7 +180,17 @@ class EventEvent(models.Model):
         post_fields = SocialPost._fields
         planned_date = spec['planned_date']
         message = spec['message']
-        vals = {'gl_event_id': self.id, 'gl_event_social_type': spec['post_type'], 'gl_auto_generated': True, 'gl_planned_date': planned_date, 'gl_requires_approval': not (config.auto_post_without_approval or self.gl_social_auto_publish_ok), 'gl_approved': bool(config.auto_post_without_approval or self.gl_social_auto_publish_ok)}
+        publication_kind = spec.get('publication_kind') or config.default_publication_kind or 'story'
+        vals = {
+            'gl_event_id': self.id,
+            'gl_event_social_type': spec['post_type'],
+            'gl_auto_generated': True,
+            'gl_planned_date': planned_date,
+            'gl_requires_approval': not (config.auto_post_without_approval or self.gl_social_auto_publish_ok),
+            'gl_approved': bool(config.auto_post_without_approval or self.gl_social_auto_publish_ok),
+            'gl_publication_kind': publication_kind,
+            'gl_publish_as_feed_post': publication_kind == 'feed',
+        }
         if spec.get('latest_planned_date'):
             vals['gl_latest_planned_date'] = spec['latest_planned_date']
         if 'message' in post_fields:
@@ -200,7 +215,7 @@ class EventEvent(models.Model):
             scheduled_key = self.env['social.post']._gl_find_selection_key('post_method', ['scheduled', 'schedule', 'later', 'schedule_later'])
             if scheduled_key:
                 vals['post_method'] = scheduled_key
-        attachment = self._gl_create_event_image_attachment()
+        attachment = self._gl_create_event_image_attachment(sold_out=self._gl_is_sold_out(), publication_kind=publication_kind)
         if attachment:
             # media_ids is the list of social networks, not an attachment field.
             for image_field in ['image_ids', 'attachment_ids']:
@@ -425,8 +440,21 @@ class EventEvent(models.Model):
                 msg = event._gl_render_post_message(config, 'event_day_soldout', sold_out=True)
                 if 'message' in post._fields:
                     vals['message'] = msg
+                elif 'message_deserialized' in post._fields:
+                    vals['message_deserialized'] = msg
                 elif 'body' in post._fields:
                     vals['body'] = msg
+                source_attachment = False
+                image_field = post._gl_attachment_field_name() if hasattr(post, '_gl_attachment_field_name') else False
+                if image_field and hasattr(post, '_gl_image_attachments'):
+                    source_attachment = post._gl_image_attachments()[:1]
+                attachment = event._gl_create_event_image_attachment(
+                    sold_out=True,
+                    publication_kind=post.gl_publication_kind or config.default_publication_kind or 'story',
+                    source_attachment=source_attachment,
+                )
+                if attachment and image_field:
+                    vals[image_field] = [(6, 0, [attachment.id])]
                 post.write(vals)
 
     def _gl_handle_completed_changes(self, config=None):
@@ -446,13 +474,14 @@ class EventEvent(models.Model):
                 event.gl_completed_social_post_created = bool(post)
         return created
 
-    def _gl_render_post_message(self, config, post_type, sold_out=False):
+    def _gl_render_post_message(self, config, post_type, sold_out=False, extra_instruction=''):
         self.ensure_one()
         title = self.name or 'Veranstaltung im Groundlift Studio'
         date_text = self._gl_format_event_datetime(config.timezone)
         description = self._gl_short_description(max_chars=900)
         ticket_url = self._gl_event_ticket_url()
         hashtags = self._gl_hashtags(config)
+        extra_instruction = self._gl_clean_event_description_text(extra_instruction, max_chars=500) if extra_instruction else ''
         fallback_headline = self._gl_fallback_headline(config, post_type, sold_out=sold_out)
         headline = config._gl_openai_generate_headline_for_event(self, post_type, fallback_headline, sold_out=sold_out) or fallback_headline
 
@@ -469,13 +498,13 @@ class EventEvent(models.Model):
         # Für Nachberichte wird kein Ticketlink gesetzt, da die Veranstaltung bereits vorbei ist.
         headline_block = headline_with_link(headline, ticket_url)
         if post_type == 'announcement':
-            parts = [headline_block, title, date_text, description, hashtags]
+            parts = [headline_block, title, date_text, description, extra_instruction, hashtags]
             return join(parts)
         if post_type == 'reminder_3d':
-            parts = [headline_block, title, date_text, description, hashtags]
+            parts = [headline_block, title, date_text, description, extra_instruction, hashtags]
             return join(parts)
         if post_type == 'event_day':
-            parts = [headline_block, title, date_text, description, hashtags]
+            parts = [headline_block, title, date_text, description, extra_instruction, hashtags]
             return join(parts)
         if post_type == 'soldout':
             parts = [headline_block, title, date_text, 'Wir freuen uns auf einen besonderen Abend bei uns in der Alten Brauerei Stegen.', hashtags]
@@ -484,7 +513,7 @@ class EventEvent(models.Model):
             parts = [headline_block, title, date_text, 'Danke an alle, die dabei sind. Wir freuen uns auf euch im Groundlift Studio.', hashtags]
             return join(parts)
         if post_type == 'completed':
-            parts = [headline, title, config.body_completed or 'Postet gerne in die Kommentare und Bilder, wie es für euch war!', hashtags]
+            parts = [headline, title, config.body_completed or 'Postet gerne in die Kommentare und Bilder, wie es für euch war!', extra_instruction, hashtags]
             return join(parts)
         return join([headline_block, title, date_text, hashtags])
 
@@ -670,34 +699,324 @@ class EventEvent(models.Model):
                 return '%s · %s–%s Uhr' % (date_part, time_part, local_end.strftime('%H:%M'))
         return '%s · %s Uhr' % (date_part, time_part)
 
-    def _gl_create_event_image_attachment(self):
+    def _gl_create_event_image_attachment(self, sold_out=False, publication_kind='story', source_attachment=False):
         self.ensure_one()
         field_name = 'x_studio_website_header'
-        if field_name not in self._fields:
-            self._gl_note_social_error('Bildfeld x_studio_website_header existiert auf event.event nicht; kein Social-Bild angehängt.')
-            return False
-        data = self[field_name]
-        if not data:
-            self._gl_note_social_error('Bildfeld x_studio_website_header ist leer; kein Social-Bild angehängt.')
-            return False
+        source_token = ''
+
+        if source_attachment and source_attachment.datas:
+            # Used when an already-created post is converted to sold out. In that
+            # case the post image may already have been cropped manually or by the
+            # module. The sold-out badge must be rendered on this visible image,
+            # not on the original event header, otherwise the subsequent crop can
+            # cut the badge off.
+            data = source_attachment.datas
+            source_token = '_src%s' % source_attachment.id
+        else:
+            if field_name not in self._fields:
+                self._gl_note_social_error('Bildfeld x_studio_website_header existiert auf event.event nicht; kein Social-Bild angehängt.')
+                return False
+            data = self[field_name]
+            if not data:
+                self._gl_note_social_error('Bildfeld x_studio_website_header ist leer; kein Social-Bild angehängt.')
+                return False
+
         if isinstance(data, str):
             data = data.encode()
         try:
-            base64.b64decode(data, validate=False)
+            decoded = base64.b64decode(data, validate=False)
         except Exception:
-            self._gl_note_social_error('Bildfeld x_studio_website_header enthält keine gültigen Bilddaten; kein Social-Bild angehängt.')
+            self._gl_note_social_error('Das Social-Bild enthält keine gültigen Bilddaten; kein Social-Bild angehängt.')
             return False
-        filename = '%s_website_header_social.jpg' % self._gl_filename_safe(self.name or 'event')
-        existing = self.env['ir.attachment'].sudo().search([('res_model', '=', 'event.event'), ('res_id', '=', self.id), ('name', '=', filename)], limit=1)
+
+        normalized_kind = publication_kind or 'story'
+        soldout_config = self.env['gl.event.social.config'].get_config() if sold_out else False
+        if sold_out:
+            badge_token = self._gl_soldout_badge_cache_token(soldout_config)
+            suffix = '_%s_soldout_adjusted_overlay%s%s' % (normalized_kind, source_token, badge_token)
+        else:
+            suffix = ''
+        filename = '%s_website_header_social%s.jpg' % (self._gl_filename_safe(self.name or 'event'), suffix)
+        existing = self.env['ir.attachment'].sudo().search([
+            ('res_model', '=', 'event.event'),
+            ('res_id', '=', self.id),
+            ('name', '=', filename)
+        ], limit=1)
         if existing:
             return existing
-        return self.env['ir.attachment'].sudo().create({'name': filename, 'type': 'binary', 'datas': data, 'res_model': 'event.event', 'res_id': self.id, 'mimetype': 'image/jpeg'})
+
+        final_data = data
+        mimetype = 'image/jpeg'
+        if sold_out:
+            try:
+                visible_image = self._gl_prepare_image_for_soldout_badge(decoded, publication_kind=normalized_kind)
+                final_data = base64.b64encode(self._gl_add_soldout_badge_to_image(visible_image, publication_kind=normalized_kind, config=soldout_config))
+            except Exception:
+                _logger.exception('Could not render sold-out badge for event %s.', self.id)
+                final_data = data
+        return self.env['ir.attachment'].sudo().create({
+            'name': filename,
+            'type': 'binary',
+            'datas': final_data,
+            'res_model': 'event.event',
+            'res_id': self.id,
+            'mimetype': mimetype,
+        })
+
+    def _gl_prepare_image_for_soldout_badge(self, image_bytes, publication_kind='story'):
+        """Return the visible social image bytes before the sold-out badge is drawn.
+
+        If the original image is already suitable for the target story/feed
+        ratio, it is kept as-is. Otherwise, the module now creates a background
+        canvas in the required ratio using a gradient from the two dominant
+        image colors and places the original image resized with "contain" so it
+        remains fully visible. The sold-out badge is applied afterwards.
+        """
+        if not Image:
+            return image_bytes
+        target_ratio = self._gl_social_target_aspect_ratio(publication_kind=publication_kind)
+        if not target_ratio:
+            return image_bytes
+        with Image.open(BytesIO(image_bytes)) as image:
+            image = image.convert('RGB')
+            width, height = image.size
+            current_ratio = float(width) / float(height or 1)
+            if self._gl_social_ratio_is_acceptable(current_ratio, publication_kind=publication_kind):
+                output = BytesIO()
+                image.save(output, format='JPEG', quality=95)
+                return output.getvalue()
+            image = self._gl_build_social_gradient_canvas(image, target_ratio)
+            output = BytesIO()
+            image.save(output, format='JPEG', quality=95)
+            return output.getvalue()
+
+    def _gl_social_target_aspect_ratio(self, publication_kind='story'):
+        if (publication_kind or 'story') == 'story':
+            return 9.0 / 16.0
+        # For mixed Facebook/Instagram feed posts 4:5 is the safest vertical
+        # target when a crop is necessary. Already acceptable feed images are
+        # not cropped by _gl_prepare_image_for_soldout_badge.
+        return 4.0 / 5.0
+
+    def _gl_social_ratio_is_acceptable(self, ratio, publication_kind='story'):
+        if not ratio:
+            return False
+        if (publication_kind or 'story') == 'story':
+            return abs(ratio - (9.0 / 16.0)) <= 0.035
+        return 0.79 <= ratio <= 1.92
+
+    def _gl_build_social_gradient_canvas(self, image, target_ratio):
+        if not image or not target_ratio:
+            return image
+        image = image.convert('RGB')
+        width, height = image.size
+        if not width or not height:
+            return image
+        current_ratio = float(width) / float(height or 1)
+        if current_ratio > target_ratio:
+            canvas_width = width
+            canvas_height = max(height, int(round(float(width) / float(target_ratio))))
+        else:
+            canvas_height = height
+            canvas_width = max(width, int(round(float(height) * float(target_ratio))))
+        colors = self._gl_extract_dominant_colors(image, count=2)
+        background = self._gl_linear_gradient_image((canvas_width, canvas_height), colors[0], colors[1])
+        fitted = self._gl_contain_image(image, (canvas_width, canvas_height))
+        pos_x = int((canvas_width - fitted.size[0]) / 2)
+        pos_y = int((canvas_height - fitted.size[1]) / 2)
+        background.paste(fitted, (pos_x, pos_y))
+        return background
+
+    def _gl_extract_dominant_colors(self, image, count=2):
+        image = image.convert('RGB')
+        sample = image.copy()
+        sample.thumbnail((120, 120))
+        quantized = sample.quantize(colors=max(4, count * 3), method=getattr(Image, 'MEDIANCUT', 0)).convert('RGB')
+        raw_colors = quantized.getcolors(maxcolors=120 * 120) or []
+        raw_colors = sorted(raw_colors, key=lambda item: item[0], reverse=True)
+        colors = []
+        seen = set()
+        for _weight, color in raw_colors:
+            if color in seen:
+                continue
+            seen.add(color)
+            colors.append(tuple(int(v) for v in color))
+            if len(colors) >= count:
+                break
+        if not colors:
+            colors = [(32, 32, 32)]
+        while len(colors) < count:
+            base = colors[-1]
+            factor = 0.78 if len(colors) % 2 else 1.22
+            derived = tuple(max(0, min(255, int(channel * factor))) for channel in base)
+            colors.append(derived)
+        return colors[:count]
+
+    def _gl_linear_gradient_image(self, size, color_a, color_b):
+        width, height = size
+        gradient = Image.new('RGB', (1, max(1, height)))
+        px = gradient.load()
+        denom = float(max(height - 1, 1))
+        for y in range(height):
+            ratio = float(y) / denom
+            px[0, y] = tuple(
+                int(round(color_a[idx] * (1.0 - ratio) + color_b[idx] * ratio))
+                for idx in range(3)
+            )
+        return gradient.resize((max(1, width), max(1, height)))
+
+    def _gl_contain_image(self, image, size):
+        canvas_width, canvas_height = size
+        width, height = image.size
+        scale = min(float(canvas_width) / float(width or 1), float(canvas_height) / float(height or 1))
+        new_size = (max(1, int(round(width * scale))), max(1, int(round(height * scale))))
+        resampling = getattr(getattr(Image, 'Resampling', Image), 'LANCZOS', Image.BICUBIC)
+        if new_size != image.size:
+            return image.resize(new_size, resampling)
+        return image.copy()
+
+    def _gl_pil_cover_crop_to_ratio(self, image, target_ratio):
+        if not image or not target_ratio:
+            return image
+        width, height = image.size
+        current_ratio = float(width) / float(height or 1)
+        if abs(current_ratio - target_ratio) <= 0.001:
+            return image
+        if current_ratio > target_ratio:
+            new_width = int(height * target_ratio)
+            left = int((width - new_width) / 2)
+            box = (max(left, 0), 0, min(left + new_width, width), height)
+        else:
+            new_height = int(width / target_ratio)
+            top = int((height - new_height) / 2)
+            box = (0, max(top, 0), width, min(top + new_height, height))
+        return image.crop(box)
+
+    def _gl_soldout_badge_cache_token(self, config=None):
+        """Return a filename suffix so changed custom badges do not reuse old attachments."""
+        if not config or not getattr(config, 'soldout_badge_png', False):
+            return ''
+        raw_stamp = str(config.write_date or fields.Datetime.now())
+        stamp = re.sub(r'\D+', '', raw_stamp)[:14] or 'custom'
+        return '_badge%s_%s' % (config.id, stamp)
+
+    def _gl_add_soldout_badge_to_image(self, image_bytes, publication_kind='story', config=None):
+        if not Image:
+            return image_bytes
+        custom_badge = self._gl_custom_soldout_badge_bytes(config=config)
+        if custom_badge:
+            try:
+                return self._gl_overlay_custom_soldout_badge(image_bytes, custom_badge, publication_kind=publication_kind)
+            except Exception:
+                _logger.exception('Could not render custom sold-out PNG badge for event %s. Falling back to text badge.', self.id)
+        if not ImageDraw:
+            return image_bytes
+        with Image.open(BytesIO(image_bytes)) as image:
+            image = image.convert('RGBA')
+            width, height = image.size
+            overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
+            draw = ImageDraw.Draw(overlay)
+            label = 'AUSVERKAUFT'
+            font_size = max(34, int(min(width, height) * 0.085))
+            font = self._gl_badge_font(font_size)
+            try:
+                bbox = draw.textbbox((0, 0), label, font=font)
+                text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+            except Exception:
+                text_w, text_h = draw.textsize(label, font=font)
+            pad_x = int(text_w * 0.28)
+            pad_y = int(text_h * 0.45)
+            box_w = text_w + pad_x * 2
+            box_h = text_h + pad_y * 2
+            margin = int(min(width, height) * 0.055)
+            x2 = width - margin
+            y1 = margin
+            x1 = max(margin, x2 - box_w)
+            y2 = y1 + box_h
+            try:
+                draw.rounded_rectangle((x1, y1, x2, y2), radius=int(box_h * 0.22), fill=(210, 0, 0, 230), outline=(255, 255, 255, 245), width=max(3, int(box_h * 0.045)))
+            except Exception:
+                draw.rectangle((x1, y1, x2, y2), fill=(210, 0, 0, 230), outline=(255, 255, 255, 245))
+            text_x = x1 + (box_w - text_w) / 2
+            text_y = y1 + (box_h - text_h) / 2 - int(text_h * 0.08)
+            draw.text((text_x, text_y), label, fill=(255, 255, 255, 255), font=font)
+            image = Image.alpha_composite(image, overlay).convert('RGB')
+            output = BytesIO()
+            image.save(output, format='JPEG', quality=95)
+            return output.getvalue()
+
+    def _gl_custom_soldout_badge_bytes(self, config=None):
+        config = config or self.env['gl.event.social.config'].get_config()
+        badge_data = getattr(config, 'soldout_badge_png', False) if config else False
+        if not badge_data:
+            return False
+        if isinstance(badge_data, str):
+            badge_data = badge_data.encode()
+        try:
+            return base64.b64decode(badge_data, validate=False)
+        except Exception:
+            _logger.exception('Configured sold-out badge PNG contains invalid binary data.')
+            return False
+
+    def _gl_overlay_custom_soldout_badge(self, image_bytes, badge_bytes, publication_kind='story'):
+        with Image.open(BytesIO(image_bytes)) as image, Image.open(BytesIO(badge_bytes)) as badge:
+            image = image.convert('RGBA')
+            badge = badge.convert('RGBA')
+            width, height = image.size
+            badge_w, badge_h = badge.size
+            if not badge_w or not badge_h:
+                return image_bytes
+
+            # Keep the user-provided PNG fully inside the already-cropped social
+            # image. This prevents the visible sticker from being cut off later.
+            margin = max(12, int(min(width, height) * 0.055))
+            max_w = max(1, int(width * 0.42))
+            max_h = max(1, int(height * (0.16 if (publication_kind or 'story') == 'story' else 0.22)))
+            scale = min(float(max_w) / float(badge_w), float(max_h) / float(badge_h), 1.0)
+            new_w = max(1, int(badge_w * scale))
+            new_h = max(1, int(badge_h * scale))
+            if (new_w, new_h) != (badge_w, badge_h):
+                resampling = getattr(getattr(Image, 'Resampling', Image), 'LANCZOS', Image.BICUBIC)
+                badge = badge.resize((new_w, new_h), resampling)
+
+            x = max(margin, width - margin - new_w)
+            y = margin
+            overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
+            overlay.alpha_composite(badge, (x, y))
+            result = Image.alpha_composite(image, overlay).convert('RGB')
+            output = BytesIO()
+            result.save(output, format='JPEG', quality=95)
+            return output.getvalue()
+
+    def _gl_badge_font(self, font_size):
+        if not ImageFont:
+            return None
+        for path in (
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+            '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf',
+            '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+        ):
+            try:
+                return ImageFont.truetype(path, font_size)
+            except Exception:
+                continue
+        try:
+            return ImageFont.load_default()
+        except Exception:
+            return None
 
     def _gl_filename_safe(self, value):
         return re.sub(r'[^A-Za-z0-9_.-]+', '_', value).strip('_')[:80]
 
+    def _gl_title_marks_sold_out(self):
+        self.ensure_one()
+        name = (self.name or '').strip()
+        return bool(re.search(r'\(\s*ausverkauft\s*\)\s*$', name, flags=re.IGNORECASE))
+
     def _gl_is_sold_out(self):
         self.ensure_one()
+        if self._gl_title_marks_sold_out():
+            return True
         if 'seats_available' in self._fields and 'seats_max' in self._fields:
             try:
                 if self.seats_max and self.seats_available <= 0:
