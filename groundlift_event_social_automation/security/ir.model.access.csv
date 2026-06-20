@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_gl_event_social_config_user,gl.event.social.config user,model_gl_event_social_config,base.group_user,1,1,1,1
+access_gl_social_post_regenerate_wizard_user,gl.social.post.regenerate.wizard user,model_gl_social_post_regenerate_wizard,base.group_user,1,1,1,1
+access_gl_social_post_replace_wizard_user,gl.social.post.replace.wizard user,model_gl_social_post_replace_wizard,base.group_user,1,1,1,1
+access_gl_social_post_image_adjust_wizard_user,gl.social.post.image.adjust.wizard user,model_gl_social_post_image_adjust_wizard,base.group_user,1,1,1,1
