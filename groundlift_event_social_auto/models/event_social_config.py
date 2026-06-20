@@ -34,6 +34,10 @@ class GroundliftEventSocialConfig(models.Model):
     account_search_term = fields.Char(string='Fallback-Suche nach Social Accounts', default='groundlift studio')
 
     auto_post_without_approval = fields.Boolean(string='Posts ohne manuelle Freigabe automatisch planen', default=False)
+    default_publication_kind = fields.Selection([
+        ('story', 'Story'),
+        ('feed', 'Feed-Post'),
+    ], string='Standard-Ziel-Format', default='story', required=True)
     default_hashtags = fields.Char(string='Basis-Hashtags', default='#groundlift #ammersee #stegen')
     announcement_min_days_before = fields.Integer(string='Erstankündigung spätestens Tage vorher', default=7)
     timezone = fields.Selection(selection='_selection_timezones', string='Zeitzone für Planung', default='Europe/Berlin', required=True)
@@ -45,6 +49,12 @@ class GroundliftEventSocialConfig(models.Model):
     event_day_hour = fields.Integer(string='Eventtag Uhrzeit', default=10)
     event_day_minute = fields.Integer(string='Eventtag Minute', default=0)
     soldout_delay_hours = fields.Integer(string='Ausverkauft-Post Verzögerung in Stunden', default=1)
+    soldout_badge_png = fields.Binary(
+        string='Ausverkauft-Störer PNG',
+        attachment=True,
+        help='Optionales transparentes PNG, das als Ausverkauft-Störer verwendet wird. Wird nach dem Social-Bildzuschnitt auf das sichtbare Bild gelegt.',
+    )
+    soldout_badge_png_filename = fields.Char(string='Dateiname Ausverkauft-Störer')
     completed_post_hour = fields.Integer(string='Nachbericht Uhrzeit', default=10)
     completed_post_minute = fields.Integer(string='Nachbericht Minute', default=0)
 
@@ -67,7 +77,11 @@ class GroundliftEventSocialConfig(models.Model):
         default='Erzeuge eine kurze, abwechslungsreiche und werbende Headline für einen Instagram/Facebook-Post. Sie darf gerne frisch und modern klingen, soll aber seriös bleiben, maximal 85 Zeichen haben, keine Ticketlinks enthalten und nicht ständig mit denselben Worten beginnen.',
     )
     openai_api_key = fields.Char(string='OpenAI API Key')
-    openai_model = fields.Char(string='OpenAI Modell', default='gpt-4o-mini')
+    openai_model = fields.Char(string='OpenAI Text-Modell', default='gpt-4o-mini')
+    # Deprecated compatibility field: kept only so stale Odoo views from older
+    # builds do not crash during/after module upgrades. Image generation is not
+    # used anymore by this module.
+    openai_image_model = fields.Char(string='OpenAI Bild-Modell (deaktiviert)', default='')
     openai_timeout = fields.Integer(string='OpenAI Timeout Sekunden', default=20)
     openai_extra_hashtag_count = fields.Integer(string='Anzahl API-Hashtags', default=6)
     openai_system_prompt = fields.Text(
@@ -392,6 +406,71 @@ class GroundliftEventSocialConfig(models.Model):
                   'Bild-/Homepage-Kontext:\n%s\n\nAllgemeiner Homepage-Kontext:\n%s') % (self.gap_filler_prompt or '', image_context or '', homepage_context or '')
         return self._gl_openai_chat_json(prompt, max_tokens=450)
 
+    def _gl_openai_regenerate_post_text(self, post, event, mode='variant', extra_information='', sold_out=False):
+        self.ensure_one()
+        if not self.openai_api_key:
+            return ''
+        current_text = post._gl_current_message() if post else ''
+        post_type = post.gl_event_social_type if post else 'announcement'
+        ticket_url = event._gl_event_ticket_url() if event else ''
+        instruction = 'Erzeuge eine deutlich andere, gleichwertige Variante.'
+        if mode == 'add_info':
+            instruction = 'Erzeuge eine neue Variante und baue die folgende Zusatzinformation sauber ein: %s' % (extra_information or '').strip()
+        prompt = (
+            'Gib ausschließlich JSON zurück im Format {"text":"..."}.\n'
+            'Schreibe den vollständigen Social-Media-Text auf Deutsch für Instagram/Facebook. '
+            'Keine erfundenen Fakten, keine erfundenen Preise, keine erfundenen Uhrzeiten. '
+            'Wenn ein Ticketlink vorhanden ist, muss er unverändert im Text bleiben. '
+            'Erhalte sinnvolle Absätze und Hashtags. Maximal 1.100 Zeichen.\n\n'
+            'Aufgabe: %s\n'
+            'Ziel: %s\n'
+            'Post-Typ: %s\n'
+            'Ausverkauft: %s\n'
+            'Titel: %s\n'
+            'Datum: %s\n'
+            'Ticketlink: %s\n'
+            'Beschreibung: %s\n\n'
+            'Bisheriger Text:\n%s'
+        ) % (
+            instruction,
+            dict(post._fields['gl_publication_kind'].selection).get(post.gl_publication_kind or 'story', post.gl_publication_kind or 'Story') if post and 'gl_publication_kind' in post._fields else 'Story',
+            post_type or '',
+            'ja' if sold_out else 'nein',
+            event.name or '',
+            event._gl_format_event_datetime(self.timezone),
+            ticket_url or '',
+            event._gl_short_description(max_chars=1400),
+            current_text or '',
+        )
+        data = self._gl_openai_chat_json(prompt, max_tokens=700, temperature=0.85)
+        text = data.get('text') if isinstance(data, dict) else ''
+        return self._gl_clean_generated_social_text(text)
+
+    def _gl_openai_regenerate_generic_text(self, current_text, mode='variant', extra_information=''):
+        self.ensure_one()
+        if not self.openai_api_key or not current_text:
+            return ''
+        instruction = 'Erzeuge eine deutlich andere, gleichwertige Variante.'
+        if mode == 'add_info':
+            instruction = 'Erzeuge eine neue Variante und baue die folgende Zusatzinformation sauber ein: %s' % (extra_information or '').strip()
+        prompt = (
+            'Gib ausschließlich JSON zurück im Format {"text":"..."}.\n'
+            'Überarbeite den folgenden Groundlift-Social-Media-Text auf Deutsch. '
+            'Keine erfundenen Termine, Preise oder Fakten. Hashtags erhalten oder passend variieren. Maximal 1.100 Zeichen.\n\n'
+            'Aufgabe: %s\n\nBisheriger Text:\n%s'
+        ) % (instruction, current_text or '')
+        data = self._gl_openai_chat_json(prompt, max_tokens=700, temperature=0.85)
+        text = data.get('text') if isinstance(data, dict) else ''
+        return self._gl_clean_generated_social_text(text)
+
+    def _gl_clean_generated_social_text(self, text):
+        text = html2plaintext(text or '')
+        text = re.sub(r'\r\n?', '\n', text)
+        text = re.sub(r'\n{3,}', '\n\n', text).strip().strip('"“”„')
+        if len(text) > 1300:
+            text = text[:1300].rsplit(' ', 1)[0].rstrip('.,;:') + ' …'
+        return text
+
     def _gl_clean_homepage_context(self, text, max_chars=900):
         """Convert scraped homepage snippets into editorial text only.
 
@@ -620,7 +699,16 @@ class GroundliftEventSocialConfig(models.Model):
     def _gl_create_generic_social_post(self, accounts, planned_dt, message, attachment=False, post_type='gap_filler', latest_planned_date=False):
         SocialPost = self.env['social.post'].sudo()
         post_fields = SocialPost._fields
-        vals = {'gl_event_social_type': post_type, 'gl_auto_generated': True, 'gl_planned_date': planned_dt, 'gl_requires_approval': not self.auto_post_without_approval, 'gl_approved': bool(self.auto_post_without_approval)}
+        publication_kind = self.default_publication_kind or 'story'
+        vals = {
+            'gl_event_social_type': post_type,
+            'gl_auto_generated': True,
+            'gl_planned_date': planned_dt,
+            'gl_requires_approval': not self.auto_post_without_approval,
+            'gl_approved': bool(self.auto_post_without_approval),
+            'gl_publication_kind': publication_kind,
+            'gl_publish_as_feed_post': publication_kind == 'feed',
+        }
         if latest_planned_date:
             vals['gl_latest_planned_date'] = latest_planned_date
         if 'message' in post_fields:
