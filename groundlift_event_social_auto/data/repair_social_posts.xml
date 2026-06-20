@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Executed on installation/update to repair posts created by older versions. -->
+    <function model="social.post" name="_gl_repair_generated_media_links"/>
+</odoo>
