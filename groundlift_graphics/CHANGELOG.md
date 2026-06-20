@@ -1,3 +1,17 @@
+
+## 19.0.1.5.1
+- Standards pro Ausspielformat jetzt global in Odoo gespeichert und geladen (ir.config_parameter).
+- Neue JSON-Routen zum Speichern und Laden der Template-Defaults.
+- Beim Öffnen des Editors werden vorhandene Odoo-Standards automatisch als Startwerte für unbearbeitete Formate geladen.
+
+## 19.0.1.5.0
+- Grafikeditor erweitert: Externes Logo direkt im Editor hochladen/entfernen.
+- PNG-Overlays können nun pro Ausspielformat im Editor ersetzt werden.
+- Neue Text-Einstellungen pro Textelement und Ausspielformat: Schriftart, Position, Schriftgröße und Ausrichtung.
+- Senkrechter Trennbalken pro Ausspielformat anpassbar (Position, Breite, Länge).
+- QR-Code und externes Logo pro Ausspielformat in Position und Größe anpassbar.
+- Browser-Standards pro Ausspielformat speicher- und ladbar.
+
 # Changelog
 
 ## 19.0.1.4.8
