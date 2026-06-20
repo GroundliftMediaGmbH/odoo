@@ -3,7 +3,7 @@
 
     const root = document.getElementById("gl-editor-root");
     const posterId = parseInt(root?.dataset?.posterId || "0", 10);
-    const APP_VERSION = "19.0.1.3.5";
+    const APP_VERSION = "19.0.1.3.9";
 
     const state = {
         loading: true,
@@ -659,8 +659,9 @@
             });
         }
 
-        safeLayer("Datum/Titel", () => drawDateTitle(ctx, box.date_title || box.title, regions.date_title || regions.title || []));
-        safeLayer("Uhrzeit/Untertitel", () => drawTimeSubtitle(ctx, box.time_subtitle, regions.time_subtitle || []));
+        const dateTitleLayout = box.date_title ? resolveDateTitleLayout(box.date_title, regions.date_title || []) : null;
+        safeLayer("Datum/Titel", () => drawDateTitle(ctx, box.date_title, regions.date_title || [], dateTitleLayout));
+        safeLayer("Uhrzeit/Untertitel", () => drawTimeSubtitle(ctx, box.time_subtitle, regions.time_subtitle || [], dateTitleLayout));
         safeLayer("Uhrzeit/Ticketlink", () => drawTimeTicketlink(ctx, box.time_ticketlink, regions.time_ticketlink || []));
         safeLayer("Titel", () => drawTitleOnly(ctx, box.title, regions.title || []));
         safeLayer("Untertitel", () => drawSubtitleOnly(ctx, box.subtitle, regions.subtitle || []));
@@ -735,26 +736,28 @@
         drawLayerPreserveAspect(ctx, logoImage, { x: 0, y: 0, width: logoImage.width, height: logoImage.height }, applyBoxVariant(targetBox, variant.externalLogo));
     }
 
-    function drawDateTitle(ctx, bbox, regions = []) {
+    function drawDateTitle(ctx, bbox, regions = [], preparedLayout = null) {
         if (!bbox) return;
         const title = state.fields.event_title || "";
         const date = state.fields.date_text || "";
-        const layout = resolveDateTitleLayout(bbox, regions);
+        const layout = preparedLayout || resolveDateTitleLayout(bbox, regions);
         if (layout) {
             if (layout.divider) drawDivider(ctx, layout.divider);
             if (layout.left) {
-                drawFitText(ctx, [date], layout.left, "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "right", {
+                drawFitText(ctx, [date], layout.left, `900 ${layout.dateFontSize || 64}px GroundliftBold, Arial Black, Arial, sans-serif`, "right", {
                     allowWrap: false,
                     valign: "top",
                     lineHeight: 1.0,
+                    maxSize: layout.dateFontSize || 64,
                 });
             }
             if (layout.right) {
-                drawFitText(ctx, title, layout.right, "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "left", {
+                drawFitText(ctx, title, layout.right, `900 ${layout.titleFontSize || 64}px GroundliftBold, Arial Black, Arial, sans-serif`, "left", {
                     allowWrap: true,
                     maxLines: preferredTitleLineCount(title, layout.right),
                     valign: "top",
                     lineHeight: 1.0,
+                    maxSize: layout.titleFontSize || 64,
                 });
             }
             return;
@@ -762,32 +765,39 @@
         drawSplit(ctx, bbox, [date], [title], { leftRatio: 0.42, boldRight: true });
     }
 
-    function drawTimeSubtitle(ctx, bbox, regions = []) {
+    function drawTimeSubtitle(ctx, bbox, regions = [], dateTitleLayout = null) {
         if (!bbox) return;
         const subtitle = state.fields.event_subtitle || "";
         const lines = String(subtitle).split(/\n+/).filter(Boolean);
-        const layout = resolveTimeSubtitleLayout(bbox, regions);
+        const layout = resolveTimeSubtitleLayout(bbox, regions, dateTitleLayout);
         if (layout) {
+            const timeFontSize = layout.timeFontSize || 46;
+            const categoryFontSize = layout.categoryFontSize || timeFontSize;
+            const subtitleFontSize = layout.subtitleFontSize || 46;
             if (layout.leftTop) {
-                drawFitText(ctx, [state.fields.time_text], layout.leftTop, "900 46px GroundliftBold, Arial Black, Arial, sans-serif", "right", {
+                drawFitText(ctx, [state.fields.time_text], layout.leftTop, `900 ${timeFontSize}px GroundliftBold, Arial Black, Arial, sans-serif`, "right", {
                     allowWrap: false,
                     valign: "middle",
                     lineHeight: 1.0,
+                    maxSize: timeFontSize,
                 });
             }
             if (layout.leftBottom) {
-                drawFitText(ctx, [state.fields.event_type_text], layout.leftBottom, "400 34px GroundliftRegular, Arial, sans-serif", "right", {
+                drawFitText(ctx, [state.fields.event_type_text], layout.leftBottom, `900 ${categoryFontSize}px GroundliftBold, Arial Black, Arial, sans-serif`, "right", {
                     allowWrap: false,
-                    valign: "bottom",
+                    valign: "middle",
                     lineHeight: 1.0,
+                    maxSize: categoryFontSize,
                 });
             }
             if (layout.right) {
-                drawFitText(ctx, lines.length > 1 ? lines : subtitle, layout.right, "500 46px GroundliftRegular, Arial, sans-serif", "left", {
+                const maxLines = Math.max(lines.length || 1, Math.min(preferredSubtitleLineCount(subtitle, layout.right), layout.rowCount || 2));
+                drawFitText(ctx, lines.length > 1 ? lines : subtitle, layout.right, `500 ${subtitleFontSize}px GroundliftRegular, Arial, sans-serif`, "left", {
                     allowWrap: true,
-                    maxLines: preferredSubtitleLineCount(subtitle, layout.right),
-                    valign: "bottom",
-                    lineHeight: 1.05,
+                    maxLines,
+                    valign: "middle",
+                    lineHeight: layout.subtitleLineHeight || 1.18,
+                    maxSize: subtitleFontSize,
                 });
             }
             return;
@@ -799,7 +809,10 @@
         if (!bbox) return;
         const lines = String(state.fields.ticket_link_text || "").split(/\n+/).filter(Boolean);
         const target = regions.length ? insetBox(unionBoxes(regions), 2) : bbox;
-        drawFitText(ctx, lines, target, "600 30px GroundliftCondensed, Arial Narrow, Arial, sans-serif", "center");
+        const fontSize = estimateFontSizeFromRegions(regions, 30, 1.12);
+        drawFitText(ctx, lines, target, `600 ${fontSize}px GroundliftCondensed, Arial Narrow, Arial, sans-serif`, "center", {
+            maxSize: fontSize,
+        });
     }
 
     function drawSplit(ctx, bbox, leftTopLines, rightLines, options = {}) {
@@ -811,7 +824,7 @@
         drawDivider(ctx, { x: dividerX - 2, y: bbox.y + 4, width: 4, height: Math.max(1, bbox.height - 8) });
         drawFitText(ctx, leftTopLines, { ...leftBox, height: options.leftBottom ? leftBox.height * 0.68 : leftBox.height }, "900 64px GroundliftBold, Arial Black, Arial, sans-serif", "center");
         if (options.leftBottom) {
-            drawFitText(ctx, [options.leftBottom], { x: leftBox.x, y: leftBox.y + leftBox.height * 0.66, width: leftBox.width, height: leftBox.height * 0.34 }, "400 34px GroundliftRegular, Arial, sans-serif", "center");
+            drawFitText(ctx, [options.leftBottom], { x: leftBox.x, y: leftBox.y + leftBox.height * 0.66, width: leftBox.width, height: leftBox.height * 0.34 }, "900 46px GroundliftBold, Arial Black, Arial, sans-serif", "center");
         }
         drawFitText(ctx, rightLines, rightBox, `${options.boldRight === false ? 500 : 900} 52px GroundliftBold, Arial Black, Arial, sans-serif`, "left");
     }
@@ -822,11 +835,13 @@
             const layout = resolveDateTitleLayout(bbox, regions);
             if (layout?.divider) drawDivider(ctx, layout.divider);
             const target = layout?.right || unionBoxes(regions) || bbox;
-            drawFitText(ctx, state.fields.event_title, target, "900 64px GroundliftBold, Arial Black, Arial, sans-serif", layout?.right ? "left" : "center", {
+            const fontSize = layout?.titleFontSize || estimateFontSizeFromRegions(regions, 64, 1.14);
+            drawFitText(ctx, state.fields.event_title, target, `900 ${fontSize}px GroundliftBold, Arial Black, Arial, sans-serif`, layout?.right ? "left" : "center", {
                 allowWrap: true,
                 maxLines: preferredTitleLineCount(state.fields.event_title, target),
                 valign: layout?.right ? "top" : "middle",
                 lineHeight: 1.0,
+                maxSize: fontSize,
             });
             return;
         }
@@ -843,82 +858,170 @@
         const subtitle = state.fields.event_subtitle || "";
         const lines = String(subtitle).split(/\n+/).filter(Boolean);
         const target = regions.length ? (unionBoxes(regions) || bbox) : bbox;
-        drawFitText(ctx, lines.length > 1 ? lines : subtitle, target, "500 46px GroundliftRegular, Arial, sans-serif", "left", {
+        const fontSize = estimateFontSizeFromRegions(regions, 46, 1.12);
+        drawFitText(ctx, lines.length > 1 ? lines : subtitle, target, `500 ${fontSize}px GroundliftRegular, Arial, sans-serif`, "left", {
             allowWrap: true,
             maxLines: preferredSubtitleLineCount(subtitle, target),
             valign: "bottom",
-            lineHeight: 1.05,
+            lineHeight: 1.12,
+            maxSize: fontSize,
         });
     }
 
 
+    function boxRight(box) {
+        return box ? box.x + box.width : 0;
+    }
+
+    function boxBottom(box) {
+        return box ? box.y + box.height : 0;
+    }
+
+    function usefulTextRegions(regions = []) {
+        return (regions || []).filter((r) => r && r.width > 3 && r.height > 3);
+    }
+
+    function maxRegionHeight(regions = [], fallback = 40) {
+        const useful = usefulTextRegions(regions);
+        if (!useful.length) return fallback;
+        return Math.max(...useful.map((r) => r.height));
+    }
+
+    function estimateFontSizeFromRegions(regions = [], fallback = 40, factor = 1.14) {
+        const height = maxRegionHeight(regions, fallback / factor);
+        return Math.max(10, Math.round(height * factor));
+    }
+
+    function splitRegionsByLargestHorizontalGap(regions = []) {
+        const useful = usefulTextRegions(regions).sort((a, b) => a.x - b.x);
+        if (useful.length < 2) return null;
+        let best = null;
+        for (let i = 0; i < useful.length - 1; i++) {
+            const left = useful[i];
+            const right = useful[i + 1];
+            const gap = right.x - boxRight(left);
+            if (!best || gap > best.gap) {
+                best = { gap, leftEnd: boxRight(left), rightStart: right.x };
+            }
+        }
+        if (!best || best.gap <= 0) return null;
+        return {
+            splitX: (best.leftEnd + best.rightStart) / 2,
+            leftEnd: best.leftEnd,
+            rightStart: best.rightStart,
+            gap: best.gap,
+        };
+    }
+
+    function splitRegionsByRows(regions = []) {
+        const useful = usefulTextRegions(regions).sort((a, b) => boxCenter(a).y - boxCenter(b).y || a.x - b.x);
+        if (!useful.length) return [];
+        if (useful.length === 1) return [useful];
+        let best = null;
+        for (let i = 0; i < useful.length - 1; i++) {
+            const a = useful[i];
+            const b = useful[i + 1];
+            const gap = boxCenter(b).y - boxCenter(a).y;
+            if (!best || gap > best.gap) best = { gap, index: i };
+        }
+        const threshold = Math.max(8, maxRegionHeight(useful, 30) * 0.40);
+        if (!best || best.gap < threshold) return [useful];
+        return [useful.slice(0, best.index + 1), useful.slice(best.index + 1)];
+    }
+
     function findDividerBox(bbox, regions = [], fallbackRatio = 0.42) {
-        const useful = (regions || []).filter((r) => r.width > 3 && r.height > 3);
-        const divider = useful.find((r) => r.width < bbox.width * 0.08 && r.height > bbox.height * 0.35);
+        const useful = usefulTextRegions(regions);
+        const divider = useful
+            .filter((r) => r.width < bbox.width * 0.10 && r.height > bbox.height * 0.35)
+            .sort((a, b) => b.height - a.height || a.x - b.x)[0];
         if (divider) return divider;
         const centerX = bbox.x + bbox.width * fallbackRatio;
         return { x: centerX - 2, y: bbox.y + 4, width: 4, height: Math.max(1, bbox.height - 8) };
     }
 
-    function buildDividerColumns(bbox, divider, gap = null) {
-        const actualGap = gap == null ? Math.max(16, bbox.width * 0.02) : gap;
-        const left = {
-            x: bbox.x,
-            y: bbox.y,
-            width: Math.max(1, divider.x - actualGap - bbox.x),
-            height: bbox.height,
-        };
-        const rightStart = divider.x + divider.width + actualGap;
-        const right = {
-            x: rightStart,
-            y: bbox.y,
-            width: Math.max(1, bbox.x + bbox.width - rightStart),
-            height: bbox.height,
-        };
-        return { left, right, gap: actualGap };
-    }
-
     function resolveDateTitleLayout(bbox, regions) {
-        const useful = (regions || []).filter((r) => r.width > 3 && r.height > 3);
+        const useful = usefulTextRegions(regions);
         if (!useful.length) return null;
         const divider = findDividerBox(bbox, useful, 0.42);
-        const columns = buildDividerColumns(bbox, divider);
+        const dividerCenter = divider.x + divider.width / 2;
+        const leftRegions = useful.filter((r) => boxCenter(r).x < dividerCenter && r !== divider);
+        const rightRegions = useful.filter((r) => boxCenter(r).x > dividerCenter && r !== divider);
+        const leftUnion = unionBoxes(leftRegions);
+        const rightUnion = unionBoxes(rightRegions);
+        const fallbackGap = Math.max(16, bbox.width * 0.02);
+        const hasLeftText = Boolean(leftUnion && boxRight(leftUnion) <= divider.x + divider.width * 0.25);
+        const leftX = hasLeftText ? leftUnion.x : bbox.x;
+        const leftRight = hasLeftText ? boxRight(leftUnion) : (divider.x - fallbackGap);
+        const rightX = rightUnion ? rightUnion.x : (divider.x + divider.width + fallbackGap);
+        const rightRight = Math.max(bbox.x + bbox.width, rightUnion ? boxRight(rightUnion) : bbox.x + bbox.width);
         const top = divider.y;
         const height = divider.height;
         return {
             divider,
-            left: { x: columns.left.x, y: top, width: columns.left.width, height },
-            right: { x: columns.right.x, y: top, width: columns.right.width, height },
+            hasLeftText,
+            left: hasLeftText ? { x: leftX, y: top, width: Math.max(1, leftRight - leftX), height } : null,
+            right: { x: rightX, y: top, width: Math.max(1, rightRight - rightX), height },
+            dateFontSize: estimateFontSizeFromRegions(leftRegions, 64, 1.14),
+            titleFontSize: estimateFontSizeFromRegions(rightRegions, 64, 1.14),
+            leftEnd: leftRight,
+            rightStart: rightX,
         };
     }
 
-    function resolveTimeSubtitleLayout(bbox, regions) {
-        const useful = (regions || []).filter((r) => r.width > 3 && r.height > 3);
+    function resolveTimeSubtitleLayout(bbox, regions, dateTitleLayout = null) {
+        const useful = usefulTextRegions(regions);
         if (!useful.length) return null;
 
-        // Use the exact same divider logic and horizontal spacing as the
-        // date/title block so time/category/subtitle line up perfectly with it.
-        const divider = findDividerBox(bbox, useful, 0.42);
-        const columns = buildDividerColumns(bbox, divider);
-        const top = divider.y;
-        const bottom = divider.y + divider.height;
+        const inferredColumns = splitRegionsByLargestHorizontalGap(useful);
+        const hasLeftGuide = Boolean(dateTitleLayout?.hasLeftText || !dateTitleLayout);
+        const leftEnd = dateTitleLayout?.left ? boxRight(dateTitleLayout.left) : (inferredColumns?.leftEnd || bbox.x + bbox.width * 0.38);
+        const rightStart = dateTitleLayout?.right ? dateTitleLayout.right.x : (inferredColumns?.rightStart || bbox.x + bbox.width * 0.45);
+        const splitX = dateTitleLayout
+            ? (dateTitleLayout.hasLeftText ? ((leftEnd + rightStart) / 2) : (dateTitleLayout.divider.x + dateTitleLayout.divider.width / 2))
+            : (inferredColumns?.splitX || ((leftEnd + rightStart) / 2));
 
-        const leftCandidates = useful.filter((r) => boxCenter(r).x < divider.x).sort((a, b) => a.y - b.y || a.x - b.x);
-        const topHint = leftCandidates[0] || null;
-        const bottomHint = leftCandidates.length > 1 ? unionBoxes(leftCandidates.slice(1)) : null;
+        const leftRegions = hasLeftGuide ? useful.filter((r) => boxCenter(r).x < splitX) : [];
+        const rightRegions = hasLeftGuide ? useful.filter((r) => boxCenter(r).x >= splitX) : useful;
+        const leftStart = Math.min(
+            ...(leftRegions.length ? leftRegions.map((r) => r.x) : [bbox.x]),
+            dateTitleLayout?.left?.x ?? bbox.x
+        );
+        const rightEnd = Math.max(bbox.x + bbox.width, ...(rightRegions.length ? rightRegions.map((r) => boxRight(r)) : [bbox.x + bbox.width]));
 
-        let splitY;
-        if (topHint && bottomHint) {
-            splitY = clamp((topHint.y + topHint.height + bottomHint.y) / 2, top + divider.height * 0.40, top + divider.height * 0.72);
-        } else {
-            splitY = top + divider.height * 0.62;
-        }
+        const rows = splitRegionsByRows(useful);
+        const topRow = unionBoxes(rows[0] || useful) || bbox;
+        const bottomRow = unionBoxes(rows[1] || rows[0] || useful) || topRow;
+        const rowHeight = Math.max(topRow.height, bottomRow.height, maxRegionHeight(useful, 40));
+        const padY = Math.max(2, rowHeight * 0.15);
+        const topBox = {
+            y: Math.max(bbox.y, topRow.y - padY),
+            height: topRow.height + padY * 2,
+        };
+        const bottomBox = {
+            y: Math.max(bbox.y, bottomRow.y - padY),
+            height: bottomRow.height + padY * 2,
+        };
+        const totalTop = Math.min(topBox.y, bottomBox.y);
+        const totalBottom = Math.max(boxBottom({ x: 0, y: topBox.y, width: 1, height: topBox.height }), boxBottom({ x: 0, y: bottomBox.y, width: 1, height: bottomBox.height }));
+        const rowCenterGap = Math.max(1, Math.abs(boxCenter(bottomRow).y - boxCenter(topRow).y));
+
+        const topLeftRegions = leftRegions.filter((r) => boxCenter(r).y <= boxCenter(topRow).y + topRow.height / 2);
+        const bottomLeftRegions = leftRegions.filter((r) => boxCenter(r).y > boxCenter(topRow).y + topRow.height / 2);
+        const topRightRegions = rightRegions.filter((r) => boxCenter(r).y <= boxCenter(topRow).y + topRow.height / 2);
+        const bottomRightRegions = rightRegions.filter((r) => boxCenter(r).y > boxCenter(topRow).y + topRow.height / 2);
+        const subtitleFontSize = estimateFontSizeFromRegions(topRightRegions.concat(bottomRightRegions), 46, 1.12);
 
         return {
-            divider,
-            leftTop: { x: columns.left.x, y: top, width: columns.left.width, height: Math.max(1, splitY - top) },
-            leftBottom: { x: columns.left.x, y: splitY, width: columns.left.width, height: Math.max(1, bottom - splitY) },
-            right: { x: columns.right.x, y: top, width: columns.right.width, height: divider.height },
+            leftTop: leftRegions.length ? { x: leftStart, y: topBox.y, width: Math.max(1, leftEnd - leftStart), height: topBox.height } : null,
+            leftBottom: leftRegions.length ? { x: leftStart, y: bottomBox.y, width: Math.max(1, leftEnd - leftStart), height: bottomBox.height } : null,
+            right: { x: rightStart, y: totalTop, width: Math.max(1, rightEnd - rightStart), height: Math.max(1, totalBottom - totalTop) },
+            timeFontSize: estimateFontSizeFromRegions(topLeftRegions, 46, 1.12),
+            categoryFontSize: estimateFontSizeFromRegions(bottomLeftRegions.length ? bottomLeftRegions : topLeftRegions, 46, 1.12),
+            subtitleFontSize,
+            subtitleLineHeight: clamp(rowCenterGap / Math.max(1, subtitleFontSize), 1.0, 1.35),
+            rowCount: rows.length || 1,
+            leftEnd,
+            rightStart,
         };
     }
 
