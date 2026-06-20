@@ -3,7 +3,7 @@
 
     const root = document.getElementById("gl-editor-root");
     const posterId = parseInt(root?.dataset?.posterId || "0", 10);
-    const APP_VERSION = "19.0.1.4.5";
+    const APP_VERSION = "19.0.1.4.6";
 
     const state = {
         loading: true,
@@ -782,26 +782,61 @@
         return (regionList || []).map((region) => shiftBox(region, dx, dy)).filter(Boolean);
     }
 
+    function templateIdentity(template) {
+        return [template?.key, template?.name, template?.output_suffix]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+    }
+
+    function isFoyerTemplate(template) {
+        return /foyer/.test(templateIdentity(template));
+    }
+
+    function resolveFrameReferenceBox(box = {}) {
+        const direct = box.frame || box.rahmen || box.image_frame || box.overlay_frame || box.static_frame || box.static_rahmen;
+        if (direct) return direct;
+        const candidates = Object.entries(box || {})
+            .filter(([role, bbox]) => bbox && /(frame|rahmen)/i.test(role))
+            .map(([, bbox]) => bbox)
+            .sort((a, b) => (b.width * b.height) - (a.width * a.height));
+        return candidates[0] || null;
+    }
+
     function resolvePhotoCreditFont(template) {
-        if (template?.key === "foyer_eingang") return "400 22px GroundliftRegular, Arial, sans-serif";
+        if (isFoyerTemplate(template)) return "400 22px GroundliftRegular, Arial, sans-serif";
         return "400 28px GroundliftRegular, Arial, sans-serif";
     }
 
     function resolvePhotoCreditTargetBox(template, box = {}) {
         if (!template) return box.photo_credit || null;
         if (template.key === "social_post") return box.photo_credit || null;
-        const frame = box.frame;
-        if (!frame) return box.photo_credit || null;
         const original = box.photo_credit || null;
-        if (template.key === "foyer_eingang") {
-            // Im Foyer-Format muss der Fotocredit direkt unterhalb der unteren weißen Rahmenlinie sitzen.
+        const frame = resolveFrameReferenceBox(box);
+        if (isFoyerTemplate(template)) {
+            // Foyer und Foyer Eingang: Fotocredit direkt unter die dünne weiße Rahmenlinie setzen.
+            // Falls die Vorlage den Rahmen nicht als `frame` ausliefert, wird auf einen rahmenartigen
+            // Asset-Namen oder als letzte Sicherheitsstufe auf die bisherige Box minus ca. 105 px zurückgegriffen.
             const height = Math.max(16, Math.min(original?.height || 22, 22));
-            const width = Math.max(240, Math.min(original?.width || Math.round(frame.width * 0.78), Math.round(frame.width * 0.96)));
+            const widthBase = original?.width || Math.round((frame?.width || template.canvas_width) * 0.78);
+            const maxWidth = Math.round((frame?.width || template.canvas_width) * 0.96);
+            const width = Math.max(240, Math.min(widthBase, maxWidth));
             const gap = Math.max(1, Math.round(template.canvas_height * 0.0008));
-            const x = frame.x + (frame.width - width) / 2;
-            const y = Math.min(template.canvas_height - height - 6, Math.round(frame.y + frame.height + gap));
-            return { x, y, width, height };
+            const x = frame
+                ? frame.x + (frame.width - width) / 2
+                : Math.max(0, Math.min(template.canvas_width - width, original?.x ?? Math.round((template.canvas_width - width) / 2)));
+            const fallbackLift = Math.round(template.canvas_height * 0.055); // 1920 px Vorlage => ca. 106 px
+            const y = frame
+                ? Math.round(frame.y + frame.height + gap)
+                : Math.max(0, Math.round((original?.y ?? 0) - fallbackLift));
+            return {
+                x,
+                y: Math.min(template.canvas_height - height - 6, y),
+                width,
+                height,
+            };
         }
+        if (!frame) return original;
         const preferredWidth = original?.width || Math.round(frame.width * 0.62);
         const width = Math.max(150, Math.min(preferredWidth, Math.round(frame.width * 0.78)));
         const height = Math.max(22, Math.min(original?.height || 32, Math.round(template.canvas_height * 0.012)));
@@ -815,7 +850,7 @@
         if (!bbox || !text) return;
         drawFitText(ctx, [String(text).toUpperCase()], bbox, font, "center", {
             allowWrap: false,
-            valign: template?.key === "foyer_eingang" ? "top" : "middle",
+            valign: isFoyerTemplate(template) ? "top" : "middle",
             lineHeight: 1.0,
         });
     }

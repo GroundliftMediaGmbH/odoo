@@ -21,7 +21,7 @@ class GroundliftGraphicsEditorLoader extends Component {
 
     get src() {
         const posterId = this.props.action?.params?.poster_id;
-        return posterId ? `/groundlift_graphics/editor/${posterId}?v=19.0.1.4.5` : "/groundlift_graphics/editor/missing?v=19.0.1.4.5";
+        return posterId ? `/groundlift_graphics/editor/${posterId}?v=19.0.1.4.6` : "/groundlift_graphics/editor/missing?v=19.0.1.4.6";
     }
 }
 

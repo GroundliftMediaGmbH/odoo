@@ -1,5 +1,11 @@
 # Changelog
 
+## 19.0.1.4.6
+
+- Foyer-Fotocredit-Fix robuster gemacht: Die Positionierung greift jetzt nicht nur bei `foyer_eingang`, sondern bei allen Foyer-Vorlagen über Key, Name oder Output-Suffix.
+- Der Fotocredit wird für Foyer direkt unterhalb der dünnen weißen Rahmenlinie positioniert; falls die Rahmenbox in der Vorlage nicht als `frame` erkannt wird, wird die bisherige Fotocredit-Box als Fallback um ca. 105 px nach oben verschoben.
+- Cache-Busting für Standalone-Editor und Loader auf `19.0.1.4.6` angehoben.
+
 ## 19.0.1.4.5
 
 - Foyer-Ansicht: Fotocredit-Fix jetzt auf den tatsächlichen Template-Key `foyer_eingang` gelegt; dadurch sitzt der Fotocredit direkt unterhalb der weißen Rahmenlinie.
