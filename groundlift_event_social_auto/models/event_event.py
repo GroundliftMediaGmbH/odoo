@@ -766,10 +766,11 @@ class EventEvent(models.Model):
     def _gl_prepare_image_for_soldout_badge(self, image_bytes, publication_kind='story'):
         """Return the visible social image bytes before the sold-out badge is drawn.
 
-        The badge must be applied after the image has the ratio that this module
-        will use for the post. Otherwise the image adjustment hook can crop the
-        badge away after it has been rendered. Already suitable images are left
-        unchanged.
+        If the original image is already suitable for the target story/feed
+        ratio, it is kept as-is. Otherwise, the module now creates a background
+        canvas in the required ratio using a gradient from the two dominant
+        image colors and places the original image resized with "contain" so it
+        remains fully visible. The sold-out badge is applied afterwards.
         """
         if not Image:
             return image_bytes
@@ -784,7 +785,7 @@ class EventEvent(models.Model):
                 output = BytesIO()
                 image.save(output, format='JPEG', quality=95)
                 return output.getvalue()
-            image = self._gl_pil_cover_crop_to_ratio(image, target_ratio)
+            image = self._gl_build_social_gradient_canvas(image, target_ratio)
             output = BytesIO()
             image.save(output, format='JPEG', quality=95)
             return output.getvalue()
@@ -803,6 +804,76 @@ class EventEvent(models.Model):
         if (publication_kind or 'story') == 'story':
             return abs(ratio - (9.0 / 16.0)) <= 0.035
         return 0.79 <= ratio <= 1.92
+
+    def _gl_build_social_gradient_canvas(self, image, target_ratio):
+        if not image or not target_ratio:
+            return image
+        image = image.convert('RGB')
+        width, height = image.size
+        if not width or not height:
+            return image
+        current_ratio = float(width) / float(height or 1)
+        if current_ratio > target_ratio:
+            canvas_width = width
+            canvas_height = max(height, int(round(float(width) / float(target_ratio))))
+        else:
+            canvas_height = height
+            canvas_width = max(width, int(round(float(height) * float(target_ratio))))
+        colors = self._gl_extract_dominant_colors(image, count=2)
+        background = self._gl_linear_gradient_image((canvas_width, canvas_height), colors[0], colors[1])
+        fitted = self._gl_contain_image(image, (canvas_width, canvas_height))
+        pos_x = int((canvas_width - fitted.size[0]) / 2)
+        pos_y = int((canvas_height - fitted.size[1]) / 2)
+        background.paste(fitted, (pos_x, pos_y))
+        return background
+
+    def _gl_extract_dominant_colors(self, image, count=2):
+        image = image.convert('RGB')
+        sample = image.copy()
+        sample.thumbnail((120, 120))
+        quantized = sample.quantize(colors=max(4, count * 3), method=getattr(Image, 'MEDIANCUT', 0)).convert('RGB')
+        raw_colors = quantized.getcolors(maxcolors=120 * 120) or []
+        raw_colors = sorted(raw_colors, key=lambda item: item[0], reverse=True)
+        colors = []
+        seen = set()
+        for _weight, color in raw_colors:
+            if color in seen:
+                continue
+            seen.add(color)
+            colors.append(tuple(int(v) for v in color))
+            if len(colors) >= count:
+                break
+        if not colors:
+            colors = [(32, 32, 32)]
+        while len(colors) < count:
+            base = colors[-1]
+            factor = 0.78 if len(colors) % 2 else 1.22
+            derived = tuple(max(0, min(255, int(channel * factor))) for channel in base)
+            colors.append(derived)
+        return colors[:count]
+
+    def _gl_linear_gradient_image(self, size, color_a, color_b):
+        width, height = size
+        gradient = Image.new('RGB', (1, max(1, height)))
+        px = gradient.load()
+        denom = float(max(height - 1, 1))
+        for y in range(height):
+            ratio = float(y) / denom
+            px[0, y] = tuple(
+                int(round(color_a[idx] * (1.0 - ratio) + color_b[idx] * ratio))
+                for idx in range(3)
+            )
+        return gradient.resize((max(1, width), max(1, height)))
+
+    def _gl_contain_image(self, image, size):
+        canvas_width, canvas_height = size
+        width, height = image.size
+        scale = min(float(canvas_width) / float(width or 1), float(canvas_height) / float(height or 1))
+        new_size = (max(1, int(round(width * scale))), max(1, int(round(height * scale))))
+        resampling = getattr(getattr(Image, 'Resampling', Image), 'LANCZOS', Image.BICUBIC)
+        if new_size != image.size:
+            return image.resize(new_size, resampling)
+        return image.copy()
 
     def _gl_pil_cover_crop_to_ratio(self, image, target_ratio):
         if not image or not target_ratio:

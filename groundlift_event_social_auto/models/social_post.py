@@ -487,7 +487,7 @@ class SocialPost(models.Model):
                 continue
             adjusted = post.env['ir.attachment']
             for attachment in attachments:
-                adjusted |= post._gl_crop_attachment_to_target(attachment)
+                adjusted |= post._gl_adjust_attachment_to_target(attachment)
             if adjusted:
                 vals = {
                     'gl_requires_approval': True,
@@ -551,6 +551,110 @@ class SocialPost(models.Model):
             'res_id': attachment.res_id or self.id,
             'mimetype': 'image/jpeg',
         })
+
+    def _gl_adjust_attachment_to_target(self, attachment):
+        """Default auto-adjustment for social images.
+
+        If the image already has an acceptable aspect ratio, it is kept.
+        Otherwise a new canvas with the target ratio is created from a gradient
+        using the two dominant colors of the original image, and the original
+        image is placed on top using contain-fit so the full image remains
+        visible.
+        """
+        self.ensure_one()
+        if not Image:
+            raise UserError('Pillow/PIL ist auf dem Odoo-Server nicht verfügbar. Bildanpassung ist deshalb nicht möglich.')
+        if not attachment or not attachment.datas:
+            raise UserError('Kein Bild zur Anpassung gefunden.')
+        image_bytes = base64.b64decode(attachment.datas)
+        with Image.open(BytesIO(image_bytes)) as image:
+            image = image.convert('RGB')
+            width, height = image.size
+            ratio = float(width) / float(height or 1)
+            if self._gl_ratio_is_acceptable(ratio):
+                adjusted = image.copy()
+            else:
+                adjusted = self._gl_build_gradient_canvas_for_post(image, self._gl_target_aspect_ratio())
+            output = BytesIO()
+            adjusted.save(output, format='JPEG', quality=95)
+        name = 'fit_%s' % (attachment.name or 'social_image.jpg')
+        return self.env['ir.attachment'].sudo().create({
+            'name': re.sub(r'[^A-Za-z0-9_.-]+', '_', name)[:110],
+            'type': 'binary',
+            'datas': base64.b64encode(output.getvalue()),
+            'res_model': attachment.res_model or 'social.post',
+            'res_id': attachment.res_id or self.id,
+            'mimetype': 'image/jpeg',
+        })
+
+    def _gl_build_gradient_canvas_for_post(self, image, target_ratio):
+        if not image or not target_ratio:
+            return image
+        image = image.convert('RGB')
+        width, height = image.size
+        if not width or not height:
+            return image
+        current_ratio = float(width) / float(height or 1)
+        if current_ratio > target_ratio:
+            canvas_width = width
+            canvas_height = max(height, int(round(float(width) / float(target_ratio))))
+        else:
+            canvas_height = height
+            canvas_width = max(width, int(round(float(height) * float(target_ratio))))
+        colors = self._gl_extract_dominant_colors(image, count=2)
+        background = self._gl_linear_gradient_image((canvas_width, canvas_height), colors[0], colors[1])
+        fitted = self._gl_contain_image(image, (canvas_width, canvas_height))
+        pos_x = int((canvas_width - fitted.size[0]) / 2)
+        pos_y = int((canvas_height - fitted.size[1]) / 2)
+        background.paste(fitted, (pos_x, pos_y))
+        return background
+
+    def _gl_extract_dominant_colors(self, image, count=2):
+        image = image.convert('RGB')
+        sample = image.copy()
+        sample.thumbnail((120, 120))
+        quantized = sample.quantize(colors=max(4, count * 3), method=getattr(Image, 'MEDIANCUT', 0)).convert('RGB')
+        raw_colors = quantized.getcolors(maxcolors=120 * 120) or []
+        raw_colors = sorted(raw_colors, key=lambda item: item[0], reverse=True)
+        colors, seen = [], set()
+        for _weight, color in raw_colors:
+            if color in seen:
+                continue
+            seen.add(color)
+            colors.append(tuple(int(v) for v in color))
+            if len(colors) >= count:
+                break
+        if not colors:
+            colors = [(32, 32, 32)]
+        while len(colors) < count:
+            base = colors[-1]
+            factor = 0.78 if len(colors) % 2 else 1.22
+            derived = tuple(max(0, min(255, int(channel * factor))) for channel in base)
+            colors.append(derived)
+        return colors[:count]
+
+    def _gl_linear_gradient_image(self, size, color_a, color_b):
+        width, height = size
+        gradient = Image.new('RGB', (1, max(1, height)))
+        px = gradient.load()
+        denom = float(max(height - 1, 1))
+        for y in range(height):
+            ratio = float(y) / denom
+            px[0, y] = tuple(
+                int(round(color_a[idx] * (1.0 - ratio) + color_b[idx] * ratio))
+                for idx in range(3)
+            )
+        return gradient.resize((max(1, width), max(1, height)))
+
+    def _gl_contain_image(self, image, size):
+        canvas_width, canvas_height = size
+        width, height = image.size
+        scale = min(float(canvas_width) / float(width or 1), float(canvas_height) / float(height or 1))
+        new_size = (max(1, int(round(width * scale))), max(1, int(round(height * scale))))
+        resampling = getattr(getattr(Image, 'Resampling', Image), 'LANCZOS', Image.BICUBIC)
+        if new_size != image.size:
+            return image.resize(new_size, resampling)
+        return image.copy()
 
     def _gl_attachment_dimensions(self, attachment):
         if not Image or not attachment or not attachment.datas:
