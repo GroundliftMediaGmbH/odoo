@@ -1,22 +1,41 @@
 # Inbox Filter für Odoo 19 SH
 
-Version: 19.0.1.0.4
+Version: 19.0.1.1.1
 
 ## Zweck
 GPT-gestützte Sortierung neuer CRM-Leads aus der Phase „Neu“ in:
 
 - Qualifiziert
-- SPAM/Newsletter
+- Bandanfragen
+- SPAM
+- Newsletter
 - Kino Lieferung/Report
+- Rechnungen
+- Versand / Paketverfolgung
+- Kartenbestellungen
 - Projekt/Veranstaltung
+- Softbounces / Auto-Antworten
 - ToDo für Mitarbeitende
 - Kundensupport
 - Zu prüfen
 
-## Wichtige Änderung ab 19.0.1.0.4
-Die OpenAI-Einstellungen werden nicht mehr über den transienten Odoo-Settings-Wizard `res.config.settings` gespeichert, sondern über einen echten persistenten Singleton-Datensatz `inbox.filter.settings`.
+## Änderungen in 19.0.1.1.1
 
-Dadurch bleibt der API-Token zuverlässig gespeichert und `Token prüfen` liest direkt aus dem echten Einstellungsdatensatz.
+- Die direkte Mail-Voransicht liest den vollständigen E-Mail-Body nun zusätzlich aus dem CRM-Chatter (`mail.message`), nicht nur aus `crm.lead.description`. Dadurch erscheinen auch Inhalte, die Odoo bei eingehenden Mails nur im Chatter gespeichert hat.
+- Die GPT-Klassifizierung, die Historie und die Kundensupport-Übergabe verwenden dieselbe vollständige Originalmail inklusive Betreff, Absender und Nachrichtentext.
+- Die Registerkarte „Originalinhalt“ zeigt nun ebenfalls die angereicherte vollständige Mail.
+
+## Änderungen in 19.0.1.1.0
+
+- SPAM und Newsletter sind vollständig getrennte Kategorien mit eigenen Prompts, Tabs, Suchfiltern und manuellen Korrekturbuttons.
+- Neue Kategorien: Rechnungen, Versand/Paketverfolgung, Kartenbestellungen und Softbounces/Auto-Antworten.
+- Historie hat den Haken „Perfekt erkannt“. Gesperrte Datensätze können nicht mehr verschoben, rückgängig gemacht oder neu einsortiert werden.
+- Jeder Historien-Datensatz hat „Neu erkennen“.
+- Im Workspace und in der Historie gibt es „Alle neu einsortieren“ für alle nicht perfekt erkannten Datensätze.
+- Manuelle Korrekturen erzeugen nun balancierte Lernregeln: Der Zielprompt wird verbessert und andere Prompts werden bei Verwechslungsgefahr mit Ausschlussregeln nachgeschärft.
+- Die Historie zeigt direkt beim Öffnen eine Mail-Voransicht mit Originaltext.
+- Kundensupport-Tickets erhalten die Originalnachricht zusätzlich als Mail im Chatter. Unter „Originaltext“ stehen Betreff und vollständige Nachricht.
+- Qualifizierte CRM-Einträge, Kundensupport-Tickets und Kartenbestellungen erzeugen eine Benachrichtigung mit Handlungsbedarf.
 
 ## Einrichtung
 
@@ -29,13 +48,6 @@ Dadurch bleibt der API-Token zuverlässig gespeichert und `Token prüfen` liest 
 ## Hinweise
 
 - Der Token wird zusätzlich nach `ir.config_parameter` gespiegelt, damit ältere Modulpfade und Upgrades kompatibel bleiben.
-- SPAM/Newsletter, Kino Lieferung/Report, Projekt/VA, ToDo und Kundensupport werden zunächst sicher archiviert und in der Inbox-Filter-Historie protokolliert.
-- Endgültiges Löschen erfolgt nur über „SPAM/Newsletter bestätigt“.
-
-
-## Version 19.0.1.0.6
-
-- Neuer Filter **Bandanfragen** mit eigenem Prompt, Tab, Historienkategorie und manueller Korrektur.
-- Zutreffende Bandanfragen werden in die CRM-Phase **Bandanfragen** verschoben.
-- Neue CRM-Datensätze, die in der Phase **Neu** eingehen, werden automatisch sortiert, sofern die Einstellung **Automatisch sortieren** aktiv ist.
-- Die Automatik ist fehlertolerant: API-/Klassifizierungsfehler verhindern nicht das Erstellen des CRM-Datensatzes.
+- Archivkategorien entfernen Datensätze nur aus CRM „Neu“ und speichern sie vollständig in der Inbox-Filter-Historie.
+- Endgültiges Löschen gibt es weiterhin nur bewusst über „SPAM bestätigt / löschen“.
+- Der alte SPAM/Newsletter-Prompt wird beim Zugriff automatisch auf den neuen SPAM-Prompt umgestellt, damit Newsletter künftig separat gelernt werden.

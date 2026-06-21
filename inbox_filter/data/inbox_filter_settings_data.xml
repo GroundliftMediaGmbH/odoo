@@ -8,4 +8,7 @@
         <field name="limit">50</field>
         <field name="auto_sort_enabled">1</field>
     </record>
+    <record id="workspace_default" model="inbox.filter.workspace">
+        <field name="name">Inbox Filter</field>
+    </record>
 </odoo>

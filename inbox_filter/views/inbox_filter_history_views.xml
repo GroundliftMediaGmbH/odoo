@@ -5,12 +5,14 @@
         <field name="model">inbox.filter.history</field>
         <field name="arch" type="xml">
             <list string="Inbox Filter Historie" create="false">
+                <field name="perfect_recognized" widget="boolean_toggle" string="Perfekt erkannt"/>
                 <field name="create_date" string="Zeitstempel"/>
                 <field name="name" string="Beschreibung"/>
                 <field name="category" string="Filter"/>
                 <field name="moved_to" string="Verschoben nach"/>
                 <field name="confidence"/>
                 <field name="status"/>
+                <field name="raw_input_preview" string="Voransicht"/>
             </list>
         </field>
     </record>
@@ -22,20 +24,32 @@
             <form string="Inbox Filter Vorgang">
                 <header>
                     <button name="action_open_record" type="object" string="Datensatz öffnen"/>
+                    <button name="action_reclassify" type="object" string="Neu erkennen" class="btn-primary" confirm="Diesen Datensatz erneut prüfen und neu einsortieren?"/>
+                    <button name="action_reclassify_all" type="object" string="Alle neu einsortieren" class="btn-secondary" confirm="Alle Historien-Datensätze, die nicht auf 'Perfekt erkannt' stehen, werden neu geprüft und erneut verschoben. Fortfahren?"/>
                     <button name="action_undo" type="object" string="Rückgängig" class="btn-secondary"/>
-                    <button name="action_confirm_spam" type="object" string="SPAM/Newsletter bestätigt" class="btn-secondary"/>
+                    <button name="action_confirm_spam" type="object" string="SPAM bestätigt / löschen" class="btn-secondary"/>
                     <button name="action_mark_qualified" type="object" string="Qualifiziert" class="btn-primary"/>
                     <button name="action_mark_band_request" type="object" string="Bandanfragen"/>
+                    <button name="action_mark_spam" type="object" string="SPAM"/>
+                    <button name="action_mark_newsletter" type="object" string="Newsletter"/>
                     <button name="action_mark_cinema_delivery_report" type="object" string="Kino Lieferung/Report"/>
+                    <button name="action_mark_invoice" type="object" string="Rechnungen"/>
+                    <button name="action_mark_shipping_tracking" type="object" string="Versand/Paket"/>
+                    <button name="action_mark_ticket_order" type="object" string="Kartenbestellung"/>
                     <button name="action_open_project_event_wizard" type="object" string="Projekt/VA"/>
+                    <button name="action_mark_soft_bounce" type="object" string="Softbounce"/>
                     <button name="action_open_todo_wizard" type="object" string="ToDo"/>
                     <button name="action_assign_support" type="object" string="Kundensupport"/>
                     <field name="status" widget="statusbar"/>
                 </header>
                 <sheet>
-                    <div class="oe_title">
-                        <h1><field name="name"/></h1>
-                    </div>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <group>
+                        <field name="perfect_recognized" widget="boolean_toggle"/>
+                    </group>
+                    <group string="Direkte Mail-Voransicht">
+                        <field name="raw_input_preview_html" nolabel="1" readonly="1" widget="html"/>
+                    </group>
                     <group>
                         <group>
                             <field name="create_date" readonly="1"/>
@@ -57,7 +71,7 @@
                     <notebook>
                         <page string="Original &amp; Übersicht">
                             <group string="Originalinhalt">
-                                <field name="raw_input" nolabel="1" widget="text" readonly="1"/>
+                                <field name="effective_raw_input" nolabel="1" widget="text" readonly="1"/>
                             </group>
                             <group string="Beschreibung">
                                 <field name="summary" nolabel="1" widget="text"/>
@@ -66,15 +80,9 @@
                                 <field name="reason" nolabel="1" widget="text"/>
                             </group>
                         </page>
-                        <page string="GPT JSON">
-                            <field name="gpt_response_json" nolabel="1" widget="text"/>
-                        </page>
-                        <page string="Snapshot">
-                            <field name="original_data_json" nolabel="1" widget="text" readonly="1"/>
-                        </page>
-                        <page string="Fehler">
-                            <field name="error_message" nolabel="1" widget="text"/>
-                        </page>
+                        <page string="GPT JSON"><field name="gpt_response_json" nolabel="1" widget="text"/></page>
+                        <page string="Snapshot"><field name="original_data_json" nolabel="1" widget="text" readonly="1"/></page>
+                        <page string="Fehler"><field name="error_message" nolabel="1" widget="text"/></page>
                     </notebook>
                 </sheet>
                 <chatter/>
@@ -91,15 +99,25 @@
                 <field name="summary"/>
                 <field name="raw_input"/>
                 <field name="category"/>
+                <filter name="filter_perfect" string="Perfekt erkannt" domain="[('perfect_recognized','=',True)]"/>
+                <filter name="filter_not_perfect" string="Nicht perfekt" domain="[('perfect_recognized','=',False)]"/>
                 <filter name="filter_band_request" string="Bandanfragen" domain="[('category','=','band_request')]"/>
-                <filter name="filter_spam" string="SPAM/Newsletter" domain="[('category','=','spam')]"/>
+                <filter name="filter_spam" string="SPAM" domain="[('category','=','spam')]"/>
+                <filter name="filter_newsletter" string="Newsletter" domain="[('category','=','newsletter')]"/>
                 <filter name="filter_cinema_delivery_report" string="Kino Lieferung/Report" domain="[('category','=','cinema_delivery_report')]"/>
+                <filter name="filter_invoice" string="Rechnungen" domain="[('category','=','invoice')]"/>
+                <filter name="filter_shipping_tracking" string="Versand / Paketverfolgung" domain="[('category','=','shipping_tracking')]"/>
+                <filter name="filter_ticket_order" string="Kartenbestellungen" domain="[('category','=','ticket_order')]"/>
+                <filter name="filter_production" string="Projekt/VA" domain="[('category','=','production')]"/>
+                <filter name="filter_soft_bounce" string="Softbounces" domain="[('category','=','soft_bounce')]"/>
                 <filter name="filter_qualified" string="Qualifiziert" domain="[('category','=','qualified')]"/>
+                <filter name="filter_support" string="Kundensupport" domain="[('category','=','support')]"/>
                 <filter name="filter_review" string="Zu prüfen" domain="[('category','=','review')]"/>
                 <filter name="filter_errors" string="Fehler" domain="[('status','=','error')]"/>
                 <group>
                     <filter name="group_category" string="Filter" context="{'group_by':'category'}"/>
                     <filter name="group_status" string="Status" context="{'group_by':'status'}"/>
+                    <filter name="group_perfect" string="Perfekt erkannt" context="{'group_by':'perfect_recognized'}"/>
                     <filter name="group_date" string="Datum" context="{'group_by':'create_date:day'}"/>
                 </group>
             </search>

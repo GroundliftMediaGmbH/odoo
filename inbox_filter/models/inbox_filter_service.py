@@ -9,10 +9,16 @@ from datetime import timedelta
 from odoo import _, api, fields, models, tools
 from odoo.exceptions import UserError
 
+from .inbox_filter_prompt import (
+    ACTION_REQUIRED_CATEGORY_CODES,
+    ARCHIVE_CATEGORY_CODES,
+    CATEGORY_CODES,
+    CATEGORY_SELECTION_ITEMS,
+)
+
 _logger = logging.getLogger(__name__)
 
-
-CATEGORY_SELECTION = ["qualified", "band_request", "spam", "cinema_delivery_report", "production", "todo", "support", "review"]
+CATEGORY_LABELS = dict(CATEGORY_SELECTION_ITEMS)
 
 
 class InboxFilterService(models.AbstractModel):
@@ -25,19 +31,15 @@ class InboxFilterService(models.AbstractModel):
     @api.model
     def run_sort_new_leads_action(self):
         stats = self.run_sort_new_leads()
-        message = _(
-            "Inbox Filter abgeschlossen: %(processed)s verarbeitet, %(qualified)s qualifiziert, "
-            "%(band_request)s Bandanfragen, %(spam)s SPAM/Newsletter, %(cinema_delivery_report)s Kino Lieferung/Report, %(production)s Projekt/VA, %(todo)s ToDo, %(support)s Kundensupport, "
-            "%(review)s zu prüfen, %(error)s Fehler."
-        ) % stats
+        message = self._format_stats_message(stats)
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",
             "params": {
                 "title": _("Inbox Filter"),
                 "message": message,
-                "type": "success" if not stats.get("error") else "warning",
-                "sticky": False,
+                "type": "warning" if stats.get("error") or stats.get("action_required") else "success",
+                "sticky": bool(stats.get("action_required")),
             },
         }
 
@@ -53,36 +55,26 @@ class InboxFilterService(models.AbstractModel):
         domain = [("stage_id", "=", new_stage.id), ("active", "=", True)]
         leads = self.env["crm.lead"].search(domain, order="create_date asc", limit=limit or None)
 
-        stats = {
-            "processed": 0,
-            "qualified": 0,
-            "spam": 0,
-            "band_request": 0,
-            "cinema_delivery_report": 0,
-            "production": 0,
-            "todo": 0,
-            "support": 0,
-            "review": 0,
-            "error": 0,
-        }
+        stats = self._empty_stats()
         for lead in leads:
             stats["processed"] += 1
             try:
                 decision = self.classify_lead(lead)
                 category = decision.get("category") or "review"
-                if category not in CATEGORY_SELECTION:
+                if category not in CATEGORY_CODES:
                     category = "review"
+                    decision["category"] = "review"
                 history = self.env["inbox.filter.history"].create_from_lead(lead, decision)
                 self.apply_decision(lead, history, decision)
                 stats[category] += 1
+                if category in ACTION_REQUIRED_CATEGORY_CODES:
+                    stats["action_required"] += 1
             except Exception as exc:  # noqa: BLE001 - in Odoo soll ein Lead den Gesamtlauf nicht abbrechen
                 _logger.exception("Inbox Filter failed for lead %s", lead.id)
                 stats["error"] += 1
                 try:
                     self.env["inbox.filter.history"].sudo().create_error_from_lead(lead, exc)
                 except Exception:  # noqa: BLE001
-                    # Der Sortierlauf darf nie komplett abbrechen, nur weil die Fehlerhistorie
-                    # auf einer angepassten CRM-Struktur nicht geschrieben werden kann.
                     _logger.exception("Inbox Filter could not create error history for lead %s", lead.id)
         return stats
 
@@ -113,7 +105,7 @@ class InboxFilterService(models.AbstractModel):
         try:
             decision = self.classify_lead(lead)
             category = decision.get("category") or "review"
-            if category not in CATEGORY_SELECTION:
+            if category not in CATEGORY_CODES:
                 decision["category"] = "review"
             history = self.env["inbox.filter.history"].sudo().create_from_lead(lead, decision)
             history.message_post(body=_("Automatischer Sortierlauf beim Eingang in CRM Neu."))
@@ -135,35 +127,128 @@ class InboxFilterService(models.AbstractModel):
         return self._normalize_decision(raw)
 
     @api.model
-    def create_learning_note(self, history, corrected_category):
-        """Generate a compact prompt-learning note after a human correction.
+    def reclassify_history_record(self, history):
+        history.ensure_one()
+        history._ensure_not_locked()
+        lead = history.get_or_restore_lead()
+        decision = self.classify_lead(lead)
+        category = decision.get("category") if decision.get("category") in CATEGORY_CODES else "review"
+        decision["category"] = category
+        history.with_context(inbox_filter_allow_locked_write=True).write({
+            "name": "%s → %s" % (lead.display_name, category),
+            "category": category,
+            "confidence": decision.get("confidence") or 0.0,
+            "reason": decision.get("reason") or "",
+            "summary": decision.get("summary") or "",
+            "gpt_response_json": json.dumps(decision, ensure_ascii=False, indent=2),
+            "status": "reclassified",
+        })
+        self.apply_decision(lead, history, decision)
+        history.with_context(inbox_filter_allow_locked_write=True).write({"status": "reclassified"})
+        history.message_post(body=_("Datensatz wurde per Button 'Neu erkennen' erneut klassifiziert."))
+        return history
 
-        If the API is unavailable, a deterministic fallback note is returned so that the
-        human correction is still captured.
+    @api.model
+    def reclassify_all_history_records_action(self):
+        stats = self.reclassify_all_history_records()
+        message = _(
+            "Alle nicht gesperrten Historien-Datensätze wurden neu geprüft: %(processed)s verarbeitet, "
+            "%(skipped_locked)s perfekt erkannte übersprungen, %(error)s Fehler."
+        ) % stats
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Inbox Filter"),
+                "message": message,
+                "type": "warning" if stats.get("error") else "success",
+                "sticky": bool(stats.get("error")),
+            },
+        }
+
+    @api.model
+    def reclassify_all_history_records(self):
+        self._ensure_api_key()
+        History = self.env["inbox.filter.history"].sudo()
+        stats = {"processed": 0, "skipped_locked": 0, "error": 0}
+        stats["skipped_locked"] = History.search_count([("perfect_recognized", "=", True), ("active", "=", True)])
+        histories = History.search([("perfect_recognized", "=", False), ("active", "=", True)], order="create_date asc")
+        for history in histories:
+            try:
+                self.reclassify_history_record(history)
+                stats["processed"] += 1
+            except Exception as exc:  # noqa: BLE001
+                _logger.exception("Inbox Filter reclassify failed for history %s", history.id)
+                stats["error"] += 1
+                try:
+                    history.with_context(inbox_filter_allow_locked_write=True).write({
+                        "status": "error",
+                        "error_message": str(exc),
+                    })
+                    history.message_post(body=tools.html_escape(str(exc)))
+                except Exception:  # noqa: BLE001
+                    _logger.exception("Could not write reclassify error to history %s", history.id)
+        return stats
+
+    @api.model
+    def create_learning_note(self, history, corrected_category):
+        """Backward-compatible wrapper used by older code paths."""
+        notes = self.create_balanced_learning_notes(history, corrected_category)
+        return notes.get(corrected_category) or ""
+
+    @api.model
+    def create_balanced_learning_notes(self, history, corrected_category):
+        """Create prompt notes for the corrected category and, where useful, exclusions for other prompts.
+
+        The goal is not to rewrite the base prompts, but to keep the filter sharp by adding compact
+        contrast rules after manual corrections.
         """
-        corrected_category = corrected_category or "review"
+        corrected_category = corrected_category if corrected_category in CATEGORY_CODES else "review"
+        old_category = history.category if history.category in CATEGORY_CODES else "review"
         prompt = (
-            "Erstelle aus dieser manuellen Korrektur eine extrem kurze Regel für einen Prompt. "
-            "Die Regel muss auf Deutsch sein, maximal 450 Zeichen haben, keine personenbezogenen Daten "
-            "unnötig wiederholen und konkret erklären, warum ähnliche Fälle künftig in diese Kategorie gehören."
+            "Erstelle aus dieser manuellen Korrektur kurze Lernregeln für den Inbox-Filter. "
+            "Prüfe alle Kategorien gegeneinander. Gib für die korrigierte Kategorie eine positive Regel aus. "
+            "Gib für andere Kategorien nur dann eine Ausschlussregel aus, wenn Verwechslungsgefahr besteht. "
+            "Ändere keine Grunddefinitionen, sondern formuliere präzise Zusatzregeln. "
+            "Jede Lernregel maximal 450 Zeichen, Deutsch, ohne unnötige personenbezogene Daten. "
+            "Leere learning_note, wenn keine Änderung nötig ist."
         )
+        prompts = self.env["inbox.filter.prompt"].search([], order="sequence")
         payload = {
             "corrected_category": corrected_category,
+            "old_category": old_category,
             "lead_title": history.original_lead_name,
             "lead_text": history.raw_input,
-            "old_category": history.category,
             "old_reason": history.reason,
+            "available_categories": [{"code": p.code, "name": p.name, "prompt": (p.prompt or "")[:1500]} for p in prompts],
         }
         try:
-            result = self._call_openai_json(prompt, payload, self._learning_schema())
-            note = (result.get("learning_note") or "").strip()
+            result = self._call_openai_json(prompt, payload, self._balanced_learning_schema())
+            notes = {}
+            for item in result.get("notes") or []:
+                code = item.get("category")
+                note = (item.get("learning_note") or "").strip()
+                if code in CATEGORY_CODES and note:
+                    notes[code] = note
+            if notes:
+                return notes
         except Exception as exc:  # noqa: BLE001
-            _logger.warning("Learning-note generation failed: %s", exc)
-            note = "Manuelle Korrektur: Ähnliche Anfragen wie '%s' sollen künftig als %s behandelt werden." % (
-                (history.original_lead_name or "ohne Titel")[:80],
-                corrected_category,
+            _logger.warning("Balanced learning-note generation failed: %s", exc)
+
+        title = (history.original_lead_name or "ohne Titel")[:80]
+        notes = {
+            corrected_category: "Manuelle Korrektur: Ähnliche Fälle wie '%s' sollen künftig als %s behandelt werden." % (
+                title,
+                CATEGORY_LABELS.get(corrected_category, corrected_category),
             )
-        return note
+        }
+        if old_category and old_category != corrected_category:
+            notes[old_category] = "Ausschluss aus manueller Korrektur: Ähnliche Fälle wie '%s' nicht als %s werten, wenn sie besser zu %s passen." % (
+                title,
+                CATEGORY_LABELS.get(old_category, old_category),
+                CATEGORY_LABELS.get(corrected_category, corrected_category),
+            )
+        return notes
 
     # ---------------------------------------------------------------------
     # Decision application
@@ -176,11 +261,21 @@ class InboxFilterService(models.AbstractModel):
         if category == "band_request":
             return self._apply_band_request(lead, history, decision)
         if category == "spam":
-            return self._apply_spam(lead, history, decision)
+            return self._apply_archive_category(lead, history, decision, "SPAM", "SPAM / aus CRM Neu entfernt")
+        if category == "newsletter":
+            return self._apply_archive_category(lead, history, decision, "Newsletter", "Newsletter / aus CRM Neu entfernt")
         if category == "cinema_delivery_report":
-            return self._apply_cinema_delivery_report(lead, history, decision)
+            return self._apply_archive_category(lead, history, decision, "Kino Lieferung/Report", "Inbox Filter Archiv: Kino Lieferung/Report")
+        if category == "invoice":
+            return self._apply_archive_category(lead, history, decision, "Rechnung", "Inbox Filter Archiv: Rechnungen")
+        if category == "shipping_tracking":
+            return self._apply_archive_category(lead, history, decision, "Versand / Paketverfolgung", "Inbox Filter Archiv: Versand / Paketverfolgung")
+        if category == "ticket_order":
+            return self._apply_ticket_order(lead, history, decision)
         if category == "production":
             return self._apply_production(lead, history, decision)
+        if category == "soft_bounce":
+            return self._apply_archive_category(lead, history, decision, "Softbounce / Auto-Antwort", "Inbox Filter Archiv: Softbounces / Auto-Antworten")
         if category == "todo":
             return self._apply_todo(lead, history, decision)
         if category == "support":
@@ -196,7 +291,7 @@ class InboxFilterService(models.AbstractModel):
             "moved_to": "CRM: Qualifiziert",
             "status": "applied",
         })
-
+        self._notify_action_required(history, _("Neuer qualifizierter CRM-Eingang"), lead.display_name, target=lead)
 
     def _apply_band_request(self, lead, history, decision):
         stage = self._get_or_create_stage("Bandanfragen", sequence=25)
@@ -208,23 +303,13 @@ class InboxFilterService(models.AbstractModel):
             "status": "applied",
         })
 
-    def _apply_spam(self, lead, history, decision):
-        # Sicherheitslogik: erst nur archivieren. Endgültig löschen erfolgt per Button "SPAM/Newsletter bestätigt".
+    def _apply_archive_category(self, lead, history, decision, title, moved_to):
         lead.write({"active": False})
         history.write({
-            "moved_to": "SPAM/Newsletter / aus CRM Neu entfernt",
+            "moved_to": moved_to,
             "status": "applied",
         })
-
-    def _apply_cinema_delivery_report(self, lead, history, decision):
-        # Kino-Lieferungen und Reports werden bewusst nur aus CRM Neu entfernt
-        # und vollständig in der Inbox-Filter-Historie vorgehalten.
-        lead.write({"active": False})
-        history.write({
-            "moved_to": "Inbox Filter Archiv: Kino Lieferung/Report",
-            "status": "applied",
-        })
-        history.message_post(body=self._format_internal_note("Inbox Filter: Kino Lieferung/Report archiviert", decision))
+        history.message_post(body=self._format_internal_note("Inbox Filter: %s archiviert" % title, decision))
 
     def _apply_review(self, lead, history, decision):
         stage = self._get_or_create_stage("Zu prüfen", sequence=30)
@@ -239,7 +324,6 @@ class InboxFilterService(models.AbstractModel):
     def _apply_production(self, lead, history, decision):
         record = self._resolve_target_record(decision)
         if not record:
-            # Kein eindeutiges Ziel: nicht raten, sondern zur Prüfung.
             decision = dict(decision)
             decision["reason"] = (decision.get("reason") or "") + " | Kein eindeutiges Projekt/Event gefunden."
             history.write({"gpt_response_json": json.dumps(decision, ensure_ascii=False, indent=2)})
@@ -277,7 +361,7 @@ class InboxFilterService(models.AbstractModel):
         })
 
     def _apply_support(self, lead, history, decision):
-        ticket = self._create_support_ticket(lead, decision)
+        ticket = self._create_support_ticket(lead, decision, ticket_kind="Kundensupport")
         if not ticket:
             decision = dict(decision)
             decision["reason"] = (decision.get("reason") or "") + " | Helpdesk ist nicht installiert; Support-Ticket konnte nicht erstellt werden."
@@ -290,12 +374,31 @@ class InboxFilterService(models.AbstractModel):
             "ticket_ref_model": ticket._name,
             "ticket_ref_id": ticket.id,
         })
+        self._notify_action_required(history, _("Neues Kundensupport-Ticket"), ticket.display_name, target=ticket)
+
+    def _apply_ticket_order(self, lead, history, decision):
+        decision = dict(decision)
+        decision["support_reason"] = decision.get("support_reason") or _("Kartenbestellung / Ticketreservierung")
+        ticket = self._create_support_ticket(lead, decision, ticket_kind="Kartenbestellung")
+        if not ticket:
+            decision["reason"] = (decision.get("reason") or "") + " | Helpdesk ist nicht installiert; Kartenbestellung konnte nicht als Ticket erstellt werden."
+            history.write({"gpt_response_json": json.dumps(decision, ensure_ascii=False, indent=2)})
+            return self._apply_review(lead, history, decision)
+        lead.write({"active": False})
+        history.write({
+            "moved_to": "Kundensupport / Kartenbestellung: %s" % ticket.display_name,
+            "status": "applied",
+            "ticket_ref_model": ticket._name,
+            "ticket_ref_id": ticket.id,
+        })
+        self._notify_action_required(history, _("Neue Kartenbestellung"), ticket.display_name, target=ticket)
 
     # ---------------------------------------------------------------------
     # Manual correction helpers used by history/wizards
     # ---------------------------------------------------------------------
     @api.model
     def manual_mark_qualified(self, history):
+        history._ensure_not_locked()
         lead = history.get_or_restore_lead()
         decision = history.decision_dict()
         decision["category"] = "qualified"
@@ -304,6 +407,7 @@ class InboxFilterService(models.AbstractModel):
 
     @api.model
     def manual_mark_band_request(self, history):
+        history._ensure_not_locked()
         lead = history.get_or_restore_lead()
         decision = history.decision_dict()
         decision["category"] = "band_request"
@@ -312,14 +416,28 @@ class InboxFilterService(models.AbstractModel):
 
     @api.model
     def manual_mark_cinema_delivery_report(self, history):
+        history._ensure_not_locked()
         lead = history.get_or_restore_lead()
         decision = history.decision_dict()
         decision["category"] = "cinema_delivery_report"
-        self._apply_cinema_delivery_report(lead, history, decision)
+        self._apply_archive_category(lead, history, decision, "Kino Lieferung/Report", "Inbox Filter Archiv: Kino Lieferung/Report")
         history._learn_from_manual_correction("cinema_delivery_report")
 
     @api.model
+    def manual_mark_archive_category(self, history, category):
+        history._ensure_not_locked()
+        if category not in ARCHIVE_CATEGORY_CODES:
+            raise UserError(_("Diese Kategorie ist keine Archiv-Kategorie."))
+        lead = history.get_or_restore_lead()
+        decision = history.decision_dict()
+        decision["category"] = category
+        label = CATEGORY_LABELS.get(category, category)
+        self._apply_archive_category(lead, history, decision, label, "Inbox Filter Archiv: %s" % label)
+        history._learn_from_manual_correction(category)
+
+    @api.model
     def manual_assign_production(self, history, project=None, event=None):
+        history._ensure_not_locked()
         lead = history.get_or_restore_lead()
         target = project or event
         if not target:
@@ -336,6 +454,7 @@ class InboxFilterService(models.AbstractModel):
 
     @api.model
     def manual_assign_todo(self, history, employee):
+        history._ensure_not_locked()
         if not employee:
             raise UserError(_("Bitte Mitarbeiter auswählen."))
         lead = history.get_or_restore_lead()
@@ -350,22 +469,27 @@ class InboxFilterService(models.AbstractModel):
 
     @api.model
     def manual_assign_support(self, history):
+        history._ensure_not_locked()
         lead = history.get_or_restore_lead()
         decision = history.decision_dict()
         decision["category"] = "support"
         self._apply_support(lead, history, decision)
         history._learn_from_manual_correction("support")
 
+    @api.model
+    def manual_assign_ticket_order(self, history):
+        history._ensure_not_locked()
+        lead = history.get_or_restore_lead()
+        decision = history.decision_dict()
+        decision["category"] = "ticket_order"
+        self._apply_ticket_order(lead, history, decision)
+        history._learn_from_manual_correction("ticket_order")
+
     # ---------------------------------------------------------------------
     # Odoo helpers
     # ---------------------------------------------------------------------
     def _get_param(self, key, default=None):
-        """Read Inbox Filter configuration robustly.
-
-        Since v104 the primary storage is the persistent singleton model
-        `inbox.filter.settings`. `ir.config_parameter` remains a fallback for
-        older installations/upgrades.
-        """
+        """Read Inbox Filter configuration robustly."""
         settings_map = {
             "inbox_filter.openai_api_key": "openai_api_key",
             "inbox_filter.openai_model": "openai_model",
@@ -411,7 +535,6 @@ class InboxFilterService(models.AbstractModel):
         for stage in stages:
             if (stage.name or "").strip().lower() in lowered:
                 return stage
-        # Fallback: Teilstring, falls z.B. "Neu / Eingang" verwendet wird.
         for stage in stages:
             name = (stage.name or "").strip().lower()
             if any(n in name for n in lowered):
@@ -468,15 +591,18 @@ class InboxFilterService(models.AbstractModel):
         })
         target.message_post(body=body)
 
-    def _create_support_ticket(self, lead, decision):
+    def _create_support_ticket(self, lead, decision, ticket_kind="Kundensupport"):
         if "helpdesk.ticket" not in self.env.registry.models:
             return None
         Ticket = self.env["helpdesk.ticket"].sudo()
         vals = {}
+        title = decision.get("suggested_title") or self._record_value(lead, "name", "") or _("Kundensupport-Anfrage")
+        if ticket_kind and ticket_kind not in title:
+            title = "%s: %s" % (ticket_kind, title)
         if "name" in Ticket._fields:
-            vals["name"] = decision.get("suggested_title") or self._record_value(lead, "name", "") or _("Kundensupport-Anfrage")
+            vals["name"] = title
         if "description" in Ticket._fields:
-            vals["description"] = self._support_description(lead, decision)
+            vals["description"] = self._support_description(lead, decision, ticket_kind=ticket_kind)
         lead_contact_name = self._record_value(lead, "contact_name", "") or ""
         lead_partner_name = self._record_value(lead, "partner_name", "") or ""
         lead_email_from = self._record_value(lead, "email_from", "") or ""
@@ -493,7 +619,26 @@ class InboxFilterService(models.AbstractModel):
                 vals["team_id"] = team.id
         ticket = Ticket.create(vals)
         ticket.message_post(body=self._format_internal_note("Inbox Filter: aus CRM an Kundensupport übergeben", decision))
+        self._post_original_as_email_to_ticket(ticket, lead, decision, ticket_kind=ticket_kind)
         return ticket
+
+    def _post_original_as_email_to_ticket(self, ticket, lead, decision, ticket_kind="Kundensupport"):
+        subject = self._record_value(lead, "name", "") or ticket.display_name
+        body = self._support_description(lead, decision, ticket_kind=ticket_kind)
+        kwargs = {
+            "body": body,
+            "subject": subject,
+            "message_type": "email",
+            "subtype_xmlid": "mail.mt_comment",
+        }
+        email_from = self._record_value(lead, "email_from", "")
+        if email_from:
+            kwargs["email_from"] = email_from
+        try:
+            ticket.message_post(**kwargs)
+        except Exception as exc:  # noqa: BLE001
+            _logger.warning("Could not post original support mail with email metadata: %s", exc)
+            ticket.message_post(body=body, subject=subject, subtype_xmlid="mail.mt_comment")
 
     def _find_customer_care_team(self):
         if "helpdesk.team" not in self.env.registry.models:
@@ -515,29 +660,52 @@ class InboxFilterService(models.AbstractModel):
                 return team
         return Team.search([], limit=1)
 
+    def _notify_action_required(self, history, title, message, target=None):
+        body = "<p><b>%s</b></p><p>%s</p>" % (tools.html_escape(title), tools.html_escape(message or ""))
+        try:
+            history.message_post(body=body)
+        except Exception:  # noqa: BLE001
+            _logger.exception("Could not post action-required notification to history %s", history.id)
+        if target:
+            try:
+                target.message_post(body=body)
+            except Exception:  # noqa: BLE001
+                _logger.exception("Could not post action-required notification to target %s", target)
+        user = self.env.user
+        for method_name in ("notify_success", "notify_info", "notify_warning"):
+            method = getattr(user, method_name, None)
+            if method:
+                try:
+                    method(message=message or "", title=title, sticky=True)
+                    return
+                except Exception:  # noqa: BLE001
+                    continue
+
     # ---------------------------------------------------------------------
     # Prompt and context construction
     # ---------------------------------------------------------------------
     def _build_system_prompt(self):
+        # Stellt sicher, dass neue Kategorien/Prompts nach einem Upgrade existieren
+        # und der alte Mischprompt SPAM/Newsletter getrennt wird.
+        for code in CATEGORY_CODES:
+            self.env["inbox.filter.prompt"].get_prompt_by_code(code)
         prompts = self.env["inbox.filter.prompt"].search([], order="sequence")
         category_prompts = "\n\n".join([
             "### %s (%s)\n%s" % (p.name, p.code, p.get_effective_prompt()) for p in prompts
         ])
+        category_lines = "\n".join(["- %s: %s" % (code, label) for code, label in CATEGORY_SELECTION_ITEMS])
         return """
 Du bist ein strenger CRM-Inbox-Klassifizierer für Groundlift Studio / Groundlift Creative World.
 Du entscheidest genau EINE Kategorie für eine neue CRM-Anfrage.
 
 Kategorien:
-- qualified: echter neuer Lead mit geschäftlichem Potenzial.
-- band_request: Anfrage einer Band, eines Künstlers, einer Booking-Agentur oder eines Acts mit Interesse an Auftritt, Konzertslot, Bewerbungs-/Bookingmöglichkeit oder Programmanfrage.
-- spam: Werbung, Newsletter, Scam, irrelevante Massenmail, SEO-Angebot, Bot, offensichtlicher Müll.
-- cinema_delivery_report: Kino-Lieferungen und Kino-Reports wie KDM für Film, DCP geliefert, Zahlenmeldung Kino Alte Brauerei Stegen, Verleih-/Dispo-/Kinoabrechnungsstatus; nur archivieren.
-- production: gehört eindeutig zu einem bestehenden Projekt oder einer bestehenden Veranstaltung, z.B. Band schickt Bühnenanweisung, Technikrider, Produktionsdetails, Ablauf/Material zu einer Produktion.
-- todo: benötigt eine konkrete Handlung eines bestimmten Mitarbeiters; Mitarbeiter muss eindeutig erkennbar sein.
-- support: Kundensupport / Lost & Found / Ticket-/Gästeproblem / vergessene Gegenstände / Besucheranliegen. Wichtig: Lost & Found bei einer Veranstaltung ist Support, NICHT production.
-- review: alles Unklare. Nicht raten.
+%s
 
-Regeln:
+Wichtige Trennregeln:
+- SPAM und Newsletter sind getrennt. Newsletter niemals als spam ausgeben, wenn es eine normale Rundmail oder Informationsmail ist.
+- Softbounces / automatische Antworten sind eine eigene Kategorie und weder spam noch newsletter.
+- Rechnungen, Versand-/Pakettracking und Kino-Lieferreports sind eigene Archivkategorien.
+- Kartenbestellungen sind eigene Kategorie ticket_order und erfordern Kundendienstbearbeitung.
 - Gib production nur aus, wenn ein eindeutiges Projekt oder Event aus den Kandidaten passt.
 - Gib todo nur aus, wenn ein eindeutiger Mitarbeiter aus den Kandidaten passt.
 - Gib target_id nur aus, wenn der passende Kandidat eindeutig ist.
@@ -545,11 +713,12 @@ Regeln:
 - Kundentickets, vergessene Brillen/Handschuhe/Jacken, Besucherrückfragen und verlorene Gegenstände gehören in support, auch wenn eine Veranstaltung erwähnt wird.
 - Bühnenanweisungen, Tech-Rider, Setlisten, Soundcheck, Backline, Ablaufpläne und Produktionsunterlagen gehören zu production, wenn das Projekt/Event eindeutig ist.
 - KDMs, DCP-Lieferungen, Kino-Zahlenmeldungen, Kino-Verleihreports und Kinolieferstatus gehören zu cinema_delivery_report, nicht zu production und nicht zu support.
+- Wenn nichts sicher passt: review. Nicht raten.
 - Liefere nur JSON im vorgegebenen Schema.
 
 Filterdefinitionen:
 %s
-""" % category_prompts
+""" % (category_lines, category_prompts)
 
     def _build_classification_payload(self, lead):
         return {
@@ -567,37 +736,32 @@ Filterdefinitionen:
         phone = self._record_value(lead, "phone", "") or ""
         mobile = self._record_value(lead, "mobile", "") or ""
         description = self._record_value(lead, "description", "") or ""
-        raw_text = "\n\n".join(filter(None, [
-            name,
-            contact_name,
-            partner_name,
-            email_from,
-            phone,
-            mobile,
-            tools.html2plaintext(description),
-        ])).strip()
+        description_text = tools.html2plaintext(description).strip()
+
+        history_model = self.env["inbox.filter.history"].sudo()
+        mail_data = history_model._extract_original_mail_message(lead)
+        message_text = mail_data.get("body") or description_text
+        raw_text = history_model._format_lead_raw_input(lead)
+
         create_date = self._record_value(lead, "create_date")
         return {
             "id": lead.id,
+            "subject": name or mail_data.get("subject") or "",
             "name": name,
             "contact_name": contact_name,
             "partner_name": partner_name,
-            "email_from": email_from,
+            "email_from": email_from or mail_data.get("email_from") or "",
             "phone": phone,
             "mobile": mobile,
-            "description_text": tools.html2plaintext(description),
+            "description_text": message_text,
             "raw_text": raw_text,
+            "mail_message_subject": mail_data.get("subject") or "",
+            "mail_message_from": mail_data.get("email_from") or "",
+            "mail_message_body": mail_data.get("body") or "",
             "create_date": fields.Datetime.to_string(create_date) if create_date else None,
         }
 
     def _record_value(self, record, field_name, default=False):
-        """Read a field only if it exists in the current Odoo database.
-
-        Odoo 19 / Studio customizations can remove or rename optional fields on
-        crm.lead. Direct access like ``lead.mobile`` can therefore crash the
-        whole server action. This helper keeps the inbox filter compatible with
-        lean CRM schemas.
-        """
         if not record or field_name not in getattr(record, "_fields", {}):
             return default
         return record[field_name]
@@ -642,7 +806,7 @@ Filterdefinitionen:
                 "type": "object",
                 "additionalProperties": False,
                 "properties": {
-                    "category": {"type": "string", "enum": CATEGORY_SELECTION},
+                    "category": {"type": "string", "enum": CATEGORY_CODES},
                     "confidence": {"type": "number", "minimum": 0, "maximum": 1},
                     "reason": {"type": "string"},
                     "summary": {"type": "string"},
@@ -677,6 +841,31 @@ Filterdefinitionen:
             },
         }
 
+    def _balanced_learning_schema(self):
+        return {
+            "name": "inbox_filter_balanced_learning_notes",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "notes": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "category": {"type": "string", "enum": CATEGORY_CODES},
+                                "learning_note": {"type": "string"},
+                            },
+                            "required": ["category", "learning_note"],
+                        },
+                    },
+                },
+                "required": ["notes"],
+            },
+        }
+
     def _call_openai_json(self, system_prompt, payload, schema):
         api_key = self._get_param("inbox_filter.openai_api_key")
         url = self._get_param("inbox_filter.openai_url", "https://api.openai.com/v1/chat/completions")
@@ -699,7 +888,6 @@ Filterdefinitionen:
         try:
             data = self._http_json(url, api_key, request_payload)
         except UserError as exc:
-            # Fallback für Modelle/Deployments ohne json_schema-Unterstützung.
             _logger.warning("Structured output failed, trying json_object fallback: %s", exc)
             request_payload["response_format"] = {"type": "json_object"}
             fallback_instruction = (
@@ -747,7 +935,7 @@ Filterdefinitionen:
     def _normalize_decision(self, decision):
         decision = decision or {}
         normalized = {
-            "category": decision.get("category") if decision.get("category") in CATEGORY_SELECTION else "review",
+            "category": decision.get("category") if decision.get("category") in CATEGORY_CODES else "review",
             "confidence": float(decision.get("confidence") or 0),
             "reason": decision.get("reason") or "",
             "summary": decision.get("summary") or "",
@@ -771,6 +959,24 @@ Filterdefinitionen:
     # ---------------------------------------------------------------------
     # Formatting
     # ---------------------------------------------------------------------
+    def _empty_stats(self):
+        stats = {"processed": 0, "action_required": 0, "error": 0}
+        for code in CATEGORY_CODES:
+            stats[code] = 0
+        return stats
+
+    def _format_stats_message(self, stats):
+        parts = [_("%(processed)s verarbeitet") % stats]
+        for code, label in CATEGORY_SELECTION_ITEMS:
+            count = stats.get(code, 0)
+            if count:
+                parts.append("%s %s" % (count, label))
+        if stats.get("action_required"):
+            parts.append(_("%(action_required)s mit Handlungsbedarf") % stats)
+        if stats.get("error"):
+            parts.append(_("%(error)s Fehler") % stats)
+        return _("Inbox Filter abgeschlossen: %s.") % ", ".join(parts)
+
     def _format_internal_note(self, title, decision):
         return """
             <p><b>%s</b></p>
@@ -782,7 +988,7 @@ Filterdefinitionen:
             </ul>
         """ % (
             tools.html_escape(title),
-            tools.html_escape(decision.get("category") or ""),
+            tools.html_escape(CATEGORY_LABELS.get(decision.get("category"), decision.get("category") or "")),
             tools.html_escape(str(decision.get("confidence") or "")),
             tools.html_escape(decision.get("reason") or ""),
             tools.html_escape(decision.get("summary") or ""),
@@ -795,29 +1001,43 @@ Filterdefinitionen:
             <p><b>Zusammenfassung:</b> %s</p>
             <p><b>Begründung:</b> %s</p>
             <hr/>
-            <p><b>Originaltext:</b></p>
-            <pre>%s</pre>
+            %s
         """ % (
             tools.html_escape(lead.display_name),
             tools.html_escape(decision.get("summary") or ""),
             tools.html_escape(decision.get("reason") or ""),
-            tools.html_escape(tools.html2plaintext(self._record_value(lead, "description", "") or "") or self._record_value(lead, "name", "") or ""),
+            self._format_original_text_html(lead),
         )
 
-    def _support_description(self, lead, decision):
+    def _support_description(self, lead, decision, ticket_kind="Kundensupport"):
         return """
             <p><b>Aus CRM Inbox Filter übernommen</b></p>
+            <p><b>Typ:</b> %s</p>
             <p><b>Zusammenfassung:</b> %s</p>
             <p><b>Support-Grund:</b> %s</p>
             <p><b>Kontakt:</b> %s / %s / %s</p>
             <hr/>
-            <p><b>Originaltext:</b></p>
-            <pre>%s</pre>
+            %s
         """ % (
+            tools.html_escape(ticket_kind or "Kundensupport"),
             tools.html_escape(decision.get("summary") or ""),
             tools.html_escape(decision.get("support_reason") or decision.get("reason") or ""),
             tools.html_escape(self._record_value(lead, "contact_name", "") or self._record_value(lead, "partner_name", "") or ""),
             tools.html_escape(self._record_value(lead, "email_from", "") or ""),
             tools.html_escape(self._record_value(lead, "phone", "") or self._record_value(lead, "mobile", "") or ""),
-            tools.html_escape(tools.html2plaintext(self._record_value(lead, "description", "") or "") or self._record_value(lead, "name", "") or ""),
+            self._format_original_text_html(lead),
         )
+
+    def _format_original_text_html(self, lead):
+        subject = self._record_value(lead, "name", "") or ""
+        raw = self.env["inbox.filter.history"].sudo()._format_lead_raw_input(lead)
+        if not raw:
+            description = self._record_value(lead, "description", "") or ""
+            message = tools.html2plaintext(description).strip()
+            raw = "Betreff:\n%s\n\nNachricht:\n%s" % (subject, message)
+        return """
+            <p><b>Originaltext:</b></p>
+            <p><b>Betreff:</b> %s</p>
+            <p><b>Gesamte Nachricht:</b></p>
+            <pre style="white-space: pre-wrap; font-family: inherit;">%s</pre>
+        """ % (tools.html_escape(subject), tools.html_escape(raw))

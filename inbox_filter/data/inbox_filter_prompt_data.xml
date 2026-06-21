@@ -6,10 +6,9 @@
         <field name="sequence">10</field>
         <field name="prompt"><![CDATA[
 Erkenne echte neue Leads. Ein Lead ist qualifiziert, wenn eine Person oder Firma erkennbar eine potenzielle Buchung, Produktion, Vermietung, Veranstaltung, Studioleistung, Podcastproduktion, Videoproduktion, Aufnahme, Business-Event, Firmenfeier, Livestream, Konzertproduktion oder konkrete Zusammenarbeit anfragt. Auch unvollständige, aber ernsthafte Anfragen mit Geschäftspotenzial zählen.
-Nicht qualifizieren: bestehende Produktionsunterlagen, Lost-&-Found, reine Ticket-/Besucherprobleme, Spam, Bewerbungen ohne Bezug zu Auftrag, allgemeine Werbung.
+Nicht qualifizieren: bestehende Produktionsunterlagen, Lost-&-Found, reine Ticket-/Besucherprobleme, Kartenbestellungen, Rechnungen, Versandmeldungen, Softbounces, Newsletter, Spam, Bewerbungen ohne Bezug zu Auftrag, allgemeine Werbung.
         ]]></field>
     </record>
-
 
     <record id="prompt_band_request" model="inbox.filter.prompt">
         <field name="name">Bandanfragen</field>
@@ -22,21 +21,56 @@ Nicht als Bandanfrage werten: Eine bereits gebuchte Band sendet Rider, Stageplot
     </record>
 
     <record id="prompt_spam" model="inbox.filter.prompt">
-        <field name="name">SPAM/Newsletter</field>
+        <field name="name">SPAM</field>
         <field name="code">spam</field>
         <field name="sequence">20</field>
         <field name="prompt"><![CDATA[
-Erkenne Spam, Newsletter, automatisch abonnierte Verteiler, Scam, Bot-Mails, SEO-/Marketing-Massenangebote, Linkbuilding, unseriöse Kredit-/Crypto-/Casino-/Phishing-Angebote, generische Sales-Pitches ohne konkreten Bezug zu Groundlift, technische Bounce-Mails ohne operativen Wert und offensichtlich irrelevante Werbung. Newsletter sind hier gemeint als massenhafte, nicht individuell handlungsrelevante Informationen. Sei vorsichtig: Eine schlecht formulierte echte Kundenanfrage ist kein Spam.
+Erkenne echten Spam: Scam, Bot-Mails, Phishing, unseriöse Kredit-/Crypto-/Casino-Angebote, SEO-/Marketing-Massenangebote, Linkbuilding, generische Sales-Pitches ohne konkreten Bezug zu Groundlift, Fake-Rechnungen und offensichtlich irrelevante Werbung. Newsletter sind eine eigene Kategorie und dürfen nicht als SPAM einsortiert werden. Softbounces, automatische Antworten, Rechnungen und Paketmeldungen sind ebenfalls eigene Kategorien. Schlecht formulierte echte Kundenanfragen sind kein Spam.
         ]]></field>
     </record>
 
+    <record id="prompt_newsletter" model="inbox.filter.prompt">
+        <field name="name">Newsletter</field>
+        <field name="code">newsletter</field>
+        <field name="sequence">22</field>
+        <field name="prompt"><![CDATA[
+Erkenne Newsletter, Rundmails, Pressemeldungen, Marketing-Verteiler, Veranstaltungsankündigungen, Brancheninformationen, Produktinfos, Herstellerupdates und abonnierte Informationsmails, die nicht individuell an Groundlift gerichtet sind und keine konkrete Handlung erfordern. Nicht verwenden für Spam/Scam, echte Kundenanfragen, Rechnungen, Versandbenachrichtigungen, Softbounces oder konkrete Supportfälle.
+        ]]></field>
+    </record>
 
     <record id="prompt_cinema_delivery_report" model="inbox.filter.prompt">
         <field name="name">Kino Lieferung/Report</field>
         <field name="code">cinema_delivery_report</field>
         <field name="sequence">25</field>
         <field name="prompt"><![CDATA[
-Erkenne operative Kino-Lieferungen und Kino-Reports, die nicht als CRM-Lead bearbeitet werden müssen. Dazu gehören insbesondere Mails wie "KDM für Film ...", "KDM Delivery", "DCP geliefert", "DCP Delivery", "Zahlenmeldung Kino Alte Brauerei Stegen", Filmverleih-Reports, Vorführschlüssel, Kinodisposition, Kinoabrechnungs-/Besucherzahlenmeldungen und Statusmeldungen zur technischen Film-/Kino-Lieferung. Diese Datensätze sollen aus CRM Neu entfernt und nur in der Inbox-Filter-Historie archiviert werden. Nicht verwenden für echte Kundenanfragen, Lost-&-Found, Ticketprobleme oder allgemeine Event-Produktionen.
+Erkenne operative Kino-Lieferungen und Kino-Reports, die nicht als CRM-Lead bearbeitet werden müssen. Dazu gehören insbesondere Mails wie KDM für Film, KDM Delivery, DCP geliefert, DCP Delivery, Zahlenmeldung Kino Alte Brauerei Stegen, Filmverleih-Reports, Vorführschlüssel, Kinodisposition, Kinoabrechnungs-/Besucherzahlenmeldungen und Statusmeldungen zur technischen Film-/Kino-Lieferung. Diese Datensätze sollen aus CRM Neu entfernt und nur in der Inbox-Filter-Historie archiviert werden.
+        ]]></field>
+    </record>
+
+    <record id="prompt_invoice" model="inbox.filter.prompt">
+        <field name="name">Rechnungen</field>
+        <field name="code">invoice</field>
+        <field name="sequence">27</field>
+        <field name="prompt"><![CDATA[
+Erkenne eingehende Rechnungen, Rechnungskorrekturen, Gutschriften, Mahnungen, Zahlungsavise, Quittungen, Belege oder buchhalterische Dokumente, die nicht als neuer CRM-Lead bearbeitet werden sollen. Auch Lieferantenrechnungen und Zahlungsaufforderungen gehören hierher. Nicht verwenden für Angebote, neue Buchungsanfragen oder Kartenbestellungen.
+        ]]></field>
+    </record>
+
+    <record id="prompt_shipping_tracking" model="inbox.filter.prompt">
+        <field name="name">Versand / Paketverfolgung</field>
+        <field name="code">shipping_tracking</field>
+        <field name="sequence">28</field>
+        <field name="prompt"><![CDATA[
+Erkenne Versandbenachrichtigungen und Paketverfolgung: Tracking-Links, Zustellankündigungen, Lieferstatus, Zustellversuche, Abholbenachrichtigungen, Paket im Paketshop, DHL/UPS/DPD/GLS/Hermes/FedEx/Amazon-Statusmails oder ähnliche Logistikmeldungen. Nicht verwenden für echte Kundenanfragen, Produktionsunterlagen oder Rechnungen.
+        ]]></field>
+    </record>
+
+    <record id="prompt_ticket_order" model="inbox.filter.prompt">
+        <field name="name">Kartenbestellungen</field>
+        <field name="code">ticket_order</field>
+        <field name="sequence">29</field>
+        <field name="prompt"><![CDATA[
+Erkenne Kartenbestellungen, Ticketreservierungen, Reservierungswünsche, Gästelistenwünsche und konkrete Anfragen zum Kauf oder zur Reservierung von Eintrittskarten für Groundlift-, Kino- oder Event-Veranstaltungen. Diese Fälle erfordern Kundendienstbearbeitung und sollen als Kundensupport-Ticket angelegt werden. Nicht verwenden für allgemeine Eventbuchungen durch Firmen oder neue Veranstaltungsanfragen; diese sind qualifizierte Leads.
         ]]></field>
     </record>
 
@@ -45,7 +79,16 @@ Erkenne operative Kino-Lieferungen und Kino-Reports, die nicht als CRM-Lead bear
         <field name="code">production</field>
         <field name="sequence">30</field>
         <field name="prompt"><![CDATA[
-Erkenne Anfragen, die eindeutig zu einem bestehenden Projekt oder einer Veranstaltung gehören. Beispiele: Band sendet Bühnenanweisung, Technical Rider, Stageplot, Inputliste, Setliste, Ablauf, Soundcheckzeit, Backline, Produktionsdaten, Rechnungs-/Organisationsdetails zu einer konkreten VA, Lieferanteninformationen oder Absprachen mit Künstlern/Technikern. Wähle diese Kategorie nur, wenn aus den Kandidaten ein Projekt oder Event eindeutig passt. Besucher-/Kundenthemen wie verlorene Brille, Ticketproblem, Platzfrage oder Fundsache sind Kundensupport, nicht Projekt/VA.
+Erkenne Anfragen, die eindeutig zu einem bestehenden Projekt oder einer Veranstaltung gehören. Beispiele: Band sendet Bühnenanweisung, Technical Rider, Stageplot, Inputliste, Setliste, Ablauf, Soundcheckzeit, Backline, Produktionsdaten, Rechnungs-/Organisationsdetails zu einer konkreten VA, Lieferanteninformationen oder Absprachen mit Künstlern/Technikern. Wähle diese Kategorie nur, wenn aus den Kandidaten ein Projekt oder Event eindeutig passt.
+        ]]></field>
+    </record>
+
+    <record id="prompt_soft_bounce" model="inbox.filter.prompt">
+        <field name="name">Softbounces / Auto-Antworten</field>
+        <field name="code">soft_bounce</field>
+        <field name="sequence">35</field>
+        <field name="prompt"><![CDATA[
+Erkenne automatische Rückläufer und automatische Antworten: Softbounce, deferred delivery, mailbox full, temporary failure, delivery delayed, Abwesenheitsnotiz, Out of Office, Autoreply, vacation responder, automatische Empfangsbestätigung oder temporäre Zustellprobleme. Diese Mails sind keine Newsletter und kein Spam, solange sie klar automatische Antworten auf eine gesendete Mail sind.
         ]]></field>
     </record>
 
@@ -54,7 +97,7 @@ Erkenne Anfragen, die eindeutig zu einem bestehenden Projekt oder einer Veransta
         <field name="code">todo</field>
         <field name="sequence">40</field>
         <field name="prompt"><![CDATA[
-Erkenne Fälle, bei denen eine konkrete Handlung durch einen bestimmten Mitarbeiter erforderlich ist. Der Mitarbeiter muss aus Text oder Kontext eindeutig ableitbar sein, z.B. Daniel soll zurückrufen, Julius soll Technik prüfen, Serviceplanung soll reagieren. Wenn kein Mitarbeiter eindeutig ist, nicht ToDo wählen, sondern je nach Inhalt Qualifiziert, Support, Projekt/VA oder Zu prüfen. Die Aufgabe soll bis morgen fällig sein.
+Erkenne Fälle, in denen eine konkrete Handlung durch einen eindeutig bestimmbaren Mitarbeiter erforderlich ist. Der Mitarbeiter muss aus Inhalt oder Kandidaten eindeutig hervorgehen. Wenn kein Mitarbeiter eindeutig ist, nicht ToDo wählen, sondern eine passendere Kategorie oder Zu prüfen.
         ]]></field>
     </record>
 
@@ -63,7 +106,7 @@ Erkenne Fälle, bei denen eine konkrete Handlung durch einen bestimmten Mitarbei
         <field name="code">support</field>
         <field name="sequence">50</field>
         <field name="prompt"><![CDATA[
-Erkenne Kundensupport-Fälle: verlorene Gegenstände wie Brille, Handschuh, Jacke, Tasche; Besucherfragen nach Veranstaltungen; Ticketprobleme; Reservierungs-/Gästeprobleme; Beschwerden; Rückfragen von Gästen ohne neuen Auftrag; allgemeine Kundenbetreuung. Auch wenn ein Event erwähnt wird, bleibt Lost-&-Found oder Ticket-/Besucheranliegen Kundensupport und wird nicht in den Produktionschatter geschrieben.
+Erkenne Kundensupport-Fälle wie verlorene Gegenstände, Besucherfragen, Ticketprobleme, Reservierungs-/Gästeprobleme, Beschwerden, Umbuchungsfragen und Rückfragen von Gästen ohne neuen Auftrag. Lost-&-Found ist Support, auch wenn eine Veranstaltung erwähnt wird. Kartenbestellungen sind eine eigene Kategorie Kartenbestellungen.
         ]]></field>
     </record>
 
@@ -72,11 +115,7 @@ Erkenne Kundensupport-Fälle: verlorene Gegenstände wie Brille, Handschuh, Jack
         <field name="code">review</field>
         <field name="sequence">60</field>
         <field name="prompt"><![CDATA[
-Nutze Zu prüfen für alle Fälle, in denen keine Kategorie sicher passt, die Zuordnung zu einem Projekt/Event nicht eindeutig ist, ein Mitarbeiter nicht eindeutig bestimmbar ist, die Anfrage widersprüchlich oder zu dünn ist, oder eine Fehlklassifikation größeren Schaden verursachen könnte. Nicht raten.
+Nutze Zu prüfen für alle unklaren, widersprüchlichen oder zu dünnen Fälle, bei denen keine Kategorie sicher passt. Nicht raten. Wenn ein Zielprojekt, eine Veranstaltung oder ein Mitarbeiter nicht eindeutig erkannt wird, lieber Zu prüfen wählen.
         ]]></field>
-    </record>
-
-    <record id="workspace_default" model="inbox.filter.workspace">
-        <field name="name">Inbox Filter</field>
     </record>
 </odoo>
