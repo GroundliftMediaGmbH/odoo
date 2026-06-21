@@ -7,6 +7,7 @@
             <form string="Inbox Filter" create="false" delete="false">
                 <header>
                     <button name="action_sort_now" type="object" string="Sortieren" class="btn-primary"/>
+                    <button name="action_resort_all_history" type="object" string="Alle neu einsortieren" class="btn-secondary" confirm="Alle Historien-Datensätze, die nicht auf 'Perfekt erkannt' stehen, werden neu geprüft und erneut verschoben. Fortfahren?"/>
                     <button name="action_open_history" type="object" string="Historie"/>
                     <button name="action_open_settings" type="object" string="Einstellungen"/>
                 </header>
@@ -20,69 +21,56 @@
                     </group>
                     <notebook>
                         <page string="Qualifiziert">
-                            <group string="Prompt">
-                                <field name="qualified_prompt" nolabel="1" widget="text"/>
-                            </group>
-                            <group string="Live-Lernbeispiele">
-                                <field name="qualified_learning_notes" nolabel="1" readonly="1" widget="text"/>
-                            </group>
+                            <group string="Prompt"><field name="qualified_prompt" nolabel="1" widget="text"/></group>
+                            <group string="Live-Lernbeispiele"><field name="qualified_learning_notes" nolabel="1" readonly="1" widget="text"/></group>
                         </page>
-
                         <page string="Bandanfragen">
-                            <group string="Prompt">
-                                <field name="band_request_prompt" nolabel="1" widget="text"/>
-                            </group>
-                            <group string="Live-Lernbeispiele">
-                                <field name="band_request_learning_notes" nolabel="1" readonly="1" widget="text"/>
-                            </group>
+                            <group string="Prompt"><field name="band_request_prompt" nolabel="1" widget="text"/></group>
+                            <group string="Live-Lernbeispiele"><field name="band_request_learning_notes" nolabel="1" readonly="1" widget="text"/></group>
                         </page>
-                        <page string="SPAM/Newsletter">
-                            <group string="Prompt">
-                                <field name="spam_prompt" nolabel="1" widget="text"/>
-                            </group>
-                            <group string="Live-Lernbeispiele">
-                                <field name="spam_learning_notes" nolabel="1" readonly="1" widget="text"/>
-                            </group>
+                        <page string="SPAM">
+                            <group string="Prompt"><field name="spam_prompt" nolabel="1" widget="text"/></group>
+                            <group string="Live-Lernbeispiele"><field name="spam_learning_notes" nolabel="1" readonly="1" widget="text"/></group>
+                        </page>
+                        <page string="Newsletter">
+                            <group string="Prompt"><field name="newsletter_prompt" nolabel="1" widget="text"/></group>
+                            <group string="Live-Lernbeispiele"><field name="newsletter_learning_notes" nolabel="1" readonly="1" widget="text"/></group>
                         </page>
                         <page string="Kino Lieferung/Report">
-                            <group string="Prompt">
-                                <field name="cinema_delivery_report_prompt" nolabel="1" widget="text"/>
-                            </group>
-                            <group string="Live-Lernbeispiele">
-                                <field name="cinema_delivery_report_learning_notes" nolabel="1" readonly="1" widget="text"/>
-                            </group>
+                            <group string="Prompt"><field name="cinema_delivery_report_prompt" nolabel="1" widget="text"/></group>
+                            <group string="Live-Lernbeispiele"><field name="cinema_delivery_report_learning_notes" nolabel="1" readonly="1" widget="text"/></group>
+                        </page>
+                        <page string="Rechnungen">
+                            <group string="Prompt"><field name="invoice_prompt" nolabel="1" widget="text"/></group>
+                            <group string="Live-Lernbeispiele"><field name="invoice_learning_notes" nolabel="1" readonly="1" widget="text"/></group>
+                        </page>
+                        <page string="Versand / Paketverfolgung">
+                            <group string="Prompt"><field name="shipping_tracking_prompt" nolabel="1" widget="text"/></group>
+                            <group string="Live-Lernbeispiele"><field name="shipping_tracking_learning_notes" nolabel="1" readonly="1" widget="text"/></group>
+                        </page>
+                        <page string="Kartenbestellungen">
+                            <group string="Prompt"><field name="ticket_order_prompt" nolabel="1" widget="text"/></group>
+                            <group string="Live-Lernbeispiele"><field name="ticket_order_learning_notes" nolabel="1" readonly="1" widget="text"/></group>
                         </page>
                         <page string="Projekt/VA">
-                            <group string="Prompt">
-                                <field name="production_prompt" nolabel="1" widget="text"/>
-                            </group>
-                            <group string="Live-Lernbeispiele">
-                                <field name="production_learning_notes" nolabel="1" readonly="1" widget="text"/>
-                            </group>
+                            <group string="Prompt"><field name="production_prompt" nolabel="1" widget="text"/></group>
+                            <group string="Live-Lernbeispiele"><field name="production_learning_notes" nolabel="1" readonly="1" widget="text"/></group>
+                        </page>
+                        <page string="Softbounces / Auto-Antworten">
+                            <group string="Prompt"><field name="soft_bounce_prompt" nolabel="1" widget="text"/></group>
+                            <group string="Live-Lernbeispiele"><field name="soft_bounce_learning_notes" nolabel="1" readonly="1" widget="text"/></group>
                         </page>
                         <page string="ToDo">
-                            <group string="Prompt">
-                                <field name="todo_prompt" nolabel="1" widget="text"/>
-                            </group>
-                            <group string="Live-Lernbeispiele">
-                                <field name="todo_learning_notes" nolabel="1" readonly="1" widget="text"/>
-                            </group>
+                            <group string="Prompt"><field name="todo_prompt" nolabel="1" widget="text"/></group>
+                            <group string="Live-Lernbeispiele"><field name="todo_learning_notes" nolabel="1" readonly="1" widget="text"/></group>
                         </page>
                         <page string="Kundensupport">
-                            <group string="Prompt">
-                                <field name="support_prompt" nolabel="1" widget="text"/>
-                            </group>
-                            <group string="Live-Lernbeispiele">
-                                <field name="support_learning_notes" nolabel="1" readonly="1" widget="text"/>
-                            </group>
+                            <group string="Prompt"><field name="support_prompt" nolabel="1" widget="text"/></group>
+                            <group string="Live-Lernbeispiele"><field name="support_learning_notes" nolabel="1" readonly="1" widget="text"/></group>
                         </page>
                         <page string="Zu prüfen">
-                            <group string="Prompt">
-                                <field name="review_prompt" nolabel="1" widget="text"/>
-                            </group>
-                            <group string="Live-Lernbeispiele">
-                                <field name="review_learning_notes" nolabel="1" readonly="1" widget="text"/>
-                            </group>
+                            <group string="Prompt"><field name="review_prompt" nolabel="1" widget="text"/></group>
+                            <group string="Live-Lernbeispiele"><field name="review_learning_notes" nolabel="1" readonly="1" widget="text"/></group>
                         </page>
                     </notebook>
                 </sheet>
