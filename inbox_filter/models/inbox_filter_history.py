@@ -26,6 +26,7 @@ class InboxFilterHistory(models.Model):
     original_stage_id = fields.Many2one("crm.stage", string="Originalphase")
     original_data_json = fields.Text(string="Originaldaten JSON")
     raw_input = fields.Text(string="Originaltext")
+    effective_raw_input = fields.Text(string="Vollständige Mail", compute="_compute_effective_raw_input")
     raw_input_preview = fields.Char(string="Voransicht", compute="_compute_raw_input_preview")
     raw_input_preview_html = fields.Html(string="Mail-Voransicht", compute="_compute_raw_input_preview_html", sanitize=False)
     perfect_recognized = fields.Boolean(
@@ -67,23 +68,166 @@ class InboxFilterHistory(models.Model):
     )
     active = fields.Boolean(default=True)
 
-    @api.depends("raw_input")
+    @api.depends(
+        "raw_input",
+        "lead_id",
+        "lead_id.name",
+        "lead_id.email_from",
+        "lead_id.description",
+        "lead_id.message_ids.body",
+        "lead_id.message_ids.subject",
+        "lead_id.message_ids.email_from",
+    )
+    def _compute_effective_raw_input(self):
+        for rec in self:
+            rec.effective_raw_input = rec._get_effective_raw_input()
+
+    @api.depends("effective_raw_input")
     def _compute_raw_input_preview(self):
         for rec in self:
-            text = " ".join((rec.raw_input or "").split())
+            text = " ".join((rec.effective_raw_input or "").split())
             rec.raw_input_preview = (text[:180] + "…") if len(text) > 180 else text
 
-    @api.depends("raw_input")
+    @api.depends("effective_raw_input")
     def _compute_raw_input_preview_html(self):
         for rec in self:
-            raw = (rec.raw_input or "").strip()
+            raw = (rec.effective_raw_input or "").strip()
             if not raw:
                 rec.raw_input_preview_html = "<p><i>Kein Originaltext vorhanden.</i></p>"
             else:
                 rec.raw_input_preview_html = (
-                    '<div style="border:1px solid #ddd;border-radius:8px;padding:12px;max-height:420px;overflow:auto;'
-                    'background:#fff;white-space:pre-wrap;font-family:inherit;">%s</div>'
+                    '<div style="border:1px solid #ddd;border-radius:8px;padding:12px;max-height:520px;overflow:auto;'
+                    'background:#fff;color:#111;white-space:pre-wrap;font-family:inherit;line-height:1.35;">%s</div>'
                 ) % tools.html_escape(raw)
+
+    def _get_effective_raw_input(self):
+        self.ensure_one()
+        stored_raw = (self.raw_input or "").strip()
+        lead = self.with_context(active_test=False).lead_id.exists()
+        lead_raw = self._format_lead_raw_input(lead).strip() if lead else ""
+
+        if self._has_meaningful_message(lead_raw):
+            if not stored_raw or not self._has_meaningful_message(stored_raw):
+                return lead_raw
+            if len(lead_raw) > len(stored_raw) + 40:
+                return lead_raw
+        return stored_raw or lead_raw
+
+    @api.model
+    def _has_meaningful_message(self, text):
+        text = (text or "").strip()
+        if not text:
+            return False
+        marker = "Nachricht:"
+        if marker in text:
+            tail = text.split(marker, 1)[1].strip()
+            return len(tail) > 10
+        return len(text) > 120
+
+    @api.model
+    def _extract_original_mail_message(self, lead):
+        """Liest den eigentlichen Mail-Body aus dem Chatter des CRM-Leads.
+
+        In Odoo wird bei per E-Mail erzeugten Leads der vollständige Mailinhalt
+        häufig als mail.message am Lead gespeichert, während crm.lead.description
+        leer bleibt oder nur Metadaten enthält. Genau deshalb darf die
+        Historien-Voransicht nicht nur auf description basieren.
+        """
+        if not lead or not lead.exists():
+            return {}
+        MailMessage = self.env["mail.message"].sudo()
+        messages = MailMessage.search([
+            ("model", "=", lead._name),
+            ("res_id", "=", lead.id),
+        ], order="date asc, id asc", limit=80)
+
+        best = {}
+        best_score = -1
+        for index, message in enumerate(messages):
+            body_text = tools.html2plaintext(message.body or "").strip()
+            if not body_text:
+                continue
+            body_lower = body_text.lower()
+            if (
+                "inbox filter" in body_lower
+                or "automatischer sortierlauf" in body_lower
+                or "originalinhalt des crm-eingangs" in body_lower
+                or "live-lernregeln ergänzt" in body_lower
+            ):
+                continue
+
+            score = 0
+            if message.message_type == "email":
+                score += 100
+            if message.email_from:
+                score += 20
+            if message.subject:
+                score += 10
+            # Frühere Nachrichten bevorzugen, wenn mehrere Kandidaten gleich gut sind.
+            score -= index
+            if score > best_score:
+                best_score = score
+                best = {
+                    "subject": message.subject or "",
+                    "email_from": message.email_from or "",
+                    "body": body_text,
+                    "date": fields.Datetime.to_string(message.date) if message.date else "",
+                    "message_type": message.message_type or "",
+                }
+        return best
+
+    @api.model
+    def _format_lead_raw_input(self, lead):
+        if not lead or not lead.exists():
+            return ""
+
+        def value(field_name, default=""):
+            if field_name not in getattr(lead, "_fields", {}):
+                return default
+            return lead[field_name] or default
+
+        name = value("name", "") or ""
+        contact_name = value("contact_name", "") or ""
+        partner_name = value("partner_name", "") or ""
+        email_from = value("email_from", "") or ""
+        phone = value("phone", "") or ""
+        mobile = value("mobile", "") or ""
+        description = value("description", "") or ""
+        description_text = tools.html2plaintext(description).strip()
+        mail_data = self._extract_original_mail_message(lead)
+        mail_subject = mail_data.get("subject") or ""
+        mail_from = mail_data.get("email_from") or ""
+        message_text = mail_data.get("body") or description_text
+
+        raw_parts = []
+        subject = name or mail_subject
+        if subject:
+            raw_parts.append("Betreff:\n%s" % subject)
+
+        contact_lines = []
+        if contact_name:
+            contact_lines.append("Kontakt: %s" % contact_name)
+        if partner_name:
+            contact_lines.append("Firma/Partner: %s" % partner_name)
+        sender = email_from or mail_from
+        if sender:
+            contact_lines.append("E-Mail: %s" % sender)
+        elif mail_from:
+            contact_lines.append("E-Mail: %s" % mail_from)
+        if phone:
+            contact_lines.append("Telefon: %s" % phone)
+        if mobile:
+            contact_lines.append("Mobil: %s" % mobile)
+        if contact_lines:
+            raw_parts.append("Kontaktinformationen:\n%s" % "\n".join(contact_lines))
+
+        if mail_subject and mail_subject != subject:
+            raw_parts.append("Original-Mail-Betreff:\n%s" % mail_subject)
+        if mail_from and mail_from != sender:
+            raw_parts.append("Original-Absender:\n%s" % mail_from)
+        if message_text:
+            raw_parts.append("Nachricht:\n%s" % message_text)
+        return "\n\n".join(raw_parts).strip()
 
     def write(self, vals):
         if not self.env.context.get("inbox_filter_allow_locked_write"):
@@ -140,7 +284,7 @@ class InboxFilterHistory(models.Model):
 
     def _post_original_to_chatter(self):
         for rec in self:
-            raw = (rec.raw_input or "").strip()
+            raw = (rec.effective_raw_input or rec.raw_input or "").strip()
             if not raw:
                 continue
             body = '<p><b>Originalinhalt des CRM-Eingangs</b></p><pre style="white-space: pre-wrap; font-family: inherit;">%s</pre>' % tools.html_escape(raw)
@@ -168,26 +312,8 @@ class InboxFilterHistory(models.Model):
         phone = value("phone", "") or ""
         mobile = value("mobile", "") or ""
         description = value("description", "") or ""
-        message_text = tools.html2plaintext(description)
-        raw_parts = []
-        if name:
-            raw_parts.append("Betreff:\n%s" % name)
-        contact_lines = []
-        if contact_name:
-            contact_lines.append("Kontakt: %s" % contact_name)
-        if partner_name:
-            contact_lines.append("Firma/Partner: %s" % partner_name)
-        if email_from:
-            contact_lines.append("E-Mail: %s" % email_from)
-        if phone:
-            contact_lines.append("Telefon: %s" % phone)
-        if mobile:
-            contact_lines.append("Mobil: %s" % mobile)
-        if contact_lines:
-            raw_parts.append("Kontaktinformationen:\n%s" % "\n".join(contact_lines))
-        if message_text:
-            raw_parts.append("Nachricht:\n%s" % message_text)
-        raw_input = "\n\n".join(raw_parts).strip()
+        mail_data = self._extract_original_mail_message(lead)
+        raw_input = self._format_lead_raw_input(lead)
 
         return {
             "name": name,
@@ -203,6 +329,9 @@ class InboxFilterHistory(models.Model):
             "phone": phone,
             "mobile": mobile,
             "description": description,
+            "mail_message_subject": mail_data.get("subject") or "",
+            "mail_message_from": mail_data.get("email_from") or "",
+            "mail_message_body": mail_data.get("body") or "",
             "planned_revenue": value("planned_revenue", 0.0),
             "probability": value("probability", 0.0),
             "priority": value("priority", "0"),

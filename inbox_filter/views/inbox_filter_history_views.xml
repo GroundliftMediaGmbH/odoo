@@ -71,7 +71,7 @@
                     <notebook>
                         <page string="Original &amp; Übersicht">
                             <group string="Originalinhalt">
-                                <field name="raw_input" nolabel="1" widget="text" readonly="1"/>
+                                <field name="effective_raw_input" nolabel="1" widget="text" readonly="1"/>
                             </group>
                             <group string="Beschreibung">
                                 <field name="summary" nolabel="1" widget="text"/>

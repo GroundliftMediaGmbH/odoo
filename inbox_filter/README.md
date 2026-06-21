@@ -1,6 +1,6 @@
 # Inbox Filter für Odoo 19 SH
 
-Version: 19.0.1.1.0
+Version: 19.0.1.1.1
 
 ## Zweck
 GPT-gestützte Sortierung neuer CRM-Leads aus der Phase „Neu“ in:
@@ -18,6 +18,12 @@ GPT-gestützte Sortierung neuer CRM-Leads aus der Phase „Neu“ in:
 - ToDo für Mitarbeitende
 - Kundensupport
 - Zu prüfen
+
+## Änderungen in 19.0.1.1.1
+
+- Die direkte Mail-Voransicht liest den vollständigen E-Mail-Body nun zusätzlich aus dem CRM-Chatter (`mail.message`), nicht nur aus `crm.lead.description`. Dadurch erscheinen auch Inhalte, die Odoo bei eingehenden Mails nur im Chatter gespeichert hat.
+- Die GPT-Klassifizierung, die Historie und die Kundensupport-Übergabe verwenden dieselbe vollständige Originalmail inklusive Betreff, Absender und Nachrichtentext.
+- Die Registerkarte „Originalinhalt“ zeigt nun ebenfalls die angereicherte vollständige Mail.
 
 ## Änderungen in 19.0.1.1.0
 

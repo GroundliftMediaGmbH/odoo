@@ -736,28 +736,28 @@ Filterdefinitionen:
         phone = self._record_value(lead, "phone", "") or ""
         mobile = self._record_value(lead, "mobile", "") or ""
         description = self._record_value(lead, "description", "") or ""
-        description_text = tools.html2plaintext(description)
-        raw_text = "\n\n".join(filter(None, [
-            "Betreff:\n%s" % name if name else "",
-            "Kontakt:\n%s" % contact_name if contact_name else "",
-            "Firma/Partner:\n%s" % partner_name if partner_name else "",
-            "E-Mail:\n%s" % email_from if email_from else "",
-            "Telefon:\n%s" % phone if phone else "",
-            "Mobil:\n%s" % mobile if mobile else "",
-            "Nachricht:\n%s" % description_text if description_text else "",
-        ])).strip()
+        description_text = tools.html2plaintext(description).strip()
+
+        history_model = self.env["inbox.filter.history"].sudo()
+        mail_data = history_model._extract_original_mail_message(lead)
+        message_text = mail_data.get("body") or description_text
+        raw_text = history_model._format_lead_raw_input(lead)
+
         create_date = self._record_value(lead, "create_date")
         return {
             "id": lead.id,
-            "subject": name,
+            "subject": name or mail_data.get("subject") or "",
             "name": name,
             "contact_name": contact_name,
             "partner_name": partner_name,
-            "email_from": email_from,
+            "email_from": email_from or mail_data.get("email_from") or "",
             "phone": phone,
             "mobile": mobile,
-            "description_text": description_text,
+            "description_text": message_text,
             "raw_text": raw_text,
+            "mail_message_subject": mail_data.get("subject") or "",
+            "mail_message_from": mail_data.get("email_from") or "",
+            "mail_message_body": mail_data.get("body") or "",
             "create_date": fields.Datetime.to_string(create_date) if create_date else None,
         }
 
@@ -1030,9 +1030,11 @@ Filterdefinitionen:
 
     def _format_original_text_html(self, lead):
         subject = self._record_value(lead, "name", "") or ""
-        description = self._record_value(lead, "description", "") or ""
-        message = tools.html2plaintext(description) or ""
-        raw = "Betreff:\n%s\n\nNachricht:\n%s" % (subject, message)
+        raw = self.env["inbox.filter.history"].sudo()._format_lead_raw_input(lead)
+        if not raw:
+            description = self._record_value(lead, "description", "") or ""
+            message = tools.html2plaintext(description).strip()
+            raw = "Betreff:\n%s\n\nNachricht:\n%s" % (subject, message)
         return """
             <p><b>Originaltext:</b></p>
             <p><b>Betreff:</b> %s</p>
