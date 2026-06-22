@@ -218,7 +218,7 @@ class InboxFilterService(models.AbstractModel):
             "corrected_category": corrected_category,
             "old_category": old_category,
             "lead_title": history.original_lead_name,
-            "lead_text": history.raw_input,
+            "lead_text": history.effective_raw_input or history.raw_input,
             "old_reason": history.reason,
             "available_categories": [{"code": p.code, "name": p.name, "prompt": (p.prompt or "")[:1500]} for p in prompts],
         }
