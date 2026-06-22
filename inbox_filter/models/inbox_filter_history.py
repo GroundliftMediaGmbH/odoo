@@ -77,6 +77,10 @@ class InboxFilterHistory(models.Model):
         "lead_id.message_ids.body",
         "lead_id.message_ids.subject",
         "lead_id.message_ids.email_from",
+        "lead_id.message_ids.message_type",
+        "message_ids.body",
+        "message_ids.subject",
+        "message_ids.email_from",
     )
     def _compute_effective_raw_input(self):
         for rec in self:
@@ -105,18 +109,80 @@ class InboxFilterHistory(models.Model):
         stored_raw = (self.raw_input or "").strip()
         lead = self.with_context(active_test=False).lead_id.exists()
         lead_raw = self._format_lead_raw_input(lead).strip() if lead else ""
+        chatter_raw = self._extract_own_chatter_original_raw()
 
-        if self._has_meaningful_message(lead_raw):
-            if not stored_raw or not self._has_meaningful_message(stored_raw):
-                return lead_raw
-            if len(lead_raw) > len(stored_raw) + 40:
-                return lead_raw
-        return stored_raw or lead_raw
+        candidates = [stored_raw, lead_raw, chatter_raw]
+        candidates = [candidate for candidate in candidates if candidate]
+        if not candidates:
+            return ""
+
+        # Nicht nach Länge entscheiden: Bei Weiterleitungen von Jana/office@groundlift
+        # steht häufig zuerst nur die Odoo-Systemmeldung "Ein neuer Lead wurde ..."
+        # im Chatter. Diese ist oft länger als die echte Nachricht, aber fachlich wertlos.
+        return max(candidates, key=self._raw_input_quality_score)
+
+    def _extract_own_chatter_original_raw(self):
+        self.ensure_one()
+        if not self.id:
+            return ""
+        MailMessage = self.env["mail.message"].sudo()
+        messages = MailMessage.search([
+            ("model", "=", self._name),
+            ("res_id", "=", self.id),
+        ], order="date desc, id desc", limit=40)
+        marker = "Originalinhalt des CRM-Eingangs"
+        for message in messages:
+            body_text = tools.html2plaintext(message.body or "").strip()
+            if not body_text or marker not in body_text:
+                continue
+            raw = body_text.split(marker, 1)[1].strip()
+            if raw:
+                return raw
+        return ""
+
+    @api.model
+    def _message_tail(self, text):
+        text = (text or "").strip()
+        marker = "Nachricht:"
+        if marker in text:
+            return text.split(marker, 1)[1].strip()
+        return text
+
+    @api.model
+    def _is_odoo_lead_notification_text(self, text):
+        tail = self._message_tail(text)
+        lower = tail.lower()
+        if not lower:
+            return False
+        german_notice = "ein neuer lead wurde" in lower and "erstellt" in lower and "team" in lower
+        english_notice = "new lead" in lower and ("created" in lower or "was created" in lower) and "team" in lower
+        return bool(german_notice or english_notice)
+
+    @api.model
+    def _raw_input_quality_score(self, text):
+        text = (text or "").strip()
+        if not text:
+            return -10000
+        tail = self._message_tail(text)
+        score = min(len(text), 1200) / 10.0
+        if self._has_meaningful_message(text):
+            score += 150
+        if tail and not self._is_odoo_lead_notification_text(text):
+            score += min(len(tail), 1000) / 4.0
+        if "http://" in text.lower() or "https://" in text.lower() or "www." in text.lower():
+            score += 120
+        if "Original-Mail-Betreff:" in text or "Original-Absender:" in text:
+            score += 25
+        if self._is_odoo_lead_notification_text(text):
+            score -= 1000
+        return score
 
     @api.model
     def _has_meaningful_message(self, text):
         text = (text or "").strip()
         if not text:
+            return False
+        if self._is_odoo_lead_notification_text(text):
             return False
         marker = "Nachricht:"
         if marker in text:
@@ -151,12 +217,16 @@ class InboxFilterHistory(models.Model):
             if (
                 "inbox filter" in body_lower
                 or "automatischer sortierlauf" in body_lower
-                or "originalinhalt des crm-eingangs" in body_lower
                 or "live-lernregeln ergänzt" in body_lower
             ):
                 continue
+            if self._is_odoo_lead_notification_text(body_text):
+                # Bei weitergeleiteten Leads von Jana/office@groundlift liegt im Chatter oft
+                # eine reine Odoo-Benachrichtigung. Der eigentliche Kundentext steht dann
+                # in einer weiteren Notiz/Nachricht und darf nicht überdeckt werden.
+                continue
 
-            score = 0
+            score = self._raw_input_quality_score(body_text)
             if message.message_type == "email":
                 score += 100
             if message.email_from:
