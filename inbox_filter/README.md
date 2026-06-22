@@ -51,3 +51,18 @@ GPT-gestützte Sortierung neuer CRM-Leads aus der Phase „Neu“ in:
 - Archivkategorien entfernen Datensätze nur aus CRM „Neu“ und speichern sie vollständig in der Inbox-Filter-Historie.
 - Endgültiges Löschen gibt es weiterhin nur bewusst über „SPAM bestätigt / löschen“.
 - Der alte SPAM/Newsletter-Prompt wird beim Zugriff automatisch auf den neuen SPAM-Prompt umgestellt, damit Newsletter künftig separat gelernt werden.
+
+
+## 19.0.1.1.3
+- Direkte Historien-Voransicht für weitergeleitete Leads korrigiert: reine Odoo-Systemmeldungen wie „Ein neuer Lead wurde … erstellt“ werden nicht mehr als eigentlicher Mailinhalt gewertet.
+- Bei mehreren Quellen wird nun der qualitativ beste Originaltext gewählt: gespeicherter Snapshot, aktueller CRM-Chatter oder Historien-Chatter.
+- Dadurch erscheinen auch bei Weiterleitungen von Jana/office@groundlift direkt in der Historie die eigentlichen Nachrichteninhalte statt nur der Weiterleitungs-/Lead-Hinweis.
+
+## 19.0.1.1.2
+
+- Neuer Button **Alle Prompts neu generieren** im Inbox-Filter-Arbeitsbereich.
+- Analysiert alle Historien-Datensätze mit gesetztem Haken **Perfekt erkannt**.
+- Generiert für jede Filterkategorie einen neuen ausführlichen Standardprompt.
+- Öffnet anschließend einen Vergleichsdialog: alter Prompt links, neuer Prompt rechts.
+- Über **Neuen Prompt als Standard** werden alle neuen Prompts übernommen; die bisherigen Live-Lernbeispiele werden dabei konsolidiert und zurückgesetzt.
+- Über **Alten Prompt behalten** wird der Dialog geschlossen, ohne bestehende Prompts zu verändern.

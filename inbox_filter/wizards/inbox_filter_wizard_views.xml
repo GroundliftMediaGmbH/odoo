@@ -34,4 +34,205 @@
             </form>
         </field>
     </record>
+
+    <record id="view_inbox_filter_prompt_regenerate_wizard_form" model="ir.ui.view">
+        <field name="name">inbox.filter.prompt.regenerate.wizard.form</field>
+        <field name="model">inbox.filter.prompt.regenerate.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Alle Prompts neu generieren">
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <field name="generated_at" readonly="1"/>
+                        <field name="perfect_count" readonly="1"/>
+                    </group>
+                    <group string="Analyse-Zusammenfassung">
+                        <field name="generation_summary" nolabel="1" readonly="1" widget="text"/>
+                    </group>
+                    <notebook>
+                        <page string="Qualifiziert">
+                            <group>
+                                <field name="qualified_example_count" readonly="1"/>
+                            </group>
+                            <group col="2">
+                                <group string="Alter Prompt">
+                                    <field name="qualified_old_prompt" nolabel="1" readonly="1" widget="text"/>
+                                </group>
+                                <group string="Neuer Prompt">
+                                    <field name="qualified_new_prompt" nolabel="1" widget="text"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Bandanfragen">
+                            <group>
+                                <field name="band_request_example_count" readonly="1"/>
+                            </group>
+                            <group col="2">
+                                <group string="Alter Prompt">
+                                    <field name="band_request_old_prompt" nolabel="1" readonly="1" widget="text"/>
+                                </group>
+                                <group string="Neuer Prompt">
+                                    <field name="band_request_new_prompt" nolabel="1" widget="text"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="SPAM">
+                            <group>
+                                <field name="spam_example_count" readonly="1"/>
+                            </group>
+                            <group col="2">
+                                <group string="Alter Prompt">
+                                    <field name="spam_old_prompt" nolabel="1" readonly="1" widget="text"/>
+                                </group>
+                                <group string="Neuer Prompt">
+                                    <field name="spam_new_prompt" nolabel="1" widget="text"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Newsletter">
+                            <group>
+                                <field name="newsletter_example_count" readonly="1"/>
+                            </group>
+                            <group col="2">
+                                <group string="Alter Prompt">
+                                    <field name="newsletter_old_prompt" nolabel="1" readonly="1" widget="text"/>
+                                </group>
+                                <group string="Neuer Prompt">
+                                    <field name="newsletter_new_prompt" nolabel="1" widget="text"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Kino Lieferung/Report">
+                            <group>
+                                <field name="cinema_delivery_report_example_count" readonly="1"/>
+                            </group>
+                            <group col="2">
+                                <group string="Alter Prompt">
+                                    <field name="cinema_delivery_report_old_prompt" nolabel="1" readonly="1" widget="text"/>
+                                </group>
+                                <group string="Neuer Prompt">
+                                    <field name="cinema_delivery_report_new_prompt" nolabel="1" widget="text"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Rechnungen">
+                            <group>
+                                <field name="invoice_example_count" readonly="1"/>
+                            </group>
+                            <group col="2">
+                                <group string="Alter Prompt">
+                                    <field name="invoice_old_prompt" nolabel="1" readonly="1" widget="text"/>
+                                </group>
+                                <group string="Neuer Prompt">
+                                    <field name="invoice_new_prompt" nolabel="1" widget="text"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Versand / Paketverfolgung">
+                            <group>
+                                <field name="shipping_tracking_example_count" readonly="1"/>
+                            </group>
+                            <group col="2">
+                                <group string="Alter Prompt">
+                                    <field name="shipping_tracking_old_prompt" nolabel="1" readonly="1" widget="text"/>
+                                </group>
+                                <group string="Neuer Prompt">
+                                    <field name="shipping_tracking_new_prompt" nolabel="1" widget="text"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Kartenbestellungen">
+                            <group>
+                                <field name="ticket_order_example_count" readonly="1"/>
+                            </group>
+                            <group col="2">
+                                <group string="Alter Prompt">
+                                    <field name="ticket_order_old_prompt" nolabel="1" readonly="1" widget="text"/>
+                                </group>
+                                <group string="Neuer Prompt">
+                                    <field name="ticket_order_new_prompt" nolabel="1" widget="text"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Projekt/VA">
+                            <group>
+                                <field name="production_example_count" readonly="1"/>
+                            </group>
+                            <group col="2">
+                                <group string="Alter Prompt">
+                                    <field name="production_old_prompt" nolabel="1" readonly="1" widget="text"/>
+                                </group>
+                                <group string="Neuer Prompt">
+                                    <field name="production_new_prompt" nolabel="1" widget="text"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Softbounces / Auto-Antworten">
+                            <group>
+                                <field name="soft_bounce_example_count" readonly="1"/>
+                            </group>
+                            <group col="2">
+                                <group string="Alter Prompt">
+                                    <field name="soft_bounce_old_prompt" nolabel="1" readonly="1" widget="text"/>
+                                </group>
+                                <group string="Neuer Prompt">
+                                    <field name="soft_bounce_new_prompt" nolabel="1" widget="text"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="ToDo">
+                            <group>
+                                <field name="todo_example_count" readonly="1"/>
+                            </group>
+                            <group col="2">
+                                <group string="Alter Prompt">
+                                    <field name="todo_old_prompt" nolabel="1" readonly="1" widget="text"/>
+                                </group>
+                                <group string="Neuer Prompt">
+                                    <field name="todo_new_prompt" nolabel="1" widget="text"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Kundensupport">
+                            <group>
+                                <field name="support_example_count" readonly="1"/>
+                            </group>
+                            <group col="2">
+                                <group string="Alter Prompt">
+                                    <field name="support_old_prompt" nolabel="1" readonly="1" widget="text"/>
+                                </group>
+                                <group string="Neuer Prompt">
+                                    <field name="support_new_prompt" nolabel="1" widget="text"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Zu prüfen">
+                            <group>
+                                <field name="review_example_count" readonly="1"/>
+                            </group>
+                            <group col="2">
+                                <group string="Alter Prompt">
+                                    <field name="review_old_prompt" nolabel="1" readonly="1" widget="text"/>
+                                </group>
+                                <group string="Neuer Prompt">
+                                    <field name="review_new_prompt" nolabel="1" widget="text"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Analyse-Snapshot">
+                            <field name="generation_payload_json" nolabel="1" readonly="1" widget="text"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <footer>
+                    <button name="action_apply_new_prompts" type="object" string="Neuen Prompt als Standard" class="btn-primary" confirm="Alle neuen Prompts werden als Standard übernommen. Die bisherigen Live-Lernbeispiele werden dabei konsolidiert und zurückgesetzt. Fortfahren?"/>
+                    <button name="action_keep_old_prompts" type="object" string="Alten Prompt behalten" class="btn-secondary"/>
+                    <button string="Abbrechen" special="cancel" class="btn-link"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
 </odoo>
