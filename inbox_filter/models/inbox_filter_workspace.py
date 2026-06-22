@@ -161,6 +161,19 @@ class InboxFilterWorkspace(models.Model):
         })
         return action
 
+
+    def action_regenerate_prompts(self):
+        wizard = self.env["inbox.filter.prompt.regenerate.wizard"].create_from_perfect_history()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Alle Prompts neu generieren"),
+            "res_model": "inbox.filter.prompt.regenerate.wizard",
+            "res_id": wizard.id,
+            "view_mode": "form",
+            "view_id": self.env.ref("inbox_filter.view_inbox_filter_prompt_regenerate_wizard_form").id,
+            "target": "new",
+        }
+
     def action_open_history(self):
         return self.env.ref("inbox_filter.action_inbox_filter_history").read()[0]
 
