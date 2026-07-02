@@ -5,12 +5,16 @@
         <field name="model">gl.media.approval.folder</field>
         <field name="arch" type="xml">
             <list>
+                <header>
+                    <button name="%(action_gl_media_homepage)d" type="action" string="Homepage aufrufen" display="always" class="btn-primary"/>
+                </header>
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
                 <field name="connection_id"/>
                 <field name="remote_dir_name"/>
                 <field name="remote_path"/>
                 <field name="file_count"/>
+                <field name="reviewer_count"/>
                 <field name="website_visible"/>
                 <field name="active"/>
             </list>
@@ -25,6 +29,7 @@
                 <header>
                     <button name="action_create_remote_folder" type="object" string="Remote-Ordner anlegen" class="btn-primary"/>
                     <button name="action_open_upload_wizard" type="object" string="Dateien hochladen" class="btn-secondary"/>
+                    <button name="action_open_homepage" type="object" string="Homepage aufrufen" class="btn-secondary"/>
                 </header>
                 <sheet>
                     <group>
@@ -39,9 +44,17 @@
                             <field name="remote_dir_name"/>
                             <field name="remote_path" readonly="1"/>
                             <field name="file_count" readonly="1"/>
+                            <field name="reviewer_count" readonly="1"/>
                         </group>
                     </group>
                     <notebook>
+                        <page string="Bewertende Personen">
+                            <field name="reviewer_person_ids" widget="many2many_tags"/>
+                            <div class="alert alert-info" role="alert">
+                                Diese Personen werden beim Upload neuer Dateien als fester Freigabe-Kreis gespeichert.
+                                Spätere Änderungen wirken nur auf neue Uploads, nicht rückwirkend auf bestehende Dateien.
+                            </div>
+                        </page>
                         <page string="Dateien">
                             <field name="file_ids" readonly="1">
                                 <list>

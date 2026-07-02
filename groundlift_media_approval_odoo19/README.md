@@ -1,17 +1,22 @@
 # Groundlift Medienfreigabe für Odoo 19 / Odoo.sh
 
-Version: 19.0.1.0.3
+Version: 19.0.1.0.4
 
-Diese Version behebt den PIN-Zugriffsfehler und nutzt im Backend eine einfache sechsstellige PIN pro Freigabe-Person.
+Diese Version erweitert die Medienfreigabe um Ordner-spezifische Bewerter, einen direkten Homepage-Button und einen Mehrfach-Upload für große Foto-/Videodateien.
 
-## Wichtige Änderungen in 19.0.1.0.3
+## Wichtige Änderungen in 19.0.1.0.4
 
-- Das Feld `pin_hash` ist nicht mehr gruppenbeschränkt und wird nicht mehr in der Ansicht verwendet.
-- Neue einfache PIN-Vergabe über das Feld `6-stellige PIN` auf der Freigabe-Person.
-- PIN muss genau sechs Ziffern haben.
-- PINs aktiver Personen müssen eindeutig sein.
-- Alte, gehashte PINs bleiben als Legacy-Fallback lesbar, damit bestehende Testdaten kein Update blockieren.
-- Upload-Snapshot berücksichtigt Personen mit neuer `pin_code`-PIN und alte Legacy-PINs.
+- In der Unterordner-Liste gibt es im Header den Button `Homepage aufrufen`.
+- In der Unterordner-Form gibt es ebenfalls den Button `Homepage aufrufen`.
+- Der Menüpunkt `Freigabe > Dateien hochladen` öffnet jetzt eine eigene Upload-Seite.
+- Der Upload nutzt nicht mehr den alten Base64-Anhangsweg als Hauptworkflow, sondern eine eigene Mehrfach-Dateiauswahl.
+- Bis zu 50 Dateien pro Durchlauf, serverseitig begrenzt auf 200 MB pro Datei.
+- Zwei Dateien werden parallel übertragen; dadurch ist der Upload schneller, ohne Hetzner/Odoo.sh unnötig zu überlasten.
+- Die Datei wird nach dem Browser-Upload direkt per FTP/SFTP/FTPS auf den Hetzner-Ordner geschrieben.
+- Pro Unterordner können jetzt `Bewertende Personen` ausgewählt werden.
+- Beim Upload wird pro Datei ein fester Personen-Snapshot aus den Bewertern des Ordners gespeichert.
+- Später hinzugefügte Personen sehen und bewerten nur danach hochgeladene Dateien.
+- Bereits bestehende Dateien behalten ihren ursprünglichen Freigabe-Kreis.
 
 ## Installation / Update auf Odoo.sh
 
@@ -29,9 +34,10 @@ Diese Version behebt den PIN-Zugriffsfehler und nutzt im Backend eine einfache s
 2. Unter `Konfiguration > Personen / PINs` Personen anlegen und je Person eine sechsstellige PIN vergeben.
 3. Unter `Konfiguration > Hetzner Verbindungen` FTP/SFTP-Zugang hinterlegen.
 4. Unter `Freigabe > Unterordner` Zielordner anlegen.
-5. Über `Dateien hochladen` Fotos/Videos hochladen.
-6. Externe Personen öffnen `/media-approval` oder `/medienfreigabe` und melden sich nur per PIN an.
+5. Im Unterordner im Reiter `Bewertende Personen` auswählen, wer diesen Ordner bewerten darf.
+6. Über `Dateien hochladen` oder den Button im Unterordner Fotos/Videos hochladen.
+7. Externe Personen öffnen `/media-approval` oder `/medienfreigabe` und melden sich nur per PIN an.
 
 ## Technischer Hinweis
 
-Die Freigabe-Personen werden beim Upload als fester Snapshot an jede Datei geschrieben. Später hinzugefügte Personen gelten nur für danach hochgeladene Dateien.
+Die App vermeidet beim neuen Upload den Base64-Mehrfachanhang als Hauptweg. Trotzdem läuft der Browser-Upload technisch zuerst durch Odoo.sh und wird dann nach Hetzner gestreamt. Sollte Odoo.sh/proxyseitig eine niedrigere Upload-Grenze erzwingen, muss diese Grenze in der Infrastruktur angepasst oder alternativ ein Direktupload nach Hetzner per separatem presigned Upload-Mechanismus ergänzt werden.

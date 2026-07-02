@@ -20,6 +20,16 @@ class GlMediaApprovalFolder(models.Model):
         help="Wird unterhalb des Basisordners der Verbindung angelegt.",
     )
     remote_path = fields.Char(string="Vollständiger Remote-Pfad", readonly=True, copy=False)
+    reviewer_person_ids = fields.Many2many(
+        "gl.media.approval.person",
+        "gl_media_folder_person_rel",
+        "folder_id",
+        "person_id",
+        string="Bewertende Personen",
+        domain="[('active', '=', True)]",
+        help="Nur diese Personen werden beim Upload neuer Dateien in den festen Freigabe-Kreis übernommen.",
+    )
+    reviewer_count = fields.Integer(string="Bewerter", compute="_compute_reviewer_count")
     file_ids = fields.One2many("gl.media.approval.file", "folder_id")
     file_count = fields.Integer(compute="_compute_file_count")
     note = fields.Text()
@@ -27,6 +37,11 @@ class GlMediaApprovalFolder(models.Model):
     _sql_constraints = [
         ("remote_path_uniq", "unique(connection_id, remote_path)", "Dieser Remote-Ordner existiert für diese Verbindung bereits."),
     ]
+
+    @api.depends("reviewer_person_ids")
+    def _compute_reviewer_count(self):
+        for rec in self:
+            rec.reviewer_count = len(rec.reviewer_person_ids)
 
     @api.depends("file_ids")
     def _compute_file_count(self):
@@ -94,11 +109,21 @@ class GlMediaApprovalFolder(models.Model):
 
     def action_open_upload_wizard(self):
         self.ensure_one()
+        return self.action_open_upload_page()
+
+    def action_open_upload_page(self):
+        self.ensure_one()
         return {
+            "type": "ir.actions.act_url",
             "name": _("Dateien hochladen"),
-            "type": "ir.actions.act_window",
-            "res_model": "gl.media.approval.upload.wizard",
-            "view_mode": "form",
+            "url": "/media-approval/backend/upload?folder_id=%s" % self.id,
             "target": "new",
-            "context": {"default_folder_id": self.id},
+        }
+
+    def action_open_homepage(self):
+        return {
+            "type": "ir.actions.act_url",
+            "name": _("Homepage aufrufen"),
+            "url": "/media-approval",
+            "target": "new",
         }

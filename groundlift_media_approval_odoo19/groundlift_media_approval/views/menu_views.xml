@@ -17,7 +17,7 @@
     <menuitem id="menu_gl_media_upload"
               name="Dateien hochladen"
               parent="menu_gl_media_operation"
-              action="action_gl_media_upload_wizard"
+              action="action_gl_media_upload_page"
               sequence="5"
               groups="base.group_user"/>
 

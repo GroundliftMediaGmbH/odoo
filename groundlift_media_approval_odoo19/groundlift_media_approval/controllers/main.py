@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
+import json
 import re
 
 from odoo import http, _
 from odoo.http import request, Response
-from werkzeug.exceptions import NotFound, Forbidden
+from werkzeug.exceptions import NotFound, Forbidden, BadRequest
 
 
 class GlMediaApprovalWebsite(http.Controller):
@@ -29,10 +30,11 @@ class GlMediaApprovalWebsite(http.Controller):
         error = kw.get("error")
         if not person:
             return request.render("groundlift_media_approval.login", {"error": error})
-        folders = request.env["gl.media.approval.folder"].sudo().search([
+        all_folders = request.env["gl.media.approval.folder"].sudo().search([
             ("active", "=", True),
             ("website_visible", "=", True),
         ])
+        folders = all_folders.filtered(lambda f: person in f.reviewer_person_ids or any(person in media.approval_person_ids for media in f.file_ids.filtered(lambda m: m.active and not m.deleted_remote)))
         return request.render("groundlift_media_approval.folder_list", {
             "person": person,
             "folders": folders,
@@ -57,12 +59,15 @@ class GlMediaApprovalWebsite(http.Controller):
         folder = request.env["gl.media.approval.folder"].sudo().browse(folder_id)
         if not folder.exists() or not folder.active or not folder.website_visible:
             raise NotFound()
-        domain = [("folder_id", "=", folder.id), ("active", "=", True), ("deleted_remote", "=", False)]
+        has_folder_access = person in folder.reviewer_person_ids or any(person in media.approval_person_ids for media in folder.file_ids.filtered(lambda m: m.active and not m.deleted_remote))
+        if not has_folder_access:
+            raise Forbidden()
+        domain = [("folder_id", "=", folder.id), ("active", "=", True), ("deleted_remote", "=", False), ("approval_person_ids", "in", [person.id])]
         files = request.env["gl.media.approval.file"].sudo().search(domain)
         selected = request.env["gl.media.approval.file"].sudo().browse()
         if file_id:
             selected = request.env["gl.media.approval.file"].sudo().browse(int(file_id))
-            if not selected.exists() or selected.folder_id.id != folder.id or not selected.active:
+            if not selected.exists() or selected.folder_id.id != folder.id or not selected.active or person not in selected.approval_person_ids:
                 selected = request.env["gl.media.approval.file"].sudo().browse()
         if not selected and files:
             selected = files[0]
@@ -88,18 +93,89 @@ class GlMediaApprovalWebsite(http.Controller):
         media = request.env["gl.media.approval.file"].sudo().browse(file_id)
         if not media.exists() or not media.active or media.deleted_remote:
             raise NotFound()
-        # Preview is visible to logged-in PIN persons. The person's own vote is handled separately.
+        if person not in media.approval_person_ids:
+            raise Forbidden()
         return self._serve_media(media, inline=True, allow_locked=True)
 
     @http.route("/media-approval/download/<int:file_id>", type="http", auth="public", website=True, sitemap=False, csrf=False)
     def download(self, file_id, **kw):
-        self._require_person()
+        person = self._require_person()
         media = request.env["gl.media.approval.file"].sudo().browse(file_id)
         if not media.exists() or not media.active or media.deleted_remote:
             raise NotFound()
+        if person not in media.approval_person_ids:
+            raise Forbidden()
         if media.decision_state != "approved":
             raise Forbidden()
         return self._serve_media(media, inline=False, allow_locked=False)
+
+
+    @http.route("/media-approval/backend/upload", type="http", auth="user", website=True, sitemap=False)
+    def backend_upload_page(self, folder_id=None, **kw):
+        Folder = request.env["gl.media.approval.folder"].sudo()
+        folders = Folder.search([("active", "=", True)], order="sequence, name")
+        selected_folder = Folder.browse()
+        if folder_id:
+            selected_folder = Folder.browse(int(folder_id))
+            if not selected_folder.exists():
+                selected_folder = Folder.browse()
+        return request.render("groundlift_media_approval.backend_upload_page", {
+            "folders": folders,
+            "selected_folder": selected_folder,
+            "max_files": 50,
+            "max_size_mb": 200,
+        })
+
+    @http.route("/media-approval/backend/upload-file", type="http", auth="user", website=False, methods=["POST"], sitemap=False)
+    def backend_upload_file(self, folder_id=None, file=None, **post):
+        try:
+            folder_id = folder_id or post.get("folder_id")
+            uploaded_file = file or request.httprequest.files.get("file")
+            if not folder_id:
+                raise BadRequest("Ordner fehlt.")
+            folder = request.env["gl.media.approval.folder"].sudo().browse(int(folder_id))
+            if not folder.exists() or not folder.active:
+                raise BadRequest("Ordner wurde nicht gefunden.")
+            if not uploaded_file:
+                raise BadRequest("Datei fehlt.")
+            filename = getattr(uploaded_file, "filename", None) or "datei"
+            mimetype = getattr(uploaded_file, "mimetype", None) or getattr(uploaded_file, "content_type", None) or "application/octet-stream"
+            stream = getattr(uploaded_file, "stream", uploaded_file)
+            size = self._stream_size(stream, fallback=getattr(uploaded_file, "content_length", 0) or 0)
+            max_size = 200 * 1024 * 1024
+            if size and size > max_size:
+                raise BadRequest("Die Datei ist größer als 200 MB.")
+            media = request.env["gl.media.approval.file"].sudo().create_from_upload_stream(
+                folder,
+                filename,
+                stream,
+                mimetype=mimetype,
+                size_bytes=size,
+            )
+            return self._json_response({
+                "ok": True,
+                "id": media.id,
+                "name": media.name,
+                "size_bytes": media.size_bytes,
+                "state": media.decision_state,
+            })
+        except Exception as exc:
+            return self._json_response({"ok": False, "error": str(exc)}, status=400)
+
+    @staticmethod
+    def _stream_size(stream, fallback=0):
+        try:
+            current = stream.tell()
+            stream.seek(0, 2)
+            size = stream.tell()
+            stream.seek(current)
+            return int(size or fallback or 0)
+        except Exception:
+            return int(fallback or 0)
+
+    @staticmethod
+    def _json_response(payload, status=200):
+        return Response(json.dumps(payload), status=status, content_type="application/json; charset=utf-8")
 
     def _serve_media(self, media, inline=True, allow_locked=True):
         size = int(media.size_bytes or 0)

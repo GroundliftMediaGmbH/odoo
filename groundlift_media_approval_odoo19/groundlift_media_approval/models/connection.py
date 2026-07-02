@@ -162,6 +162,20 @@ class _SFTPClientWrapper:
         with self.sftp.open(remote_path, "wb") as remote_file:
             remote_file.write(content)
 
+    def upload_fileobj(self, remote_path, stream):
+        folder = posixpath.dirname(remote_path)
+        self.ensure_dir(folder)
+        try:
+            stream.seek(0)
+        except Exception:
+            pass
+        with self.sftp.open(remote_path, "wb") as remote_file:
+            while True:
+                chunk = stream.read(1024 * 1024)
+                if not chunk:
+                    break
+                remote_file.write(chunk)
+
     def read_bytes(self, remote_path, offset=0, length=None):
         with self.sftp.open(remote_path, "rb") as remote_file:
             if offset:
@@ -228,6 +242,15 @@ class _FTPClientWrapper:
         self.ensure_dir(folder)
         with io.BytesIO(content) as stream:
             self.ftp.storbinary("STOR " + remote_path, stream)
+
+    def upload_fileobj(self, remote_path, stream):
+        folder = posixpath.dirname(remote_path)
+        self.ensure_dir(folder)
+        try:
+            stream.seek(0)
+        except Exception:
+            pass
+        self.ftp.storbinary("STOR " + remote_path, stream, blocksize=1024 * 1024)
 
     def read_bytes(self, remote_path, offset=0, length=None):
         chunks = []

@@ -149,4 +149,191 @@
             </div>
         </t>
     </template>
+
+    <template id="backend_upload_page" name="Medienfreigabe Backend Mehrfach-Upload">
+        <t t-call="website.layout">
+            <div id="wrap" class="glma-page glma-upload-page">
+                <div class="container py-4">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h1 class="mb-1">Dateien hochladen</h1>
+                            <div class="text-muted">Mehrfach-Upload direkt in den ausgewählten Hetzner-Unterordner.</div>
+                        </div>
+                        <a href="/web#action=groundlift_media_approval.action_gl_media_folder" class="btn btn-outline-secondary">Zurück zu Odoo</a>
+                    </div>
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <input type="hidden" id="glma_csrf" t-att-value="request.csrf_token()"/>
+                            <div class="row g-3 align-items-end">
+                                <div class="col-12 col-lg-5">
+                                    <label class="form-label" for="glma_folder_select">Unterordner</label>
+                                    <select id="glma_folder_select" class="form-select form-select-lg">
+                                        <option value="">Bitte auswählen</option>
+                                        <t t-foreach="folders" t-as="folder">
+                                            <option t-att-value="folder.id" t-att-selected="selected_folder and selected_folder.id == folder.id">
+                                                <t t-esc="folder.name"/>
+                                            </option>
+                                        </t>
+                                    </select>
+                                </div>
+                                <div class="col-12 col-lg-5">
+                                    <label class="form-label" for="glma_file_input">Fotos und Videos</label>
+                                    <input id="glma_file_input" class="form-control form-control-lg" type="file" multiple="multiple" accept="image/*,video/*"/>
+                                </div>
+                                <div class="col-12 col-lg-2 d-grid">
+                                    <button id="glma_upload_start" type="button" class="btn btn-primary btn-lg">Upload starten</button>
+                                </div>
+                            </div>
+                            <div class="small text-muted mt-3">
+                                Maximal <t t-esc="max_files"/> Dateien pro Durchlauf, maximal <t t-esc="max_size_mb"/> MB pro Datei. Die Dateien werden einzeln übertragen und danach direkt auf den Hetzner-Server geschrieben.
+                            </div>
+                            <div class="progress mt-4" style="height: 24px;">
+                                <div id="glma_upload_total_bar" class="progress-bar" role="progressbar" style="width: 0%;">0%</div>
+                            </div>
+                            <div id="glma_upload_status" class="alert alert-info mt-3 d-none"></div>
+                            <div id="glma_upload_log" class="list-group mt-3"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <script type="text/javascript"><![CDATA[
+(function () {
+    const maxFiles = 50;
+    const maxSize = 200 * 1024 * 1024;
+    const parallelUploads = 2;
+    const folderSelect = document.getElementById('glma_folder_select');
+    const fileInput = document.getElementById('glma_file_input');
+    const startButton = document.getElementById('glma_upload_start');
+    const csrfInput = document.getElementById('glma_csrf');
+    const log = document.getElementById('glma_upload_log');
+    const statusBox = document.getElementById('glma_upload_status');
+    const totalBar = document.getElementById('glma_upload_total_bar');
+
+    function setStatus(message, kind) {
+        statusBox.className = 'alert mt-3 alert-' + (kind || 'info');
+        statusBox.textContent = message;
+        statusBox.classList.remove('d-none');
+    }
+
+    function addLogItem(file) {
+        const item = document.createElement('div');
+        item.className = 'list-group-item';
+        item.innerHTML = '<div class="d-flex justify-content-between"><strong></strong><span class="badge bg-secondary">wartet</span></div><div class="progress mt-2" style="height: 10px;"><div class="progress-bar" style="width:0%"></div></div><div class="small text-muted mt-1"></div>';
+        item.querySelector('strong').textContent = file.name;
+        log.appendChild(item);
+        return item;
+    }
+
+    function setItem(item, percent, badge, badgeClass, detail) {
+        const bar = item.querySelector('.progress-bar');
+        const badgeNode = item.querySelector('.badge');
+        const detailNode = item.querySelector('.small');
+        bar.style.width = Math.max(0, Math.min(100, percent || 0)) + '%';
+        badgeNode.className = 'badge ' + (badgeClass || 'bg-secondary');
+        badgeNode.textContent = badge || 'wartet';
+        detailNode.textContent = detail || '';
+    }
+
+    function uploadOne(file, item, folderId) {
+        return new Promise((resolve) => {
+            const xhr = new XMLHttpRequest();
+            const form = new FormData();
+            form.append('csrf_token', csrfInput.value);
+            form.append('folder_id', folderId);
+            form.append('file', file, file.name);
+            xhr.open('POST', '/media-approval/backend/upload-file', true);
+            xhr.upload.onprogress = function (event) {
+                if (event.lengthComputable) {
+                    setItem(item, Math.round((event.loaded / event.total) * 100), 'lädt hoch', 'bg-primary', Math.round(event.loaded / 1024 / 1024) + ' MB / ' + Math.round(event.total / 1024 / 1024) + ' MB');
+                } else {
+                    setItem(item, 10, 'lädt hoch', 'bg-primary', 'Upload läuft...');
+                }
+            };
+            xhr.onload = function () {
+                let payload = null;
+                try { payload = JSON.parse(xhr.responseText || '{}'); } catch (e) {}
+                if (xhr.status >= 200 && xhr.status < 300 && payload && payload.ok) {
+                    setItem(item, 100, 'fertig', 'bg-success', 'Übertragen als: ' + payload.name);
+                    resolve({ok: true});
+                } else {
+                    const error = payload && payload.error ? payload.error : ('HTTP ' + xhr.status);
+                    setItem(item, 100, 'Fehler', 'bg-danger', error);
+                    resolve({ok: false, error: error});
+                }
+            };
+            xhr.onerror = function () {
+                setItem(item, 100, 'Fehler', 'bg-danger', 'Netzwerkfehler beim Upload.');
+                resolve({ok: false, error: 'Netzwerkfehler'});
+            };
+            setItem(item, 0, 'startet', 'bg-primary', 'Upload wird vorbereitet...');
+            xhr.send(form);
+        });
+    }
+
+    function updateTotal(done, total) {
+        const percent = total ? Math.round((done / total) * 100) : 0;
+        totalBar.style.width = percent + '%';
+        totalBar.textContent = percent + '%';
+    }
+
+    startButton.addEventListener('click', async function () {
+        const folderId = folderSelect.value;
+        const files = Array.from(fileInput.files || []);
+        log.innerHTML = '';
+        updateTotal(0, 0);
+        if (!folderId) {
+            setStatus('Bitte zuerst einen Unterordner auswählen.', 'warning');
+            return;
+        }
+        if (!files.length) {
+            setStatus('Bitte mindestens eine Datei auswählen.', 'warning');
+            return;
+        }
+        if (files.length > maxFiles) {
+            setStatus('Bitte maximal ' + maxFiles + ' Dateien pro Durchlauf auswählen.', 'danger');
+            return;
+        }
+        const tooLarge = files.filter((file) => file.size > maxSize);
+        if (tooLarge.length) {
+            setStatus('Mindestens eine Datei ist größer als 200 MB: ' + tooLarge.map((f) => f.name).join(', '), 'danger');
+            return;
+        }
+        startButton.disabled = true;
+        fileInput.disabled = true;
+        folderSelect.disabled = true;
+        setStatus('Upload läuft. Bitte dieses Fenster nicht schließen.', 'info');
+        const queue = files.map((file) => ({file: file, item: addLogItem(file)}));
+        let done = 0;
+        let ok = 0;
+        let failed = 0;
+        updateTotal(0, queue.length);
+
+        async function worker() {
+            while (queue.length) {
+                const next = queue.shift();
+                const result = await uploadOne(next.file, next.item, folderId);
+                done += 1;
+                if (result.ok) { ok += 1; } else { failed += 1; }
+                updateTotal(done, files.length);
+            }
+        }
+        const workers = [];
+        for (let i = 0; i < Math.min(parallelUploads, files.length); i++) {
+            workers.push(worker());
+        }
+        await Promise.all(workers);
+        startButton.disabled = false;
+        fileInput.disabled = false;
+        folderSelect.disabled = false;
+        if (failed) {
+            setStatus('Upload abgeschlossen: ' + ok + ' erfolgreich, ' + failed + ' fehlgeschlagen.', 'warning');
+        } else {
+            setStatus('Upload abgeschlossen: ' + ok + ' Dateien erfolgreich übertragen.', 'success');
+        }
+    });
+})();
+            ]]></script>
+        </t>
+    </template>
+
 </odoo>

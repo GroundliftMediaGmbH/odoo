@@ -105,13 +105,19 @@ class GlMediaApprovalFile(models.Model):
         return res
 
     @api.model
+    def _approval_persons_for_folder(self, folder):
+        folder.ensure_one()
+        persons = folder.reviewer_person_ids.sudo().filtered(lambda p: p.active and (p.pin_code or p.pin_hash))
+        if not persons:
+            raise UserError(_("Bitte im Unterordner zuerst mindestens eine bewertende Person mit PIN auswählen."))
+        return persons
+
+    @api.model
     def create_from_upload(self, folder, filename, content, mimetype=None):
         folder.ensure_one()
         filename = self._sanitize_filename(filename)
         mimetype = mimetype or mimetypes.guess_type(filename)[0] or "application/octet-stream"
-        persons = self.env["gl.media.approval.person"].sudo().search(["&", ("active", "=", True), "|", ("pin_code", "!=", False), ("pin_hash", "!=", False)])
-        if not persons:
-            raise UserError(_("Bitte zuerst mindestens eine aktive Person mit PIN anlegen."))
+        persons = self._approval_persons_for_folder(folder)
         folder._update_remote_path()
         with folder.connection_id._client() as client:
             client.ensure_dir(folder.remote_path)
@@ -124,6 +130,33 @@ class GlMediaApprovalFile(models.Model):
             "remote_path": remote_path,
             "mimetype": mimetype,
             "size_bytes": len(content or b""),
+            "approval_person_ids": [(6, 0, persons.ids)],
+        })
+        media._recompute_decision_state()
+        return media
+
+    @api.model
+    def create_from_upload_stream(self, folder, filename, stream, mimetype=None, size_bytes=0):
+        folder.ensure_one()
+        filename = self._sanitize_filename(filename)
+        mimetype = mimetype or mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        persons = self._approval_persons_for_folder(folder)
+        try:
+            stream.seek(0)
+        except Exception:
+            pass
+        folder._update_remote_path()
+        with folder.connection_id._client() as client:
+            client.ensure_dir(folder.remote_path)
+            remote_path = self._unique_remote_path(client, folder, filename)
+            client.upload_fileobj(remote_path, stream)
+        media = self.sudo().create({
+            "name": filename,
+            "folder_id": folder.id,
+            "remote_filename": posixpath.basename(remote_path),
+            "remote_path": remote_path,
+            "mimetype": mimetype,
+            "size_bytes": int(size_bytes or 0),
             "approval_person_ids": [(6, 0, persons.ids)],
         })
         media._recompute_decision_state()
