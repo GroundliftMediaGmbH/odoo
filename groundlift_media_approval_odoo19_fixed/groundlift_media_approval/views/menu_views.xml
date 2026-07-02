@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <menuitem id="menu_gl_media_root" name="Medienfreigabe" sequence="35" web_icon="groundlift_media_approval,static/description/icon.png" groups="groundlift_media_approval.group_media_approval_manager"/>
-    <menuitem id="menu_gl_media_operation" name="Freigabe" parent="menu_gl_media_root" sequence="10" groups="groundlift_media_approval.group_media_approval_manager"/>
-    <menuitem id="menu_gl_media_config" name="Konfiguration" parent="menu_gl_media_root" sequence="90" groups="groundlift_media_approval.group_media_approval_manager"/>
-</odoo>
