@@ -175,7 +175,7 @@ def _append_css_record(record, replacement, root_vars, simple_rules, complex_rul
             value = raw_value.replace(matched_value, replacement_with_alpha)
         else:
             value = replacement_with_alpha
-        root_vars[var_name] = value
+        simple_rules[selector][var_name] = value
         return
 
     if prop in SIMPLE_PROPERTIES or prop.endswith('-color') or prop in ('fill', 'stroke'):
@@ -475,6 +475,91 @@ class GlWebsiteColorManagerController(http.Controller):
         return {
             'ok': True,
             'override_count': len(override_ids),
+            'css_url': css_url,
+            'css_version': version,
+        }
+
+    @http.route('/gl_color_manager/undo_override', type='json', auth='user', methods=['POST'], csrf=False)
+    def undo_override(self, website_id=None, original_color=None, colors=None, context_key=None, picked_selector=None, picked_sample_text=None, **kwargs):
+        if not _is_allowed_user():
+            return {'ok': False, 'error': 'not_allowed'}
+
+        Website = request.env['website'].sudo()
+        website = Website.browse(int(website_id or 0)).exists()
+        if not website:
+            website = getattr(request, 'website', False)
+        if not website:
+            return {'ok': False, 'error': 'missing_website'}
+
+        original = _normalize_hex(original_color)
+        rows = colors or []
+        if not isinstance(rows, list):
+            rows = []
+        rows = rows[:10000]
+
+        Override = request.env['gl.website.color.override'].sudo()
+        deactivated_ids = set()
+
+        for raw_row in rows:
+            row = _clean_row(raw_row)
+            if not row:
+                continue
+            row_original = row['normalized']
+            if original and row_original != original:
+                continue
+            selector = row['selector'] or ':root'
+            prop = row['property_name'] or row['css_variable'] or ''
+            domain = [
+                ('website_id', '=', website.id),
+                ('source_type', '=', row['source_type']),
+                ('selector', '=', selector),
+                ('property_name', '=', prop),
+                ('css_variable', '=', row['css_variable']),
+                ('original_color', '=', row_original),
+                ('raw_value', '=', row['raw_value']),
+                ('matched_value', '=', row['matched_value']),
+                ('override_context_key', '=', row.get('override_context_key') or False),
+                ('active', '=', True),
+            ]
+            matches = Override.search(domain)
+            if not matches:
+                fallback_domain = [
+                    ('website_id', '=', website.id),
+                    ('source_type', '=', row['source_type']),
+                    ('selector', '=', selector),
+                    ('property_name', '=', prop),
+                    ('css_variable', '=', row['css_variable']),
+                    ('active', '=', True),
+                ]
+                picked = (picked_selector or '').strip()[:700]
+                if picked:
+                    fallback_domain.append(('picked_selector', '=', picked))
+                matches = Override.search(fallback_domain)
+            if matches:
+                matches.write({'active': False})
+                deactivated_ids.update(matches.ids)
+
+        # Safety fallback for rows created before exact context keys existed.
+        if not deactivated_ids and original:
+            legacy_domain = [
+                ('website_id', '=', website.id),
+                ('original_color', '=', original),
+                ('active', '=', True),
+                ('override_context_key', '=', False),
+            ]
+            picked = (picked_selector or '').strip()[:700]
+            if picked:
+                legacy_domain.append(('picked_selector', '=', picked))
+            legacy = Override.search(legacy_domain)
+            if legacy:
+                legacy.write({'active': False})
+                deactivated_ids.update(legacy.ids)
+
+        version = request.env['gl.website.color.swatch'].sudo().get_css_cache_key(website.id)
+        css_url = '/gl_color_manager/css/%s.css?v=%s' % (website.id, version)
+        return {
+            'ok': True,
+            'deactivated_count': len(deactivated_ids),
             'css_url': css_url,
             'css_version': version,
         }

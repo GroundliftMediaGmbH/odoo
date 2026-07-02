@@ -10,7 +10,7 @@ This module scans the rendered Odoo website in the browser, stores all detected
 colors in the backend, and allows administrators to override colors per website.
 It detects computed colors, common SVG colors, shadows, gradients and CSS variables.
 ''',
-    'version': '19.0.1.3.0',
+    'version': '19.0.1.4.0',
     'category': 'Website',
     'author': 'Groundlift / OpenAI',
     'website': 'https://groundlift.de',

@@ -2,19 +2,15 @@
 
 Odoo-SH-19 Modul zum Scannen und Ändern tatsächlich gerenderter Website-Farben.
 
-## Neu in 19.0.1.3.0
+## Neu in 19.0.1.4.0
 
-- Bereichsauswahl auf der Website: `Homepage scannen` → `Bereich anklicken`.
-- Nach dem Klick erscheint direkt auf der Website ein Overlay mit den gefundenen Farben.
-- Änderungen über den Overlay-Color-Picker werden sofort als Live-Vorschau auf die aktuelle Seite geschrieben.
-- Mit `Speichern` wird ein direkter CSS-Override angelegt.
-- Direkte Overrides sind nicht nur an die einzelne Seite gebunden, sondern an den erkannten CSS-Verweis: Selektor + Property oder CSS-Variable. Dadurch greifen sie auch auf Unterseiten derselben Odoo-Website, sofern dort derselbe CSS-Verweis verwendet wird.
-- Die dynamische CSS-Datei bekommt einen Versionsparameter aus der letzten Änderung, damit Browser/Odoo.sh/CDN keine alte CSS-Antwort weiterverwenden.
-
-- Overlay-Farben werden nicht mehr nur nach Hex-Wert zusammengefasst. Jede Fundstelle wird einzeln angezeigt: z. B. Schriftfarbe, Hintergrundfarbe, Rahmenfarbe, SVG-Füllung oder CSS-Variable.
-- Dadurch kann dieselbe Originalfarbe in einem Bereich getrennt geändert werden, ohne dass Text und Fläche automatisch dieselbe neue Farbe bekommen.
-- Beim Speichern werden alte breite Direkt-Overrides aus Version 19.0.1.2.0 für denselben angeklickten Bereich automatisch deaktiviert, sobald eine neue präzise Fundstelle gespeichert wird.
-- Neues Backend-Menü: `Website Farben` → `Direkte Overrides`.
+- Der Bereichsklick arbeitet jetzt **pixel-/elementgenau**: Es wird nicht mehr automatisch der ganze Container samt Kind-Elementen analysiert.
+- Es wird im Overlay nichts mehr nach Hex-Farbe zusammengefasst. Jede Zeile ist eine einzelne Fundstelle, z. B. exakt `color`, exakt `background-color`, exakt `border-top-color` oder exakt eine passende Stylesheet-Regel.
+- Dadurch kann dieselbe Farbe an Schrift, Fläche und Rahmen komplett unterschiedlich geändert werden.
+- `Speichern` legt weiterhin einen globalen Override für denselben CSS-Verweis an: gleicher Selektor + gleiche CSS-Eigenschaft + gleicher Originalwert.
+- Neben `Speichern` gibt es jetzt pro Zeile `Rückgängig`. Dieser Button deaktiviert den passenden direkten Override und lädt das dynamische CSS sofort neu.
+- Die eigenen Manager-Stylesheets werden beim Scan ignoriert, damit alte gespeicherte Overrides und Live-Vorschauen den nächsten Scan nicht als neue Originalfarbe verfälschen.
+- CSS-Variablen werden nicht mehr pauschal auf `:root` geschrieben, sondern auf den erkannten Selektor. Nur echte `:root`-Variablen wirken dadurch komplett global.
 
 ## Nutzung
 
@@ -22,21 +18,29 @@ Odoo-SH-19 Modul zum Scannen und Ändern tatsächlich gerenderter Website-Farben
 2. `Website Farben` → `Homepage scannen` öffnen.
 3. Website und Pfad auswählen.
 4. `Bereich anklicken` wählen.
-5. Auf der Website den gewünschten Bereich anklicken.
-6. Im Overlay die passende Fundstelle wählen, z. B. Schriftfarbe oder Hintergrundfarbe, und Farbe per Picker ändern.
-7. Ergebnis direkt prüfen.
-8. `Speichern` klicken.
+5. Auf der Website exakt den Text, Button, Balken, Rahmen oder Bereich anklicken, der geändert werden soll.
+6. Im Overlay die passende einzelne Fundstelle wählen.
+7. Farbe per Picker ändern und das Ergebnis direkt prüfen.
+8. `Speichern` klicken, damit die Änderung global für denselben CSS-Verweis gilt.
+9. Mit `Rückgängig` kann der gespeicherte direkte Override wieder deaktiviert werden.
 
 ## Technische Logik
 
 Der Scanner arbeitet browserbasiert, weil Odoo serverseitig nicht zuverlässig wissen kann, welche Farben nach Theme, Snippets, Inline-Styles, CSS-Variablen und Breakpoints wirklich sichtbar sind.
 
-Beim Bereichsklick werden zwei Arten von Fundstellen gespeichert:
+Beim Bereichsklick werden jetzt nur noch das exakt angeklickte Element und die darauf passenden Stylesheet-Regeln ausgewertet. Kind-Elemente werden nicht mehr automatisch mitgescannt. So werden Schrift, Hintergrund und Rahmen nicht mehr miteinander vermischt.
 
-- gerenderte Styles des ausgewählten Elements und seiner Unterelemente,
-- passende Stylesheet-Regeln, deren Selektoren auf den ausgewählten Bereich zutreffen.
+Gespeichert wird als direkter Override nach:
 
-Die zweite Art ist wichtig, damit ein gespeicherter Override auch auf anderen Seiten wirkt, wenn dort derselbe CSS-Selektor bzw. dieselbe CSS-Variable verwendet wird.
+- Website,
+- Quelle (`computed`, `stylesheet`, `css_variable`),
+- CSS-Selektor,
+- CSS-Eigenschaft,
+- CSS-Variable,
+- Originalwert,
+- gefundener Farbe.
+
+Dadurch wirkt eine gespeicherte Änderung auf anderen Seiten derselben Website, sofern dort derselbe CSS-Verweis verwendet wird.
 
 ## Hinweise
 
