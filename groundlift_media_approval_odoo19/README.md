@@ -55,3 +55,9 @@ Dieses ZIP enthält ein Odoo-Modul `groundlift_media_approval` plus eine `requir
 - Die Vorschau und Downloads laufen über Odoo. Sehr große Videos können je nach Odoo.sh-Timeout und Dateigröße langsamer laden.
 - PINs werden gehasht gespeichert, nicht im Klartext.
 - FTP ist technisch möglich, SFTP ist für Hetzner Storage Box in der Regel die bessere Wahl.
+
+
+## Patch 19.0.1.0.1
+
+- Odoo-19-Security-Struktur korrigiert: `res.groups.category_id` durch `res.groups.privilege` + `res.groups.privilege_id` ersetzt.
+- Dadurch wird der Installationsfehler `Invalid field 'category_id' in 'res.groups'` behoben.
