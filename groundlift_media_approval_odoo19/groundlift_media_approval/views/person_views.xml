@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_media_person_tree" model="ir.ui.view">
+        <field name="name">gl.media.approval.person.tree</field>
+        <field name="model">gl.media.approval.person</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="email"/>
+                <field name="pin_set"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_media_person_form" model="ir.ui.view">
+        <field name="name">gl.media.approval.person.form</field>
+        <field name="model">gl.media.approval.person</field>
+        <field name="arch" type="xml">
+            <form string="Freigabe-Person">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="email"/>
+                            <field name="active"/>
+                            <field name="pin_set" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="pin_plain" password="True" placeholder="Neue PIN eingeben"/>
+                        </group>
+                    </group>
+                    <field name="note"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_media_person" model="ir.actions.act_window">
+        <field name="name">Personen / PINs</field>
+        <field name="res_model">gl.media.approval.person</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_gl_media_person" name="Personen / PINs" parent="menu_gl_media_config" action="action_gl_media_person" sequence="20" groups="groundlift_media_approval.group_media_approval_manager"/>
+</odoo>
