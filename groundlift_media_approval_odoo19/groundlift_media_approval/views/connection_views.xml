@@ -24,6 +24,7 @@
             <form string="Hetzner Verbindung">
                 <header>
                     <button name="action_test_connection" type="object" string="Verbindung testen" class="btn-primary"/>
+                    <button name="action_test_public_preview_url" type="object" string="Öffentliche URL testen"/>
                 </header>
                 <sheet>
                     <group>

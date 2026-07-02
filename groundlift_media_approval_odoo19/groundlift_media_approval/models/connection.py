@@ -4,8 +4,11 @@ import io
 import os
 import posixpath
 import socket
+import time
 from contextlib import contextmanager
+from urllib.error import HTTPError, URLError
 from urllib.parse import quote
+from urllib.request import Request, urlopen
 
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
@@ -88,6 +91,63 @@ class GlMediaApprovalConnection(models.Model):
                 "sticky": False,
             },
         }
+
+    def action_test_public_preview_url(self):
+        """Verify that remote_base_path and public_base_url really point to the same directory."""
+        self.ensure_one()
+        if not self.public_base_url:
+            raise UserError(_("Bitte zuerst die öffentliche Vorschau-Basis-URL eintragen."))
+
+        stamp = str(int(time.time()))
+        filename = "odoo_public_preview_test_%s.txt" % stamp
+        marker = ("groundlift-medienfreigabe-public-test-%s" % stamp).encode("utf-8")
+        remote_path = self.build_remote_path(filename)
+        public_url = self.get_public_url(remote_path)
+        timeout = max(5, min(int(self.timeout or 30), 60))
+
+        try:
+            with self._client() as client:
+                client.upload_bytes(remote_path, marker)
+            req = Request(public_url, headers={"User-Agent": "Odoo Groundlift Medienfreigabe"})
+            try:
+                with urlopen(req, timeout=timeout) as response:
+                    body = response.read(len(marker) + 256)
+                    status = getattr(response, "status", 200)
+            except HTTPError as exc:
+                raise UserError(_(
+                    "Die Datei wurde per FTP/SFTP geschrieben, ist unter der öffentlichen URL aber nicht erreichbar.\n"
+                    "HTTP-Status: %(status)s\nURL: %(url)s\n\n"
+                    "Bitte prüfen: Der Basisordner auf Server muss exakt zum öffentlichen Webordner der Domain passen."
+                ) % {"status": exc.code, "url": public_url}) from exc
+            except URLError as exc:
+                raise UserError(_(
+                    "Die öffentliche URL konnte von Odoo aus nicht geladen werden.\nURL: %(url)s\nFehler: %(error)s"
+                ) % {"url": public_url, "error": exc}) from exc
+
+            if status != 200 or marker not in body:
+                raise UserError(_(
+                    "Die öffentliche Vorschau-URL zeigt nicht auf dieselbe Datei wie der FTP/SFTP-Basisordner.\n"
+                    "URL: %(url)s\n\n"
+                    "Bitte Basisordner und öffentliche Vorschau-Basis-URL korrigieren. Häufig ist /public_html nur relativ zum Login, "
+                    "oder die Domain zeigt auf einen anderen Document-Root."
+                ) % {"url": public_url})
+
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "title": _("Öffentliche Vorschau funktioniert"),
+                    "message": _("Odoo konnte eine Testdatei schreiben und über die öffentliche URL wieder laden."),
+                    "type": "success",
+                    "sticky": False,
+                },
+            }
+        finally:
+            try:
+                with self._client() as client:
+                    client.delete_file(remote_path)
+            except Exception:
+                pass
 
     def build_remote_path(self, *parts):
         self.ensure_one()

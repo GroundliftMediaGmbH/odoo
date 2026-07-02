@@ -24,6 +24,17 @@ class GlMediaApprovalFile(models.Model):
         compute="_compute_media_type",
         store=True,
     )
+    preview_media_type = fields.Selection(
+        [("image", "Foto"), ("video", "Video"), ("other", "Andere Datei")],
+        compute="_compute_preview_metadata",
+        string="Vorschau-Typ",
+        help="Nicht gespeicherte, robuste Erkennung für die Website-Vorschau. Repariert auch Altbestand mit application/octet-stream.",
+    )
+    browser_mimetype = fields.Char(
+        compute="_compute_preview_metadata",
+        string="Browser-MIME-Typ",
+        help="Aus Dateiname und MIME-Typ normalisierter Typ für <video>/<img>.",
+    )
     size_bytes = fields.Integer(string="Größe in Bytes")
     upload_date = fields.Datetime(default=fields.Datetime.now, readonly=True)
     approval_person_ids = fields.Many2many(
@@ -61,13 +72,14 @@ class GlMediaApprovalFile(models.Model):
     @api.depends("mimetype", "name")
     def _compute_media_type(self):
         for rec in self:
-            mime = rec.mimetype or mimetypes.guess_type(rec.name or "")[0] or ""
-            if mime.startswith("image/"):
-                rec.media_type = "image"
-            elif mime.startswith("video/"):
-                rec.media_type = "video"
-            else:
-                rec.media_type = "other"
+            rec.media_type = rec._media_type_from_mimetype(rec._normalize_mimetype(rec.name, rec.mimetype))
+
+    @api.depends("mimetype", "name")
+    def _compute_preview_metadata(self):
+        for rec in self:
+            normalized = rec._normalize_mimetype(rec.name, rec.mimetype)
+            rec.browser_mimetype = normalized if normalized and normalized != "application/octet-stream" else False
+            rec.preview_media_type = rec._media_type_from_mimetype(normalized)
 
     @api.depends("approval_person_ids", "vote_ids.decision", "vote_ids.person_id")
     def _compute_vote_counts(self):
@@ -116,7 +128,7 @@ class GlMediaApprovalFile(models.Model):
     def create_from_upload(self, folder, filename, content, mimetype=None):
         folder.ensure_one()
         filename = self._sanitize_filename(filename)
-        mimetype = mimetype or mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        mimetype = self._normalize_mimetype(filename, mimetype)
         persons = self._approval_persons_for_folder(folder)
         folder._update_remote_path()
         with folder.connection_id._client() as client:
@@ -139,7 +151,7 @@ class GlMediaApprovalFile(models.Model):
     def create_from_upload_stream(self, folder, filename, stream, mimetype=None, size_bytes=0):
         folder.ensure_one()
         filename = self._sanitize_filename(filename)
-        mimetype = mimetype or mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        mimetype = self._normalize_mimetype(filename, mimetype)
         persons = self._approval_persons_for_folder(folder)
         try:
             stream.seek(0)
@@ -167,7 +179,7 @@ class GlMediaApprovalFile(models.Model):
     def create_from_remote_upload(self, folder, filename, remote_path, mimetype=None, size_bytes=0):
         folder.ensure_one()
         filename = self._sanitize_filename(filename)
-        mimetype = mimetype or mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        mimetype = self._normalize_mimetype(filename, mimetype)
         persons = self._approval_persons_for_folder(folder)
         media = self.sudo().create({
             "name": filename,
@@ -191,6 +203,49 @@ class GlMediaApprovalFile(models.Model):
             candidate = posixpath.join(folder.remote_path, f"{base}-{counter}{ext}")
             counter += 1
         return candidate
+
+    def get_website_preview_url(self, force_proxy=False):
+        self.ensure_one()
+        if not force_proxy and self.connection_id.redirect_preview_to_public:
+            public_url = self.get_public_preview_url()
+            if public_url:
+                return public_url
+        return "/media-approval/preview/%s%s" % (self.id, "?proxy=1" if force_proxy else "")
+
+    @staticmethod
+    def _media_type_from_mimetype(mimetype):
+        mimetype = (mimetype or "").lower()
+        if mimetype.startswith("image/"):
+            return "image"
+        if mimetype.startswith("video/"):
+            return "video"
+        return "other"
+
+    @staticmethod
+    def _normalize_mimetype(filename, mimetype=None):
+        mimetype = (mimetype or "").split(";")[0].strip().lower()
+        guessed = (mimetypes.guess_type(filename or "")[0] or "").lower()
+        generic_types = {"", "application/octet-stream", "binary/octet-stream", "application/x-binary"}
+        if mimetype in generic_types and guessed:
+            mimetype = guessed
+        if mimetype in generic_types:
+            ext = posixpath.splitext((filename or "").lower())[1]
+            mimetype = {
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".png": "image/png",
+                ".gif": "image/gif",
+                ".webp": "image/webp",
+                ".svg": "image/svg+xml",
+                ".mp4": "video/mp4",
+                ".m4v": "video/mp4",
+                ".mov": "video/quicktime",
+                ".webm": "video/webm",
+                ".ogv": "video/ogg",
+                ".avi": "video/x-msvideo",
+                ".mkv": "video/x-matroska",
+            }.get(ext, "application/octet-stream")
+        return mimetype or "application/octet-stream"
 
     @staticmethod
     def _sanitize_filename(filename):

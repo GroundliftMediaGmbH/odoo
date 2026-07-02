@@ -287,7 +287,8 @@ class GlMediaApprovalWebsite(http.Controller):
         # Fast path for previews: after the PIN/session check in the calling route,
         # redirect to the public Hetzner URL. The webserver can then handle byte
         # range requests natively, which makes video start almost immediately.
-        if inline and media.connection_id.redirect_preview_to_public:
+        force_proxy = str(request.params.get("proxy") or "").lower() in ("1", "true", "yes")
+        if inline and not force_proxy and media.connection_id.redirect_preview_to_public:
             public_url = media.get_public_preview_url()
             if public_url:
                 return request.redirect(public_url, code=302)
@@ -322,7 +323,7 @@ class GlMediaApprovalWebsite(http.Controller):
         # Fallback safety: some browsers/proxies ask for a video without Range.
         # Do not pull the entire 200 MB file through Odoo just to show metadata;
         # answer with the first small segment as partial content.
-        if inline and media.media_type == "video" and not range_header and size and size > 2 * 1024 * 1024:
+        if inline and media.preview_media_type == "video" and not range_header and size and size > 2 * 1024 * 1024:
             offset = 0
             length = 2 * 1024 * 1024
             status = 206

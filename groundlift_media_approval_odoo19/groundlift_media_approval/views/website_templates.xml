@@ -75,7 +75,7 @@
                                        t-att-class="'glma-list-item %s %s' % (media.website_border_class, 'active' if selected and selected.id == media.id else '')">
                                         <span class="glma-file-name" t-esc="media.name"/>
                                         <span class="glma-file-meta">
-                                            <t t-if="media.media_type == 'image'">Foto</t><t t-elif="media.media_type == 'video'">Video</t><t t-else="">Datei</t> ·
+                                            <t t-if="media.preview_media_type == 'image'">Foto</t><t t-elif="media.preview_media_type == 'video'">Video</t><t t-else="">Datei</t> ·
                                             <t t-esc="media.voted_count"/>/<t t-esc="media.required_count"/> Stimmen
                                         </span>
                                     </a>
@@ -85,6 +85,8 @@
                         <div class="col-12 col-lg-9 col-xl-10">
                             <t t-if="selected">
                                 <t t-set="my_decision" t-value="selected.get_person_decision(person)"/>
+                                <t t-set="preview_url" t-value="selected.get_website_preview_url()"/>
+                                <t t-set="proxy_preview_url" t-value="selected.get_website_preview_url(force_proxy=True)"/>
                                 <div t-att-class="'glma-preview-box %s' % selected.website_border_class">
                                     <div class="glma-preview-header">
                                         <div>
@@ -99,19 +101,25 @@
                                         </div>
                                     </div>
                                     <div class="glma-media-stage">
-                                        <t t-if="selected.media_type == 'image'">
-                                            <img t-att-src="'/media-approval/preview/%s' % selected.id" t-att-alt="selected.name" class="glma-preview-image"/>
+                                        <t t-if="selected.preview_media_type == 'image'">
+                                            <img t-att-src="preview_url" t-att-alt="selected.name" class="glma-preview-image" t-att-data-proxy-src="proxy_preview_url" onerror="if(this.dataset.proxySrc &amp;&amp; this.src.indexOf('proxy=1') === -1){this.src=this.dataset.proxySrc;}"/>
                                         </t>
-                                        <t t-elif="selected.media_type == 'video'">
-                                            <video controls="controls" preload="metadata" class="glma-preview-video">
-                                                <source t-att-src="'/media-approval/preview/%s' % selected.id" t-att-type="selected.mimetype"/>
-                                                Dein Browser kann dieses Video nicht abspielen.
-                                            </video>
+                                        <t t-elif="selected.preview_media_type == 'video'">
+                                            <div class="glma-video-wrap">
+                                                <video controls="controls" preload="metadata" playsinline="playsinline" class="glma-preview-video" t-att-data-proxy-src="proxy_preview_url">
+                                                    <source t-att-src="preview_url" t-att-type="selected.browser_mimetype or None"/>
+                                                    Dein Browser kann dieses Video nicht abspielen.
+                                                </video>
+                                                <div class="glma-video-fallback-note d-none">Öffentliche Hetzner-Vorschau nicht erreichbar. Es wird automatisch die geschützte Odoo-Vorschau verwendet.</div>
+                                            </div>
                                         </t>
                                         <t t-else="">
                                             <div class="glma-generic-file">
                                                 <div class="glma-generic-icon">📄</div>
                                                 <div>Für diesen Dateityp gibt es keine Browser-Vorschau.</div>
+                                                <t t-if="selected.browser_mimetype">
+                                                    <div class="small text-muted mt-2">Erkannter Typ: <t t-esc="selected.browser_mimetype"/></div>
+                                                </t>
                                             </div>
                                         </t>
                                     </div>
@@ -147,6 +155,35 @@
                     </div>
                 </div>
             </div>
+            <script type="text/javascript"><![CDATA[
+(function () {
+    function activateProxyFallback(video) {
+        const proxySrc = video.getAttribute('data-proxy-src');
+        const source = video.querySelector('source');
+        if (!proxySrc || !source) { return; }
+        let switched = false;
+        function switchToProxy() {
+            if (switched || (source.getAttribute('src') || '').indexOf('proxy=1') !== -1) { return; }
+            switched = true;
+            source.setAttribute('src', proxySrc);
+            // Bei falsch erkannten Server-MIME-Typen soll der Browser selbst prüfen.
+            source.removeAttribute('type');
+            const note = video.parentElement ? video.parentElement.querySelector('.glma-video-fallback-note') : null;
+            if (note) { note.classList.remove('d-none'); }
+            video.load();
+        }
+        video.addEventListener('error', switchToProxy, true);
+        source.addEventListener('error', switchToProxy);
+        // Einige Browser melden fehlgeschlagene <source>-Loads nur über networkState.
+        window.setTimeout(function () {
+            if (video.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) {
+                switchToProxy();
+            }
+        }, 2500);
+    }
+    document.querySelectorAll('video.glma-preview-video[data-proxy-src]').forEach(activateProxyFallback);
+})();
+            ]]></script>
         </t>
     </template>
 

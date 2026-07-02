@@ -1,6 +1,6 @@
 # Groundlift Medienfreigabe — Odoo 19 SH Modul
 
-Version: 19.0.1.0.6
+Version: 19.0.1.0.8
 
 ## Änderungen in v6
 
@@ -50,3 +50,14 @@ Beispiel:
 - Vorschau-URL nach PIN-Prüfung: `https://www.deinedomain.de/medienfreigabe/Sandra%20Hunke/clip.mp4`
 
 Hinweis: Wer die technische Vorschau-URL aus dem Browser-Netzwerkmonitor kopiert, kann die Datei direkt aufrufen. Das war bei der Odoo-Proxy-Vorschau theoretisch ebenfalls als Originalvorschau sichtbar, ist aber bei öffentlicher Hetzner-Auslieferung leichter kopierbar. Für maximale Vertraulichkeit das Feld leer lassen; dann bleibt der geschützte Odoo-Proxy aktiv, ist bei großen Videos aber langsamer.
+
+
+## Version 19.0.1.0.8 - Fix Video-Vorschau über Hetzner
+
+- Die Website-Vorschau erkennt Bilder/Videos jetzt robust anhand des Dateinamens, auch wenn der Browser beim Upload nur `application/octet-stream` liefert. Dadurch werden bestehende MP4/MOV/WebM-Dateien nicht mehr fälschlich als „Datei ohne Vorschau“ behandelt.
+- Die Vorschau verwendet bei aktivierter Option direkt die öffentliche Hetzner-URL im `<video>`/`<img>`-Element.
+- Falls die öffentliche URL nicht erreichbar ist oder nicht auf denselben Ordner zeigt, schaltet die Website automatisch auf die geschützte Odoo-Proxy-Vorschau zurück. Damit bleibt die Vorschau sichtbar, auch wenn die Hetzner-Mapping-Einstellung noch falsch ist.
+- Die Odoo-Proxy-Vorschau kann nun gezielt mit `?proxy=1` erzwungen werden; ohne diesen Parameter darf weiterhin auf Hetzner umgeleitet werden.
+- In „Hetzner Verbindungen“ gibt es nun den Button **Öffentliche URL testen**. Dieser schreibt eine kleine Testdatei in den Basisordner und prüft, ob sie unter der öffentlichen Vorschau-Basis-URL wirklich erreichbar ist.
+
+Nach dem Update bitte in der Hetzner-Verbindung einmal **Öffentliche URL testen** drücken. Wenn dieser Test fehlschlägt, ist nicht die Video-Datei das Problem, sondern die Zuordnung zwischen `Basisordner auf Server` und `Öffentliche Vorschau-Basis-URL`.
