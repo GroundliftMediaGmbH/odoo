@@ -293,6 +293,17 @@ class GlMediaApprovalWebsite(http.Controller):
             if public_url:
                 return request.redirect(public_url, code=302)
 
+        # Fast path for approved downloads: do not copy the complete file from
+        # Hetzner to Odoo over FTP/SFTP and then back to the browser. After the
+        # route above has checked PIN/session, reviewer assignment and approval
+        # state, redirect the browser to the public webserver URL. The webserver
+        # can deliver large files immediately and at full speed. Add ?proxy=1 to
+        # this route if the protected Odoo fallback is ever needed.
+        if not inline and not force_proxy and media.connection_id.redirect_download_to_public:
+            public_url = media.get_public_download_url()
+            if public_url:
+                return request.redirect(public_url, code=302)
+
         size = int(media.size_bytes or 0)
         range_header = request.httprequest.headers.get("Range")
         status = 200

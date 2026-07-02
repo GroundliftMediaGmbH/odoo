@@ -87,6 +87,7 @@
                                 <t t-set="my_decision" t-value="selected.get_person_decision(person)"/>
                                 <t t-set="preview_url" t-value="selected.get_website_preview_url()"/>
                                 <t t-set="proxy_preview_url" t-value="selected.get_website_preview_url(force_proxy=True)"/>
+                                <t t-set="download_url" t-value="selected.get_website_download_url()"/>
                                 <div t-att-class="'glma-preview-box %s' % selected.website_border_class">
                                     <div class="glma-preview-header">
                                         <div>
@@ -135,7 +136,7 @@
                                             <button type="submit" t-att-class="'btn btn-danger btn-lg %s' % ('glma-active-vote' if my_decision == 'rejected' else '')">Nicht freigeben</button>
                                         </form>
                                         <t t-if="selected.download_unlocked">
-                                            <a t-att-href="'/media-approval/download/%s' % selected.id" class="btn btn-success btn-lg">Download</a>
+                                            <a t-att-href="download_url" t-att-download="selected.name" class="btn btn-success btn-lg">Download</a>
                                         </t>
                                         <t t-else="">
                                             <button class="btn btn-secondary btn-lg" disabled="disabled">Download</button>

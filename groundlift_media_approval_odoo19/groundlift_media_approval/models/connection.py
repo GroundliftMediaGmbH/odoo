@@ -47,6 +47,12 @@ class GlMediaApprovalConnection(models.Model):
         help="Wenn eine öffentliche Vorschau-Basis-URL gesetzt ist, wird die PIN-geprüfte Vorschau dorthin weitergeleitet. "
              "Der Browser streamt Videos dann direkt vom Webserver statt langsam über Odoo/FTP/SFTP.",
     )
+    redirect_download_to_public = fields.Boolean(
+        string="Downloads direkt über Hetzner ausliefern",
+        default=True,
+        help="Wenn eine öffentliche Vorschau-Basis-URL gesetzt ist, leitet Odoo freigegebene Downloads nach der PIN- und Freigabeprüfung direkt zum Hetzner-Webserver weiter. "
+             "Der Download läuft dann nicht mehr langsam über Odoo/FTP/SFTP.",
+    )
     timeout = fields.Integer(default=30, help="Timeout in Sekunden")
     ftp_passive = fields.Boolean(string="FTP Passivmodus", default=True)
     sftp_allow_unknown_host = fields.Boolean(

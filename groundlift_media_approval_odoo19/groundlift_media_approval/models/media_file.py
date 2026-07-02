@@ -212,6 +212,14 @@ class GlMediaApprovalFile(models.Model):
                 return public_url
         return "/media-approval/preview/%s%s" % (self.id, "?proxy=1" if force_proxy else "")
 
+    def get_website_download_url(self, force_proxy=False):
+        self.ensure_one()
+        if not force_proxy and self.connection_id.redirect_download_to_public:
+            public_url = self.get_public_download_url()
+            if public_url:
+                return public_url
+        return "/media-approval/download/%s%s" % (self.id, "?proxy=1" if force_proxy else "")
+
     @staticmethod
     def _media_type_from_mimetype(mimetype):
         mimetype = (mimetype or "").lower()
@@ -308,6 +316,12 @@ class GlMediaApprovalFile(models.Model):
             return client.read_bytes(self.remote_path, offset=offset, length=length)
 
     def get_public_preview_url(self):
+        self.ensure_one()
+        if not self.connection_id or not self.connection_id.public_base_url:
+            return False
+        return self.connection_id.get_public_url(self.remote_path)
+
+    def get_public_download_url(self):
         self.ensure_one()
         if not self.connection_id or not self.connection_id.public_base_url:
             return False

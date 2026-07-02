@@ -1,6 +1,6 @@
 # Groundlift Medienfreigabe — Odoo 19 SH Modul
 
-Version: 19.0.1.0.8
+Version: 19.0.1.0.9
 
 ## Änderungen in v6
 
@@ -61,3 +61,14 @@ Hinweis: Wer die technische Vorschau-URL aus dem Browser-Netzwerkmonitor kopiert
 - In „Hetzner Verbindungen“ gibt es nun den Button **Öffentliche URL testen**. Dieser schreibt eine kleine Testdatei in den Basisordner und prüft, ob sie unter der öffentlichen Vorschau-Basis-URL wirklich erreichbar ist.
 
 Nach dem Update bitte in der Hetzner-Verbindung einmal **Öffentliche URL testen** drücken. Wenn dieser Test fehlschlägt, ist nicht die Video-Datei das Problem, sondern die Zuordnung zwischen `Basisordner auf Server` und `Öffentliche Vorschau-Basis-URL`.
+
+
+## Version 19.0.1.0.9 - schneller Direkt-Download über Hetzner
+
+- Der grüne Download-Button lädt freigegebene Dateien jetzt standardmäßig direkt von der öffentlichen Hetzner-URL.
+- Odoo prüft weiterhin Login/PIN, Freigabe-Kreis und Status „freigegeben“, zieht die Datei danach aber nicht mehr komplett per FTP/SFTP durch Odoo.
+- In „Hetzner Verbindungen“ gibt es die neue Option **Downloads direkt über Hetzner ausliefern**. Sie ist standardmäßig aktiv.
+- Falls die öffentliche URL leer ist oder die Option deaktiviert wird, bleibt der bisherige geschützte Odoo-Download als Fallback erhalten.
+- Technischer Fallback: `/media-approval/download/<ID>?proxy=1` erzwingt den alten Odoo-Proxy-Download.
+
+Hinweis: Für echte Browser-Downloads statt Öffnen im Player setzt die Website zusätzlich das HTML-Attribut `download`. Falls ein Browser das bei einer fremden Domain ignoriert, muss Hetzner/Apache optional per Header `Content-Disposition: attachment` konfiguriert werden. Die Geschwindigkeit ist trotzdem bereits direkt Hetzner → Browser.
