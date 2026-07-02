@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_website_color_swatch_list" model="ir.ui.view">
+        <field name="name">gl.website.color.swatch.list</field>
+        <field name="model">gl.website.color.swatch</field>
+        <field name="arch" type="xml">
+            <list string="Website-Farben" editable="bottom" decoration-muted="not active">
+                <field name="active"/>
+                <field name="website_id"/>
+                <field name="original_color" widget="gl_hex_color" readonly="1"/>
+                <field name="replacement_color" widget="gl_hex_color"/>
+                <field name="occurrence_count" readonly="1"/>
+                <field name="last_seen" readonly="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_website_color_swatch_form" model="ir.ui.view">
+        <field name="name">gl.website.color.swatch.form</field>
+        <field name="model">gl.website.color.swatch</field>
+        <field name="arch" type="xml">
+            <form string="Website-Farbe">
+                <header>
+                    <button name="action_activate" type="object" string="Aktivieren" class="oe_highlight" invisible="active or not replacement_color"/>
+                    <button name="action_deactivate" type="object" string="Deaktivieren" invisible="not active"/>
+                    <button name="action_reset" type="object" string="Zurücksetzen" invisible="not replacement_color"/>
+                    <button name="action_open_entries" type="object" string="Fundstellen öffnen"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="website_id"/>
+                            <field name="original_color" widget="gl_hex_color" readonly="1"/>
+                            <field name="replacement_color" widget="gl_hex_color" placeholder="#RRGGBB"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="occurrence_count" readonly="1"/>
+                            <field name="last_seen" readonly="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Fundstellen">
+                            <field name="entry_ids" readonly="0">
+                                <list editable="bottom">
+                                    <field name="active"/>
+                                    <field name="source_type"/>
+                                    <field name="selector"/>
+                                    <field name="property_name"/>
+                                    <field name="css_variable"/>
+                                    <field name="raw_value"/>
+                                    <field name="sample_text"/>
+                                    <field name="last_seen" readonly="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Notizen">
+                            <field name="notes" placeholder="Optional: Hinweise, warum diese Farbe geändert wurde."/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_gl_website_color_swatch_search" model="ir.ui.view">
+        <field name="name">gl.website.color.swatch.search</field>
+        <field name="model">gl.website.color.swatch</field>
+        <field name="arch" type="xml">
+            <search string="Website-Farben suchen">
+                <field name="website_id"/>
+                <field name="original_color"/>
+                <field name="replacement_color"/>
+                <filter name="active" string="Aktive Overrides" domain="[('active', '=', True)]"/>
+                <filter name="inactive" string="Nicht aktiv" domain="[('active', '=', False)]"/>
+                <group expand="0" string="Gruppieren">
+                    <filter name="group_website" string="Website" context="{'group_by': 'website_id'}"/>
+                    <filter name="group_active" string="Aktiv" context="{'group_by': 'active'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_gl_website_color_swatch" model="ir.actions.act_window">
+        <field name="name">Website-Farben</field>
+        <field name="res_model">gl.website.color.swatch</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_gl_website_color_swatch_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Noch keine Farben gescannt.</p>
+            <p>Starte zuerst den Homepage-Farbscan. Danach kannst du hier gefundene Farben durch neue Hex-Farben ersetzen.</p>
+        </field>
+    </record>
+</odoo>

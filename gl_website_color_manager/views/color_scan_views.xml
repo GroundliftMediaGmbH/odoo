@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_website_color_scan_wizard_form" model="ir.ui.view">
+        <field name="name">gl.website.color.scan.wizard.form</field>
+        <field name="model">gl.website.color.scan.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Homepage-Farbscan starten">
+                <group>
+                    <field name="website_id"/>
+                    <field name="path" placeholder="/"/>
+                </group>
+                <p class="text-muted">
+                    Der Scan öffnet die Website in einem neuen Tab. Dort werden die tatsächlich gerenderten Farben erfasst und im Backend gespeichert.
+                </p>
+                <footer>
+                    <button name="action_start_homepage_scan" type="object" string="Scan starten" class="btn-primary"/>
+                    <button string="Abbrechen" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_website_color_scan_wizard" model="ir.actions.act_window">
+        <field name="name">Homepage scannen</field>
+        <field name="res_model">gl.website.color.scan.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <record id="view_gl_website_color_scan_session_list" model="ir.ui.view">
+        <field name="name">gl.website.color.scan.session.list</field>
+        <field name="model">gl.website.color.scan.session</field>
+        <field name="arch" type="xml">
+            <list string="Farbscans">
+                <field name="scan_date"/>
+                <field name="website_id"/>
+                <field name="url"/>
+                <field name="state"/>
+                <field name="color_count"/>
+                <field name="entry_count"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_website_color_scan_session_form" model="ir.ui.view">
+        <field name="name">gl.website.color.scan.session.form</field>
+        <field name="model">gl.website.color.scan.session</field>
+        <field name="arch" type="xml">
+            <form string="Farbscan">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="website_id" readonly="1"/>
+                            <field name="scan_date" readonly="1"/>
+                            <field name="state" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="color_count" readonly="1"/>
+                            <field name="entry_count" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="url" readonly="1"/>
+                        <field name="message" readonly="1"/>
+                    </group>
+                    <notebook>
+                        <page string="Fundstellen">
+                            <field name="entry_ids" readonly="1">
+                                <list>
+                                    <field name="swatch_id"/>
+                                    <field name="source_type"/>
+                                    <field name="selector"/>
+                                    <field name="property_name"/>
+                                    <field name="raw_value"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_website_color_scan_session" model="ir.actions.act_window">
+        <field name="name">Scan-Historie</field>
+        <field name="res_model">gl.website.color.scan.session</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

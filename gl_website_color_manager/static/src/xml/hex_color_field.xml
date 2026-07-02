@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="gl_website_color_manager.HexColorField">
+        <div class="gl_hex_color_field" t-att-class="props.readonly ? 'gl_hex_color_readonly' : ''">
+            <input
+                class="gl_hex_color_picker"
+                type="color"
+                t-att-value="pickerValue"
+                t-att-disabled="props.readonly"
+                t-on-input="onPickerInput"/>
+            <input
+                class="o_input gl_hex_color_input"
+                type="text"
+                placeholder="#RRGGBB"
+                t-att-value="value"
+                t-att-readonly="props.readonly"
+                t-on-input="onTextInput"/>
+            <span class="gl_hex_color_chip" t-att-style="'background-color:' + pickerValue"/>
+        </div>
+    </t>
+</templates>

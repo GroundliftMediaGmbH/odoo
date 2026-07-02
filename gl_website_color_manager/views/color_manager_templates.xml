@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="gl_website_color_manager_head" inherit_id="website.layout" name="Groundlift Website Color Manager Head">
+        <xpath expr="//head" position="inside">
+            <t t-if="request and request.website">
+                <link rel="stylesheet" type="text/css" t-att-href="'/gl_color_manager/css/%s.css' % request.website.id"/>
+                <script type="text/javascript">
+                    window.GroundliftColorManager = window.GroundliftColorManager || {};
+                    window.GroundliftColorManager.websiteId = <t t-out="request.website.id"/>;
+                </script>
+            </t>
+        </xpath>
+    </template>
+</odoo>

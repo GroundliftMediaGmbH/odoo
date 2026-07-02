@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_gl_website_color_root" name="Website Farben" sequence="35"/>
+    <menuitem id="menu_gl_website_color_scan" name="Homepage scannen" parent="menu_gl_website_color_root" action="action_gl_website_color_scan_wizard" sequence="10"/>
+    <menuitem id="menu_gl_website_color_swatch" name="Farben ändern" parent="menu_gl_website_color_root" action="action_gl_website_color_swatch" sequence="20"/>
+    <menuitem id="menu_gl_website_color_entry" name="Fundstellen" parent="menu_gl_website_color_root" action="action_gl_website_color_entry" sequence="30"/>
+    <menuitem id="menu_gl_website_color_scans" name="Scan-Historie" parent="menu_gl_website_color_root" action="action_gl_website_color_scan_session" sequence="40"/>
+</odoo>
