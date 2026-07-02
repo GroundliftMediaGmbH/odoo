@@ -11,7 +11,7 @@ import socket
 import time
 from contextlib import contextmanager
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 from odoo import api, fields, models, _
@@ -153,6 +153,11 @@ class GlMediaApprovalConnection(models.Model):
         marker = ("groundlift-medienfreigabe-public-test-%s" % stamp).encode("utf-8")
         remote_path = self.build_remote_path(filename)
         public_url = self.get_public_url(remote_path)
+        if not public_url:
+            raise UserError(_(
+                "Die öffentliche Vorschau-Basis-URL muss eine absolute URL sein, z. B. https://groundlift.de/medienfreigabe. "
+                "Relative Werte wie /medienfreigabe funktionieren hier nicht, weil sie auf die Odoo-Website zeigen würden."
+            ))
         timeout = max(5, min(int(self.timeout or 30), 60))
 
         try:
@@ -217,7 +222,13 @@ class GlMediaApprovalConnection(models.Model):
         test_filename = "odoo_download_header_test_%s.txt" % stamp
         test_marker = ("groundlift-download-header-test-%s" % stamp).encode("utf-8")
         test_path = self.build_remote_path(test_filename)
-        test_url = self.get_public_url(test_path) + "?download=1"
+        test_public_url = self.get_public_url(test_path)
+        if not test_public_url:
+            raise UserError(_(
+                "Die öffentliche Vorschau-Basis-URL muss eine absolute URL sein, z. B. https://groundlift.de/medienfreigabe. "
+                "Relative Werte wie /medienfreigabe funktionieren hier nicht, weil sie auf die Odoo-Website zeigen würden."
+            ))
+        test_url = test_public_url + "?download=1"
         timeout = max(5, min(int(self.timeout or 30), 60))
 
         begin = "# BEGIN Groundlift Medienfreigabe Download"
@@ -480,6 +491,11 @@ exit;
         test_path = self.build_remote_path(test_filename)
         helper_path = self.build_remote_path("glma_download.php")
         helper_url = self.get_download_helper_url(test_path, filename="Groundlift Download Test.txt", expires_in=600)
+        if not helper_url:
+            raise UserError(_(
+                "Die öffentliche Vorschau-Basis-URL muss eine absolute URL sein, z. B. https://groundlift.de/medienfreigabe. "
+                "Relative Werte wie /medienfreigabe funktionieren hier nicht, weil sie auf die Odoo-Website zeigen würden."
+            ))
         timeout = max(5, min(int(self.timeout or 30), 60))
         helper_success = False
 
@@ -575,7 +591,10 @@ exit;
         filename = filename or posixpath.basename(remote_path) or "download"
         data = "%s|%s|%s" % (rel, filename, expires)
         sig = hmac.new(secret.encode("utf-8"), data.encode("utf-8"), hashlib.sha256).hexdigest()
-        helper_base = (self.public_base_url or "").rstrip("/") + "/glma_download.php"
+        public_base = self.get_public_url(self.build_remote_path())
+        if not public_base:
+            return False
+        helper_base = public_base.rstrip("/") + "/glma_download.php"
         return helper_base + "?" + urlencode({
             "file": rel,
             "name": filename,
@@ -612,7 +631,20 @@ exit;
         else:
             rel = posixpath.basename(remote_path)
         encoded = "/".join(quote(part) for part in rel.split("/") if part)
-        base_url = (self.public_base_url or "").rstrip("/")
+        base_url = (self.public_base_url or "").strip().rstrip("/")
+        if not base_url:
+            return False
+        parsed = urlsplit(base_url)
+        if not parsed.scheme and not parsed.netloc:
+            # Do not generate relative public URLs here. They are interpreted as
+            # Odoo-local paths and lead to /medienfreigabe/... 404 pages instead
+            # of the Hetzner webspace. If the user entered a bare domain such as
+            # groundlift.de/medienfreigabe, assume HTTPS. If the value starts with
+            # a slash, it is intentionally rejected and the protected Odoo proxy
+            # remains the fallback.
+            if base_url.startswith("/"):
+                return False
+            base_url = "https://" + base_url
         return base_url + (("/" + encoded) if encoded else "")
 
     @staticmethod

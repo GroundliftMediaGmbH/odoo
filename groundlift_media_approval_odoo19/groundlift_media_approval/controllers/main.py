@@ -7,9 +7,23 @@ from urllib.request import Request as UrlRequest, urlopen
 from odoo import http, _
 from odoo.http import request, Response
 from werkzeug.exceptions import NotFound, Forbidden, BadRequest
+from werkzeug.utils import redirect as werkzeug_redirect
 
 
 class GlMediaApprovalWebsite(http.Controller):
+    @staticmethod
+    def _redirect_external_safe(url, code=302):
+        """Redirect to external Hetzner URLs without Odoo's local URL rewriting.
+
+        request.redirect() is intentionally local by default in recent Odoo
+        versions. For absolute Hetzner URLs that can strip the scheme/host and
+        turn https://groundlift.de/medienfreigabe/... into an Odoo-local
+        /medienfreigabe/... URL, which causes the Odoo website 404.
+        """
+        if url and re.match(r"^https?://", str(url), re.IGNORECASE):
+            return werkzeug_redirect(url, code=code)
+        return request.redirect(url or "/", code=code)
+
     def _current_person(self):
         person_id = request.session.get("glma_person_id")
         if not person_id:
@@ -316,7 +330,7 @@ class GlMediaApprovalWebsite(http.Controller):
         if inline and not force_proxy and media.connection_id.redirect_preview_to_public:
             public_url = media.get_public_preview_url()
             if public_url:
-                return request.redirect(public_url, code=302)
+                return self._redirect_external_safe(public_url, code=302)
 
         # Fast path for approved downloads: do not copy the complete file from
         # Hetzner to Odoo over FTP/SFTP and then back to the browser. After the
@@ -334,7 +348,7 @@ class GlMediaApprovalWebsite(http.Controller):
                 plain_public_url = media.get_public_download_url(force_attachment=False)
                 if public_url != plain_public_url and not self._public_url_available(public_url, timeout=4):
                     public_url = plain_public_url
-                return request.redirect(public_url, code=302)
+                return self._redirect_external_safe(public_url, code=302)
 
         size = int(media.size_bytes or 0)
         range_header = request.httprequest.headers.get("Range")
