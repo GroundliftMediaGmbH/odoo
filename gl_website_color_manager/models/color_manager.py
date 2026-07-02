@@ -37,6 +37,7 @@ class GlWebsiteColorSwatch(models.Model):
     active = fields.Boolean(string='Aktiv', default=False, help='Wenn aktiv, wird die neue Farbe im Website-Frontend überschrieben.')
     entry_ids = fields.One2many('gl.website.color.entry', 'swatch_id', string='Fundstellen')
     occurrence_count = fields.Integer(string='Fundstellen', compute='_compute_stats', store=False)
+    picked_entry_count = fields.Integer(string='Angeklickte Fundstellen', compute='_compute_stats', store=False)
     last_seen = fields.Datetime(string='Zuletzt gesehen', compute='_compute_stats', store=False)
     notes = fields.Text(string='Notizen')
 
@@ -60,6 +61,7 @@ class GlWebsiteColorSwatch(models.Model):
         for record in self:
             entries = record.entry_ids
             record.occurrence_count = len(entries)
+            record.picked_entry_count = len(entries.filtered('picked'))
             record.last_seen = max(entries.mapped('last_seen')) if entries else False
 
     @api.constrains('original_color', 'replacement_color')
@@ -127,7 +129,12 @@ class GlWebsiteColorEntry(models.Model):
     swatch_id = fields.Many2one('gl.website.color.swatch', string='Farbe', required=True, ondelete='cascade', index=True)
     website_id = fields.Many2one(related='swatch_id.website_id', store=True, readonly=True, index=True)
     scan_session_id = fields.Many2one('gl.website.color.scan.session', string='Scan', ondelete='set null')
+    replacement_color = fields.Char(related='swatch_id.replacement_color', readonly=False, string='Neue Farbe')
+    swatch_active = fields.Boolean(related='swatch_id.active', readonly=False, string='Override aktiv')
     active = fields.Boolean(string='Für CSS nutzen', default=True, help='Deaktivieren, wenn eine einzelne Fundstelle nicht überschrieben werden soll.')
+    picked = fields.Boolean(string='Per Klick ausgewählt', default=False, index=True)
+    picked_at = fields.Datetime(string='Ausgewählt am', index=True)
+    picked_label = fields.Char(string='Angeklickter Bereich')
     source_type = fields.Selection([
         ('computed', 'Gerenderter Stil'),
         ('css_variable', 'CSS-Variable'),
@@ -170,6 +177,29 @@ class GlWebsiteColorScanSession(models.Model):
     ], string='Status', default='done')
     message = fields.Text(string='Meldung')
     entry_ids = fields.One2many('gl.website.color.entry', 'scan_session_id', string='Fundstellen')
+    picked_selector = fields.Char(string='Angeklickter CSS-Selektor')
+    picked_sample_text = fields.Char(string='Angeklickter Bereich')
+    picked_swatch_ids = fields.Many2many(
+        'gl.website.color.swatch',
+        'gl_website_color_scan_swatch_rel',
+        'scan_id',
+        'swatch_id',
+        string='Angeklickte Farben',
+    )
+
+    def action_open_picked_swatches(self):
+        self.ensure_one()
+        action = self.env.ref('gl_website_color_manager.action_gl_website_color_swatch').read()[0]
+        action['domain'] = [('id', 'in', self.picked_swatch_ids.ids)]
+        action['context'] = {'default_website_id': self.website_id.id}
+        return action
+
+    def action_open_picked_entries(self):
+        self.ensure_one()
+        action = self.env.ref('gl_website_color_manager.action_gl_website_color_entry').read()[0]
+        action['domain'] = [('scan_session_id', '=', self.id), ('picked', '=', True)]
+        action['context'] = {'default_scan_session_id': self.id}
+        return action
 
     @api.depends('website_id', 'scan_date')
     def _compute_name(self):
@@ -187,13 +217,16 @@ class GlWebsiteColorScanWizard(models.TransientModel):
     website_id = fields.Many2one('website', string='Website', required=True, default=_default_website_id)
     path = fields.Char(string='Pfad', default='/', required=True, help='Relativer Pfad der Website, z. B. / oder /kontakt.')
 
-    def action_start_homepage_scan(self):
+    def _build_scan_url(self, pick_mode=False):
         self.ensure_one()
         path = (self.path or '/').strip() or '/'
         if not path.startswith('/') and not path.startswith('http://') and not path.startswith('https://'):
             path = '/' + path
+        params = 'gl_color_scan=1'
+        if pick_mode:
+            params += '&gl_color_pick=1'
         separator = '&' if '?' in path else '?'
-        scan_url = '%s%sgl_color_scan=1' % (path, separator)
+        scan_url = '%s%s%s' % (path, separator, params)
 
         domain = getattr(self.website_id, 'domain', False)
         if domain and not path.startswith('http://') and not path.startswith('https://'):
@@ -201,11 +234,23 @@ class GlWebsiteColorScanWizard(models.TransientModel):
             if not domain.startswith('http://') and not domain.startswith('https://'):
                 domain = 'https://' + domain
             scan_url = domain + scan_url
+        return scan_url
 
+    def action_start_homepage_scan(self):
+        self.ensure_one()
         return {
             'type': 'ir.actions.act_url',
             'name': _('Website-Farbscan starten'),
-            'url': scan_url,
+            'url': self._build_scan_url(pick_mode=False),
+            'target': 'new',
+        }
+
+    def action_start_click_pick_scan(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_url',
+            'name': _('Website-Bereich auswählen'),
+            'url': self._build_scan_url(pick_mode=True),
             'target': 'new',
         }
 

@@ -10,6 +10,7 @@
                 <field name="original_color" widget="gl_hex_color" readonly="1"/>
                 <field name="replacement_color" widget="gl_hex_color"/>
                 <field name="occurrence_count" readonly="1"/>
+                <field name="picked_entry_count" readonly="1"/>
                 <field name="last_seen" readonly="1"/>
             </list>
         </field>
@@ -40,6 +41,7 @@
                         </group>
                         <group>
                             <field name="occurrence_count" readonly="1"/>
+                            <field name="picked_entry_count" readonly="1"/>
                             <field name="last_seen" readonly="1"/>
                         </group>
                     </group>
@@ -77,6 +79,7 @@
                 <field name="replacement_color"/>
                 <filter name="filter_active_overrides" string="Aktive Overrides" domain="[('active', '=', True)]"/>
                 <filter name="filter_inactive_swatches" string="Nicht aktiv" domain="[('active', '=', False)]"/>
+                <filter name="filter_picked_swatches" string="Aus Bereichsauswahl" domain="[('entry_ids.picked', '=', True)]"/>
                 <group>
                     <filter name="group_website" string="Website" context="{'group_by': 'website_id'}"/>
                     <filter name="group_active" string="Aktiv" context="{'group_by': 'active'}"/>

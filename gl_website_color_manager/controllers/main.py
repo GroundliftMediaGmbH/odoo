@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import re
 from collections import defaultdict
+from urllib.parse import quote_plus
 
 from odoo import http, fields
 from odoo.http import request
@@ -115,7 +116,7 @@ def _hex_to_rgba(color, alpha):
 class GlWebsiteColorManagerController(http.Controller):
 
     @http.route('/gl_color_manager/scan_payload', type='json', auth='user', methods=['POST'], csrf=False)
-    def scan_payload(self, website_id=None, url=None, colors=None, **kwargs):
+    def scan_payload(self, website_id=None, url=None, colors=None, selection_mode=False, picked_selector=None, picked_sample_text=None, **kwargs):
         if not _is_allowed_user():
             return {'ok': False, 'error': 'not_allowed'}
 
@@ -140,9 +141,13 @@ class GlWebsiteColorManagerController(http.Controller):
             'url': url,
             'scan_date': fields.Datetime.now(),
             'state': 'done',
+            'picked_selector': (picked_selector or '').strip()[:700],
+            'picked_sample_text': (picked_sample_text or '').strip()[:240],
         })
 
         colors_seen = set()
+        picked_swatch_ids = set()
+        picked_entry_ids = set()
         entries_written = 0
         now = fields.Datetime.now()
 
@@ -161,6 +166,8 @@ class GlWebsiteColorManagerController(http.Controller):
             raw_value = (row.get('raw_value') or row.get('matched_value') or '').strip()[:1000]
             matched_value = (row.get('matched_value') or row.get('raw_value') or '').strip()[:300]
             sample_text = (row.get('sample_text') or '').strip()[:240]
+            picked = bool(row.get('picked'))
+            picked_label = (row.get('picked_label') or row.get('picked_sample_text') or picked_sample_text or sample_text or '').strip()[:240]
             try:
                 occurrence_count = int(row.get('occurrence_count') or 1)
             except Exception:
@@ -194,8 +201,18 @@ class GlWebsiteColorManagerController(http.Controller):
                 'occurrence_count': occurrence_count,
                 'sample_text': sample_text,
             }
+            if picked:
+                vals.update({
+                    'picked': True,
+                    'picked_at': now,
+                    'picked_label': picked_label,
+                })
+                picked_swatch_ids.add(swatch.id)
+
             if entry:
                 entry.write(vals)
+                if picked:
+                    picked_entry_ids.add(entry.id)
             else:
                 vals.update({
                     'swatch_id': swatch.id,
@@ -210,30 +227,53 @@ class GlWebsiteColorManagerController(http.Controller):
                 })
                 try:
                     with request.env.cr.savepoint():
-                        Entry.create(vals)
+                        entry = Entry.create(vals)
+                        if picked:
+                            picked_entry_ids.add(entry.id)
                 except Exception:
                     # Continue scanning even if a single unusual selector/value cannot be stored.
                     continue
             entries_written += 1
 
-        scan.write({
+        scan_vals = {
             'color_count': len(colors_seen),
             'entry_count': entries_written,
-            'message': 'Scan abgeschlossen.',
-        })
+            'message': 'Bereichsauswahl gespeichert.' if picked_swatch_ids else 'Scan abgeschlossen.',
+        }
+        if picked_swatch_ids:
+            scan_vals['picked_swatch_ids'] = [(6, 0, list(picked_swatch_ids))]
+        scan.write(scan_vals)
 
         try:
             action_id = request.env.ref('gl_website_color_manager.action_gl_website_color_swatch').id
             backend_url = '/web#action=%s&model=gl.website.color.swatch&view_type=list' % action_id
         except Exception:
+            action_id = False
             backend_url = '/web#model=gl.website.color.swatch&view_type=list'
+
+        try:
+            scan_action_id = request.env.ref('gl_website_color_manager.action_gl_website_color_scan_session').id
+            picked_backend_url = '/web#id=%s&action=%s&model=gl.website.color.scan.session&view_type=form' % (scan.id, scan_action_id)
+        except Exception:
+            picked_backend_url = '/web#id=%s&model=gl.website.color.scan.session&view_type=form' % scan.id
+
+        try:
+            entry_action_id = request.env.ref('gl_website_color_manager.action_gl_website_color_entry').id
+            picked_domain = quote_plus(str([('scan_session_id', '=', scan.id), ('picked', '=', True)]))
+            picked_entries_url = '/web#action=%s&model=gl.website.color.entry&view_type=list&domain=%s' % (entry_action_id, picked_domain)
+        except Exception:
+            picked_entries_url = picked_backend_url
 
         return {
             'ok': True,
             'scan_id': scan.id,
             'color_count': len(colors_seen),
             'entry_count': entries_written,
+            'picked_color_count': len(picked_swatch_ids),
+            'picked_entry_count': len(picked_entry_ids),
             'backend_url': backend_url,
+            'picked_backend_url': picked_backend_url if picked_swatch_ids else False,
+            'picked_entries_url': picked_entries_url if picked_swatch_ids else False,
         }
 
     @http.route('/gl_color_manager/css/<int:website_id>.css', type='http', auth='public', methods=['GET'], csrf=False)

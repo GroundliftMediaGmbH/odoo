@@ -30,16 +30,27 @@
     ];
     const STYLE_RULE_HINTS = ['color', 'background', 'border', 'outline', 'shadow', 'fill', 'stroke', 'caret', 'column-rule'];
     const MAX_ELEMENTS = 3000;
+    const MAX_SELECTED_ELEMENTS = 1200;
     const MAX_ROWS = 10000;
 
     const colorCache = new Map();
     const rows = new Map();
+    let pickerCleanup = null;
 
     function escapeCss(value) {
         if (window.CSS && window.CSS.escape) {
             return window.CSS.escape(value);
         }
         return String(value).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+    }
+
+    function escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     function componentToHex(value) {
@@ -176,7 +187,7 @@
         if (!element || element.nodeType !== 1) {
             return '';
         }
-        if (element.id && !/^o_/.test(element.id)) {
+        if (element.id && !/^o_/.test(element.id) && !/^gl-color-/.test(element.id)) {
             return '#' + escapeCss(element.id);
         }
         const parts = [];
@@ -185,7 +196,7 @@
             const tag = current.tagName.toLowerCase();
             let segment = tag;
             const classes = Array.from(current.classList || [])
-                .filter((cls) => cls && !/^o_editable/.test(cls) && !/^oe_/.test(cls) && !/^ui-/.test(cls))
+                .filter((cls) => cls && !/^o_editable/.test(cls) && !/^oe_/.test(cls) && !/^ui-/.test(cls) && !/^gl-color-/.test(cls))
                 .slice(0, 3);
             if (classes.length) {
                 segment += '.' + classes.map(escapeCss).join('.');
@@ -225,6 +236,7 @@
             row.normalized_color || '',
             row.raw_value || '',
             row.matched_value || '',
+            row.picked ? 'picked' : '',
         ].join('||');
         if (rows.has(key)) {
             rows.get(key).occurrence_count += 1;
@@ -233,11 +245,11 @@
         rows.set(key, Object.assign({ occurrence_count: 1 }, row));
     }
 
-    function scanComputedStyles() {
-        const rootItems = [document.documentElement, document.body].filter(Boolean);
-        const elementItems = Array.from(document.body ? document.body.querySelectorAll('*') : []).slice(0, MAX_ELEMENTS);
-        const elements = rootItems.concat(elementItems);
+    function scanComputedStylesForElements(elements, pickedInfo) {
         for (const element of elements) {
+            if (!element || element.nodeType !== 1 || element.id === 'gl-color-scan-overlay' || element.id === 'gl-color-pick-highlight') {
+                continue;
+            }
             const style = window.getComputedStyle(element);
             if (!style || style.display === 'none' || style.visibility === 'hidden') {
                 continue;
@@ -258,10 +270,30 @@
                         raw_value: rawValue.trim(),
                         matched_value: color.matched,
                         sample_text: label,
+                        picked: !!pickedInfo,
+                        picked_selector: pickedInfo ? pickedInfo.selector : '',
+                        picked_sample_text: pickedInfo ? pickedInfo.label : '',
+                        picked_label: pickedInfo ? pickedInfo.label : '',
                     });
                 }
             }
         }
+    }
+
+    function scanComputedStyles() {
+        const rootItems = [document.documentElement, document.body].filter(Boolean);
+        const elementItems = Array.from(document.body ? document.body.querySelectorAll('*') : []).slice(0, MAX_ELEMENTS);
+        scanComputedStylesForElements(rootItems.concat(elementItems), null);
+    }
+
+    function scanSelectedArea(element) {
+        const selected = pickTargetElement(element);
+        const selector = cssPath(selected);
+        const label = sampleText(selected);
+        const childItems = Array.from(selected.querySelectorAll ? selected.querySelectorAll('*') : []).slice(0, MAX_SELECTED_ELEMENTS);
+        const elements = [selected].concat(childItems);
+        scanComputedStylesForElements(elements, { selector, label });
+        return { selector, label, element: selected };
     }
 
     function scanRootCssVariables() {
@@ -353,7 +385,8 @@
         }
     }
 
-    function showOverlay(message, state, backendUrl) {
+    function showOverlay(message, state, options) {
+        const opts = options || {};
         let overlay = document.getElementById('gl-color-scan-overlay');
         if (!overlay) {
             overlay = document.createElement('div');
@@ -363,7 +396,7 @@
                 'right:18px',
                 'bottom:18px',
                 'z-index:2147483647',
-                'max-width:420px',
+                'max-width:450px',
                 'padding:16px 18px',
                 'border-radius:12px',
                 'box-shadow:0 10px 35px rgba(0,0,0,.22)',
@@ -373,22 +406,146 @@
             ].join(';');
             document.body.appendChild(overlay);
         }
-        const accent = state === 'error' ? '#ff4d4f' : state === 'done' ? '#52c41a' : '#ffffff';
+        const accent = state === 'error' ? '#ff4d4f' : state === 'done' ? '#52c41a' : state === 'pick' ? '#f5d76e' : '#ffffff';
+        const links = [];
+        if (opts.pickedEntriesUrl) {
+            links.push('<a style="color:#fff;text-decoration:underline" href="' + escapeHtml(opts.pickedEntriesUrl) + '">Angeklickte Farben direkt bearbeiten</a>');
+        }
+        if (opts.pickedBackendUrl) {
+            links.push('<a style="color:#fff;text-decoration:underline" href="' + escapeHtml(opts.pickedBackendUrl) + '">Auswahl-Scan öffnen</a>');
+        }
+        if (opts.backendUrl) {
+            links.push('<a style="color:#fff;text-decoration:underline" href="' + escapeHtml(opts.backendUrl) + '">Alle Farben im Backend öffnen</a>');
+        }
         overlay.innerHTML = '<div style="font-weight:700;margin-bottom:4px;color:' + accent + '">Groundlift Farbscan</div>' +
-            '<div>' + message + '</div>' +
-            (backendUrl ? '<div style="margin-top:10px"><a style="color:#fff;text-decoration:underline" href="' + backendUrl + '">Farben im Backend öffnen</a></div>' : '');
+            '<div>' + escapeHtml(message) + '</div>' +
+            (links.length ? '<div style="display:grid;gap:6px;margin-top:10px">' + links.map((link) => '<div>' + link + '</div>').join('') + '</div>' : '') +
+            (opts.showPickButton ? '<div style="margin-top:12px"><button id="gl-color-pick-start" type="button" style="border:0;border-radius:8px;padding:8px 11px;background:#fff;color:#111;font-weight:700;cursor:pointer">Bereich auf der Seite anklicken</button></div>' : '') +
+            (opts.showCancelButton ? '<div style="margin-top:12px"><button id="gl-color-pick-cancel" type="button" style="border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:7px 10px;background:transparent;color:#fff;cursor:pointer">Auswahl abbrechen</button></div>' : '');
+        const pickButton = overlay.querySelector('#gl-color-pick-start');
+        if (pickButton) {
+            pickButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                startElementPicker();
+            });
+        }
+        const cancelButton = overlay.querySelector('#gl-color-pick-cancel');
+        if (cancelButton) {
+            cancelButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                stopElementPicker();
+                showOverlay('Auswahl abgebrochen. Du kannst den Bereichsmodus erneut starten.', 'done', { showPickButton: true });
+            });
+        }
+        return overlay;
     }
 
-    async function postScan() {
+    function pickTargetElement(target) {
+        if (!target || target.nodeType !== 1) {
+            return document.body || document.documentElement;
+        }
+        if (target.closest && target.closest('#gl-color-scan-overlay')) {
+            return document.body || document.documentElement;
+        }
+        const exact = target.closest('a, button, .btn, img, svg, input, textarea, select');
+        if (exact) {
+            return exact;
+        }
+        return target.closest('section, header, footer, article, .o_colored_level, [class*="s_"], .card, .container, .row, main') || target;
+    }
+
+    function ensureHighlight() {
+        let box = document.getElementById('gl-color-pick-highlight');
+        if (!box) {
+            box = document.createElement('div');
+            box.id = 'gl-color-pick-highlight';
+            box.style.cssText = [
+                'position:fixed',
+                'z-index:2147483646',
+                'pointer-events:none',
+                'border:3px solid #f5d76e',
+                'box-shadow:0 0 0 99999px rgba(0,0,0,.18),0 0 22px rgba(0,0,0,.25)',
+                'border-radius:6px',
+                'transition:all .05s linear',
+            ].join(';');
+            document.body.appendChild(box);
+        }
+        return box;
+    }
+
+    function moveHighlight(element) {
+        const box = ensureHighlight();
+        const rect = element.getBoundingClientRect();
+        box.style.left = Math.max(0, rect.left) + 'px';
+        box.style.top = Math.max(0, rect.top) + 'px';
+        box.style.width = Math.max(1, rect.width) + 'px';
+        box.style.height = Math.max(1, rect.height) + 'px';
+    }
+
+    function stopElementPicker() {
+        if (pickerCleanup) {
+            pickerCleanup();
+            pickerCleanup = null;
+        }
+        const highlight = document.getElementById('gl-color-pick-highlight');
+        if (highlight) {
+            highlight.remove();
+        }
+        document.documentElement.style.cursor = '';
+    }
+
+    function startElementPicker() {
+        stopElementPicker();
+        showOverlay('Auswahlmodus aktiv: Bewege die Maus über den gewünschten Bereich und klicke einmal. ESC bricht ab.', 'pick', { showCancelButton: true });
+        document.documentElement.style.cursor = 'crosshair';
+
+        const onMove = (event) => {
+            const overlay = document.getElementById('gl-color-scan-overlay');
+            if (overlay && overlay.contains(event.target)) {
+                return;
+            }
+            moveHighlight(pickTargetElement(event.target));
+        };
+        const onClick = (event) => {
+            const overlay = document.getElementById('gl-color-scan-overlay');
+            if (overlay && overlay.contains(event.target)) {
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            const selected = pickTargetElement(event.target);
+            stopElementPicker();
+            runSelectedScan(selected);
+        };
+        const onKey = (event) => {
+            if (event.key === 'Escape') {
+                stopElementPicker();
+                showOverlay('Auswahl abgebrochen. Du kannst den Bereichsmodus erneut starten.', 'done', { showPickButton: true });
+            }
+        };
+        document.addEventListener('mousemove', onMove, true);
+        document.addEventListener('click', onClick, true);
+        document.addEventListener('keydown', onKey, true);
+        pickerCleanup = () => {
+            document.removeEventListener('mousemove', onMove, true);
+            document.removeEventListener('click', onClick, true);
+            document.removeEventListener('keydown', onKey, true);
+        };
+    }
+
+    async function postScan(extraParams) {
         const websiteId = window.GroundliftColorManager && window.GroundliftColorManager.websiteId;
         const payload = {
             jsonrpc: '2.0',
             method: 'call',
-            params: {
+            params: Object.assign({
                 website_id: websiteId,
                 url: window.location.href,
                 colors: Array.from(rows.values()),
-            },
+            }, extraParams || {}),
         };
         const response = await window.fetch('/gl_color_manager/scan_payload', {
             method: 'POST',
@@ -413,23 +570,57 @@
     async function runScan() {
         showOverlay('Scan läuft. Bitte diese Seite kurz geöffnet lassen …', 'running');
         try {
+            rows.clear();
             scanComputedStyles();
             scanRootCssVariables();
             scanStylesheets();
-            const result = await postScan();
+            const result = await postScan({ selection_mode: false });
             showOverlay(
                 'Fertig: ' + result.color_count + ' Farben und ' + result.entry_count + ' Fundstellen gespeichert.',
                 'done',
-                result.backend_url
+                { backendUrl: result.backend_url, showPickButton: true }
             );
         } catch (error) {
-            showOverlay('Fehler: ' + (error && error.message ? error.message : error), 'error');
+            showOverlay('Fehler: ' + (error && error.message ? error.message : error), 'error', { showPickButton: true });
+        }
+    }
+
+    async function runSelectedScan(selectedElement) {
+        showOverlay('Bereich wird analysiert und gespeichert …', 'running');
+        try {
+            rows.clear();
+            const pickedInfo = scanSelectedArea(selectedElement);
+            const result = await postScan({
+                selection_mode: true,
+                picked_selector: pickedInfo.selector,
+                picked_sample_text: pickedInfo.label,
+            });
+            showOverlay(
+                'Fertig: ' + result.picked_color_count + ' Farben im angeklickten Bereich gefunden.',
+                'done',
+                {
+                    pickedEntriesUrl: result.picked_entries_url,
+                    pickedBackendUrl: result.picked_backend_url,
+                    backendUrl: result.backend_url,
+                    showPickButton: true,
+                }
+            );
+        } catch (error) {
+            showOverlay('Fehler bei der Bereichsauswahl: ' + (error && error.message ? error.message : error), 'error', { showPickButton: true });
+        }
+    }
+
+    function boot() {
+        if (params.has('gl_color_pick')) {
+            window.setTimeout(startElementPicker, 500);
+        } else {
+            window.setTimeout(runScan, 500);
         }
     }
 
     if (document.readyState === 'complete') {
-        window.setTimeout(runScan, 500);
+        boot();
     } else {
-        window.addEventListener('load', () => window.setTimeout(runScan, 500), { once: true });
+        window.addEventListener('load', boot, { once: true });
     }
 }());

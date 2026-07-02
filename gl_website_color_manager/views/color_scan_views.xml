@@ -10,10 +10,11 @@
                     <field name="path" placeholder="/"/>
                 </group>
                 <p class="text-muted">
-                    Der Scan öffnet die Website in einem neuen Tab. Dort werden die tatsächlich gerenderten Farben erfasst und im Backend gespeichert.
+                    Der Scan öffnet die Website in einem neuen Tab. Dort werden die tatsächlich gerenderten Farben erfasst und im Backend gespeichert. Mit der Bereichsauswahl kannst du direkt auf ein sichtbares Element klicken und nur dessen Farben bearbeiten.
                 </p>
                 <footer>
-                    <button name="action_start_homepage_scan" type="object" string="Scan starten" class="btn-primary"/>
+                    <button name="action_start_homepage_scan" type="object" string="Ganze Seite scannen" class="btn-primary"/>
+                    <button name="action_start_click_pick_scan" type="object" string="Bereich anklicken" class="btn-secondary"/>
                     <button string="Abbrechen" special="cancel" class="btn-secondary"/>
                 </footer>
             </form>
@@ -38,6 +39,7 @@
                 <field name="state"/>
                 <field name="color_count"/>
                 <field name="entry_count"/>
+                <field name="picked_sample_text"/>
             </list>
         </field>
     </record>
@@ -47,6 +49,10 @@
         <field name="model">gl.website.color.scan.session</field>
         <field name="arch" type="xml">
             <form string="Farbscan">
+                <header>
+                    <button name="action_open_picked_swatches" type="object" string="Angeklickte Farben bearbeiten" class="oe_highlight" invisible="not picked_swatch_ids"/>
+                    <button name="action_open_picked_entries" type="object" string="Angeklickte Fundstellen öffnen" invisible="not picked_swatch_ids"/>
+                </header>
                 <sheet>
                     <div class="oe_title">
                         <label for="name"/>
@@ -66,12 +72,26 @@
                     <group>
                         <field name="url" readonly="1"/>
                         <field name="message" readonly="1"/>
+                        <field name="picked_sample_text" readonly="1"/>
+                        <field name="picked_selector" readonly="1"/>
                     </group>
                     <notebook>
+                        <page string="Angeklickte Farben" invisible="not picked_swatch_ids">
+                            <field name="picked_swatch_ids" readonly="0">
+                                <list editable="bottom">
+                                    <field name="active"/>
+                                    <field name="original_color" widget="gl_hex_color" readonly="1"/>
+                                    <field name="replacement_color" widget="gl_hex_color"/>
+                                    <field name="occurrence_count" readonly="1"/>
+                                    <field name="picked_entry_count" readonly="1"/>
+                                </list>
+                            </field>
+                        </page>
                         <page string="Fundstellen">
                             <field name="entry_ids" readonly="1">
                                 <list>
                                     <field name="swatch_id"/>
+                                    <field name="picked"/>
                                     <field name="source_type"/>
                                     <field name="selector"/>
                                     <field name="property_name"/>
