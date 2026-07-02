@@ -326,6 +326,13 @@ class GlMediaApprovalFile(models.Model):
         self.ensure_one()
         if not self.connection_id or not self.connection_id.public_base_url:
             return False
+        # Best fallback for Hetzner packages without working mod_headers:
+        # a short-lived signed PHP helper on the same webspace sends the
+        # Content-Disposition attachment header while the file transfer still
+        # runs directly from Hetzner, not through Odoo/SFTP.
+        if force_attachment is not False and self.connection_id.download_helper_enabled and self.connection_id.download_helper_verified:
+            return self.connection_id.get_download_helper_url(self.remote_path, filename=self.name, expires_in=3600)
+
         public_url = self.connection_id.get_public_url(self.remote_path)
         if force_attachment is None:
             force_attachment = bool(

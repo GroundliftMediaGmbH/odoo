@@ -95,7 +95,18 @@ Falls der Test mit HTTP 500 scheitert, erlaubt der Webspace wahrscheinlich eine 
 - Falls eine erzwungene Download-URL nicht erreichbar ist, fällt Odoo automatisch auf die normale schnelle Hetzner-URL zurück, statt Chrome/Mobile mit „Datei ist auf der Website nicht verfügbar“ abbrechen zu lassen.
 
 
-## 19.0.1.0.12
+## 19.0.1.0.13
 
 - Fix: RPC_ERROR im Button „Download erzwingen testen“ behoben. Ursache war eine lokale Variable `_`, die die Odoo-Übersetzungsfunktion überschrieben hat.
 - .htaccess Download-Erkennung robuster gemacht: `download=1` wird zusätzlich über `THE_REQUEST` geprüft.
+
+
+## Version 19.0.1.0.13
+
+Download-Erzwingen robuster gemacht:
+
+- Wenn Hetzner zwar `.htaccess` erlaubt, aber keinen `Content-Disposition: attachment` Header sendet, installiert die App automatisch einen kleinen signierten PHP-Download-Helfer (`glma_download.php`) im öffentlichen Medienfreigabe-Ordner.
+- Die Berechtigung bleibt in Odoo: PIN, Person und Freigabe-Status werden zuerst geprüft.
+- Danach leitet Odoo auf eine kurzzeitig signierte Hetzner-URL weiter.
+- Die große Datei läuft weiterhin direkt von Hetzner zum Browser; Odoo holt sie nicht per FTP/SFTP.
+- Der PHP-Helfer setzt serverseitig `Content-Disposition: attachment`, unterstützt Range-Requests und blockiert abgelaufene, manipulierte oder pfadfremde Download-Links.

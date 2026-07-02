@@ -1,13 +1,17 @@
 # -*- coding: utf-8 -*-
 import ftplib
+import hashlib
+import hmac
 import io
+import json
 import os
 import posixpath
+import secrets
 import socket
 import time
 from contextlib import contextmanager
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 from odoo import api, fields, models, _
@@ -70,6 +74,28 @@ class GlMediaApprovalConnection(models.Model):
         string="Download-Header getestet am",
         readonly=True,
         copy=False,
+    )
+    download_helper_enabled = fields.Boolean(
+        string="PHP-Download-Helfer aktiv",
+        default=False,
+        help="Fallback, wenn Hetzner .htaccess/mod_headers nicht unterstützt. Odoo prüft die Freigabe und leitet dann auf ein signiertes PHP-Download-Skript auf Hetzner weiter. Die große Datei wird weiterhin direkt von Hetzner ausgeliefert.",
+    )
+    download_helper_verified = fields.Boolean(
+        string="PHP-Download-Helfer getestet",
+        default=False,
+        readonly=True,
+        copy=False,
+    )
+    download_helper_verified_at = fields.Datetime(
+        string="PHP-Download-Helfer getestet am",
+        readonly=True,
+        copy=False,
+    )
+    download_helper_secret = fields.Char(
+        string="PHP-Download-Helfer Secret",
+        readonly=True,
+        copy=False,
+        groups="base.group_system",
     )
     timeout = fields.Integer(default=30, help="Timeout in Sekunden")
     ftp_passive = fields.Boolean(string="FTP Passivmodus", default=True)
@@ -260,17 +286,28 @@ class GlMediaApprovalConnection(models.Model):
                 ) % {"url": test_url})
 
             if "attachment" not in (content_disposition or "").lower():
-                raise UserError(_(
-                    "Die Testdatei ist erreichbar, aber Hetzner sendet noch keinen Download-Header.\n"
-                    "Erwartet: Content-Disposition: attachment\n"
-                    "Tatsächlich: %(header)s\n\n"
-                    "Bitte prüfen, ob Apache .htaccess und mod_headers für diesen Webspace aktiv sind."
-                ) % {"header": content_disposition or _("kein Header")})
+                # Viele Hetzner-Webhosting-Pakete erlauben .htaccess, aber nicht
+                # mod_headers. Dann ist die Datei zwar erreichbar, Apache sendet
+                # aber keinen Content-Disposition-Header. In diesem Fall installieren
+                # wir automatisch einen kleinen signierten PHP-Download-Helfer auf
+                # Hetzner. Dadurch bleibt die große Datei weiterhin auf Hetzner,
+                # der Browser bekommt aber zuverlässig den Attachment-Header.
+                return self._install_and_test_download_php_helper(
+                    fallback_reason=_(
+                        "Die Testdatei ist erreichbar, aber Hetzner sendet über .htaccess keinen Download-Header. "
+                        "Die App hat deshalb automatisch auf den PHP-Download-Helfer umgeschaltet."
+                    ),
+                    test_filename=test_filename,
+                    test_marker=test_marker,
+                )
 
             self.write({
                 "force_download_via_htaccess": True,
                 "force_download_verified": True,
                 "force_download_verified_at": fields.Datetime.now(),
+                "download_helper_enabled": False,
+                "download_helper_verified": False,
+                "download_helper_verified_at": False,
             })
             return {
                 "type": "ir.actions.client",
@@ -288,6 +325,263 @@ class GlMediaApprovalConnection(models.Model):
                     client.delete_file(test_path)
             except Exception:
                 pass
+
+    def _ensure_download_helper_secret(self):
+        self.ensure_one()
+        if not self.download_helper_secret:
+            self.write({"download_helper_secret": secrets.token_urlsafe(32)})
+        return self.download_helper_secret
+
+    def _download_helper_php(self):
+        self.ensure_one()
+        secret = self._ensure_download_helper_secret()
+        php = r"""<?php
+declare(strict_types=1);
+
+$secret = SECRET_PLACEHOLDER;
+
+function glma_fail(int $code, string $message): void {
+    http_response_code($code);
+    header('Content-Type: text/plain; charset=utf-8');
+    header('X-Content-Type-Options: nosniff');
+    echo $message;
+    exit;
+}
+
+$file = isset($_GET['file']) ? (string) $_GET['file'] : '';
+$name = isset($_GET['name']) ? (string) $_GET['name'] : basename($file);
+$expires = isset($_GET['expires']) ? (string) $_GET['expires'] : '';
+$sig = isset($_GET['sig']) ? (string) $_GET['sig'] : '';
+
+if ($file === '' || $expires === '' || $sig === '') {
+    glma_fail(400, 'Missing parameters');
+}
+if (!ctype_digit($expires) || (int) $expires < time()) {
+    glma_fail(403, 'Expired download link');
+}
+
+$data = $file . '|' . $name . '|' . $expires;
+$expected = hash_hmac('sha256', $data, $secret);
+if (!hash_equals($expected, $sig)) {
+    glma_fail(403, 'Invalid signature');
+}
+
+$file = str_replace('\\', '/', $file);
+$file = ltrim($file, '/');
+if ($file === '' || strpos($file, "\0") !== false || strpos($file, '..') !== false) {
+    glma_fail(400, 'Invalid file path');
+}
+
+$base = realpath(__DIR__);
+$path = realpath($base . DIRECTORY_SEPARATOR . $file);
+if ($base === false || $path === false || strpos($path, $base . DIRECTORY_SEPARATOR) !== 0) {
+    glma_fail(404, 'File not found');
+}
+if (!is_file($path) || !is_readable($path)) {
+    glma_fail(404, 'File not readable');
+}
+
+$size = filesize($path);
+if ($size === false) {
+    glma_fail(500, 'Cannot read file size');
+}
+
+$downloadName = $name !== '' ? $name : basename($path);
+$downloadName = str_replace(["\r", "\n", '"'], '', $downloadName);
+$downloadName = basename($downloadName);
+if ($downloadName === '') {
+    $downloadName = basename($path);
+}
+
+$mime = 'application/octet-stream';
+if (function_exists('finfo_open')) {
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    if ($finfo) {
+        $detected = finfo_file($finfo, $path);
+        finfo_close($finfo);
+        if (is_string($detected) && $detected !== '') {
+            $mime = $detected;
+        }
+    }
+}
+
+@ini_set('zlib.output_compression', 'Off');
+@set_time_limit(0);
+while (ob_get_level() > 0) {
+    @ob_end_clean();
+}
+
+$start = 0;
+$end = $size > 0 ? $size - 1 : 0;
+$status = 200;
+$range = isset($_SERVER['HTTP_RANGE']) ? (string) $_SERVER['HTTP_RANGE'] : '';
+if ($range !== '' && preg_match('/bytes=(\d*)-(\d*)/', $range, $m)) {
+    if ($m[1] === '' && $m[2] !== '') {
+        $suffix = (int) $m[2];
+        $start = max(0, $size - $suffix);
+    } else {
+        $start = (int) $m[1];
+    }
+    if ($m[2] !== '') {
+        $end = min((int) $m[2], $size - 1);
+    }
+    if ($start > $end || $start >= $size) {
+        header('Content-Range: bytes */' . $size);
+        glma_fail(416, 'Requested range not satisfiable');
+    }
+    $status = 206;
+}
+
+http_response_code($status);
+header('Content-Type: ' . $mime);
+header('Content-Disposition: attachment; filename="' . addcslashes($downloadName, "\\\"") . '"; filename*=UTF-8\'\'' . rawurlencode($downloadName));
+header('Content-Transfer-Encoding: binary');
+header('Accept-Ranges: bytes');
+header('X-Content-Type-Options: nosniff');
+header('Cache-Control: private, no-store, max-age=0');
+if ($status === 206) {
+    header('Content-Range: bytes ' . $start . '-' . $end . '/' . $size);
+}
+header('Content-Length: ' . max(0, $end - $start + 1));
+
+$fp = fopen($path, 'rb');
+if (!$fp) {
+    glma_fail(500, 'Cannot open file');
+}
+if ($start > 0) {
+    fseek($fp, $start);
+}
+$remaining = $end - $start + 1;
+$chunkSize = 1024 * 1024;
+while ($remaining > 0 && !feof($fp)) {
+    $read = min($chunkSize, $remaining);
+    $buffer = fread($fp, $read);
+    if ($buffer === false || $buffer === '') {
+        break;
+    }
+    echo $buffer;
+    $remaining -= strlen($buffer);
+    flush();
+}
+fclose($fp);
+exit;
+?>
+"""
+        return php.replace("SECRET_PLACEHOLDER", json.dumps(secret))
+
+    def _install_and_test_download_php_helper(self, fallback_reason=False, test_filename=None, test_marker=None):
+        self.ensure_one()
+        if not self.public_base_url:
+            raise UserError(_("Bitte zuerst die öffentliche Vorschau-Basis-URL eintragen."))
+
+        stamp = str(int(time.time()))
+        test_filename = test_filename or ("odoo_download_php_test_%s.txt" % stamp)
+        test_marker = test_marker or ("groundlift-download-php-test-%s" % stamp).encode("utf-8")
+        test_path = self.build_remote_path(test_filename)
+        helper_path = self.build_remote_path("glma_download.php")
+        helper_url = self.get_download_helper_url(test_path, filename="Groundlift Download Test.txt", expires_in=600)
+        timeout = max(5, min(int(self.timeout or 30), 60))
+        helper_success = False
+
+        try:
+            with self._client() as client:
+                client.upload_bytes(helper_path, self._download_helper_php().encode("utf-8"))
+                client.upload_bytes(test_path, test_marker)
+
+            req = Request(helper_url, headers={"User-Agent": "Odoo Groundlift Medienfreigabe"})
+            try:
+                with urlopen(req, timeout=timeout) as response:
+                    body = response.read(len(test_marker) + 256)
+                    status = getattr(response, "status", 200)
+                    content_disposition = response.headers.get("Content-Disposition", "")
+            except HTTPError as exc:
+                raise UserError(_(
+                    "Der PHP-Download-Helfer wurde geschrieben, aber der öffentliche Testaufruf ist fehlgeschlagen.\n"
+                    "HTTP-Status: %(status)s\nURL: %(url)s\n\n"
+                    "Bitte prüfen, ob PHP für diesen Hetzner-Webspace aktiv ist und ob die öffentliche URL auf denselben Ordner zeigt."
+                ) % {"status": exc.code, "url": helper_url}) from exc
+            except URLError as exc:
+                raise UserError(_(
+                    "Der PHP-Download-Helfer wurde geschrieben, aber die öffentliche Testdatei konnte von Odoo aus nicht geladen werden.\n"
+                    "URL: %(url)s\nFehler: %(error)s"
+                ) % {"url": helper_url, "error": exc}) from exc
+
+            if status not in (200, 206) or test_marker not in body:
+                raise UserError(_(
+                    "Der PHP-Download-Helfer ist erreichbar, liefert aber nicht die erwartete Testdatei.\n"
+                    "URL: %(url)s\n\n"
+                    "Bitte zuerst den Button „Öffentliche URL testen“ erfolgreich ausführen."
+                ) % {"url": helper_url})
+
+            if "attachment" not in (content_disposition or "").lower():
+                raise UserError(_(
+                    "Der PHP-Download-Helfer liefert die Testdatei, aber ohne Download-Header.\n"
+                    "Erwartet: Content-Disposition: attachment\n"
+                    "Tatsächlich: %(header)s\n\n"
+                    "Bitte prüfen, ob PHP-Header auf diesem Webspace verändert oder durch einen Proxy entfernt werden."
+                ) % {"header": content_disposition or _("kein Header")})
+
+            self.write({
+                "force_download_via_htaccess": False,
+                "force_download_verified": False,
+                "force_download_verified_at": False,
+                "download_helper_enabled": True,
+                "download_helper_verified": True,
+                "download_helper_verified_at": fields.Datetime.now(),
+            })
+            helper_success = True
+            message = _(
+                "PHP-Download-Helfer aktiv: Odoo prüft Freigabe/PIN und leitet dann auf eine kurzzeitig signierte Hetzner-URL weiter. "
+                "Die Datei wird direkt von Hetzner ausgeliefert und der Browser erhält Content-Disposition: attachment."
+            )
+            if fallback_reason:
+                message = str(fallback_reason) + "\n\n" + message
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "title": _("Download wird jetzt erzwungen"),
+                    "message": message,
+                    "type": "success",
+                    "sticky": True,
+                },
+            }
+        finally:
+            try:
+                with self._client() as client:
+                    client.delete_file(test_path)
+                    if not helper_success:
+                        client.delete_file(helper_path)
+            except Exception:
+                pass
+
+    def get_relative_remote_path(self, remote_path):
+        self.ensure_one()
+        remote_path = self._clean_remote_path(remote_path)
+        base = self._clean_remote_path(self.remote_base_path)
+        if remote_path == base:
+            return ""
+        if remote_path.startswith(base.rstrip("/") + "/"):
+            return remote_path[len(base.rstrip("/")) + 1:]
+        return posixpath.basename(remote_path)
+
+    def get_download_helper_url(self, remote_path, filename=None, expires_in=3600):
+        self.ensure_one()
+        if not self.public_base_url:
+            return False
+        secret = self._ensure_download_helper_secret()
+        rel = self.get_relative_remote_path(remote_path)
+        expires = str(int(time.time() + int(expires_in or 3600)))
+        filename = filename or posixpath.basename(remote_path) or "download"
+        data = "%s|%s|%s" % (rel, filename, expires)
+        sig = hmac.new(secret.encode("utf-8"), data.encode("utf-8"), hashlib.sha256).hexdigest()
+        helper_base = (self.public_base_url or "").rstrip("/") + "/glma_download.php"
+        return helper_base + "?" + urlencode({
+            "file": rel,
+            "name": filename,
+            "expires": expires,
+            "sig": sig,
+        })
 
     def build_remote_path(self, *parts):
         self.ensure_one()

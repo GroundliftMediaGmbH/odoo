@@ -16,6 +16,9 @@
                 <field name="force_download_via_htaccess"/>
                 <field name="force_download_verified" readonly="1"/>
                 <field name="force_download_verified_at" readonly="1"/>
+                <field name="download_helper_enabled"/>
+                <field name="download_helper_verified" readonly="1"/>
+                <field name="download_helper_verified_at" readonly="1"/>
                 <field name="active"/>
             </list>
         </field>
@@ -50,6 +53,10 @@
                             <field name="force_download_via_htaccess"/>
                             <field name="force_download_verified" readonly="1"/>
                             <field name="force_download_verified_at" readonly="1"/>
+                            <field name="download_helper_enabled"/>
+                            <field name="download_helper_verified" readonly="1"/>
+                            <field name="download_helper_verified_at" readonly="1"/>
+                            <field name="download_helper_secret" invisible="1"/>
                             <field name="timeout"/>
                         </group>
                     </group>
