@@ -13,6 +13,7 @@
                 <field name="selector"/>
                 <field name="property_name"/>
                 <field name="css_variable"/>
+                <field name="override_context_key" optional="hide"/>
                 <field name="picked_label"/>
                 <field name="last_seen"/>
             </list>
@@ -45,6 +46,7 @@
                         <field name="css_variable"/>
                         <field name="raw_value"/>
                         <field name="matched_value"/>
+                        <field name="override_context_key" readonly="1"/>
                         <field name="sample_text"/>
                     </group>
                 </sheet>

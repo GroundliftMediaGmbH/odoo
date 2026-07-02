@@ -171,6 +171,7 @@ class GlWebsiteColorOverride(models.Model):
     css_variable = fields.Char(string='CSS-Variable')
     original_color = fields.Char(string='Originalfarbe', required=True, index=True)
     replacement_color = fields.Char(string='Neue Farbe', required=True, help='HTML/CSS-Farbe als Hex-Wert, z. B. #ff6600.')
+    override_context_key = fields.Char(string='Fundstellen-Schlüssel', index=True, help='Technischer Schlüssel für die getrennte Änderung einzelner Fundstellen derselben Farbe.')
     raw_value = fields.Char(string='Originaler CSS-Wert')
     matched_value = fields.Char(string='Gefundener Farbwert im CSS')
     picked_selector = fields.Char(string='Angeklickter CSS-Selektor')

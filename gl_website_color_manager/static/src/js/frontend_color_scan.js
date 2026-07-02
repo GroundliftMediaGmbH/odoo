@@ -252,11 +252,11 @@
         return element.getAttribute('aria-label') || element.getAttribute('alt') || element.tagName.toLowerCase();
     }
 
-    function addRow(row) {
-        if (!row || !row.normalized_color || rows.size >= MAX_ROWS) {
-            return;
+    function rowContextKey(row) {
+        if (!row) {
+            return '';
         }
-        const key = [
+        return [
             row.source_type || '',
             row.selector || '',
             row.property_name || '',
@@ -264,8 +264,15 @@
             row.normalized_color || '',
             row.raw_value || '',
             row.matched_value || '',
-            row.picked ? 'picked' : '',
         ].join('||');
+    }
+
+    function addRow(row) {
+        if (!row || !row.normalized_color || rows.size >= MAX_ROWS) {
+            return;
+        }
+        row.context_key = rowContextKey(row);
+        const key = [row.context_key, row.picked ? 'picked' : ''].join('||');
         if (rows.has(key)) {
             rows.get(key).occurrence_count += 1;
             return;
@@ -546,7 +553,7 @@
         const simpleRules = new Map();
         const complexRules = new Map();
         for (const row of targetRows) {
-            const replacement = overrideMap.get(row.normalized_color);
+            const replacement = overrideMap.get(row.context_key || rowContextKey(row));
             if (!replacement) {
                 continue;
             }
@@ -610,8 +617,8 @@
         return lines.join('\n') + '\n';
     }
 
-    function selectedRowsForColor(originalColor) {
-        return Array.from(rows.values()).filter((row) => row.picked && row.normalized_color === originalColor);
+    function selectedRowsForContext(contextKey) {
+        return Array.from(rows.values()).filter((row) => row.picked && (row.context_key || rowContextKey(row)) === contextKey);
     }
 
     function allSelectedRows() {
@@ -646,21 +653,79 @@
         }
     }
 
+    function sourceRank(sourceType) {
+        if (sourceType === 'stylesheet') {
+            return 0;
+        }
+        if (sourceType === 'computed') {
+            return 1;
+        }
+        if (sourceType === 'css_variable') {
+            return 2;
+        }
+        return 3;
+    }
+
+    function propertyLabel(row) {
+        const prop = row.css_variable || row.property_name || '';
+        const source = row.source_type === 'stylesheet' ? 'Stylesheet' : row.source_type === 'css_variable' ? 'CSS-Variable' : 'sichtbares Element';
+        const friendly = {
+            'color': 'Schriftfarbe',
+            'background-color': 'Hintergrundfarbe',
+            'background': 'Hintergrund',
+            'background-image': 'Hintergrund / Verlauf',
+            'border-color': 'Rahmenfarbe',
+            'border-top-color': 'Rahmen oben',
+            'border-right-color': 'Rahmen rechts',
+            'border-bottom-color': 'Rahmen unten',
+            'border-left-color': 'Rahmen links',
+            'outline-color': 'Outline',
+            'text-decoration-color': 'Text-Dekoration',
+            'fill': 'SVG-Füllung',
+            'stroke': 'SVG-Linie',
+            'box-shadow': 'Schatten',
+            'text-shadow': 'Textschatten',
+        }[prop] || prop;
+        return friendly + ' · ' + source;
+    }
+
     function collectSelectedColorItems() {
         const items = new Map();
         for (const row of allSelectedRows()) {
-            const color = row.normalized_color;
-            if (!items.has(color)) {
-                items.set(color, { color, count: 0, refs: new Set(), examples: new Set() });
+            const key = row.context_key || rowContextKey(row);
+            if (!items.has(key)) {
+                items.set(key, {
+                    key,
+                    color: row.normalized_color,
+                    source_type: row.source_type,
+                    selector: row.selector || '',
+                    property_name: row.property_name || '',
+                    css_variable: row.css_variable || '',
+                    raw_value: row.raw_value || '',
+                    matched_value: row.matched_value || '',
+                    count: 0,
+                    refs: new Set(),
+                    examples: new Set(),
+                });
             }
-            const item = items.get(color);
+            const item = items.get(key);
             item.count += row.occurrence_count || 1;
-            item.refs.add((row.source_type === 'css_variable' ? row.css_variable : row.property_name) + ' · ' + row.selector);
+            item.refs.add(propertyLabel(row) + ' · ' + (row.selector || ':root'));
             if (row.sample_text) {
                 item.examples.add(row.sample_text);
             }
         }
-        return Array.from(items.values()).sort((a, b) => b.count - a.count).slice(0, 18);
+        return Array.from(items.values()).sort((a, b) => {
+            const sourceDelta = sourceRank(a.source_type) - sourceRank(b.source_type);
+            if (sourceDelta) {
+                return sourceDelta;
+            }
+            const propDelta = String(a.property_name || a.css_variable).localeCompare(String(b.property_name || b.css_variable));
+            if (propDelta) {
+                return propDelta;
+            }
+            return b.count - a.count;
+        }).slice(0, 40);
     }
 
     function showOverlay(message, state, options) {
@@ -852,9 +917,10 @@
         }, extraParams || {}));
     }
 
-    async function saveOverride(originalColor, replacementColor, pickedInfo, button) {
+    async function saveOverride(item, replacementColor, pickedInfo, button) {
         const websiteId = window.GroundliftColorManager && window.GroundliftColorManager.websiteId;
-        const relatedRows = selectedRowsForColor(originalColor);
+        const relatedRows = selectedRowsForContext(item.key);
+        const originalColor = item.color;
         const oldText = button ? button.textContent : '';
         if (button) {
             button.disabled = true;
@@ -866,6 +932,7 @@
                 original_color: originalColor,
                 replacement_color: replacementColor,
                 colors: relatedRows,
+                context_key: item.key,
                 picked_selector: pickedInfo.selector,
                 picked_sample_text: pickedInfo.label,
             });
@@ -894,17 +961,24 @@
         }
         liveOverrides.clear();
         const itemHtml = items.map((item, index) => {
-            const refs = Array.from(item.refs).slice(0, 3).map(escapeHtml).join('<br/>');
+            const refs = Array.from(item.refs).slice(0, 2).map(escapeHtml).join('<br/>');
             const example = Array.from(item.examples)[0] || '';
-            return '<div class="gl-color-editor-row" data-original="' + escapeHtml(item.color) + '" style="display:grid;grid-template-columns:32px 90px 1fr auto;gap:8px;align-items:center;padding:9px 0;border-top:1px solid rgba(255,255,255,.14)">' +
+            const propTitle = escapeHtml((item.css_variable || item.property_name || '').trim());
+            const scopeHint = item.source_type === 'css_variable'
+                ? 'wirkt breit, weil CSS-Variable'
+                : item.source_type === 'stylesheet'
+                    ? 'wirkt auf alle Seiten mit diesem CSS-Verweis'
+                    : 'wirkt auf diesen sichtbaren Element-Selektor';
+            return '<div class="gl-color-editor-row" data-index="' + index + '" style="display:grid;grid-template-columns:32px 90px minmax(190px,1fr) auto;gap:8px;align-items:center;padding:10px 0;border-top:1px solid rgba(255,255,255,.14)">' +
                 '<input class="gl-color-editor-picker" type="color" value="' + escapeHtml(item.color) + '" title="Farbe wählen" style="width:32px;height:32px;border:0;background:transparent;padding:0"/>' +
                 '<input class="gl-color-editor-hex" type="text" value="' + escapeHtml(item.color) + '" style="width:90px;border:1px solid rgba(255,255,255,.25);border-radius:6px;background:#222;color:#fff;padding:6px 7px;font:12px monospace"/>' +
-                '<div style="min-width:0"><div style="font-weight:700">' + escapeHtml(item.color) + ' · ' + item.count + '×</div>' +
-                '<div style="font-size:11px;opacity:.78;word-break:break-word">' + refs + (example ? '<br/>Beispiel: ' + escapeHtml(example).slice(0, 95) : '') + '</div></div>' +
+                '<div style="min-width:0"><div style="font-weight:700">' + escapeHtml(propertyLabel(item)) + '</div>' +
+                '<div style="font-size:12px;opacity:.92"><code style="color:#fff">' + propTitle + '</code> · ' + escapeHtml(item.color) + ' · ' + item.count + '×</div>' +
+                '<div style="font-size:11px;opacity:.72;word-break:break-word">' + escapeHtml(scopeHint) + '<br/>' + refs + (example ? '<br/>Beispiel: ' + escapeHtml(example).slice(0, 95) : '') + '</div></div>' +
                 '<button class="gl-color-editor-save" type="button" data-index="' + index + '" style="border:0;border-radius:7px;padding:7px 9px;background:#fff;color:#111;font-weight:700;cursor:pointer">Speichern</button>' +
                 '</div>';
         }).join('');
-        const html = '<div style="font-size:12px;opacity:.82;margin-bottom:10px">Änderungen erscheinen sofort als Live-Vorschau. Mit „Speichern“ wird genau dieser CSS-Verweis dauerhaft für diese Website gespeichert und wirkt damit auch auf Unterseiten, auf denen derselbe Selektor / dieselbe CSS-Variable verwendet wird.</div>' +
+        const html = '<div style="font-size:12px;opacity:.82;margin-bottom:10px">Jede Zeile ist jetzt eine eigene Fundstelle, zum Beispiel Schriftfarbe, Hintergrundfarbe oder Rahmen. Damit wird nicht mehr automatisch alles geändert, nur weil dieselbe Hex-Farbe vorkommt. Stylesheet-Zeilen wirken zusätzlich auf Unterseiten mit demselben CSS-Verweis.</div>' +
             '<div style="display:grid;gap:0">' + itemHtml + '</div>' +
             '<div id="gl-color-editor-error" style="display:none;margin-top:10px;color:#ff7875"></div>';
         const overlay = showOverlay('Bereich gefunden: Farben direkt auf der Seite ändern.', 'done', {
@@ -915,18 +989,18 @@
         });
         const errorBox = overlay.querySelector('#gl-color-editor-error');
         overlay.querySelectorAll('.gl-color-editor-row').forEach((row) => {
-            const original = row.getAttribute('data-original');
+            const item = items[parseInt(row.getAttribute('data-index') || '0', 10)];
             const picker = row.querySelector('.gl-color-editor-picker');
             const hex = row.querySelector('.gl-color-editor-hex');
             const save = row.querySelector('.gl-color-editor-save');
             function setPreview(rawValue) {
                 const normalized = normalizeHexInput(rawValue);
-                if (!normalized) {
+                if (!normalized || !item) {
                     return null;
                 }
                 picker.value = normalized;
                 hex.value = normalized;
-                liveOverrides.set(original, normalized);
+                liveOverrides.set(item.key, normalized);
                 applyLivePreview();
                 if (errorBox) {
                     errorBox.style.display = 'none';
@@ -959,7 +1033,7 @@
                     return;
                 }
                 try {
-                    await saveOverride(original, normalized, pickedInfo, save);
+                    await saveOverride(item, normalized, pickedInfo, save);
                 } catch (error) {
                     if (errorBox) {
                         errorBox.textContent = 'Fehler beim Speichern: ' + (error && error.message ? error.message : error);

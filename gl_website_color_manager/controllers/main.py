@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import hashlib
 import re
 from collections import defaultdict
 from urllib.parse import quote_plus
@@ -113,6 +114,22 @@ def _hex_to_rgba(color, alpha):
     return 'rgba(%s, %s, %s, %.4g)' % (r, g, b, alpha)
 
 
+def _row_context_hash(row):
+    if not isinstance(row, dict):
+        return False
+    parts = [
+        row.get('source_type') or '',
+        row.get('selector') or '',
+        row.get('property_name') or '',
+        row.get('css_variable') or '',
+        row.get('normalized') or row.get('normalized_color') or row.get('original_color') or row.get('color_value') or '',
+        row.get('raw_value') or '',
+        row.get('matched_value') or '',
+    ]
+    payload = '\x1f'.join(str(part) for part in parts)
+    return hashlib.sha1(payload.encode('utf-8', errors='ignore')).hexdigest()
+
+
 def _clean_row(row):
     if not isinstance(row, dict):
         return False
@@ -122,7 +139,7 @@ def _clean_row(row):
     source_type = row.get('source_type') or 'computed'
     if source_type not in ('computed', 'css_variable', 'stylesheet'):
         source_type = 'computed'
-    return {
+    clean = {
         'normalized': normalized,
         'selector': (row.get('selector') or ':root').strip()[:700],
         'property_name': (row.get('property_name') or '').strip().lower()[:80],
@@ -135,6 +152,8 @@ def _clean_row(row):
         'picked_label': (row.get('picked_label') or row.get('picked_sample_text') or '').strip()[:240],
         'occurrence_count': row.get('occurrence_count') or 1,
     }
+    clean['override_context_key'] = _row_context_hash(clean)
+    return clean
 
 
 def _append_css_record(record, replacement, root_vars, simple_rules, complex_rules):
@@ -361,7 +380,7 @@ class GlWebsiteColorManagerController(http.Controller):
         }
 
     @http.route('/gl_color_manager/apply_override', type='json', auth='user', methods=['POST'], csrf=False)
-    def apply_override(self, website_id=None, original_color=None, replacement_color=None, colors=None, picked_selector=None, picked_sample_text=None, **kwargs):
+    def apply_override(self, website_id=None, original_color=None, replacement_color=None, colors=None, context_key=None, picked_selector=None, picked_sample_text=None, **kwargs):
         if not _is_allowed_user():
             return {'ok': False, 'error': 'not_allowed'}
 
@@ -403,6 +422,7 @@ class GlWebsiteColorManagerController(http.Controller):
                 ('original_color', '=', original),
                 ('raw_value', '=', row['raw_value']),
                 ('matched_value', '=', row['matched_value']),
+                ('override_context_key', '=', row.get('override_context_key') or False),
             ]
             vals = {
                 'website_id': website.id,
@@ -413,6 +433,7 @@ class GlWebsiteColorManagerController(http.Controller):
                 'css_variable': row['css_variable'],
                 'original_color': original,
                 'replacement_color': replacement,
+                'override_context_key': row.get('override_context_key') or False,
                 'raw_value': row['raw_value'],
                 'matched_value': row['matched_value'],
                 'sample_text': row['sample_text'],
@@ -430,6 +451,24 @@ class GlWebsiteColorManagerController(http.Controller):
                     override_ids.add(override.id)
             except Exception:
                 continue
+
+        # Versions <= 19.0.1.2.0 stored all same-color rows from the clicked
+        # area together. Once a context-specific row is saved with this version,
+        # deactivate those old broad rows for the same click area/color so they do
+        # not keep changing text and background together.
+        if override_ids:
+            legacy_domain = [
+                ('website_id', '=', website.id),
+                ('original_color', '=', original),
+                ('active', '=', True),
+                ('override_context_key', '=', False),
+            ]
+            picked = (picked_selector or '').strip()[:700]
+            if picked:
+                legacy_domain.append(('picked_selector', '=', picked))
+            legacy = Override.search(legacy_domain)
+            if legacy:
+                legacy.filtered(lambda rec: rec.id not in override_ids).write({'active': False})
 
         version = request.env['gl.website.color.swatch'].sudo().get_css_cache_key(website.id)
         css_url = '/gl_color_manager/css/%s.css?v=%s' % (website.id, version)
