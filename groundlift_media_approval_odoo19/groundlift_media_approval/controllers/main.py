@@ -87,7 +87,7 @@ class GlMediaApprovalWebsite(http.Controller):
         media.vote_from_website(person, decision)
         return request.redirect(f"/media-approval/folder/{media.folder_id.id}?file_id={media.id}")
 
-    @http.route("/media-approval/preview/<int:file_id>", type="http", auth="public", website=True, sitemap=False, csrf=False)
+    @http.route("/media-approval/preview/<int:file_id>", type="http", auth="public", website=True, methods=["GET", "HEAD"], sitemap=False, csrf=False)
     def preview(self, file_id, **kw):
         person = self._require_person()
         media = request.env["gl.media.approval.file"].sudo().browse(file_id)
@@ -97,7 +97,7 @@ class GlMediaApprovalWebsite(http.Controller):
             raise Forbidden()
         return self._serve_media(media, inline=True, allow_locked=True)
 
-    @http.route("/media-approval/download/<int:file_id>", type="http", auth="public", website=True, sitemap=False, csrf=False)
+    @http.route("/media-approval/download/<int:file_id>", type="http", auth="public", website=True, methods=["GET", "HEAD"], sitemap=False, csrf=False)
     def download(self, file_id, **kw):
         person = self._require_person()
         media = request.env["gl.media.approval.file"].sudo().browse(file_id)
@@ -284,6 +284,14 @@ class GlMediaApprovalWebsite(http.Controller):
         return Response(json.dumps(payload), status=status, content_type="application/json; charset=utf-8")
 
     def _serve_media(self, media, inline=True, allow_locked=True):
+        # Fast path for previews: after the PIN/session check in the calling route,
+        # redirect to the public Hetzner URL. The webserver can then handle byte
+        # range requests natively, which makes video start almost immediately.
+        if inline and media.connection_id.redirect_preview_to_public:
+            public_url = media.get_public_preview_url()
+            if public_url:
+                return request.redirect(public_url, code=302)
+
         size = int(media.size_bytes or 0)
         range_header = request.httprequest.headers.get("Range")
         status = 200
@@ -310,6 +318,22 @@ class GlMediaApprovalWebsite(http.Controller):
                     status = 206
                     headers.append(("Content-Range", f"bytes {start}-{end}/{size}"))
                     headers.append(("Content-Length", str(length)))
+
+        # Fallback safety: some browsers/proxies ask for a video without Range.
+        # Do not pull the entire 200 MB file through Odoo just to show metadata;
+        # answer with the first small segment as partial content.
+        if inline and media.media_type == "video" and not range_header and size and size > 2 * 1024 * 1024:
+            offset = 0
+            length = 2 * 1024 * 1024
+            status = 206
+            headers.append(("Content-Range", f"bytes 0-{length - 1}/{size}"))
+            headers.append(("Content-Length", str(length)))
+
+        if request.httprequest.method == "HEAD":
+            if not any(h[0].lower() == "content-length" for h in headers):
+                headers.append(("Content-Length", str(size)))
+            return Response(b"", status=status, headers=headers)
+
         content = media.read_remote_bytes(offset=offset, length=length)
         if not any(h[0].lower() == "content-length" for h in headers):
             headers.append(("Content-Length", str(len(content))))

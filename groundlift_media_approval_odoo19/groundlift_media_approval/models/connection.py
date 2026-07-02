@@ -5,6 +5,7 @@ import os
 import posixpath
 import socket
 from contextlib import contextmanager
+from urllib.parse import quote
 
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
@@ -31,6 +32,17 @@ class GlMediaApprovalConnection(models.Model):
         required=True,
         default="/",
         help="Alle Unterordner werden darunter angelegt. Beispiel: /mediafreigaben",
+    )
+    public_base_url = fields.Char(
+        string="Öffentliche Vorschau-Basis-URL",
+        help="Optional, aber für schnelle Video-Vorschau empfohlen. Beispiel: https://www.example.com/medienfreigabe. "
+             "Muss auf denselben Ordner zeigen wie der Basisordner auf dem Server.",
+    )
+    redirect_preview_to_public = fields.Boolean(
+        string="Vorschau direkt über Hetzner laden",
+        default=True,
+        help="Wenn eine öffentliche Vorschau-Basis-URL gesetzt ist, wird die PIN-geprüfte Vorschau dorthin weitergeleitet. "
+             "Der Browser streamt Videos dann direkt vom Webserver statt langsam über Odoo/FTP/SFTP.",
     )
     timeout = fields.Integer(default=30, help="Timeout in Sekunden")
     ftp_passive = fields.Boolean(string="FTP Passivmodus", default=True)
@@ -83,6 +95,31 @@ class GlMediaApprovalConnection(models.Model):
         cleaned = [self._sanitize_path_part(p) for p in parts if p]
         path = posixpath.join(base, *cleaned) if cleaned else base
         return self._clean_remote_path(path)
+
+    def get_public_url(self, remote_path):
+        """Return a browser URL for a file stored below remote_base_path.
+
+        This is intentionally optional. If public_base_url is empty, Odoo keeps
+        serving the file through the protected proxy route. If it is set, the
+        preview route can authenticate the PIN session and then redirect the
+        browser to the webserver URL so video range requests are handled by
+        Hetzner/Apache/Nginx instead of by Odoo over FTP/SFTP.
+        """
+        self.ensure_one()
+        if not self.public_base_url:
+            return False
+        remote_path = self._clean_remote_path(remote_path)
+        base = self._clean_remote_path(self.remote_base_path)
+        rel = remote_path
+        if remote_path == base:
+            rel = ""
+        elif remote_path.startswith(base.rstrip("/") + "/"):
+            rel = remote_path[len(base.rstrip("/")) + 1:]
+        else:
+            rel = posixpath.basename(remote_path)
+        encoded = "/".join(quote(part) for part in rel.split("/") if part)
+        base_url = (self.public_base_url or "").rstrip("/")
+        return base_url + (("/" + encoded) if encoded else "")
 
     @staticmethod
     def _clean_remote_path(path):

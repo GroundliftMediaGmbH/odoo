@@ -252,6 +252,12 @@ class GlMediaApprovalFile(models.Model):
         with self.connection_id._client() as client:
             return client.read_bytes(self.remote_path, offset=offset, length=length)
 
+    def get_public_preview_url(self):
+        self.ensure_one()
+        if not self.connection_id or not self.connection_id.public_base_url:
+            return False
+        return self.connection_id.get_public_url(self.remote_path)
+
     def delete_remote_file(self):
         for rec in self.sudo():
             if rec.deleted_remote:

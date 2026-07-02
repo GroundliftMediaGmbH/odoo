@@ -11,6 +11,7 @@
                 <field name="port"/>
                 <field name="username"/>
                 <field name="remote_base_path"/>
+                <field name="public_base_url"/>
                 <field name="active"/>
             </list>
         </field>
@@ -37,6 +38,8 @@
                             <field name="username"/>
                             <field name="password" password="True"/>
                             <field name="remote_base_path"/>
+                            <field name="public_base_url" placeholder="https://www.deinedomain.de/medienfreigabe"/>
+                            <field name="redirect_preview_to_public"/>
                             <field name="timeout"/>
                         </group>
                     </group>

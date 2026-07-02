@@ -34,3 +34,19 @@ Version: 19.0.1.0.6
 ## Hinweis zu Hetzner-Pfaden
 
 Der Basisordner muss dort liegen, wo der FTP/SFTP-Benutzer schreiben darf, z. B. `/public_html/medienfreigabe`. Wenn der Schreibtest fehlschlägt, ist der Pfad oder die Berechtigung des Hetzner-Benutzers falsch.
+
+
+## Version 19.0.1.0.7 - schnelle Video-Vorschau
+
+Für schnelle Video-Wiedergabe kann in der Hetzner-Verbindung die **Öffentliche Vorschau-Basis-URL** hinterlegt werden, z. B. `https://www.deinedomain.de/medienfreigabe`, wenn der FTP/SFTP-Basisordner `/public_html/medienfreigabe` ist.
+
+Dann prüft Odoo weiterhin zuerst die PIN-Session und leitet die Vorschau danach an den Hetzner-Webserver weiter. Dadurch streamt der Browser Videos direkt vom Webserver mit nativer Byte-Range-Unterstützung, statt große Dateien langsam über Odoo/FTP/SFTP zu ziehen.
+
+Beispiel:
+- Basisordner auf Server: `/public_html/medienfreigabe`
+- Öffentliche Vorschau-Basis-URL: `https://www.deinedomain.de/medienfreigabe`
+- Unterordner: `Sandra Hunke`
+- Datei: `clip.mp4`
+- Vorschau-URL nach PIN-Prüfung: `https://www.deinedomain.de/medienfreigabe/Sandra%20Hunke/clip.mp4`
+
+Hinweis: Wer die technische Vorschau-URL aus dem Browser-Netzwerkmonitor kopiert, kann die Datei direkt aufrufen. Das war bei der Odoo-Proxy-Vorschau theoretisch ebenfalls als Originalvorschau sichtbar, ist aber bei öffentlicher Hetzner-Auslieferung leichter kopierbar. Für maximale Vertraulichkeit das Feld leer lassen; dann bleibt der geschützte Odoo-Proxy aktiv, ist bei großen Videos aber langsamer.
