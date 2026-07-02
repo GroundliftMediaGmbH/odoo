@@ -109,7 +109,7 @@ class GlMediaApprovalFile(models.Model):
         folder.ensure_one()
         filename = self._sanitize_filename(filename)
         mimetype = mimetype or mimetypes.guess_type(filename)[0] or "application/octet-stream"
-        persons = self.env["gl.media.approval.person"].sudo().search([("active", "=", True), ("pin_hash", "!=", False)])
+        persons = self.env["gl.media.approval.person"].sudo().search(["&", ("active", "=", True), "|", ("pin_code", "!=", False), ("pin_hash", "!=", False)])
         if not persons:
             raise UserError(_("Bitte zuerst mindestens eine aktive Person mit PIN anlegen."))
         folder._update_remote_path()

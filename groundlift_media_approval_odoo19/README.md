@@ -1,63 +1,37 @@
-# Groundlift Medienfreigabe – Odoo 19 / Odoo.sh
+# Groundlift Medienfreigabe für Odoo 19 / Odoo.sh
 
-Dieses ZIP enthält ein Odoo-Modul `groundlift_media_approval` plus eine `requirements.txt` für Odoo.sh.
+Version: 19.0.1.0.3
 
-## Funktionen
+Diese Version behebt den PIN-Zugriffsfehler und nutzt im Backend eine einfache sechsstellige PIN pro Freigabe-Person.
 
-- Backend-App „Medienfreigabe“
-- Hetzner-Verbindung per SFTP, FTP oder FTPS hinterlegbar
-- Remote-Unterordner in Odoo erstellbar
-- Upload von Fotos/Videos vom PC über Odoo-Backend auf den Hetzner-Server
-- PIN-geschützte Website ohne Odoo-Login
-- Ordnerauswahl auf der Homepage
-- Datei-Liste links, Vorschau rechts
-- Foto-/Video-Vorschau über Odoo-Controller
-- Buttons „Freigeben“, „Nicht freigeben“, „Download“
-- Download erst aktiv, wenn alle beim Upload gültigen Personen freigegeben haben
-- Statusfarben:
-  - Grün: alle haben freigegeben
-  - Orange: noch nicht abgeschlossen
-  - Rot: alle haben abgestimmt und mindestens eine Person hat abgelehnt
-- Jede Datei speichert beim Upload den damaligen Personen-Kreis als Snapshot
-- Später hinzugefügte Personen gelten nur für danach hochgeladene Dateien
-- Cron löscht nach 3 Monaten abgelehnte, vollständig bewertete Dateien vom Hetzner-Server
+## Wichtige Änderungen in 19.0.1.0.3
 
-## Installation auf Odoo.sh
+- Das Feld `pin_hash` ist nicht mehr gruppenbeschränkt und wird nicht mehr in der Ansicht verwendet.
+- Neue einfache PIN-Vergabe über das Feld `6-stellige PIN` auf der Freigabe-Person.
+- PIN muss genau sechs Ziffern haben.
+- PINs aktiver Personen müssen eindeutig sein.
+- Alte, gehashte PINs bleiben als Legacy-Fallback lesbar, damit bestehende Testdaten kein Update blockieren.
+- Upload-Snapshot berücksichtigt Personen mit neuer `pin_code`-PIN und alte Legacy-PINs.
 
-1. Den Ordner `groundlift_media_approval` in dein Odoo.sh GitHub-Repository kopieren.
-2. Die Datei `requirements.txt` in die Root-Ebene des Repositories kopieren. Wichtig: Odoo.sh installiert Python-Abhängigkeiten normalerweise aus der Root-`requirements.txt`.
-3. Committen und auf Odoo.sh deployen.
-4. In Odoo die App-Liste aktualisieren.
-5. App „Groundlift Medienfreigabe“ installieren.
-6. Dem zuständigen internen Benutzer die Gruppe „Medienfreigabe Manager“ geben.
+## Installation / Update auf Odoo.sh
 
-## Einrichtung
+1. ZIP entpacken.
+2. Den Ordner `groundlift_media_approval` in dein Odoo.sh-Git-Repository legen bzw. den alten Ordner vollständig ersetzen.
+3. Commit und Push ausführen.
+4. Odoo.sh Build abwarten.
+5. In Odoo: Apps-Liste aktualisieren.
+6. App `Groundlift Medienfreigabe` aktualisieren oder installieren.
+7. Browser hart neu laden (`Strg + F5`).
 
-1. Medienfreigabe → Konfiguration → Hetzner Verbindungen
-   - Protokoll wählen: SFTP empfohlen
-   - Host, Port, Benutzer, Passwort und Basisordner hinterlegen
-   - „Verbindung testen“ klicken
-2. Medienfreigabe → Konfiguration → Personen / PINs
-   - Personen anlegen
-   - Je Person eine eindeutige PIN mit 4 bis 12 Ziffern setzen
-3. Medienfreigabe → Freigabe → Unterordner
-   - Unterordner anlegen
-   - „Remote-Ordner anlegen“ klicken
-   - „Dateien hochladen“ klicken und Medien auswählen
-4. Externe Freigabeseite öffnen:
-   - `/media-approval`
-   - alternativ deutsch: `/medienfreigabe`
+## Benutzung
 
-## Wichtige Hinweise
+1. App `Medienfreigabe` öffnen.
+2. Unter `Konfiguration > Personen / PINs` Personen anlegen und je Person eine sechsstellige PIN vergeben.
+3. Unter `Konfiguration > Hetzner Verbindungen` FTP/SFTP-Zugang hinterlegen.
+4. Unter `Freigabe > Unterordner` Zielordner anlegen.
+5. Über `Dateien hochladen` Fotos/Videos hochladen.
+6. Externe Personen öffnen `/media-approval` oder `/medienfreigabe` und melden sich nur per PIN an.
 
-- Für SFTP nutzt das Modul `paramiko`; deshalb liegt die Root-`requirements.txt` bei.
-- Die Dateien werden nicht dauerhaft in Odoo gespeichert, wenn im Upload-Wizard „Lokale Odoo-Anhänge nach Transfer löschen“ aktiv bleibt.
-- Die Vorschau und Downloads laufen über Odoo. Sehr große Videos können je nach Odoo.sh-Timeout und Dateigröße langsamer laden.
-- PINs werden gehasht gespeichert, nicht im Klartext.
-- FTP ist technisch möglich, SFTP ist für Hetzner Storage Box in der Regel die bessere Wahl.
+## Technischer Hinweis
 
-
-## Patch 19.0.1.0.2
-
-- Odoo-19-Security-Struktur korrigiert: `res.groups.category_id` durch `res.groups.privilege` + `res.groups.privilege_id` ersetzt.
-- Dadurch wird der Installationsfehler `Invalid field 'category_id' in 'res.groups'` behoben.
+Die Freigabe-Personen werden beim Upload als fester Snapshot an jede Datei geschrieben. Später hinzugefügte Personen gelten nur für danach hochgeladene Dateien.

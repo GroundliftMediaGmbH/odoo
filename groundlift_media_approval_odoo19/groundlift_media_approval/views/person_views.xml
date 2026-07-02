@@ -6,6 +6,7 @@
         <field name="arch" type="xml">
             <list>
                 <field name="name"/>
+                <field name="pin_code" string="PIN"/>
                 <field name="email"/>
                 <field name="pin_set"/>
                 <field name="active"/>
@@ -26,11 +27,11 @@
                             <field name="active"/>
                             <field name="pin_set" readonly="1"/>
                         </group>
-                        <group>
-                            <field name="pin_plain" password="True" placeholder="Neue PIN eingeben"/>
+                        <group string="PIN-Zugang">
+                            <field name="pin_code" required="1" placeholder="z. B. 123456"/>
                         </group>
                     </group>
-                    <field name="note"/>
+                    <field name="note" placeholder="Interne Notiz"/>
                 </sheet>
             </form>
         </field>

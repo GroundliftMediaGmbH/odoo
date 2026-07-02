@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import hashlib
 import hmac
-import secrets
 
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
@@ -15,17 +14,17 @@ class GlMediaApprovalPerson(models.Model):
     name = fields.Char(required=True)
     email = fields.Char()
     active = fields.Boolean(default=True)
-    pin_hash = fields.Char(readonly=True, copy=False, groups="groundlift_media_approval.group_media_approval_manager")
-    pin_salt = fields.Char(readonly=True, copy=False, groups="groundlift_media_approval.group_media_approval_manager")
-    pin_set = fields.Boolean(compute="_compute_pin_set", string="PIN gesetzt")
-    pin_plain = fields.Char(
-        string="PIN setzen/ändern",
-        compute="_compute_pin_plain",
-        inverse="_inverse_pin_plain",
-        store=False,
-        password=True,
-        help="PIN hier eingeben und speichern. Aus Sicherheitsgründen wird nur ein Hash gespeichert.",
+    pin_code = fields.Char(
+        string="6-stellige PIN",
+        copy=False,
+        size=6,
+        help="Einfache sechsstellige PIN für den PIN-geschützten Freigabe-Bereich.",
     )
+    # Legacy fields from earlier module builds. They remain readable without field-level groups
+    # so existing databases do not fail with field access errors during module updates.
+    pin_hash = fields.Char(readonly=True, copy=False)
+    pin_salt = fields.Char(readonly=True, copy=False)
+    pin_set = fields.Boolean(compute="_compute_pin_set", string="PIN gesetzt")
     note = fields.Text()
     vote_ids = fields.One2many("gl.media.approval.vote", "person_id")
 
@@ -33,55 +32,65 @@ class GlMediaApprovalPerson(models.Model):
         ("name_uniq", "unique(name)", "Der Personenname muss eindeutig sein."),
     ]
 
-    @api.depends("pin_hash")
+    @api.depends("pin_code", "pin_hash")
     def _compute_pin_set(self):
         for rec in self:
-            rec.pin_set = bool(rec.pin_hash)
-
-    def _compute_pin_plain(self):
-        for rec in self:
-            rec.pin_plain = ""
-
-    def _inverse_pin_plain(self):
-        for rec in self:
-            if rec.pin_plain:
-                rec._set_pin(rec.pin_plain)
+            rec.pin_set = bool(rec.pin_code or rec.pin_hash)
 
     @api.model_create_multi
     def create(self, vals_list):
-        pins = []
         cleaned = []
         for vals in vals_list:
             vals = dict(vals)
-            pins.append(vals.pop("pin_plain", False))
+            if "pin_code" in vals:
+                vals["pin_code"] = self._normalize_pin(vals.get("pin_code"))
+            # Backwards compatibility if an older form still posts pin_plain.
+            if vals.get("pin_plain") and not vals.get("pin_code"):
+                vals["pin_code"] = self._normalize_pin(vals.pop("pin_plain"))
+            else:
+                vals.pop("pin_plain", None)
             cleaned.append(vals)
         records = super().create(cleaned)
-        for record, pin in zip(records, pins):
-            if pin:
-                record._set_pin(pin)
+        records._check_pin_values()
         return records
 
     def write(self, vals):
         vals = dict(vals)
-        pin = vals.pop("pin_plain", False)
+        if "pin_code" in vals:
+            vals["pin_code"] = self._normalize_pin(vals.get("pin_code"))
+        # Backwards compatibility if an older form still posts pin_plain.
+        if vals.get("pin_plain") and "pin_code" not in vals:
+            vals["pin_code"] = self._normalize_pin(vals.pop("pin_plain"))
+        else:
+            vals.pop("pin_plain", None)
         res = super().write(vals)
-        if pin:
-            for rec in self:
-                rec._set_pin(pin)
+        if any(key in vals for key in ("pin_code", "active")):
+            self._check_pin_values()
         return res
 
-    def _set_pin(self, pin):
-        self.ensure_one()
+    @staticmethod
+    def _normalize_pin(pin):
         pin = str(pin or "").strip()
-        if not pin.isdigit() or not (4 <= len(pin) <= 12):
-            raise ValidationError(_("Die PIN muss aus 4 bis 12 Ziffern bestehen."))
-        duplicate = self.search([("id", "!=", self.id), ("active", "=", True)])
-        for person in duplicate:
-            if person._check_pin(pin):
+        return pin or False
+
+    def _check_pin_values(self):
+        for rec in self:
+            pin = rec.pin_code
+            if not rec.active or not pin:
+                continue
+            if not pin.isdigit() or len(pin) != 6:
+                raise ValidationError(_("Die PIN muss genau aus 6 Ziffern bestehen."))
+            duplicate = self.sudo().search([
+                ("id", "!=", rec.id),
+                ("active", "=", True),
+                ("pin_code", "=", pin),
+            ], limit=1)
+            if duplicate:
                 raise ValidationError(_("Diese PIN ist bereits einer anderen aktiven Person zugeordnet."))
-        salt = secrets.token_hex(16)
-        digest = self._hash_pin(pin, salt)
-        super(GlMediaApprovalPerson, self).write({"pin_salt": salt, "pin_hash": digest})
+
+    @api.constrains("pin_code", "active")
+    def _constrain_pin_code(self):
+        self._check_pin_values()
 
     @staticmethod
     def _hash_pin(pin, salt):
@@ -89,17 +98,25 @@ class GlMediaApprovalPerson(models.Model):
 
     def _check_pin(self, pin):
         self.ensure_one()
-        if not self.pin_hash or not self.pin_salt:
-            return False
-        digest = self._hash_pin(pin, self.pin_salt)
-        return hmac.compare_digest(digest, self.pin_hash)
+        pin = str(pin or "").strip()
+        if self.pin_code and hmac.compare_digest(str(self.pin_code), pin):
+            return True
+        # Legacy fallback for databases that still contain old hashed PINs.
+        if self.pin_hash and self.pin_salt:
+            digest = self._hash_pin(pin, self.pin_salt)
+            return hmac.compare_digest(digest, self.pin_hash)
+        return False
 
     @api.model
     def authenticate_pin(self, pin):
         pin = str(pin or "").strip()
         if not pin:
             return self.browse()
-        for person in self.sudo().search([("active", "=", True)]):
+        direct = self.sudo().search([("active", "=", True), ("pin_code", "=", pin)], limit=1)
+        if direct:
+            return direct
+        # Legacy fallback for records created with the first hashed-PIN build.
+        for person in self.sudo().search([("active", "=", True), ("pin_hash", "!=", False)]):
             if person._check_pin(pin):
                 return person
         return self.browse()
