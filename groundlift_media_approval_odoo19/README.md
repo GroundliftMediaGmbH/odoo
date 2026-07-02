@@ -93,3 +93,9 @@ Falls der Test mit HTTP 500 scheitert, erlaubt der Webspace wahrscheinlich eine 
 - Download-Button robuster gemacht: Das HTML-`download`-Attribut wurde entfernt, weil Browser bei Redirects auf eine andere Domain sehr unterschiedlich reagieren.
 - `?download=1` wird nur noch verwendet, wenn der Hetzner-Download-Header-Test wirklich erfolgreich war.
 - Falls eine erzwungene Download-URL nicht erreichbar ist, fällt Odoo automatisch auf die normale schnelle Hetzner-URL zurück, statt Chrome/Mobile mit „Datei ist auf der Website nicht verfügbar“ abbrechen zu lassen.
+
+
+## 19.0.1.0.12
+
+- Fix: RPC_ERROR im Button „Download erzwingen testen“ behoben. Ursache war eine lokale Variable `_`, die die Odoo-Übersetzungsfunktion überschrieben hat.
+- .htaccess Download-Erkennung robuster gemacht: `download=1` wird zusätzlich über `THE_REQUEST` geprüft.

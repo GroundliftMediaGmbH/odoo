@@ -200,7 +200,8 @@ class GlMediaApprovalConnection(models.Model):
 # Erzwingt echte Datei-Downloads für öffentliche Medien-URLs, wenn Odoo
 # nach erfolgreicher Freigabeprüfung auf die Hetzner-Datei mit ?download=1 weiterleitet.
 <IfModule mod_setenvif.c>
-    SetEnvIfNoCase Request_URI "(^|\\?|&)download=1(&|$)" glma_force_download=1
+    SetEnvIfNoCase THE_REQUEST "[?&]download=1([&\\s]|$)" glma_force_download=1
+    SetEnvIfNoCase Request_URI "[?&]download=1(&|$)" glma_force_download=1
 </IfModule>
 <IfModule mod_headers.c>
     Header set Content-Disposition "attachment" env=glma_force_download
@@ -220,7 +221,7 @@ class GlMediaApprovalConnection(models.Model):
                 text = existing.decode("utf-8", errors="replace") if existing else ""
                 if begin in text and end in text:
                     before, rest = text.split(begin, 1)
-                    _, after = rest.split(end, 1)
+                    _old_block, after = rest.split(end, 1)
                     text = before.rstrip() + "\n\n" + block.rstrip() + "\n" + after.lstrip("\r\n")
                 else:
                     if text and not text.endswith("\n"):
