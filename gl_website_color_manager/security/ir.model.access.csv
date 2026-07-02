@@ -3,3 +3,4 @@ access_gl_website_color_swatch_system,gl.website.color.swatch system,model_gl_we
 access_gl_website_color_entry_system,gl.website.color.entry system,model_gl_website_color_entry,base.group_system,1,1,1,1
 access_gl_website_color_scan_session_system,gl.website.color.scan.session system,model_gl_website_color_scan_session,base.group_system,1,1,1,1
 access_gl_website_color_scan_wizard_system,gl.website.color.scan.wizard system,model_gl_website_color_scan_wizard,base.group_system,1,1,1,1
+access_gl_website_color_override_system,gl.website.color.override system,model_gl_website_color_override,base.group_system,1,1,1,1

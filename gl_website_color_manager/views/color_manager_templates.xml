@@ -3,10 +3,12 @@
     <template id="gl_website_color_manager_head" inherit_id="website.layout" name="Groundlift Website Color Manager Head">
         <xpath expr="//head" position="inside">
             <t t-if="request and request.website">
-                <link rel="stylesheet" type="text/css" t-att-href="'/gl_color_manager/css/%s.css' % request.website.id"/>
+                <t t-set="gl_color_version" t-value="request.env['gl.website.color.swatch'].sudo().get_css_cache_key(request.website.id)"/>
+                <link rel="stylesheet" type="text/css" t-att-href="'/gl_color_manager/css/%s.css?v=%s' % (request.website.id, gl_color_version)"/>
                 <script type="text/javascript">
                     window.GroundliftColorManager = window.GroundliftColorManager || {};
                     window.GroundliftColorManager.websiteId = <t t-out="request.website.id"/>;
+                    window.GroundliftColorManager.cssVersion = '<t t-out="gl_color_version"/>';
                 </script>
             </t>
         </xpath>

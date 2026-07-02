@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_website_color_override_tree" model="ir.ui.view">
+        <field name="name">gl.website.color.override.list</field>
+        <field name="model">gl.website.color.override</field>
+        <field name="arch" type="xml">
+            <list string="Direkte Farb-Overrides" decoration-muted="not active">
+                <field name="active" widget="boolean_toggle"/>
+                <field name="website_id"/>
+                <field name="original_color" widget="gl_hex_color"/>
+                <field name="replacement_color" widget="gl_hex_color"/>
+                <field name="source_type"/>
+                <field name="selector"/>
+                <field name="property_name"/>
+                <field name="css_variable"/>
+                <field name="picked_label"/>
+                <field name="last_seen"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_website_color_override_form" model="ir.ui.view">
+        <field name="name">gl.website.color.override.form</field>
+        <field name="model">gl.website.color.override</field>
+        <field name="arch" type="xml">
+            <form string="Direkter Farb-Override">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="active"/>
+                            <field name="website_id"/>
+                            <field name="original_color" widget="gl_hex_color"/>
+                            <field name="replacement_color" widget="gl_hex_color"/>
+                            <field name="source_type"/>
+                        </group>
+                        <group>
+                            <field name="picked_label"/>
+                            <field name="picked_selector"/>
+                            <field name="last_seen"/>
+                        </group>
+                    </group>
+                    <group string="CSS-Verweis">
+                        <field name="selector"/>
+                        <field name="property_name"/>
+                        <field name="css_variable"/>
+                        <field name="raw_value"/>
+                        <field name="matched_value"/>
+                        <field name="sample_text"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_gl_website_color_override_search" model="ir.ui.view">
+        <field name="name">gl.website.color.override.search</field>
+        <field name="model">gl.website.color.override</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="selector"/>
+                <field name="property_name"/>
+                <field name="original_color"/>
+                <field name="replacement_color"/>
+                <field name="picked_label"/>
+                <filter name="filter_active_direct_overrides" string="Aktiv" domain="[('active','=',True)]"/>
+                <filter name="filter_inactive_direct_overrides" string="Inaktiv" domain="[('active','=',False)]"/>
+                <separator/>
+                <group>
+                    <filter name="group_direct_override_website" string="Website" context="{'group_by':'website_id'}"/>
+                    <filter name="group_direct_override_color" string="Originalfarbe" context="{'group_by':'original_color'}"/>
+                    <filter name="group_direct_override_selector" string="Selektor" context="{'group_by':'selector'}"/>
+                    <filter name="group_direct_override_source" string="Quelle" context="{'group_by':'source_type'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_gl_website_color_override" model="ir.actions.act_window">
+        <field name="name">Direkte Overrides</field>
+        <field name="res_model">gl.website.color.override</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_gl_website_color_override_search"/>
+        <field name="context">{'search_default_filter_active_direct_overrides': 1}</field>
+    </record>
+</odoo>

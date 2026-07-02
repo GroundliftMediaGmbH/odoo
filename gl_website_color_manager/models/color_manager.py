@@ -118,6 +118,102 @@ class GlWebsiteColorSwatch(models.Model):
         action['context'] = {'default_swatch_id': self.id, 'default_website_id': self.website_id.id}
         return action
 
+    @api.model
+    def get_css_cache_key(self, website_id):
+        """Return a small version key for the dynamic frontend CSS URL.
+
+        Odoo.sh, browsers and intermediary proxies can keep a stylesheet with a
+        stable URL longer than expected. The website template appends this key as
+        ?v=... so every saved color change gets a fresh URL.
+        """
+        try:
+            website_id = int(website_id or 0)
+        except Exception:
+            website_id = 0
+        if not website_id:
+            return '0'
+        dates = []
+        for table in ('gl_website_color_swatch', 'gl_website_color_entry', 'gl_website_color_override'):
+            try:
+                self.env.cr.execute('SELECT MAX(write_date) FROM %s WHERE website_id = %%s' % table, [website_id])
+                value = self.env.cr.fetchone()[0]
+                if value:
+                    dates.append(value)
+            except Exception:
+                # During installation or first template rendering the override
+                # table may not exist yet. Failing open keeps the website online.
+                continue
+        if not dates:
+            return '0'
+        latest = max(dates)
+        try:
+            return latest.strftime('%Y%m%d%H%M%S')
+        except Exception:
+            return str(latest).replace(' ', '').replace(':', '').replace('-', '')[:20]
+
+
+class GlWebsiteColorOverride(models.Model):
+    _name = 'gl.website.color.override'
+    _description = 'Website Color Direct Override'
+    _order = 'website_id, selector, property_name, original_color'
+    _rec_name = 'name'
+
+    name = fields.Char(compute='_compute_name', store=True)
+    website_id = fields.Many2one('website', string='Website', required=True, ondelete='cascade', index=True)
+    active = fields.Boolean(string='Aktiv', default=True, index=True)
+    source_type = fields.Selection([
+        ('computed', 'Gerenderter Stil'),
+        ('css_variable', 'CSS-Variable'),
+        ('stylesheet', 'Stylesheet-Regel'),
+    ], string='Quelle', required=True, default='computed', index=True)
+    selector = fields.Char(string='CSS-Selektor', required=True)
+    property_name = fields.Char(string='CSS-Eigenschaft', required=True)
+    css_variable = fields.Char(string='CSS-Variable')
+    original_color = fields.Char(string='Originalfarbe', required=True, index=True)
+    replacement_color = fields.Char(string='Neue Farbe', required=True, help='HTML/CSS-Farbe als Hex-Wert, z. B. #ff6600.')
+    raw_value = fields.Char(string='Originaler CSS-Wert')
+    matched_value = fields.Char(string='Gefundener Farbwert im CSS')
+    picked_selector = fields.Char(string='Angeklickter CSS-Selektor')
+    picked_label = fields.Char(string='Angeklickter Bereich')
+    sample_text = fields.Char(string='Beispieltext / Element')
+    last_seen = fields.Datetime(string='Zuletzt gesehen', default=fields.Datetime.now, index=True)
+
+    @api.depends('selector', 'property_name', 'original_color', 'replacement_color', 'active')
+    def _compute_name(self):
+        for record in self:
+            record.name = '%s / %s: %s → %s%s' % (
+                record.selector or '',
+                record.css_variable or record.property_name or '',
+                record.original_color or '',
+                record.replacement_color or '',
+                '' if record.active else ' (inaktiv)',
+            )
+
+    @api.constrains('original_color', 'replacement_color')
+    def _check_hex_colors(self):
+        for record in self:
+            for field_name in ('original_color', 'replacement_color'):
+                value = record[field_name]
+                if value and not HEX_RE.match(value.strip()):
+                    raise ValidationError(_('%s muss ein Hex-Farbwert sein, z. B. #ff6600.') % record._fields[field_name].string)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get('original_color'):
+                vals['original_color'] = normalize_hex(vals['original_color'])
+            if vals.get('replacement_color'):
+                vals['replacement_color'] = normalize_hex(vals['replacement_color'])
+        return super().create(vals_list)
+
+    def write(self, vals):
+        vals = dict(vals)
+        if vals.get('original_color'):
+            vals['original_color'] = normalize_hex(vals['original_color'])
+        if vals.get('replacement_color'):
+            vals['replacement_color'] = normalize_hex(vals['replacement_color'])
+        return super().write(vals)
+
 
 class GlWebsiteColorEntry(models.Model):
     _name = 'gl.website.color.entry'
