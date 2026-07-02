@@ -58,16 +58,16 @@
         <field name="name">gl.website.color.entry.search</field>
         <field name="model">gl.website.color.entry</field>
         <field name="arch" type="xml">
-            <search string="Farb-Fundstellen suchen">
+            <search>
                 <field name="website_id"/>
                 <field name="swatch_id"/>
                 <field name="selector"/>
                 <field name="property_name"/>
                 <field name="raw_value"/>
-                <filter name="active" string="Für CSS aktiv" domain="[('active', '=', True)]"/>
+                <filter name="filter_active_entries" string="Für CSS aktiv" domain="[('active', '=', True)]"/>
                 <filter name="variables" string="CSS-Variablen" domain="[('source_type', '=', 'css_variable')]"/>
                 <filter name="computed" string="Gerenderte Stile" domain="[('source_type', '=', 'computed')]"/>
-                <group expand="0" string="Gruppieren">
+                <group>
                     <filter name="group_website" string="Website" context="{'group_by': 'website_id'}"/>
                     <filter name="group_swatch" string="Farbe" context="{'group_by': 'swatch_id'}"/>
                     <filter name="group_property" string="CSS-Eigenschaft" context="{'group_by': 'property_name'}"/>

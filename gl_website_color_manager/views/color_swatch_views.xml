@@ -71,13 +71,13 @@
         <field name="name">gl.website.color.swatch.search</field>
         <field name="model">gl.website.color.swatch</field>
         <field name="arch" type="xml">
-            <search string="Website-Farben suchen">
+            <search>
                 <field name="website_id"/>
                 <field name="original_color"/>
                 <field name="replacement_color"/>
-                <filter name="active" string="Aktive Overrides" domain="[('active', '=', True)]"/>
-                <filter name="inactive" string="Nicht aktiv" domain="[('active', '=', False)]"/>
-                <group expand="0" string="Gruppieren">
+                <filter name="filter_active_overrides" string="Aktive Overrides" domain="[('active', '=', True)]"/>
+                <filter name="filter_inactive_swatches" string="Nicht aktiv" domain="[('active', '=', False)]"/>
+                <group>
                     <filter name="group_website" string="Website" context="{'group_by': 'website_id'}"/>
                     <filter name="group_active" string="Aktiv" context="{'group_by': 'active'}"/>
                 </group>
