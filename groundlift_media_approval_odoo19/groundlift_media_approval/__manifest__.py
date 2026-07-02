@@ -1,7 +1,7 @@
 {
     "name": "Groundlift Medienfreigabe",
     "summary": "PIN-geschützte Foto-/Video-Freigabe mit Hetzner FTP/SFTP-Speicher",
-    "version": "19.0.1.0.1",
+    "version": "19.0.1.0.2",
     "category": "Website/Website",
     "author": "Groundlift / OpenAI",
     "website": "https://www.groundlift.de",
@@ -11,13 +11,13 @@
         "security/security.xml",
         "security/ir.model.access.csv",
         "data/ir_cron.xml",
-        "views/menu_views.xml",
         "views/connection_views.xml",
         "views/person_views.xml",
         "views/folder_views.xml",
         "views/media_file_views.xml",
         "views/vote_views.xml",
         "wizard/upload_wizard_views.xml",
+        "views/menu_views.xml",
         "views/website_templates.xml",
     ],
     "assets": {

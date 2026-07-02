@@ -57,7 +57,7 @@ Dieses ZIP enthält ein Odoo-Modul `groundlift_media_approval` plus eine `requir
 - FTP ist technisch möglich, SFTP ist für Hetzner Storage Box in der Regel die bessere Wahl.
 
 
-## Patch 19.0.1.0.1
+## Patch 19.0.1.0.2
 
 - Odoo-19-Security-Struktur korrigiert: `res.groups.category_id` durch `res.groups.privilege` + `res.groups.privilege_id` ersetzt.
 - Dadurch wird der Installationsfehler `Invalid field 'category_id' in 'res.groups'` behoben.

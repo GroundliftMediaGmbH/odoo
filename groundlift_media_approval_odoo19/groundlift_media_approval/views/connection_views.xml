@@ -55,6 +55,4 @@
         <field name="res_model">gl.media.approval.connection</field>
         <field name="view_mode">list,form</field>
     </record>
-
-    <menuitem id="menu_gl_media_connection" name="Hetzner Verbindungen" parent="menu_gl_media_config" action="action_gl_media_connection" sequence="10" groups="groundlift_media_approval.group_media_approval_manager"/>
 </odoo>

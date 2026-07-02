@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Odoo 19 uses Category > Privilege > Groups. res.groups has privilege_id, not category_id. -->
+    <!-- Odoo 19: res.groups uses privilege_id; category_id belongs to res.groups.privilege. -->
     <record id="module_category_groundlift_media_approval" model="ir.module.category">
         <field name="name">Groundlift</field>
         <field name="description">Groundlift Medienfreigabe</field>
