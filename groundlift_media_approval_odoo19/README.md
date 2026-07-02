@@ -72,3 +72,19 @@ Nach dem Update bitte in der Hetzner-Verbindung einmal **Öffentliche URL testen
 - Technischer Fallback: `/media-approval/download/<ID>?proxy=1` erzwingt den alten Odoo-Proxy-Download.
 
 Hinweis: Für echte Browser-Downloads statt Öffnen im Player setzt die Website zusätzlich das HTML-Attribut `download`. Falls ein Browser das bei einer fremden Domain ignoriert, muss Hetzner/Apache optional per Header `Content-Disposition: attachment` konfiguriert werden. Die Geschwindigkeit ist trotzdem bereits direkt Hetzner → Browser.
+
+
+## Version 19.0.1.0.10 – erzwungener echter Hetzner-Download
+
+Der Download-Button bleibt jetzt auf der Odoo-Route, damit Odoo vor dem Download weiterhin PIN, Personenzuordnung und finalen Freigabestatus prüfen kann. Danach erfolgt ein schneller 302-Redirect direkt zur Hetzner-Datei. Die Datei selbst läuft also nicht über Odoo/FTP/SFTP.
+
+Damit MP4/MOV-Dateien browser- und mobilfreundlich wirklich als Datei-Download behandelt werden, kann die App im öffentlichen Medienordner eine markierte `.htaccess`-Regel installieren. Diese sendet für URLs mit `?download=1` den Header `Content-Disposition: attachment`. Die Vorschau-URL ohne `?download=1` bleibt inline abspielbar.
+
+Nach dem Modul-Update:
+
+1. In **Medienfreigabe → Konfiguration → Hetzner Verbindungen** öffnen.
+2. **Öffentliche URL testen** ausführen.
+3. **Download erzwingen testen** ausführen.
+4. Browser hart neu laden.
+
+Falls der Test mit HTTP 500 scheitert, erlaubt der Webspace wahrscheinlich eine der `.htaccess`-Direktiven nicht oder `mod_headers` ist nicht aktiv. Dann muss die Header-Regel serverseitig bei Hetzner/Apache gesetzt werden.

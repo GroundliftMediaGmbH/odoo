@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import mimetypes
 import posixpath
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from dateutil.relativedelta import relativedelta
 
 from odoo import api, fields, models, _
@@ -214,10 +215,10 @@ class GlMediaApprovalFile(models.Model):
 
     def get_website_download_url(self, force_proxy=False):
         self.ensure_one()
-        if not force_proxy and self.connection_id.redirect_download_to_public:
-            public_url = self.get_public_download_url()
-            if public_url:
-                return public_url
+        # Keep the visible download button on the Odoo route so Odoo can always
+        # check PIN session, reviewer assignment and final approval state before
+        # it redirects to Hetzner. The actual file transfer still happens directly
+        # from Hetzner when redirect_download_to_public is enabled.
         return "/media-approval/download/%s%s" % (self.id, "?proxy=1" if force_proxy else "")
 
     @staticmethod
@@ -325,7 +326,21 @@ class GlMediaApprovalFile(models.Model):
         self.ensure_one()
         if not self.connection_id or not self.connection_id.public_base_url:
             return False
-        return self.connection_id.get_public_url(self.remote_path)
+        public_url = self.connection_id.get_public_url(self.remote_path)
+        # The ?download=1 query is consumed by the optional .htaccess rule that
+        # sends Content-Disposition: attachment from Hetzner. Without that rule it
+        # is harmless, but browsers may still choose inline display.
+        return self._add_download_query(public_url)
+
+    @staticmethod
+    def _add_download_query(url):
+        if not url:
+            return url
+        split = urlsplit(url)
+        query = parse_qsl(split.query, keep_blank_values=True)
+        query = [(key, value) for key, value in query if key.lower() != "download"]
+        query.append(("download", "1"))
+        return urlunsplit((split.scheme, split.netloc, split.path, urlencode(query), split.fragment))
 
     def delete_remote_file(self):
         for rec in self.sudo():

@@ -53,6 +53,12 @@ class GlMediaApprovalConnection(models.Model):
         help="Wenn eine öffentliche Vorschau-Basis-URL gesetzt ist, leitet Odoo freigegebene Downloads nach der PIN- und Freigabeprüfung direkt zum Hetzner-Webserver weiter. "
              "Der Download läuft dann nicht mehr langsam über Odoo/FTP/SFTP.",
     )
+    force_download_via_htaccess = fields.Boolean(
+        string="Download per .htaccess erzwingen",
+        default=True,
+        help="Schreibt auf Wunsch eine .htaccess-Regel in den öffentlichen Medienordner. Bei URLs mit ?download=1 sendet Hetzner dann Content-Disposition: attachment. "
+             "Das ist die zuverlässigste browserübergreifende Methode, damit MP4/MOV-Dateien nicht nur geöffnet, sondern wirklich als Download behandelt werden.",
+    )
     timeout = fields.Integer(default=30, help="Timeout in Sekunden")
     ftp_passive = fields.Boolean(string="FTP Passivmodus", default=True)
     sftp_allow_unknown_host = fields.Boolean(
@@ -152,6 +158,117 @@ class GlMediaApprovalConnection(models.Model):
             try:
                 with self._client() as client:
                     client.delete_file(remote_path)
+            except Exception:
+                pass
+
+    def action_install_download_htaccess(self):
+        """Install/update the .htaccess block that forces true file downloads.
+
+        Static files delivered directly by Hetzner cannot receive Odoo response
+        headers. Therefore the public webserver has to send
+        Content-Disposition: attachment for download URLs. This method only
+        manages the marked Groundlift block and preserves any existing custom
+        .htaccess content outside the markers.
+        """
+        self.ensure_one()
+        if not self.public_base_url:
+            raise UserError(_("Bitte zuerst die öffentliche Vorschau-Basis-URL eintragen."))
+
+        htaccess_path = self.build_remote_path(".htaccess")
+        stamp = str(int(time.time()))
+        test_filename = "odoo_download_header_test_%s.txt" % stamp
+        test_marker = ("groundlift-download-header-test-%s" % stamp).encode("utf-8")
+        test_path = self.build_remote_path(test_filename)
+        test_url = self.get_public_url(test_path) + "?download=1"
+        timeout = max(5, min(int(self.timeout or 30), 60))
+
+        begin = "# BEGIN Groundlift Medienfreigabe Download"
+        end = "# END Groundlift Medienfreigabe Download"
+        block = """# BEGIN Groundlift Medienfreigabe Download
+# Erzwingt echte Datei-Downloads für öffentliche Medien-URLs, wenn Odoo
+# nach erfolgreicher Freigabeprüfung auf die Hetzner-Datei mit ?download=1 weiterleitet.
+<IfModule mod_setenvif.c>
+    SetEnvIfNoCase Request_URI "(^|\\?|&)download=1(&|$)" glma_force_download=1
+</IfModule>
+<IfModule mod_headers.c>
+    Header set Content-Disposition "attachment" env=glma_force_download
+    Header set X-Content-Type-Options "nosniff" env=glma_force_download
+</IfModule>
+# END Groundlift Medienfreigabe Download
+"""
+
+        try:
+            with self._client() as client:
+                existing = b""
+                try:
+                    existing = client.read_bytes(htaccess_path)
+                except Exception:
+                    existing = b""
+
+                text = existing.decode("utf-8", errors="replace") if existing else ""
+                if begin in text and end in text:
+                    before, rest = text.split(begin, 1)
+                    _, after = rest.split(end, 1)
+                    text = before.rstrip() + "\n\n" + block.rstrip() + "\n" + after.lstrip("\r\n")
+                else:
+                    if text and not text.endswith("\n"):
+                        text += "\n"
+                    if text:
+                        text += "\n"
+                    text += block
+
+                client.upload_bytes(htaccess_path, text.encode("utf-8"))
+                client.upload_bytes(test_path, test_marker)
+
+            req = Request(test_url, headers={"User-Agent": "Odoo Groundlift Medienfreigabe"})
+            try:
+                with urlopen(req, timeout=timeout) as response:
+                    body = response.read(len(test_marker) + 256)
+                    status = getattr(response, "status", 200)
+                    content_disposition = response.headers.get("Content-Disposition", "")
+            except HTTPError as exc:
+                raise UserError(_(
+                    "Die .htaccess wurde geschrieben, aber der öffentliche Testaufruf ist fehlgeschlagen.\n"
+                    "HTTP-Status: %(status)s\nURL: %(url)s\n\n"
+                    "Wenn Status 500 erscheint, erlaubt der Hetzner-Webserver vermutlich eine der .htaccess-Direktiven nicht. "
+                    "Dann bitte die .htaccess im Medienordner prüfen oder die Regel über den Webserver konfigurieren."
+                ) % {"status": exc.code, "url": test_url}) from exc
+            except URLError as exc:
+                raise UserError(_(
+                    "Die .htaccess wurde geschrieben, aber die öffentliche Testdatei konnte von Odoo aus nicht geladen werden.\n"
+                    "URL: %(url)s\nFehler: %(error)s"
+                ) % {"url": test_url, "error": exc}) from exc
+
+            if status != 200 or test_marker not in body:
+                raise UserError(_(
+                    "Die öffentliche URL zeigt nicht auf die Testdatei aus dem FTP/SFTP-Basisordner.\n"
+                    "URL: %(url)s\n\n"
+                    "Bitte zuerst den Button „Öffentliche URL testen“ erfolgreich ausführen."
+                ) % {"url": test_url})
+
+            if "attachment" not in (content_disposition or "").lower():
+                raise UserError(_(
+                    "Die Testdatei ist erreichbar, aber Hetzner sendet noch keinen Download-Header.\n"
+                    "Erwartet: Content-Disposition: attachment\n"
+                    "Tatsächlich: %(header)s\n\n"
+                    "Bitte prüfen, ob Apache .htaccess und mod_headers für diesen Webspace aktiv sind."
+                ) % {"header": content_disposition or _("kein Header")})
+
+            self.force_download_via_htaccess = True
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "title": _("Download-Header aktiv"),
+                    "message": _("Hetzner sendet für ?download=1 jetzt Content-Disposition: attachment. Downloads werden damit serverseitig erzwungen."),
+                    "type": "success",
+                    "sticky": False,
+                },
+            }
+        finally:
+            try:
+                with self._client() as client:
+                    client.delete_file(test_path)
             except Exception:
                 pass
 

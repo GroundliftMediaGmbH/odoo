@@ -13,6 +13,7 @@
                 <field name="remote_base_path"/>
                 <field name="public_base_url"/>
                 <field name="redirect_download_to_public"/>
+                <field name="force_download_via_htaccess"/>
                 <field name="active"/>
             </list>
         </field>
@@ -26,6 +27,7 @@
                 <header>
                     <button name="action_test_connection" type="object" string="Verbindung testen" class="btn-primary"/>
                     <button name="action_test_public_preview_url" type="object" string="Öffentliche URL testen"/>
+                    <button name="action_install_download_htaccess" type="object" string="Download erzwingen testen"/>
                 </header>
                 <sheet>
                     <group>
@@ -43,6 +45,7 @@
                             <field name="public_base_url" placeholder="https://www.deinedomain.de/medienfreigabe"/>
                             <field name="redirect_preview_to_public"/>
                             <field name="redirect_download_to_public"/>
+                            <field name="force_download_via_htaccess"/>
                             <field name="timeout"/>
                         </group>
                     </group>
