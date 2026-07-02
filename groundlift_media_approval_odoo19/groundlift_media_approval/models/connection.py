@@ -55,9 +55,21 @@ class GlMediaApprovalConnection(models.Model):
     )
     force_download_via_htaccess = fields.Boolean(
         string="Download per .htaccess erzwingen",
-        default=True,
-        help="Schreibt auf Wunsch eine .htaccess-Regel in den öffentlichen Medienordner. Bei URLs mit ?download=1 sendet Hetzner dann Content-Disposition: attachment. "
+        default=False,
+        help="Erst nach erfolgreichem Test aktivieren. Bei URLs mit ?download=1 sendet Hetzner dann Content-Disposition: attachment. "
              "Das ist die zuverlässigste browserübergreifende Methode, damit MP4/MOV-Dateien nicht nur geöffnet, sondern wirklich als Download behandelt werden.",
+    )
+    force_download_verified = fields.Boolean(
+        string="Download-Header getestet",
+        default=False,
+        readonly=True,
+        copy=False,
+        help="Wird automatisch gesetzt, wenn der Download-Header-Test wirklich erfolgreich war. Nur dann hängt die Website ?download=1 an die öffentliche Hetzner-URL an.",
+    )
+    force_download_verified_at = fields.Datetime(
+        string="Download-Header getestet am",
+        readonly=True,
+        copy=False,
     )
     timeout = fields.Integer(default=30, help="Timeout in Sekunden")
     ftp_passive = fields.Boolean(string="FTP Passivmodus", default=True)
@@ -254,7 +266,11 @@ class GlMediaApprovalConnection(models.Model):
                     "Bitte prüfen, ob Apache .htaccess und mod_headers für diesen Webspace aktiv sind."
                 ) % {"header": content_disposition or _("kein Header")})
 
-            self.force_download_via_htaccess = True
+            self.write({
+                "force_download_via_htaccess": True,
+                "force_download_verified": True,
+                "force_download_verified_at": fields.Datetime.now(),
+            })
             return {
                 "type": "ir.actions.client",
                 "tag": "display_notification",

@@ -136,7 +136,7 @@
                                             <button type="submit" t-att-class="'btn btn-danger btn-lg %s' % ('glma-active-vote' if my_decision == 'rejected' else '')">Nicht freigeben</button>
                                         </form>
                                         <t t-if="selected.download_unlocked">
-                                            <a t-att-href="download_url" t-att-download="selected.name" class="btn btn-success btn-lg">Download</a>
+                                            <a t-att-href="download_url" class="btn btn-success btn-lg">Download</a>
                                         </t>
                                         <t t-else="">
                                             <button class="btn btn-secondary btn-lg" disabled="disabled">Download</button>

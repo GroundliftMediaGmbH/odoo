@@ -74,7 +74,7 @@ Nach dem Update bitte in der Hetzner-Verbindung einmal **Öffentliche URL testen
 Hinweis: Für echte Browser-Downloads statt Öffnen im Player setzt die Website zusätzlich das HTML-Attribut `download`. Falls ein Browser das bei einer fremden Domain ignoriert, muss Hetzner/Apache optional per Header `Content-Disposition: attachment` konfiguriert werden. Die Geschwindigkeit ist trotzdem bereits direkt Hetzner → Browser.
 
 
-## Version 19.0.1.0.10 – erzwungener echter Hetzner-Download
+## Version 19.0.1.0.11 – erzwungener echter Hetzner-Download
 
 Der Download-Button bleibt jetzt auf der Odoo-Route, damit Odoo vor dem Download weiterhin PIN, Personenzuordnung und finalen Freigabestatus prüfen kann. Danach erfolgt ein schneller 302-Redirect direkt zur Hetzner-Datei. Die Datei selbst läuft also nicht über Odoo/FTP/SFTP.
 
@@ -88,3 +88,8 @@ Nach dem Modul-Update:
 4. Browser hart neu laden.
 
 Falls der Test mit HTTP 500 scheitert, erlaubt der Webspace wahrscheinlich eine der `.htaccess`-Direktiven nicht oder `mod_headers` ist nicht aktiv. Dann muss die Header-Regel serverseitig bei Hetzner/Apache gesetzt werden.
+
+### 19.0.1.0.11
+- Download-Button robuster gemacht: Das HTML-`download`-Attribut wurde entfernt, weil Browser bei Redirects auf eine andere Domain sehr unterschiedlich reagieren.
+- `?download=1` wird nur noch verwendet, wenn der Hetzner-Download-Header-Test wirklich erfolgreich war.
+- Falls eine erzwungene Download-URL nicht erreichbar ist, fällt Odoo automatisch auf die normale schnelle Hetzner-URL zurück, statt Chrome/Mobile mit „Datei ist auf der Website nicht verfügbar“ abbrechen zu lassen.

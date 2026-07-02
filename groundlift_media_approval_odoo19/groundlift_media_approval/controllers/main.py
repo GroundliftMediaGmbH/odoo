@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import json
 import re
+from urllib.error import HTTPError, URLError
+from urllib.request import Request as UrlRequest, urlopen
 
 from odoo import http, _
 from odoo.http import request, Response
@@ -283,6 +285,29 @@ class GlMediaApprovalWebsite(http.Controller):
     def _json_response(payload, status=200):
         return Response(json.dumps(payload), status=status, content_type="application/json; charset=utf-8")
 
+    def _public_url_available(self, url, timeout=4):
+        if not url:
+            return False
+        headers = {
+            "User-Agent": "Odoo Groundlift Medienfreigabe",
+            "Range": "bytes=0-0",
+        }
+        # Prefer a tiny ranged GET because some static setups answer HEAD
+        # differently than GET. We only need to know if the URL is actually
+        # reachable before handing the browser off to Hetzner.
+        req = UrlRequest(url, headers=headers, method="GET")
+        try:
+            with urlopen(req, timeout=timeout) as response:
+                status = getattr(response, "status", 200)
+                response.read(1)
+                return 200 <= int(status) < 400
+        except HTTPError as exc:
+            # 206 Partial Content and normal 200 are success; HTTPError only
+            # fires for actual failure codes in urllib.
+            return 200 <= int(getattr(exc, "code", 0) or 0) < 400
+        except (URLError, TimeoutError, OSError):
+            return False
+
     def _serve_media(self, media, inline=True, allow_locked=True):
         # Fast path for previews: after the PIN/session check in the calling route,
         # redirect to the public Hetzner URL. The webserver can then handle byte
@@ -302,6 +327,13 @@ class GlMediaApprovalWebsite(http.Controller):
         if not inline and not force_proxy and media.connection_id.redirect_download_to_public:
             public_url = media.get_public_download_url()
             if public_url:
+                # If the forced-download URL with ?download=1 is not reachable,
+                # do not leave Chrome/mobile browsers with a failed download.
+                # Fall back to the plain public Hetzner URL, which is the same
+                # fast file transfer path as the preview.
+                plain_public_url = media.get_public_download_url(force_attachment=False)
+                if public_url != plain_public_url and not self._public_url_available(public_url, timeout=4):
+                    public_url = plain_public_url
                 return request.redirect(public_url, code=302)
 
         size = int(media.size_bytes or 0)

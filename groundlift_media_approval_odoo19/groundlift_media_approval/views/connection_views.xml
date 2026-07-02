@@ -14,6 +14,8 @@
                 <field name="public_base_url"/>
                 <field name="redirect_download_to_public"/>
                 <field name="force_download_via_htaccess"/>
+                <field name="force_download_verified" readonly="1"/>
+                <field name="force_download_verified_at" readonly="1"/>
                 <field name="active"/>
             </list>
         </field>
@@ -46,6 +48,8 @@
                             <field name="redirect_preview_to_public"/>
                             <field name="redirect_download_to_public"/>
                             <field name="force_download_via_htaccess"/>
+                            <field name="force_download_verified" readonly="1"/>
+                            <field name="force_download_verified_at" readonly="1"/>
                             <field name="timeout"/>
                         </group>
                     </group>

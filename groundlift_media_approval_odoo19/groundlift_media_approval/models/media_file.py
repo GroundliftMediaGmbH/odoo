@@ -322,15 +322,20 @@ class GlMediaApprovalFile(models.Model):
             return False
         return self.connection_id.get_public_url(self.remote_path)
 
-    def get_public_download_url(self):
+    def get_public_download_url(self, force_attachment=None):
         self.ensure_one()
         if not self.connection_id or not self.connection_id.public_base_url:
             return False
         public_url = self.connection_id.get_public_url(self.remote_path)
-        # The ?download=1 query is consumed by the optional .htaccess rule that
-        # sends Content-Disposition: attachment from Hetzner. Without that rule it
-        # is harmless, but browsers may still choose inline display.
-        return self._add_download_query(public_url)
+        if force_attachment is None:
+            force_attachment = bool(
+                self.connection_id.force_download_via_htaccess
+                and self.connection_id.force_download_verified
+            )
+        # ?download=1 is only safe after the .htaccess/header test has really
+        # passed. On some webspaces a query parameter can otherwise hit a CMS or
+        # security rule and Chrome reports "file not available on this website".
+        return self._add_download_query(public_url) if force_attachment else public_url
 
     @staticmethod
     def _add_download_query(url):
