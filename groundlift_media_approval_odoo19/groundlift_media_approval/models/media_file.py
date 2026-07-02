@@ -107,9 +107,9 @@ class GlMediaApprovalFile(models.Model):
     @api.model
     def _approval_persons_for_folder(self, folder):
         folder.ensure_one()
-        persons = folder.reviewer_person_ids.sudo().filtered(lambda p: p.active and (p.pin_code or p.pin_hash))
+        persons = folder._get_effective_reviewer_persons()
         if not persons:
-            raise UserError(_("Bitte im Unterordner im Reiter „Bewertende Personen“ zuerst mindestens eine Person mit 6-stelliger PIN auswählen."))
+            raise UserError(_("Bitte im Unterordner im Reiter „Bewertende Personen“ zuerst mindestens eine Person mit Name und 6-stelliger PIN eintragen."))
         return persons
 
     @api.model

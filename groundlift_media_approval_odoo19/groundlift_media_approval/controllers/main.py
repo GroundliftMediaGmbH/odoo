@@ -212,7 +212,7 @@ class GlMediaApprovalWebsite(http.Controller):
                 with folder.connection_id._client() as client:
                     client.ensure_dir(folder.remote_path)
                     remote_path = Media._unique_remote_path(client, folder, filename)
-                    client.write_chunk(remote_path, content, append=False)
+                    client.write_chunk(remote_path, content, offset=0)
                 state = {
                     "folder_id": folder.id,
                     "remote_path": remote_path,
@@ -220,6 +220,7 @@ class GlMediaApprovalWebsite(http.Controller):
                     "mimetype": mimetype,
                     "total_size": total_size,
                     "total_chunks": total_chunks,
+                    "bytes_written": len(content or b""),
                     "next_chunk_index": 1,
                 }
             else:
@@ -230,8 +231,13 @@ class GlMediaApprovalWebsite(http.Controller):
                 expected = int(state.get("next_chunk_index") or 0)
                 if chunk_index != expected:
                     raise BadRequest("Upload-Chunks kamen nicht in der richtigen Reihenfolge an. Bitte erneut hochladen.")
+                expected_offset = int(state.get("bytes_written") or 0)
+                expected_by_index = chunk_index * max_chunk_size
+                # Bei gleich großen Chunks entspricht bytes_written dem Start-Offset des nächsten Blocks.
+                # Wir verlassen uns auf bytes_written, damit auch abweichende letzte/kleinere Chunks robust funktionieren.
                 with folder.connection_id._client() as client:
-                    client.write_chunk(state["remote_path"], content, append=True)
+                    client.write_chunk(state["remote_path"], content, offset=expected_offset)
+                state["bytes_written"] = expected_offset + len(content or b"")
                 state["next_chunk_index"] = chunk_index + 1
 
             if chunk_index + 1 >= total_chunks:

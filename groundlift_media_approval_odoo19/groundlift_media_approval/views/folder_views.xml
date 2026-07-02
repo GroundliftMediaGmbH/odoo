@@ -56,14 +56,19 @@
                                 Diese Liste wird beim Upload neuer Dateien als fester Freigabe-Kreis gespeichert.
                                 Spätere Änderungen wirken nur auf neue Uploads, nicht rückwirkend auf bestehende Dateien.
                             </div>
-                            <field name="reviewer_person_ids" nolabel="1" context="{'default_active': True}">
-                                <list editable="bottom">
+                            <field name="reviewer_line_ids" nolabel="1" context="{'default_active': True}">
+                                <list editable="bottom" create="1" delete="1">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="person_id" string="Bestehende Person" options="{'no_create_edit': False}"/>
                                     <field name="name" required="1"/>
                                     <field name="pin_code" string="PIN" required="1"/>
                                     <field name="email"/>
                                     <field name="active"/>
                                 </list>
                             </field>
+                            <group string="Altbestand / technische Zuordnung" invisible="1">
+                                <field name="reviewer_person_ids" widget="many2many_tags"/>
+                            </group>
                         </page>
                         <page string="Dateien">
                             <field name="file_ids" readonly="1">

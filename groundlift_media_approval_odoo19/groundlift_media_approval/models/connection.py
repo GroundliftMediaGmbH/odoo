@@ -151,7 +151,10 @@ class _SFTPClientWrapper:
             try:
                 self.sftp.stat(current)
             except IOError:
-                self.sftp.mkdir(current)
+                try:
+                    self.sftp.mkdir(current)
+                except Exception as exc:
+                    raise UserError(_("Der Remote-Ordner konnte nicht angelegt werden: %s\nPfad: %s\nBitte Basisordner und Schreibrechte des Hetzner-Benutzers prüfen.") % (exc, current)) from exc
 
     def list_dir(self, path):
         return self.sftp.listdir(path)
@@ -159,8 +162,11 @@ class _SFTPClientWrapper:
     def upload_bytes(self, remote_path, content):
         folder = posixpath.dirname(remote_path)
         self.ensure_dir(folder)
-        with self.sftp.open(remote_path, "wb") as remote_file:
-            remote_file.write(content)
+        try:
+            with self.sftp.open(remote_path, "wb") as remote_file:
+                remote_file.write(content)
+        except Exception as exc:
+            raise UserError(_("Der Hetzner-Server verweigert den Schreibzugriff auf die Datei.\nPfad: %s\nFehler: %s") % (remote_path, exc)) from exc
 
     def upload_fileobj(self, remote_path, stream):
         folder = posixpath.dirname(remote_path)
@@ -169,19 +175,38 @@ class _SFTPClientWrapper:
             stream.seek(0)
         except Exception:
             pass
-        with self.sftp.open(remote_path, "wb") as remote_file:
-            while True:
-                chunk = stream.read(1024 * 1024)
-                if not chunk:
-                    break
-                remote_file.write(chunk)
+        try:
+            with self.sftp.open(remote_path, "wb") as remote_file:
+                while True:
+                    chunk = stream.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    remote_file.write(chunk)
+        except Exception as exc:
+            raise UserError(_("Der Hetzner-Server verweigert den Schreibzugriff auf die Datei.\nPfad: %s\nFehler: %s") % (remote_path, exc)) from exc
 
-    def write_chunk(self, remote_path, content, append=False):
+    def write_chunk(self, remote_path, content, append=False, offset=None):
         folder = posixpath.dirname(remote_path)
         self.ensure_dir(folder)
-        mode = "ab" if append else "wb"
-        with self.sftp.open(remote_path, mode) as remote_file:
-            remote_file.write(content or b"")
+        try:
+            if offset is not None:
+                offset = int(offset or 0)
+                if offset <= 0:
+                    mode = "wb"
+                    with self.sftp.open(remote_path, mode) as remote_file:
+                        remote_file.write(content or b"")
+                else:
+                    # Nicht alle SFTP-Server erlauben den Append-Modus.
+                    # Darum schreiben wir ab dem konkreten Byte-Offset.
+                    with self.sftp.open(remote_path, "r+b") as remote_file:
+                        remote_file.seek(offset)
+                        remote_file.write(content or b"")
+            else:
+                mode = "ab" if append else "wb"
+                with self.sftp.open(remote_path, mode) as remote_file:
+                    remote_file.write(content or b"")
+        except Exception as exc:
+            raise UserError(_("Der Hetzner-Server verweigert den Schreibzugriff auf die Datei.\nPfad: %s\nFehler: %s\nHinweis: Bitte prüfen, ob der Basisordner wirklich beschreibbar ist. Bei Hetzner-Webhosting liegt public_html häufig relativ zum FTP/SFTP-Login.") % (remote_path, exc)) from exc
 
     def read_bytes(self, remote_path, offset=0, length=None):
         with self.sftp.open(remote_path, "rb") as remote_file:
@@ -228,13 +253,16 @@ class _FTPClientWrapper:
 
     def ensure_dir(self, path):
         path = GlMediaApprovalConnection._clean_remote_path(path)
-        self.ftp.cwd("/")
-        for part in [p for p in path.split("/") if p]:
-            try:
-                self.ftp.cwd(part)
-            except ftplib.error_perm:
-                self.ftp.mkd(part)
-                self.ftp.cwd(part)
+        try:
+            self.ftp.cwd("/")
+            for part in [p for p in path.split("/") if p]:
+                try:
+                    self.ftp.cwd(part)
+                except ftplib.error_perm:
+                    self.ftp.mkd(part)
+                    self.ftp.cwd(part)
+        except Exception as exc:
+            raise UserError(_("Der Remote-Ordner konnte nicht angelegt/geöffnet werden: %s\nPfad: %s\nBitte Basisordner und Schreibrechte des Hetzner-Benutzers prüfen.") % (exc, path)) from exc
 
     def list_dir(self, path):
         current = self.ftp.pwd()
@@ -247,8 +275,11 @@ class _FTPClientWrapper:
     def upload_bytes(self, remote_path, content):
         folder = posixpath.dirname(remote_path)
         self.ensure_dir(folder)
-        with io.BytesIO(content) as stream:
-            self.ftp.storbinary("STOR " + remote_path, stream)
+        try:
+            with io.BytesIO(content) as stream:
+                self.ftp.storbinary("STOR " + remote_path, stream)
+        except Exception as exc:
+            raise UserError(_("Der Hetzner-Server verweigert den Schreibzugriff auf die Datei.\nPfad: %s\nFehler: %s") % (remote_path, exc)) from exc
 
     def upload_fileobj(self, remote_path, stream):
         folder = posixpath.dirname(remote_path)
@@ -257,14 +288,28 @@ class _FTPClientWrapper:
             stream.seek(0)
         except Exception:
             pass
-        self.ftp.storbinary("STOR " + remote_path, stream, blocksize=1024 * 1024)
+        try:
+            self.ftp.storbinary("STOR " + remote_path, stream, blocksize=1024 * 1024)
+        except Exception as exc:
+            raise UserError(_("Der Hetzner-Server verweigert den Schreibzugriff auf die Datei.\nPfad: %s\nFehler: %s") % (remote_path, exc)) from exc
 
-    def write_chunk(self, remote_path, content, append=False):
+    def write_chunk(self, remote_path, content, append=False, offset=None):
         folder = posixpath.dirname(remote_path)
         self.ensure_dir(folder)
-        with io.BytesIO(content or b"") as stream:
-            command = "APPE " if append else "STOR "
-            self.ftp.storbinary(command + remote_path, stream, blocksize=1024 * 1024)
+        try:
+            with io.BytesIO(content or b"") as stream:
+                if offset is not None:
+                    offset = int(offset or 0)
+                    if offset <= 0:
+                        self.ftp.storbinary("STOR " + remote_path, stream, blocksize=1024 * 1024)
+                    else:
+                        # REST + STOR ist stabiler als APPE, weil einige Server Append verbieten.
+                        self.ftp.storbinary("STOR " + remote_path, stream, blocksize=1024 * 1024, rest=str(offset))
+                else:
+                    command = "APPE " if append else "STOR "
+                    self.ftp.storbinary(command + remote_path, stream, blocksize=1024 * 1024)
+        except Exception as exc:
+            raise UserError(_("Der Hetzner-Server verweigert den Schreibzugriff auf die Datei.\nPfad: %s\nFehler: %s\nHinweis: Bitte prüfen, ob der Basisordner wirklich beschreibbar ist. Bei Hetzner-Webhosting liegt public_html häufig relativ zum FTP/SFTP-Login.") % (remote_path, exc)) from exc
 
     def read_bytes(self, remote_path, offset=0, length=None):
         chunks = []

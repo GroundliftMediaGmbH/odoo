@@ -1,48 +1,36 @@
-# Groundlift Medienfreigabe für Odoo 19 / Odoo.sh
+# Groundlift Medienfreigabe — Odoo 19 SH Modul
 
-Version: 19.0.1.0.5
+Version: 19.0.1.0.6
 
-Diese Version erweitert die Medienfreigabe um Ordner-spezifische Bewerter, einen direkten Homepage-Button und einen Mehrfach-Upload für große Foto-/Videodateien.
+## Änderungen in v6
 
-## Wichtige Änderungen in 19.0.1.0.5
+- Bewerter pro Unterordner werden jetzt über eine echte editierbare Tabelle gepflegt.
+- In der Tabelle können Name, 6-stellige PIN, E-Mail und Aktiv direkt eingetragen werden.
+- Alternativ kann eine bestehende Person ausgewählt werden.
+- Beim Speichern werden die Personen automatisch angelegt bzw. synchronisiert.
+- Der Upload nutzt für große Dateien weiterhin Chunking, schreibt die Chunks aber nicht mehr per Append-Modus, sondern an konkrete Byte-Offsets.
+- Das behebt typische Hetzner/SFTP/FTP-Probleme wie `[Errno 13] Permission denied`, wenn der Server Append verbietet.
+- Der Button „Remote-Ordner anlegen“ führt jetzt zusätzlich einen Schreibtest mit `.odoo_write_test` aus.
+- Fehlermeldungen bei Schreibrechten zeigen nun den betroffenen Remote-Pfad an.
 
-- In der Unterordner-Liste gibt es im Header den Button `Homepage aufrufen`.
-- In der Unterordner-Form gibt es ebenfalls den Button `Homepage aufrufen`.
-- Der Menüpunkt `Freigabe > Dateien hochladen` öffnet jetzt eine eigene Upload-Seite.
-- Der Upload nutzt nicht mehr den alten Base64-Anhangsweg als Hauptworkflow, sondern eine eigene Mehrfach-Dateiauswahl.
-- Bis zu 50 Dateien pro Durchlauf, serverseitig begrenzt auf 200 MB pro Datei.
-- Zwei Dateien werden parallel übertragen; dadurch ist der Upload schneller, ohne Hetzner/Odoo.sh unnötig zu überlasten.
-- Die Datei wird nach dem Browser-Upload direkt per FTP/SFTP/FTPS auf den Hetzner-Ordner geschrieben.
-- Pro Unterordner können jetzt `Bewertende Personen` ausgewählt werden.
-- Beim Upload wird pro Datei ein fester Personen-Snapshot aus den Bewertern des Ordners gespeichert.
-- Später hinzugefügte Personen sehen und bewerten nur danach hochgeladene Dateien.
-- Bereits bestehende Dateien behalten ihren ursprünglichen Freigabe-Kreis.
-
-- Uploads laufen jetzt in kleinen Chunks von 5 MB. Dadurch wird der vorherige HTTP-413-Fehler bei größeren Dateien vermieden, sofern Odoo.sh normale kleine Requests akzeptiert.
-- Die Upload-Seite blockiert den Upload mit einer verständlichen Meldung, wenn im Unterordner noch keine bewertende Person hinterlegt ist.
-- Der Reiter `Bewertende Personen` zeigt nun eine editierbare Liste. Dort können Name, PIN und E-Mail direkt im Unterordner eingetragen oder bestehende Personen ausgewählt werden.
-- Das Feld `Unterordnername auf Server` heißt jetzt klarer `Unterordnername`.
-
-## Installation / Update auf Odoo.sh
+## Installation / Update
 
 1. ZIP entpacken.
-2. Den Ordner `groundlift_media_approval` in dein Odoo.sh-Git-Repository legen bzw. den alten Ordner vollständig ersetzen.
-3. Commit und Push ausführen.
+2. Den Modulordner `groundlift_media_approval` vollständig in Odoo.sh/GitHub ersetzen.
+3. Commit + Push.
 4. Odoo.sh Build abwarten.
-5. In Odoo: Apps-Liste aktualisieren.
-6. App `Groundlift Medienfreigabe` aktualisieren oder installieren.
-7. Browser hart neu laden (`Strg + F5`).
+5. In Odoo Apps-Liste aktualisieren.
+6. Modul aktualisieren.
+7. Browser hart neu laden: Strg + F5.
 
-## Benutzung
+## Nutzung
 
-1. App `Medienfreigabe` öffnen.
-2. Unter `Konfiguration > Personen / PINs` Personen anlegen und je Person eine sechsstellige PIN vergeben.
-3. Unter `Konfiguration > Hetzner Verbindungen` FTP/SFTP-Zugang hinterlegen.
-4. Unter `Freigabe > Unterordner` Zielordner anlegen.
-5. Im Unterordner im Reiter `Bewertende Personen` auswählen, wer diesen Ordner bewerten darf.
-6. Über `Dateien hochladen` oder den Button im Unterordner Fotos/Videos hochladen.
-7. Externe Personen öffnen `/media-approval` oder `/medienfreigabe` und melden sich nur per PIN an.
+1. Medienfreigabe → Konfiguration → Hetzner-Verbindungen: Zugangsdaten und Basisordner setzen.
+2. Medienfreigabe → Unterordner: Ordner anlegen.
+3. Im Reiter „Bewertende Personen“ Name + 6-stellige PIN eintragen.
+4. Button „Remote-Ordner anlegen“ drücken. Dieser prüft nun auch Schreibrechte.
+5. „Dateien hochladen“ öffnen und Upload starten.
 
-## Technischer Hinweis
+## Hinweis zu Hetzner-Pfaden
 
-Die App vermeidet beim neuen Upload den Base64-Mehrfachanhang als Hauptweg. Große Dateien werden im Browser in 5-MB-Blöcke geschnitten. Jeder Block läuft einzeln durch Odoo.sh und wird serverseitig an die Zieldatei auf Hetzner angehängt. Dadurch wird ein großer 200-MB-Request vermieden.
+Der Basisordner muss dort liegen, wo der FTP/SFTP-Benutzer schreiben darf, z. B. `/public_html/medienfreigabe`. Wenn der Schreibtest fehlschlägt, ist der Pfad oder die Berechtigung des Hetzner-Benutzers falsch.
