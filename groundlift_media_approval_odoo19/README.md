@@ -1,10 +1,10 @@
 # Groundlift Medienfreigabe für Odoo 19 / Odoo.sh
 
-Version: 19.0.1.0.4
+Version: 19.0.1.0.5
 
 Diese Version erweitert die Medienfreigabe um Ordner-spezifische Bewerter, einen direkten Homepage-Button und einen Mehrfach-Upload für große Foto-/Videodateien.
 
-## Wichtige Änderungen in 19.0.1.0.4
+## Wichtige Änderungen in 19.0.1.0.5
 
 - In der Unterordner-Liste gibt es im Header den Button `Homepage aufrufen`.
 - In der Unterordner-Form gibt es ebenfalls den Button `Homepage aufrufen`.
@@ -17,6 +17,11 @@ Diese Version erweitert die Medienfreigabe um Ordner-spezifische Bewerter, einen
 - Beim Upload wird pro Datei ein fester Personen-Snapshot aus den Bewertern des Ordners gespeichert.
 - Später hinzugefügte Personen sehen und bewerten nur danach hochgeladene Dateien.
 - Bereits bestehende Dateien behalten ihren ursprünglichen Freigabe-Kreis.
+
+- Uploads laufen jetzt in kleinen Chunks von 5 MB. Dadurch wird der vorherige HTTP-413-Fehler bei größeren Dateien vermieden, sofern Odoo.sh normale kleine Requests akzeptiert.
+- Die Upload-Seite blockiert den Upload mit einer verständlichen Meldung, wenn im Unterordner noch keine bewertende Person hinterlegt ist.
+- Der Reiter `Bewertende Personen` zeigt nun eine editierbare Liste. Dort können Name, PIN und E-Mail direkt im Unterordner eingetragen oder bestehende Personen ausgewählt werden.
+- Das Feld `Unterordnername auf Server` heißt jetzt klarer `Unterordnername`.
 
 ## Installation / Update auf Odoo.sh
 
@@ -40,4 +45,4 @@ Diese Version erweitert die Medienfreigabe um Ordner-spezifische Bewerter, einen
 
 ## Technischer Hinweis
 
-Die App vermeidet beim neuen Upload den Base64-Mehrfachanhang als Hauptweg. Trotzdem läuft der Browser-Upload technisch zuerst durch Odoo.sh und wird dann nach Hetzner gestreamt. Sollte Odoo.sh/proxyseitig eine niedrigere Upload-Grenze erzwingen, muss diese Grenze in der Infrastruktur angepasst oder alternativ ein Direktupload nach Hetzner per separatem presigned Upload-Mechanismus ergänzt werden.
+Die App vermeidet beim neuen Upload den Base64-Mehrfachanhang als Hauptweg. Große Dateien werden im Browser in 5-MB-Blöcke geschnitten. Jeder Block läuft einzeln durch Odoo.sh und wird serverseitig an die Zieldatei auf Hetzner angehängt. Dadurch wird ein großer 200-MB-Request vermieden.

@@ -170,11 +170,15 @@
                                     <select id="glma_folder_select" class="form-select form-select-lg">
                                         <option value="">Bitte auswählen</option>
                                         <t t-foreach="folders" t-as="folder">
-                                            <option t-att-value="folder.id" t-att-selected="selected_folder and selected_folder.id == folder.id">
+                                            <option t-att-value="folder.id" t-att-selected="selected_folder and selected_folder.id == folder.id" t-att-data-reviewer-count="folder.reviewer_count">
                                                 <t t-esc="folder.name"/>
                                             </option>
                                         </t>
                                     </select>
+                                    <div id="glma_reviewer_warning" class="alert alert-warning mt-2 d-none mb-0">
+                                        In diesem Unterordner ist noch keine bewertende Person hinterlegt.
+                                        Bitte zuerst in Odoo im Reiter „Bewertende Personen“ mindestens Name + 6-stellige PIN eintragen.
+                                    </div>
                                 </div>
                                 <div class="col-12 col-lg-5">
                                     <label class="form-label" for="glma_file_input">Fotos und Videos</label>
@@ -185,7 +189,7 @@
                                 </div>
                             </div>
                             <div class="small text-muted mt-3">
-                                Maximal <t t-esc="max_files"/> Dateien pro Durchlauf, maximal <t t-esc="max_size_mb"/> MB pro Datei. Die Dateien werden einzeln übertragen und danach direkt auf den Hetzner-Server geschrieben.
+                                Maximal <t t-esc="max_files"/> Dateien pro Durchlauf, maximal <t t-esc="max_size_mb"/> MB pro Datei. Große Dateien werden in kleine Blöcke übertragen und direkt auf den Hetzner-Server geschrieben.
                             </div>
                             <div class="progress mt-4" style="height: 24px;">
                                 <div id="glma_upload_total_bar" class="progress-bar" role="progressbar" style="width: 0%;">0%</div>
@@ -200,6 +204,7 @@
 (function () {
     const maxFiles = 50;
     const maxSize = 200 * 1024 * 1024;
+    const chunkSize = 5 * 1024 * 1024;
     const parallelUploads = 2;
     const folderSelect = document.getElementById('glma_folder_select');
     const fileInput = document.getElementById('glma_file_input');
@@ -208,6 +213,7 @@
     const log = document.getElementById('glma_upload_log');
     const statusBox = document.getElementById('glma_upload_status');
     const totalBar = document.getElementById('glma_upload_total_bar');
+    const reviewerWarning = document.getElementById('glma_reviewer_warning');
 
     function setStatus(message, kind) {
         statusBox.className = 'alert mt-3 alert-' + (kind || 'info');
@@ -234,40 +240,65 @@
         detailNode.textContent = detail || '';
     }
 
-    function uploadOne(file, item, folderId) {
+    function postChunk(form, onProgress) {
         return new Promise((resolve) => {
             const xhr = new XMLHttpRequest();
-            const form = new FormData();
-            form.append('csrf_token', csrfInput.value);
-            form.append('folder_id', folderId);
-            form.append('file', file, file.name);
-            xhr.open('POST', '/media-approval/backend/upload-file', true);
+            xhr.open('POST', '/media-approval/backend/upload-chunk', true);
             xhr.upload.onprogress = function (event) {
-                if (event.lengthComputable) {
-                    setItem(item, Math.round((event.loaded / event.total) * 100), 'lädt hoch', 'bg-primary', Math.round(event.loaded / 1024 / 1024) + ' MB / ' + Math.round(event.total / 1024 / 1024) + ' MB');
-                } else {
-                    setItem(item, 10, 'lädt hoch', 'bg-primary', 'Upload läuft...');
+                if (event.lengthComputable && onProgress) {
+                    onProgress(event.loaded, event.total);
                 }
             };
             xhr.onload = function () {
                 let payload = null;
                 try { payload = JSON.parse(xhr.responseText || '{}'); } catch (e) {}
                 if (xhr.status >= 200 && xhr.status < 300 && payload && payload.ok) {
-                    setItem(item, 100, 'fertig', 'bg-success', 'Übertragen als: ' + payload.name);
-                    resolve({ok: true});
+                    resolve({ok: true, payload: payload});
                 } else {
                     const error = payload && payload.error ? payload.error : ('HTTP ' + xhr.status);
-                    setItem(item, 100, 'Fehler', 'bg-danger', error);
                     resolve({ok: false, error: error});
                 }
             };
             xhr.onerror = function () {
-                setItem(item, 100, 'Fehler', 'bg-danger', 'Netzwerkfehler beim Upload.');
-                resolve({ok: false, error: 'Netzwerkfehler'});
+                resolve({ok: false, error: 'Netzwerkfehler beim Upload.'});
             };
-            setItem(item, 0, 'startet', 'bg-primary', 'Upload wird vorbereitet...');
             xhr.send(form);
         });
+    }
+
+    async function uploadOne(file, item, folderId) {
+        const uploadUid = String(Date.now()) + '_' + Math.random().toString(36).slice(2) + '_' + file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+        const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize));
+        let finalPayload = null;
+        setItem(item, 0, 'startet', 'bg-primary', 'Upload wird vorbereitet...');
+        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+            const start = chunkIndex * chunkSize;
+            const end = Math.min(file.size, start + chunkSize);
+            const blob = file.slice(start, end);
+            const form = new FormData();
+            form.append('csrf_token', csrfInput.value);
+            form.append('folder_id', folderId);
+            form.append('upload_uid', uploadUid);
+            form.append('filename', file.name);
+            form.append('mimetype', file.type || 'application/octet-stream');
+            form.append('total_size', String(file.size));
+            form.append('chunk_index', String(chunkIndex));
+            form.append('total_chunks', String(totalChunks));
+            form.append('chunk', blob, file.name + '.part' + chunkIndex);
+            const result = await postChunk(form, function (loaded, total) {
+                const uploadedBefore = start;
+                const current = uploadedBefore + loaded;
+                const percent = file.size ? Math.round((current / file.size) * 100) : 100;
+                setItem(item, percent, 'lädt hoch', 'bg-primary', 'Teil ' + (chunkIndex + 1) + '/' + totalChunks + ' · ' + Math.round(current / 1024 / 1024) + ' MB / ' + Math.round(file.size / 1024 / 1024) + ' MB');
+            });
+            if (!result.ok) {
+                setItem(item, 100, 'Fehler', 'bg-danger', result.error || 'Upload fehlgeschlagen.');
+                return {ok: false, error: result.error};
+            }
+            finalPayload = result.payload;
+        }
+        setItem(item, 100, 'fertig', 'bg-success', 'Übertragen als: ' + ((finalPayload && finalPayload.name) || file.name));
+        return {ok: true};
     }
 
     function updateTotal(done, total) {
@@ -276,6 +307,22 @@
         totalBar.textContent = percent + '%';
     }
 
+    function selectedReviewerCount() {
+        const option = folderSelect.options[folderSelect.selectedIndex];
+        return option ? parseInt(option.getAttribute('data-reviewer-count') || '0', 10) : 0;
+    }
+
+    function updateReviewerWarning() {
+        if (!folderSelect.value || selectedReviewerCount() > 0) {
+            reviewerWarning.classList.add('d-none');
+        } else {
+            reviewerWarning.classList.remove('d-none');
+        }
+    }
+
+    folderSelect.addEventListener('change', updateReviewerWarning);
+    updateReviewerWarning();
+
     startButton.addEventListener('click', async function () {
         const folderId = folderSelect.value;
         const files = Array.from(fileInput.files || []);
@@ -283,6 +330,11 @@
         updateTotal(0, 0);
         if (!folderId) {
             setStatus('Bitte zuerst einen Unterordner auswählen.', 'warning');
+            return;
+        }
+        if (selectedReviewerCount() <= 0) {
+            updateReviewerWarning();
+            setStatus('Bitte zuerst im Unterordner mindestens eine bewertende Person mit 6-stelliger PIN hinterlegen.', 'warning');
             return;
         }
         if (!files.length) {

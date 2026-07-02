@@ -162,6 +162,106 @@ class GlMediaApprovalWebsite(http.Controller):
         except Exception as exc:
             return self._json_response({"ok": False, "error": str(exc)}, status=400)
 
+
+    @http.route("/media-approval/backend/upload-chunk", type="http", auth="user", website=False, methods=["POST"], sitemap=False)
+    def backend_upload_chunk(self, **post):
+        try:
+            folder_id = post.get("folder_id")
+            uploaded_chunk = request.httprequest.files.get("chunk")
+            filename = post.get("filename") or "datei"
+            mimetype = post.get("mimetype") or "application/octet-stream"
+            upload_uid = re.sub(r"[^a-zA-Z0-9_.-]", "", post.get("upload_uid") or "")[:80]
+            chunk_index = int(post.get("chunk_index") or 0)
+            total_chunks = int(post.get("total_chunks") or 1)
+            total_size = int(post.get("total_size") or 0)
+
+            if not folder_id:
+                raise BadRequest("Ordner fehlt.")
+            if not upload_uid:
+                raise BadRequest("Upload-ID fehlt.")
+            if chunk_index < 0 or total_chunks < 1 or chunk_index >= total_chunks:
+                raise BadRequest("Ungültiger Chunk-Index.")
+            if not uploaded_chunk:
+                raise BadRequest("Datei-Chunk fehlt.")
+
+            max_size = 200 * 1024 * 1024
+            max_chunk_size = 8 * 1024 * 1024
+            if total_size and total_size > max_size:
+                raise BadRequest("Die Datei ist größer als 200 MB.")
+
+            content = uploaded_chunk.read()
+            if len(content) > max_chunk_size + 1024:
+                raise BadRequest("Ein Upload-Chunk ist zu groß. Bitte die Seite neu laden und erneut versuchen.")
+
+            folder = request.env["gl.media.approval.folder"].sudo().browse(int(folder_id))
+            if not folder.exists() or not folder.active:
+                raise BadRequest("Ordner wurde nicht gefunden.")
+
+            Media = request.env["gl.media.approval.file"].sudo()
+            filename = Media._sanitize_filename(filename)
+            ICP = request.env["ir.config_parameter"].sudo()
+            upload_key = "glma.chunk.%s.%s" % (request.env.user.id, upload_uid)
+            state_raw = ICP.get_param(upload_key)
+            state = json.loads(state_raw) if state_raw else None
+
+            if chunk_index == 0:
+                # Validiert früh, damit der Upload sofort mit einer verständlichen Meldung stoppt,
+                # wenn im Unterordner noch keine bewertenden Personen hinterlegt sind.
+                Media._approval_persons_for_folder(folder)
+                folder._update_remote_path()
+                with folder.connection_id._client() as client:
+                    client.ensure_dir(folder.remote_path)
+                    remote_path = Media._unique_remote_path(client, folder, filename)
+                    client.write_chunk(remote_path, content, append=False)
+                state = {
+                    "folder_id": folder.id,
+                    "remote_path": remote_path,
+                    "filename": filename,
+                    "mimetype": mimetype,
+                    "total_size": total_size,
+                    "total_chunks": total_chunks,
+                    "next_chunk_index": 1,
+                }
+            else:
+                if not state:
+                    raise BadRequest("Upload-Sitzung wurde nicht gefunden. Bitte diese Datei erneut starten.")
+                if int(state.get("folder_id")) != folder.id:
+                    raise BadRequest("Upload-Sitzung passt nicht zum ausgewählten Ordner.")
+                expected = int(state.get("next_chunk_index") or 0)
+                if chunk_index != expected:
+                    raise BadRequest("Upload-Chunks kamen nicht in der richtigen Reihenfolge an. Bitte erneut hochladen.")
+                with folder.connection_id._client() as client:
+                    client.write_chunk(state["remote_path"], content, append=True)
+                state["next_chunk_index"] = chunk_index + 1
+
+            if chunk_index + 1 >= total_chunks:
+                media = Media.create_from_remote_upload(
+                    folder,
+                    state.get("filename") or filename,
+                    state["remote_path"],
+                    mimetype=state.get("mimetype") or mimetype,
+                    size_bytes=state.get("total_size") or total_size,
+                )
+                ICP.search([("key", "=", upload_key)], limit=1).unlink()
+                return self._json_response({
+                    "ok": True,
+                    "final": True,
+                    "id": media.id,
+                    "name": media.name,
+                    "size_bytes": media.size_bytes,
+                    "state": media.decision_state,
+                })
+
+            ICP.set_param(upload_key, json.dumps(state))
+            return self._json_response({
+                "ok": True,
+                "final": False,
+                "chunk_index": chunk_index,
+                "next_chunk_index": state.get("next_chunk_index"),
+            })
+        except Exception as exc:
+            return self._json_response({"ok": False, "error": str(exc)}, status=400)
+
     @staticmethod
     def _stream_size(stream, fallback=0):
         try:

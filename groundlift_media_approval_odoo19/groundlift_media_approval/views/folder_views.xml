@@ -30,6 +30,7 @@
                     <button name="action_create_remote_folder" type="object" string="Remote-Ordner anlegen" class="btn-primary"/>
                     <button name="action_open_upload_wizard" type="object" string="Dateien hochladen" class="btn-secondary"/>
                     <button name="action_open_homepage" type="object" string="Homepage aufrufen" class="btn-secondary"/>
+                    <button name="action_open_persons" type="object" string="Personen / PINs öffnen" class="btn-secondary"/>
                 </header>
                 <sheet>
                     <group>
@@ -49,11 +50,20 @@
                     </group>
                     <notebook>
                         <page string="Bewertende Personen">
-                            <field name="reviewer_person_ids" widget="many2many_tags"/>
                             <div class="alert alert-info" role="alert">
-                                Diese Personen werden beim Upload neuer Dateien als fester Freigabe-Kreis gespeichert.
+                                Hier die Personen eintragen oder auswählen, die diesen Unterordner bewerten dürfen.
+                                Jede Person braucht eine eindeutige 6-stellige PIN.
+                                Diese Liste wird beim Upload neuer Dateien als fester Freigabe-Kreis gespeichert.
                                 Spätere Änderungen wirken nur auf neue Uploads, nicht rückwirkend auf bestehende Dateien.
                             </div>
+                            <field name="reviewer_person_ids" nolabel="1" context="{'default_active': True}">
+                                <list editable="bottom">
+                                    <field name="name" required="1"/>
+                                    <field name="pin_code" string="PIN" required="1"/>
+                                    <field name="email"/>
+                                    <field name="active"/>
+                                </list>
+                            </field>
                         </page>
                         <page string="Dateien">
                             <field name="file_ids" readonly="1">

@@ -16,7 +16,7 @@ class GlMediaApprovalFolder(models.Model):
     website_visible = fields.Boolean(string="Auf PIN-Homepage anzeigen", default=True)
     connection_id = fields.Many2one("gl.media.approval.connection", required=True, ondelete="restrict")
     remote_dir_name = fields.Char(
-        string="Unterordnername auf Server",
+        string="Unterordnername",
         help="Wird unterhalb des Basisordners der Verbindung angelegt.",
     )
     remote_path = fields.Char(string="Vollständiger Remote-Pfad", readonly=True, copy=False)
@@ -38,10 +38,10 @@ class GlMediaApprovalFolder(models.Model):
         ("remote_path_uniq", "unique(connection_id, remote_path)", "Dieser Remote-Ordner existiert für diese Verbindung bereits."),
     ]
 
-    @api.depends("reviewer_person_ids")
+    @api.depends("reviewer_person_ids", "reviewer_person_ids.active", "reviewer_person_ids.pin_code", "reviewer_person_ids.pin_hash")
     def _compute_reviewer_count(self):
         for rec in self:
-            rec.reviewer_count = len(rec.reviewer_person_ids)
+            rec.reviewer_count = len(rec.reviewer_person_ids.filtered(lambda p: p.active and (p.pin_code or p.pin_hash)))
 
     @api.depends("file_ids")
     def _compute_file_count(self):
@@ -119,6 +119,11 @@ class GlMediaApprovalFolder(models.Model):
             "url": "/media-approval/backend/upload?folder_id=%s" % self.id,
             "target": "new",
         }
+
+
+    def action_open_persons(self):
+        action = self.env.ref("groundlift_media_approval.action_gl_media_person").read()[0]
+        return action
 
     def action_open_homepage(self):
         return {

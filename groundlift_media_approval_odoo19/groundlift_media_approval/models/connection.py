@@ -176,6 +176,13 @@ class _SFTPClientWrapper:
                     break
                 remote_file.write(chunk)
 
+    def write_chunk(self, remote_path, content, append=False):
+        folder = posixpath.dirname(remote_path)
+        self.ensure_dir(folder)
+        mode = "ab" if append else "wb"
+        with self.sftp.open(remote_path, mode) as remote_file:
+            remote_file.write(content or b"")
+
     def read_bytes(self, remote_path, offset=0, length=None):
         with self.sftp.open(remote_path, "rb") as remote_file:
             if offset:
@@ -251,6 +258,13 @@ class _FTPClientWrapper:
         except Exception:
             pass
         self.ftp.storbinary("STOR " + remote_path, stream, blocksize=1024 * 1024)
+
+    def write_chunk(self, remote_path, content, append=False):
+        folder = posixpath.dirname(remote_path)
+        self.ensure_dir(folder)
+        with io.BytesIO(content or b"") as stream:
+            command = "APPE " if append else "STOR "
+            self.ftp.storbinary(command + remote_path, stream, blocksize=1024 * 1024)
 
     def read_bytes(self, remote_path, offset=0, length=None):
         chunks = []

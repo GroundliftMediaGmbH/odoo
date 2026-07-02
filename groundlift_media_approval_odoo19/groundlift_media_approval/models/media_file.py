@@ -109,7 +109,7 @@ class GlMediaApprovalFile(models.Model):
         folder.ensure_one()
         persons = folder.reviewer_person_ids.sudo().filtered(lambda p: p.active and (p.pin_code or p.pin_hash))
         if not persons:
-            raise UserError(_("Bitte im Unterordner zuerst mindestens eine bewertende Person mit PIN auswählen."))
+            raise UserError(_("Bitte im Unterordner im Reiter „Bewertende Personen“ zuerst mindestens eine Person mit 6-stelliger PIN auswählen."))
         return persons
 
     @api.model
@@ -150,6 +150,25 @@ class GlMediaApprovalFile(models.Model):
             client.ensure_dir(folder.remote_path)
             remote_path = self._unique_remote_path(client, folder, filename)
             client.upload_fileobj(remote_path, stream)
+        media = self.sudo().create({
+            "name": filename,
+            "folder_id": folder.id,
+            "remote_filename": posixpath.basename(remote_path),
+            "remote_path": remote_path,
+            "mimetype": mimetype,
+            "size_bytes": int(size_bytes or 0),
+            "approval_person_ids": [(6, 0, persons.ids)],
+        })
+        media._recompute_decision_state()
+        return media
+
+
+    @api.model
+    def create_from_remote_upload(self, folder, filename, remote_path, mimetype=None, size_bytes=0):
+        folder.ensure_one()
+        filename = self._sanitize_filename(filename)
+        mimetype = mimetype or mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        persons = self._approval_persons_for_folder(folder)
         media = self.sudo().create({
             "name": filename,
             "folder_id": folder.id,
