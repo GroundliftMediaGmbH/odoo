@@ -404,11 +404,13 @@ class GlWebsiteColorManagerController(http.Controller):
         Override = request.env['gl.website.color.override'].sudo()
         now = fields.Datetime.now()
         override_ids = set()
+        cleaned_rows = []
 
         for raw_row in rows:
             row = _clean_row(raw_row)
             if not row or row['normalized'] != original:
                 continue
+            cleaned_rows.append(row)
             selector = row['selector'] or ':root'
             prop = row['property_name'] or row['css_variable'] or ''
             if not selector or not prop:
@@ -452,23 +454,26 @@ class GlWebsiteColorManagerController(http.Controller):
             except Exception:
                 continue
 
-        # Versions <= 19.0.1.2.0 stored all same-color rows from the clicked
-        # area together. Once a context-specific row is saved with this version,
-        # deactivate those old broad rows for the same click area/color so they do
-        # not keep changing text and background together.
+        # Older picker versions could save broader stylesheet/CSS-variable rows
+        # for the same clicked area. The picker is now intentionally specific: a
+        # saved overlay change should only target the exact computed element
+        # selector. Deactivate old broad direct overrides for the same click/color
+        # once a new specific row is saved.
         if override_ids:
+            picked = (picked_selector or '').strip()[:700]
+            saved_props = set((row.get('property_name') or row.get('css_variable') or '') for row in cleaned_rows)
             legacy_domain = [
                 ('website_id', '=', website.id),
                 ('original_color', '=', original),
                 ('active', '=', True),
-                ('override_context_key', '=', False),
             ]
-            picked = (picked_selector or '').strip()[:700]
             if picked:
                 legacy_domain.append(('picked_selector', '=', picked))
             legacy = Override.search(legacy_domain)
             if legacy:
-                legacy.filtered(lambda rec: rec.id not in override_ids).write({'active': False})
+                legacy.filtered(lambda rec: rec.id not in override_ids and (
+                    not saved_props or rec.property_name in saved_props or rec.css_variable in saved_props or rec.source_type in ('stylesheet', 'css_variable')
+                )).write({'active': False})
 
         version = request.env['gl.website.color.swatch'].sudo().get_css_cache_key(website.id)
         css_url = '/gl_color_manager/css/%s.css?v=%s' % (website.id, version)

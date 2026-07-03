@@ -221,23 +221,34 @@
         }
         const parts = [];
         let current = element;
-        while (current && current.nodeType === 1 && current !== document.documentElement && parts.length < 5) {
+        while (current && current.nodeType === 1 && current !== document.documentElement && parts.length < 14) {
             const tag = current.tagName.toLowerCase();
             let segment = tag;
             const classes = Array.from(current.classList || [])
                 .filter((cls) => cls && !/^o_editable/.test(cls) && !/^oe_/.test(cls) && !/^ui-/.test(cls) && !/^gl-color-/.test(cls))
-                .slice(0, 3);
+                .slice(0, 4);
             if (classes.length) {
                 segment += '.' + classes.map(escapeCss).join('.');
             }
             if (current.parentElement) {
                 const sameTagSiblings = Array.from(current.parentElement.children).filter((child) => child.tagName === current.tagName);
-                if (sameTagSiblings.length > 1) {
-                    segment += ':nth-of-type(' + (sameTagSiblings.indexOf(current) + 1) + ')';
+                const index = sameTagSiblings.indexOf(current) + 1;
+                if (index > 0) {
+                    // Always include nth-of-type. The on-page picker is now
+                    // intentionally element-specific, not a global stylesheet
+                    // replacement. This prevents a button/text color change from
+                    // affecting every element that happens to share the same class.
+                    segment += ':nth-of-type(' + index + ')';
                 }
             }
             parts.unshift(segment);
+            if (current === document.body) {
+                break;
+            }
             current = current.parentElement;
+        }
+        while (parts.length > 1 && parts.join(' > ').length > 650) {
+            parts.shift();
         }
         return parts.join(' > ') || element.tagName.toLowerCase();
     }
@@ -329,8 +340,10 @@
         const label = sampleText(selected);
         const elements = [selected];
         const pickedInfo = { selector, label, element: selected, elements };
+        // Specific mode: only the computed style of the exact clicked element is
+        // offered in the overlay. Matching stylesheet rules and CSS variables are
+        // deliberately not offered here, because they would be broad/global again.
         scanComputedStylesForElements(elements, pickedInfo);
-        scanMatchingStylesheetRules(elements, pickedInfo);
         return pickedInfo;
     }
 
@@ -1016,10 +1029,10 @@
             const example = Array.from(item.examples)[0] || '';
             const propTitle = escapeHtml((item.css_variable || item.property_name || '').trim());
             const scopeHint = item.source_type === 'css_variable'
-                ? 'wirkt breit, weil CSS-Variable'
+                ? 'nicht empfohlen im spezifischen Modus'
                 : item.source_type === 'stylesheet'
-                    ? 'wirkt auf alle Seiten mit diesem CSS-Verweis'
-                    : 'wirkt auf diesen sichtbaren Element-Selektor';
+                    ? 'nicht empfohlen im spezifischen Modus'
+                    : 'wirkt nur auf exakt diesen Element-Selektor';
             return '<div class="gl-color-editor-row" data-index="' + index + '" style="display:grid;grid-template-columns:32px 90px minmax(190px,1fr) auto;gap:8px;align-items:center;padding:10px 0;border-top:1px solid rgba(255,255,255,.14)">' +
                 '<input class="gl-color-editor-picker" type="color" value="' + escapeHtml(item.color) + '" title="Farbe wählen" style="width:32px;height:32px;border:0;background:transparent;padding:0"/>' +
                 '<input class="gl-color-editor-hex" type="text" value="' + escapeHtml(item.color) + '" style="width:90px;border:1px solid rgba(255,255,255,.25);border-radius:6px;background:#222;color:#fff;padding:6px 7px;font:12px monospace"/>' +
@@ -1030,7 +1043,7 @@
                 '<button class="gl-color-editor-undo" type="button" data-index="' + index + '" style="border:1px solid rgba(255,255,255,.45);border-radius:7px;padding:7px 9px;background:transparent;color:#fff;font-weight:700;cursor:pointer">Rückgängig</button></div>' +
                 '</div>';
         }).join('');
-        const html = '<div style="font-size:12px;opacity:.82;margin-bottom:10px">Es wird nur das exakt angeklickte Element ausgewertet. Jede Zeile ist eine einzelne, getrennt speicherbare Fundstelle. Stylesheet-Zeilen gelten global für alle Seiten mit demselben CSS-Verweis; sichtbare-Element-Zeilen bleiben auf den konkreten Selektor begrenzt.</div>' +
+        const html = '<div style="font-size:12px;opacity:.82;margin-bottom:10px">Es wird nur das exakt angeklickte Element ausgewertet. Jede Zeile ist eine einzelne, getrennt speicherbare Fundstelle und wird nicht mehr global als Stylesheet-/Variablen-Änderung gespeichert.</div>' +
             '<div style="display:grid;gap:0">' + itemHtml + '</div>' +
             '<div id="gl-color-editor-error" style="display:none;margin-top:10px;color:#ff7875"></div>';
         const overlay = showOverlay('Bereich gefunden: Farben direkt auf der Seite ändern.', 'done', {
