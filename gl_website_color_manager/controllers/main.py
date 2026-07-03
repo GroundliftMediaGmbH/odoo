@@ -380,7 +380,7 @@ class GlWebsiteColorManagerController(http.Controller):
         }
 
     @http.route('/gl_color_manager/apply_override', type='json', auth='user', methods=['POST'], csrf=False)
-    def apply_override(self, website_id=None, original_color=None, replacement_color=None, colors=None, context_key=None, picked_selector=None, picked_sample_text=None, **kwargs):
+    def apply_override(self, website_id=None, original_color=None, replacement_color=None, colors=None, context_key=None, picked_selector=None, picked_sample_text=None, clicked_selector=None, scope_mode=None, **kwargs):
         if not _is_allowed_user():
             return {'ok': False, 'error': 'not_allowed'}
 
@@ -461,14 +461,16 @@ class GlWebsiteColorManagerController(http.Controller):
         # once a new specific row is saved.
         if override_ids:
             picked = (picked_selector or '').strip()[:700]
+            clicked = (clicked_selector or '').strip()[:700]
             saved_props = set((row.get('property_name') or row.get('css_variable') or '') for row in cleaned_rows)
             legacy_domain = [
                 ('website_id', '=', website.id),
                 ('original_color', '=', original),
                 ('active', '=', True),
             ]
-            if picked:
-                legacy_domain.append(('picked_selector', '=', picked))
+            picked_selectors = [value for value in (picked, clicked) if value]
+            if picked_selectors:
+                legacy_domain.append(('picked_selector', 'in', list(set(picked_selectors))))
             legacy = Override.search(legacy_domain)
             if legacy:
                 legacy.filtered(lambda rec: rec.id not in override_ids and (
