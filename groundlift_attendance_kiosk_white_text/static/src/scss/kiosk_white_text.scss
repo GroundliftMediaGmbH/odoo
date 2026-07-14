@@ -1,0 +1,60 @@
+/*
+ * Groundlift Attendance Kiosk – White Text
+ * Odoo 19
+ *
+ * The selectors are deliberately limited to the public attendance kiosk so
+ * that normal backend views, forms and lists remain unchanged.
+ */
+
+/* Employee cards: name and job title */
+.o_hr_attendance_kiosk_mode .o_hr_kiosk_manual_selection .card {
+    h6,
+    .h6,
+    p,
+    .text-muted {
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        opacity: 1 !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+    }
+}
+
+/* Department sidebar */
+.o_hr_attendance_kiosk_mode .o_hr_kiosk_sidebar .list-group-item {
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+
+    > span,
+    .text-truncate {
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        opacity: 1 !important;
+    }
+}
+
+/* Clock and date in the kiosk header */
+.o_attendance_background .o_hr_kiosk_mode_top_time,
+.o_attendance_background .o_hr_kiosk_mode_top_time span {
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+}
+
+/* Footer text, without changing the light buttons themselves */
+.o_hr_attendance_kiosk_mode .o_hr_kiosk_mode_bottom > span,
+.o_hr_attendance_kiosk_mode .o_hr_kiosk_mode_bottom > div:not(.btn) {
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+}
+
+/* Keep the search field readable on its white background. */
+.o_hr_attendance_kiosk_mode .o_searchview_input_container input {
+    color: #212529 !important;
+    -webkit-text-fill-color: #212529 !important;
+    background-color: transparent !important;
+}
+
+.o_hr_attendance_kiosk_mode .o_searchview_input_container input::placeholder {
+    color: #6c757d !important;
+    -webkit-text-fill-color: #6c757d !important;
+    opacity: 1 !important;
+}
