@@ -69,7 +69,7 @@
                     </div>
                     <div class="row g-3 px-lg-3">
                         <div class="col-12 col-lg-3 col-xl-2">
-                            <div class="glma-list">
+                            <div id="glma-file-list" class="glma-list" t-att-data-folder-id="folder.id">
                                 <t t-if="not files">
                                     <div class="p-3 text-muted">Keine Dateien in diesem Ordner.</div>
                                 </t>
@@ -91,6 +91,11 @@
                                 <t t-set="preview_url" t-value="selected.get_website_preview_url()"/>
                                 <t t-set="proxy_preview_url" t-value="selected.get_website_preview_url(force_proxy=True)"/>
                                 <t t-set="download_url" t-value="selected.get_website_download_url()"/>
+                                <t t-if="delete_error">
+                                    <div class="alert alert-danger mb-3">
+                                        Die Datei konnte nicht vom Server entfernt werden. Bitte versuche es erneut oder prüfe die Hetzner-Verbindung und die Löschrechte.
+                                    </div>
+                                </t>
                                 <div t-att-class="'glma-preview-box %s' % selected.website_border_class">
                                     <div class="glma-preview-header">
                                         <div>
@@ -193,7 +198,7 @@
                                     <div class="glma-legend">
                                         <span><i class="glma-dot glma-dot-green"></i> Grün: alle haben freigegeben</span>
                                         <span><i class="glma-dot glma-dot-orange"></i> Orange: noch nicht abgeschlossen</span>
-                                        <span><i class="glma-dot glma-dot-red"></i> Rot: vollständig bewertet, mindestens eine Ablehnung</span>
+                                        <span><i class="glma-dot glma-dot-red"></i> „Nicht freigeben“: Datei wird sofort vom Server entfernt</span>
                                     </div>
                                 </div>
                             </t>
@@ -231,6 +236,50 @@
         }, 2500);
     }
     document.querySelectorAll('video.glma-preview-video[data-proxy-src]').forEach(activateProxyFallback);
+
+    // Die Scrollposition der linken Dateiliste bleibt beim Bewerten erhalten.
+    // Nach einer Freigabe wird der automatisch ausgewählte nächste Eintrag bei
+    // Bedarf in den sichtbaren Bereich geschoben, ohne die Liste auf Anfang 0
+    // zurückzusetzen.
+    const fileList = document.getElementById('glma-file-list');
+    if (fileList) {
+        const folderId = fileList.getAttribute('data-folder-id') || 'unknown';
+        const storageKey = 'glma-file-list-scroll-' + folderId;
+        try {
+            const savedScrollTop = window.sessionStorage.getItem(storageKey);
+            if (savedScrollTop !== null) {
+                fileList.scrollTop = parseInt(savedScrollTop, 10) || 0;
+            }
+        } catch (error) {
+            // sessionStorage kann in besonders restriktiven Browsermodi gesperrt sein.
+        }
+
+        const activeItem = fileList.querySelector('.glma-list-item.active');
+        if (activeItem) {
+            const itemTop = activeItem.offsetTop;
+            const itemBottom = itemTop + activeItem.offsetHeight;
+            const visibleTop = fileList.scrollTop;
+            const visibleBottom = visibleTop + fileList.clientHeight;
+            if (itemTop < visibleTop) {
+                fileList.scrollTop = itemTop;
+            } else if (itemBottom > visibleBottom) {
+                fileList.scrollTop = itemBottom - fileList.clientHeight;
+            }
+        }
+
+        function rememberFileListPosition() {
+            try {
+                window.sessionStorage.setItem(storageKey, String(fileList.scrollTop));
+            } catch (error) {
+                // Kein Fehler für den Benutzer, wenn der Browser Speicher blockiert.
+            }
+        }
+        fileList.addEventListener('scroll', rememberFileListPosition, {passive: true});
+        document.querySelectorAll('.glma-list-item, .glma-actions form').forEach(function (element) {
+            element.addEventListener('click', rememberFileListPosition);
+            element.addEventListener('submit', rememberFileListPosition);
+        });
+    }
 })();
             ]]></script>
         </t>

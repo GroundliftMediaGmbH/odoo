@@ -1,5 +1,14 @@
 # Groundlift Medienfreigabe
 
+
+## Version 19.0.1.0.17
+
+- „Nicht freigeben“ löscht die betroffene Datei sofort vom FTP/SFTP-Server und blendet sie unmittelbar aus der Website-Liste aus.
+- Der Odoo-Datensatz bleibt archiviert als Prüf- und Notizhistorie erhalten.
+- Scheitert die Löschung auf dem Server, bleibt die Datei sichtbar und die Website zeigt eine verständliche Fehlermeldung.
+- Nach „Freigeben“ wird automatisch die nächste Datei geöffnet.
+- Die Scrollposition der linken Dateiliste bleibt zwischen den Seitenaufrufen erhalten; der aktive Eintrag wird sichtbar gehalten.
+
 ## Version 19.0.1.0.15
 
 - Website-Oberfläche dauerhaft auf ein geräteunabhängiges Dark-Mode-Design umgestellt.
