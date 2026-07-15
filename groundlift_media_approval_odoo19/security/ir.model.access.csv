@@ -1,9 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_gl_media_connection_manager,gl.media.approval.connection manager,model_gl_media_approval_connection,base.group_user,1,1,1,1
-access_gl_media_person_manager,gl.media.approval.person manager,model_gl_media_approval_person,base.group_user,1,1,1,1
-access_gl_media_folder_manager,gl.media.approval.folder manager,model_gl_media_approval_folder,base.group_user,1,1,1,1
-access_gl_media_file_manager,gl.media.approval.file manager,model_gl_media_approval_file,base.group_user,1,1,1,1
-access_gl_media_vote_manager,gl.media.approval.vote manager,model_gl_media_approval_vote,base.group_user,1,1,1,1
-access_gl_media_upload_wizard_manager,gl.media.approval.upload.wizard manager,model_gl_media_approval_upload_wizard,base.group_user,1,1,1,1
-access_gl_media_folder_reviewer_manager,gl.media.approval.folder.reviewer manager,model_gl_media_approval_folder_reviewer,base.group_user,1,1,1,1
-access_gl_media_note_manager,gl.media.approval.note manager,model_gl_media_approval_note,base.group_user,1,0,0,0
