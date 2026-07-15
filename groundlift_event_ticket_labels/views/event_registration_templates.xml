@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="groundlift_modal_ticket_labels"
+              inherit_id="website_event.modal_ticket_registration"
+              name="Groundlift: Ticket labels and purchase button"
+              priority="100">
+
+        <!-- Multiple ticket types: use the meaningful ticket/product label. -->
+        <xpath expr="//div[@id='o_wevent_tickets_collapse']//h5[@t-field='ticket.name']"
+               position="replace">
+            <h5 itemprop="name" class="h6 my-0">
+                <t t-out="ticket._get_website_ticket_label()"/>
+            </h5>
+        </xpath>
+
+        <!-- Single ticket type: apply the same label logic. -->
+        <xpath expr="//h5[hasclass('o_wevent_single_ticket_name')]/span[@t-if='tickets']"
+               position="replace">
+            <span t-if="tickets" t-out="tickets._get_website_ticket_label()"/>
+        </xpath>
+
+        <!-- Event without an explicit ticket line. -->
+        <xpath expr="//h5[hasclass('o_wevent_single_ticket_name')]/span[@t-else]"
+               position="replace">
+            <span t-else="">Ticket</span>
+        </xpath>
+
+        <!-- Submit button for the multi-ticket layout. -->
+        <xpath expr="(//form[@id='registration_form']//button[@type='submit' and hasclass('a-submit')])[1]"
+               position="replace">
+            <button type="submit" class="btn btn-primary a-submit" disabled="" t-attf-id="#{event.id}">
+                Tickets kaufen
+                <t t-if="event.seats_limited and event.seats_max and event.seats_available &lt;= (event.seats_max * 0.2)">
+                    (nur noch <t t-out="event.seats_available"/> verfügbar)
+                </t>
+            </button>
+        </xpath>
+
+        <!-- Submit button for the single-ticket layout. -->
+        <xpath expr="(//form[@id='registration_form']//button[@type='submit' and hasclass('a-submit')])[2]"
+               position="replace">
+            <button type="submit" class="btn btn-primary a-submit" t-attf-id="#{event.id}" disabled="disabled">
+                Tickets kaufen
+                <t t-if="event.seats_limited and event.seats_max and event.seats_available &lt;= (event.seats_max * 0.2)">
+                    (nur noch <t t-out="event.seats_available"/> verfügbar)
+                </t>
+            </button>
+        </xpath>
+    </template>
+</odoo>
