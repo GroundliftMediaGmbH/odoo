@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_gl_media_homepage" model="ir.actions.act_url">
+        <field name="name">Homepage aufrufen</field>
+        <field name="url">/media-approval</field>
+        <field name="target">new</field>
+    </record>
+
+    <record id="action_gl_media_upload_page" model="ir.actions.act_url">
+        <field name="name">Dateien hochladen</field>
+        <field name="url">/media-approval/backend/upload</field>
+        <field name="target">new</field>
+    </record>
+</odoo>
