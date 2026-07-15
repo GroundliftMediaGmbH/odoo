@@ -6,20 +6,24 @@
               priority="100">
 
         <!--
-            Public ticket selection must only contain paid tickets.
-            Zero-price ticket types remain available in Odoo for internal
-            guest-list registrations, but are not offered on the website.
+            Prefer paid tickets on the public website. Free ticket types are
+            hidden whenever at least one paid ticket is available. If an event
+            only has free tickets, those tickets remain publicly selectable.
         -->
         <xpath expr="//form[@id='registration_form']" position="attributes">
-            <attribute name="t-if">event.event_registrations_open and any(not ticket.is_expired and ticket.price &gt; 0 for ticket in event.event_ticket_ids)</attribute>
+            <attribute name="t-if">event.event_registrations_open</attribute>
         </xpath>
 
         <xpath expr="//t[@t-set='tickets']" position="replace">
+            <t t-set="available_tickets"
+               t-value="event.event_ticket_ids.filtered(lambda ticket: not ticket.is_expired)"/>
+            <t t-set="paid_tickets"
+               t-value="available_tickets.filtered(lambda ticket: ticket.price &gt; 0)"/>
             <t t-set="tickets"
-               t-value="event.event_ticket_ids.filtered(lambda ticket: not ticket.is_expired and ticket.price &gt; 0)"/>
+               t-value="paid_tickets or available_tickets"/>
         </xpath>
 
-        <!-- Select the single/multiple layout according to visible paid tickets. -->
+        <!-- Select the single/multiple layout according to publicly visible tickets. -->
         <xpath expr="//t[@t-if='len(event.event_ticket_ids) &gt; 1']" position="attributes">
             <attribute name="t-if">len(tickets) &gt; 1</attribute>
         </xpath>
@@ -46,17 +50,18 @@
 
         <!--
             The website_event_sale extension calculates the price range from
-            all event ticket records by default. Exclude free/expired ticket
-            records here as well so the header never starts at 0.00 EUR.
+            all event ticket records by default. Apply the same visibility
+            rule here: paid tickets take precedence; free tickets are included
+            only when no paid ticket exists.
         -->
         <xpath expr="//div[hasclass('o_wevent_price_range')]//t[@t-set='all_prices' and contains(@t-value, &quot;mapped('price_reduce')&quot;)]"
                position="attributes">
-            <attribute name="t-value">event.event_ticket_ids.filtered(lambda ticket: not ticket.is_expired and ticket.price &gt; 0).mapped('price_reduce')</attribute>
+            <attribute name="t-value">(event.event_ticket_ids.filtered(lambda ticket: not ticket.is_expired and ticket.price &gt; 0) or event.event_ticket_ids.filtered(lambda ticket: not ticket.is_expired)).mapped('price_reduce')</attribute>
         </xpath>
 
         <xpath expr="//div[hasclass('o_wevent_price_range')]//t[@t-set='all_prices' and contains(@t-value, &quot;mapped('price_reduce_taxinc')&quot;)]"
                position="attributes">
-            <attribute name="t-value">event.event_ticket_ids.filtered(lambda ticket: not ticket.is_expired and ticket.price &gt; 0).mapped('price_reduce_taxinc')</attribute>
+            <attribute name="t-value">(event.event_ticket_ids.filtered(lambda ticket: not ticket.is_expired and ticket.price &gt; 0) or event.event_ticket_ids.filtered(lambda ticket: not ticket.is_expired)).mapped('price_reduce_taxinc')</attribute>
         </xpath>
 
         <xpath expr="//div[hasclass('o_wevent_price_range')]//t[@t-set='lowest_price']"
