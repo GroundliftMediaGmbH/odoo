@@ -2,8 +2,27 @@
 <odoo>
     <template id="groundlift_modal_ticket_labels"
               inherit_id="website_event.modal_ticket_registration"
-              name="Groundlift: Ticket labels and purchase button"
+              name="Groundlift: Paid ticket labels and purchase button"
               priority="100">
+
+        <!--
+            Public ticket selection must only contain paid tickets.
+            Zero-price ticket types remain available in Odoo for internal
+            guest-list registrations, but are not offered on the website.
+        -->
+        <xpath expr="//form[@id='registration_form']" position="attributes">
+            <attribute name="t-if">event.event_registrations_open and any(not ticket.is_expired and ticket.price &gt; 0 for ticket in event.event_ticket_ids)</attribute>
+        </xpath>
+
+        <xpath expr="//t[@t-set='tickets']" position="replace">
+            <t t-set="tickets"
+               t-value="event.event_ticket_ids.filtered(lambda ticket: not ticket.is_expired and ticket.price &gt; 0)"/>
+        </xpath>
+
+        <!-- Select the single/multiple layout according to visible paid tickets. -->
+        <xpath expr="//t[@t-if='len(event.event_ticket_ids) &gt; 1']" position="attributes">
+            <attribute name="t-if">len(tickets) &gt; 1</attribute>
+        </xpath>
 
         <!-- Multiple ticket types: use the meaningful ticket/product label. -->
         <xpath expr="//div[@id='o_wevent_tickets_collapse']//h5[@t-field='ticket.name']"
@@ -13,7 +32,7 @@
             </h5>
         </xpath>
 
-        <!-- Single ticket type: apply the same label logic. -->
+        <!-- Single paid ticket type: apply the same label logic. -->
         <xpath expr="//h5[hasclass('o_wevent_single_ticket_name')]/span[@t-if='tickets']"
                position="replace">
             <span t-if="tickets" t-out="tickets._get_website_ticket_label()"/>
@@ -23,6 +42,31 @@
         <xpath expr="//h5[hasclass('o_wevent_single_ticket_name')]/span[@t-else]"
                position="replace">
             <span t-else="">Ticket</span>
+        </xpath>
+
+        <!--
+            The website_event_sale extension calculates the price range from
+            all event ticket records by default. Exclude free/expired ticket
+            records here as well so the header never starts at 0.00 EUR.
+        -->
+        <xpath expr="//div[hasclass('o_wevent_price_range')]//t[@t-set='all_prices' and contains(@t-value, &quot;mapped('price_reduce')&quot;)]"
+               position="attributes">
+            <attribute name="t-value">event.event_ticket_ids.filtered(lambda ticket: not ticket.is_expired and ticket.price &gt; 0).mapped('price_reduce')</attribute>
+        </xpath>
+
+        <xpath expr="//div[hasclass('o_wevent_price_range')]//t[@t-set='all_prices' and contains(@t-value, &quot;mapped('price_reduce_taxinc')&quot;)]"
+               position="attributes">
+            <attribute name="t-value">event.event_ticket_ids.filtered(lambda ticket: not ticket.is_expired and ticket.price &gt; 0).mapped('price_reduce_taxinc')</attribute>
+        </xpath>
+
+        <xpath expr="//div[hasclass('o_wevent_price_range')]//t[@t-set='lowest_price']"
+               position="attributes">
+            <attribute name="t-value">min(all_prices) if all_prices else 0</attribute>
+        </xpath>
+
+        <xpath expr="//div[hasclass('o_wevent_price_range')]//t[@t-set='highest_price']"
+               position="attributes">
+            <attribute name="t-value">max(all_prices) if all_prices else 0</attribute>
         </xpath>
 
         <!-- Submit button for the multi-ticket layout. -->

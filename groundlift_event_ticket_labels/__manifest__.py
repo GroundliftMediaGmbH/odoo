@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Groundlift Event Ticket Labels",
-    "summary": "Shows ticket/product names and a 'Tickets kaufen' button on event pages",
-    "version": "19.0.1.0.0",
+    "summary": "Shows paid ticket names and a 'Tickets kaufen' button on event pages",
+    "version": "19.0.1.1.0",
     "category": "Website/Website",
     "author": "Groundlift",
     "license": "LGPL-3",
