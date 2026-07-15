@@ -1,4 +1,11 @@
-# Groundlift Medienfreigabe — Odoo 19 SH Modul
+# Groundlift Medienfreigabe
+
+## Version 19.0.1.0.15
+
+- Website-Oberfläche dauerhaft auf ein geräteunabhängiges Dark-Mode-Design umgestellt.
+- Sämtliche Texte, Metadaten, Formularfelder, Karten, Hinweise und Buttons kontrastreich hell dargestellt.
+- Dark-Mode-Styling bleibt auf die Medienfreigabe-Seiten begrenzt und verändert die übrige Odoo-Website nicht.
+ — Odoo 19 SH Modul
 
 Version: 19.0.1.0.9
 
