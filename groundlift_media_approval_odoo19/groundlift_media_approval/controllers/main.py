@@ -5,6 +5,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request as UrlRequest, urlopen
 
 from odoo import http, _
+from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.http import request, Response
 from werkzeug.exceptions import NotFound, Forbidden, BadRequest
 from werkzeug.utils import redirect as werkzeug_redirect
@@ -92,6 +93,9 @@ class GlMediaApprovalWebsite(http.Controller):
             "folder": folder,
             "files": files,
             "selected": selected,
+            "note_saved": kw.get("note_saved"),
+            "note_error": kw.get("note_error"),
+            "delete_error": kw.get("delete_error"),
         })
 
     @http.route("/media-approval/vote/<int:file_id>", type="http", auth="public", website=True, methods=["POST"], sitemap=False)
@@ -100,8 +104,60 @@ class GlMediaApprovalWebsite(http.Controller):
         media = request.env["gl.media.approval.file"].sudo().browse(file_id)
         if not media.exists() or not media.active or media.deleted_remote:
             raise NotFound()
-        media.vote_from_website(person, decision)
-        return request.redirect(f"/media-approval/folder/{media.folder_id.id}?file_id={media.id}")
+        if person not in media.approval_person_ids:
+            raise Forbidden()
+
+        folder = media.folder_id
+        domain = [
+            ("folder_id", "=", folder.id),
+            ("active", "=", True),
+            ("deleted_remote", "=", False),
+            ("approval_person_ids", "in", [person.id]),
+        ]
+        files = request.env["gl.media.approval.file"].sudo().search(domain)
+        file_ids = files.ids
+        current_index = file_ids.index(media.id) if media.id in file_ids else -1
+        next_file_id = file_ids[current_index + 1] if current_index >= 0 and current_index + 1 < len(file_ids) else False
+        previous_file_id = file_ids[current_index - 1] if current_index > 0 else False
+
+        if decision == "rejected":
+            try:
+                # Die Datenbankänderungen werden bei einem Löschfehler sauber
+                # zurückgerollt. Erst nach erfolgreicher Remote-Löschung wird
+                # der Datensatz archiviert und aus der Website-Liste entfernt.
+                with request.env.cr.savepoint():
+                    media.reject_and_delete_from_website(person)
+            except (AccessError, UserError, ValidationError):
+                return request.redirect(
+                    f"/media-approval/folder/{folder.id}?file_id={media.id}&delete_error=1"
+                )
+            target_file_id = next_file_id or previous_file_id
+        else:
+            media.vote_from_website(person, decision)
+            # Nach „Freigeben“ direkt zur folgenden Datei weitergehen. Nur wenn
+            # es keine weitere Datei gibt, bleibt die letzte Datei geöffnet.
+            target_file_id = next_file_id or media.id
+
+        redirect_url = f"/media-approval/folder/{folder.id}"
+        if target_file_id:
+            redirect_url += f"?file_id={target_file_id}"
+        return request.redirect(redirect_url)
+
+
+    @http.route("/media-approval/note/<int:file_id>", type="http", auth="public", website=True, methods=["POST"], sitemap=False)
+    def add_note(self, file_id, note_body=None, **post):
+        person = self._require_person()
+        media = request.env["gl.media.approval.file"].sudo().browse(file_id)
+        if not media.exists() or not media.active or media.deleted_remote:
+            raise NotFound()
+        if person not in media.approval_person_ids:
+            raise Forbidden()
+        redirect_base = f"/media-approval/folder/{media.folder_id.id}?file_id={media.id}"
+        try:
+            media.add_note_from_website(person, note_body or post.get("note_body"))
+        except (AccessError, UserError, ValidationError):
+            return request.redirect(redirect_base + "&note_error=1#notizen")
+        return request.redirect(redirect_base + "&note_saved=1#notizen")
 
     @http.route("/media-approval/preview/<int:file_id>", type="http", auth="public", website=True, methods=["GET", "HEAD"], sitemap=False, csrf=False)
     def preview(self, file_id, **kw):

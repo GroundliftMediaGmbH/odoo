@@ -66,7 +66,16 @@
                                 </list>
                             </field>
                         </page>
-                        <page string="Notiz">
+                        <page string="Video-Notizen">
+                            <field name="note_ids" readonly="1">
+                                <list create="false" edit="false" delete="false" default_order="create_date desc">
+                                    <field name="create_date" string="Zeitpunkt"/>
+                                    <field name="person_id"/>
+                                    <field name="body"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Interne Notiz">
                             <field name="note"/>
                         </page>
                     </notebook>

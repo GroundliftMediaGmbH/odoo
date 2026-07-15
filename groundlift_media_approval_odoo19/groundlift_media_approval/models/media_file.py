@@ -47,6 +47,7 @@ class GlMediaApprovalFile(models.Model):
         help="Fester Personen-Snapshot. Später hinzugefügte Personen werden für diese Datei nicht nachgezogen.",
     )
     vote_ids = fields.One2many("gl.media.approval.vote", "file_id")
+    note_ids = fields.One2many("gl.media.approval.note", "file_id", string="Video-Notizen")
     required_count = fields.Integer(compute="_compute_vote_counts", store=True)
     approved_count = fields.Integer(compute="_compute_vote_counts", store=True)
     rejected_count = fields.Integer(compute="_compute_vote_counts", store=True)
@@ -65,6 +66,26 @@ class GlMediaApprovalFile(models.Model):
     deleted_remote = fields.Boolean(readonly=True, copy=False)
     deleted_remote_date = fields.Datetime(readonly=True, copy=False)
     note = fields.Text()
+
+
+    def add_note_from_website(self, person, body):
+        self.ensure_one()
+        if not person or not person.exists() or not person.active:
+            raise AccessError(_("Die angemeldete Person ist nicht mehr aktiv."))
+        if person not in self.approval_person_ids:
+            raise AccessError(_("Du bist für dieses Video nicht als bewertende Person eingetragen."))
+        if self.preview_media_type != "video":
+            raise ValidationError(_("Notizen können nur zu Videos angelegt werden."))
+        text = (body or "").strip()
+        if not text:
+            raise ValidationError(_("Bitte gib zuerst eine Notiz ein."))
+        if len(text) > 10000:
+            raise ValidationError(_("Die Notiz darf maximal 10.000 Zeichen lang sein."))
+        return self.env["gl.media.approval.note"].sudo().create({
+            "file_id": self.id,
+            "person_id": person.id,
+            "body": text,
+        })
 
     _sql_constraints = [
         ("remote_path_uniq", "unique(connection_id, remote_path)", "Diese Datei existiert für diese Verbindung bereits."),
@@ -302,6 +323,58 @@ class GlMediaApprovalFile(models.Model):
         else:
             Vote.create(dict(vals, file_id=self.id, person_id=person.id))
         self._recompute_decision_state()
+        return True
+
+    def reject_and_delete_from_website(self, person):
+        """Reject immediately, remove the remote file and archive the record.
+
+        The inactive Odoo record, vote and notes remain available in the backend
+        as an audit trail, while the file disappears from the public review list.
+        """
+        self.ensure_one()
+        if not person or not person.exists() or not person.active:
+            raise AccessError(_("Die angemeldete Person ist nicht mehr aktiv."))
+        if person.id not in self.approval_person_ids.ids:
+            raise AccessError(_("Diese Person gehört nicht zum Freigabe-Kreis dieser Datei."))
+        if self.deleted_remote or not self.active:
+            raise UserError(_("Diese Datei wurde bereits entfernt."))
+
+        self.vote_from_website(person, "rejected")
+
+        remote_path = self.remote_path
+        remote_folder = posixpath.dirname(remote_path)
+        remote_name = posixpath.basename(remote_path)
+        with self.connection_id._client() as client:
+            removed = client.delete_file(remote_path)
+            if not removed:
+                # FTP/SFTP melden bei einer bereits fehlenden Datei ebenfalls
+                # False. Nur wenn sie nachweislich noch vorhanden ist, gilt die
+                # Löschung als fehlgeschlagen.
+                try:
+                    remaining_names = {
+                        posixpath.basename(name.rstrip("/"))
+                        for name in client.list_dir(remote_folder)
+                    }
+                except Exception as exc:
+                    raise UserError(_(
+                        "Die Datei konnte auf dem Server nicht sicher gelöscht werden. "
+                        "Bitte die Hetzner-Verbindung prüfen.\nPfad: %s\nFehler: %s"
+                    ) % (remote_path, exc)) from exc
+                if remote_name in remaining_names:
+                    raise UserError(_(
+                        "Die Datei konnte nicht vom Server gelöscht werden. "
+                        "Bitte Schreib- und Löschrechte prüfen.\nPfad: %s"
+                    ) % remote_path)
+
+        now = fields.Datetime.now()
+        self.write({
+            "decision_state": "rejected",
+            "last_decision_date": now,
+            "rejection_finalized_date": now,
+            "deleted_remote": True,
+            "deleted_remote_date": now,
+            "active": False,
+        })
         return True
 
     def get_person_decision(self, person):

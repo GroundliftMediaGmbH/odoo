@@ -42,6 +42,14 @@
               sequence="30"
               groups="base.group_user"/>
 
+
+    <menuitem id="menu_gl_media_note"
+              name="Video-Notizen"
+              parent="menu_gl_media_operation"
+              action="action_gl_media_note"
+              sequence="40"
+              groups="base.group_user"/>
+
     <menuitem id="menu_gl_media_config"
               name="Konfiguration"
               parent="menu_gl_media_root"

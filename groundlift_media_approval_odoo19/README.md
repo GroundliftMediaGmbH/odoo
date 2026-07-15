@@ -1,5 +1,14 @@
 # Groundlift Medienfreigabe
 
+
+## Version 19.0.1.0.17
+
+- „Nicht freigeben“ löscht die betroffene Datei sofort vom FTP/SFTP-Server und blendet sie unmittelbar aus der Website-Liste aus.
+- Der Odoo-Datensatz bleibt archiviert als Prüf- und Notizhistorie erhalten.
+- Scheitert die Löschung auf dem Server, bleibt die Datei sichtbar und die Website zeigt eine verständliche Fehlermeldung.
+- Nach „Freigeben“ wird automatisch die nächste Datei geöffnet.
+- Die Scrollposition der linken Dateiliste bleibt zwischen den Seitenaufrufen erhalten; der aktive Eintrag wird sichtbar gehalten.
+
 ## Version 19.0.1.0.15
 
 - Website-Oberfläche dauerhaft auf ein geräteunabhängiges Dark-Mode-Design umgestellt.
@@ -117,3 +126,10 @@ Download-Erzwingen robuster gemacht:
 - Danach leitet Odoo auf eine kurzzeitig signierte Hetzner-URL weiter.
 - Die große Datei läuft weiterhin direkt von Hetzner zum Browser; Odoo holt sie nicht per FTP/SFTP.
 - Der PHP-Helfer setzt serverseitig `Content-Disposition: attachment`, unterstützt Range-Requests und blockiert abgelaufene, manipulierte oder pfadfremde Download-Links.
+
+
+## Version 19.0.1.0.16
+- Notizbereich pro Video auf der PIN-geschützten Website.
+- Jede Notiz speichert Verfasser und Zeitpunkt unveränderlich mit.
+- Alle für das Video eingetragenen Personen sehen die Notizen.
+- Odoo-Backend-Übersicht „Video-Notizen“.

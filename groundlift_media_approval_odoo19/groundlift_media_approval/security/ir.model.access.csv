@@ -6,3 +6,4 @@ access_gl_media_file_manager,gl.media.approval.file manager,model_gl_media_appro
 access_gl_media_vote_manager,gl.media.approval.vote manager,model_gl_media_approval_vote,base.group_user,1,1,1,1
 access_gl_media_upload_wizard_manager,gl.media.approval.upload.wizard manager,model_gl_media_approval_upload_wizard,base.group_user,1,1,1,1
 access_gl_media_folder_reviewer_manager,gl.media.approval.folder.reviewer manager,model_gl_media_approval_folder_reviewer,base.group_user,1,1,1,1
+access_gl_media_note_manager,gl.media.approval.note manager,model_gl_media_approval_note,base.group_user,1,0,0,0

@@ -2,13 +2,14 @@
 
 Dieses Modul ändert den Ticket-Auswahldialog auf öffentlichen Veranstaltungsseiten:
 
-- Es werden ausschließlich Ticketarten mit einem Preis **größer als 0,00 €** angeboten.
-- Kostenlose Ticketarten, beispielsweise interne **Gästelistentickets**, bleiben in Odoo erhalten, werden auf der öffentlichen Veranstaltungsseite jedoch nicht angezeigt.
-- Auch die Preisspanne im Kopf des Dialogs berücksichtigt nur kostenpflichtige Tickets.
+- Sobald mindestens ein Ticket mit einem Preis **größer als 0,00 €** vorhanden ist, werden öffentlich ausschließlich die kostenpflichtigen Ticketarten angeboten.
+- Kostenlose Ticketarten, beispielsweise interne **Gästelistentickets**, bleiben dann im öffentlichen Dialog verborgen.
+- Gibt es für eine Veranstaltung dagegen **ausschließlich kostenlose Tickets**, werden diese ganz normal angezeigt und können gebucht werden.
+- Die Preisanzeige im Kopf des Dialogs berücksichtigt dieselbe Regel.
 - Bei generischen oder doppelten Ticketnamen wie **Registrierung** wird der Name des verknüpften Produkts angezeigt, z. B. **Stehplatz** oder **Sitzplatz**.
 - Individuell gepflegte Ticketnamen bleiben erhalten.
 - Der rote Absende-Button heißt **Tickets kaufen**.
-- Funktioniert sowohl bei einem einzelnen kostenpflichtigen Tickettyp als auch bei mehreren Tickettypen.
+- Funktioniert bei einzelnen und mehreren Tickettypen sowie bei reinen Kostenlos-Veranstaltungen.
 
 ## Update auf Odoo.sh
 

@@ -431,3 +431,98 @@ body:has(.glma-page) footer p {
         padding: 12px;
     }
 }
+
+
+/* Video-Notizen */
+.glma-notes {
+    margin-top: 22px;
+    padding: 20px;
+    border: 1px solid #343b47;
+    border-radius: 14px;
+    background: #151920 !important;
+}
+
+.glma-notes-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.glma-notes-heading h3 {
+    font-size: 1.15rem;
+}
+
+.glma-note-count {
+    flex: 0 0 auto;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #2a303a !important;
+    color: #fff !important;
+    font-size: 0.85rem;
+}
+
+.glma-note-form {
+    margin-top: 18px;
+    padding: 16px;
+    border: 1px solid #303743;
+    border-radius: 12px;
+    background: #0f1319 !important;
+}
+
+.glma-note-form textarea {
+    resize: vertical;
+    min-height: 110px;
+}
+
+.glma-note-list {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.glma-note-item,
+.glma-note-empty {
+    padding: 15px 16px;
+    border: 1px solid #303743;
+    border-radius: 12px;
+    background: #0f1319 !important;
+}
+
+.glma-note-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    align-items: center;
+    margin-bottom: 8px;
+    color: rgba(255, 255, 255, 0.78) !important;
+    font-size: 0.88rem;
+}
+
+.glma-note-body {
+    color: #fff !important;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.55;
+}
+
+.glma-note-empty {
+    color: rgba(255, 255, 255, 0.72) !important;
+    text-align: center;
+}
+
+@media (max-width: 575px) {
+    .glma-notes {
+        padding: 14px;
+    }
+
+    .glma-notes-heading,
+    .glma-note-form .d-flex {
+        align-items: stretch !important;
+        flex-direction: column;
+    }
+
+    .glma-note-form .btn {
+        width: 100%;
+    }
+}
