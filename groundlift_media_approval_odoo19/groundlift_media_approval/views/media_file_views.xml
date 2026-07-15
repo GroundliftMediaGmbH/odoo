@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_media_file_tree" model="ir.ui.view">
+        <field name="name">gl.media.approval.file.tree</field>
+        <field name="model">gl.media.approval.file</field>
+        <field name="arch" type="xml">
+            <list decoration-success="decision_state == 'approved'" decoration-danger="decision_state == 'rejected'" decoration-warning="decision_state == 'pending'">
+                <field name="name"/>
+                <field name="folder_id"/>
+                <field name="media_type"/>
+                <field name="decision_state"/>
+                <field name="voted_count"/>
+                <field name="required_count"/>
+                <field name="approved_count"/>
+                <field name="rejected_count"/>
+                <field name="size_bytes"/>
+                <field name="upload_date"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_media_file_form" model="ir.ui.view">
+        <field name="name">gl.media.approval.file.form</field>
+        <field name="model">gl.media.approval.file</field>
+        <field name="arch" type="xml">
+            <form string="Datei">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="folder_id"/>
+                            <field name="connection_id" readonly="1"/>
+                            <field name="media_type" readonly="1"/>
+                            <field name="mimetype"/>
+                        </group>
+                        <group>
+                            <field name="decision_state" readonly="1"/>
+                            <field name="required_count" readonly="1"/>
+                            <field name="voted_count" readonly="1"/>
+                            <field name="approved_count" readonly="1"/>
+                            <field name="rejected_count" readonly="1"/>
+                            <field name="pending_count" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="remote_filename" readonly="1"/>
+                        <field name="remote_path" readonly="1"/>
+                        <field name="size_bytes" readonly="1"/>
+                        <field name="upload_date" readonly="1"/>
+                        <field name="last_decision_date" readonly="1"/>
+                        <field name="rejection_finalized_date" readonly="1"/>
+                        <field name="deleted_remote" readonly="1"/>
+                        <field name="deleted_remote_date" readonly="1"/>
+                    </group>
+                    <notebook>
+                        <page string="Freigabe-Kreis">
+                            <field name="approval_person_ids" widget="many2many_tags"/>
+                        </page>
+                        <page string="Stimmen">
+                            <field name="vote_ids">
+                                <list editable="bottom">
+                                    <field name="person_id"/>
+                                    <field name="decision"/>
+                                    <field name="voted_at"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Notiz">
+                            <field name="note"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_media_file" model="ir.actions.act_window">
+        <field name="name">Dateien</field>
+        <field name="res_model">gl.media.approval.file</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>
