@@ -5,6 +5,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request as UrlRequest, urlopen
 
 from odoo import http, _
+from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.http import request, Response
 from werkzeug.exceptions import NotFound, Forbidden, BadRequest
 from werkzeug.utils import redirect as werkzeug_redirect
@@ -92,6 +93,8 @@ class GlMediaApprovalWebsite(http.Controller):
             "folder": folder,
             "files": files,
             "selected": selected,
+            "note_saved": kw.get("note_saved"),
+            "note_error": kw.get("note_error"),
         })
 
     @http.route("/media-approval/vote/<int:file_id>", type="http", auth="public", website=True, methods=["POST"], sitemap=False)
@@ -102,6 +105,22 @@ class GlMediaApprovalWebsite(http.Controller):
             raise NotFound()
         media.vote_from_website(person, decision)
         return request.redirect(f"/media-approval/folder/{media.folder_id.id}?file_id={media.id}")
+
+
+    @http.route("/media-approval/note/<int:file_id>", type="http", auth="public", website=True, methods=["POST"], sitemap=False)
+    def add_note(self, file_id, note_body=None, **post):
+        person = self._require_person()
+        media = request.env["gl.media.approval.file"].sudo().browse(file_id)
+        if not media.exists() or not media.active or media.deleted_remote:
+            raise NotFound()
+        if person not in media.approval_person_ids:
+            raise Forbidden()
+        redirect_base = f"/media-approval/folder/{media.folder_id.id}?file_id={media.id}"
+        try:
+            media.add_note_from_website(person, note_body or post.get("note_body"))
+        except (AccessError, UserError, ValidationError):
+            return request.redirect(redirect_base + "&note_error=1#notizen")
+        return request.redirect(redirect_base + "&note_saved=1#notizen")
 
     @http.route("/media-approval/preview/<int:file_id>", type="http", auth="public", website=True, methods=["GET", "HEAD"], sitemap=False, csrf=False)
     def preview(self, file_id, **kw):

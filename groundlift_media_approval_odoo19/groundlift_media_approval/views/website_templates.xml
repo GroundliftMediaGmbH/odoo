@@ -145,6 +145,51 @@
                                             <button class="btn btn-secondary btn-lg" disabled="disabled">Download</button>
                                         </t>
                                     </div>
+
+                                    <t t-if="selected.preview_media_type == 'video'">
+                                        <section id="notizen" class="glma-notes">
+                                            <div class="glma-notes-heading">
+                                                <div>
+                                                    <h3 class="mb-1">Notizen zum Video</h3>
+                                                    <div class="text-muted">Alle eingetragenen Personen dieses Videos können die Notizen sehen.</div>
+                                                </div>
+                                                <span class="glma-note-count"><t t-esc="len(selected.note_ids)"/> Notiz(en)</span>
+                                            </div>
+
+                                            <t t-if="note_saved">
+                                                <div class="alert alert-success mt-3 mb-0">Die Notiz wurde gespeichert.</div>
+                                            </t>
+                                            <t t-if="note_error">
+                                                <div class="alert alert-danger mt-3 mb-0">Die Notiz konnte nicht gespeichert werden. Bitte prüfe den Text und versuche es erneut.</div>
+                                            </t>
+
+                                            <form method="post" t-att-action="'/media-approval/note/%s' % selected.id" class="glma-note-form">
+                                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                <label class="form-label" for="glma_note_body">Neue Notiz als <strong t-esc="person.name"/></label>
+                                                <textarea id="glma_note_body" name="note_body" class="form-control" rows="4" maxlength="10000" required="required" placeholder="Notiz, Änderungswunsch oder Rückmeldung zum Video eingeben …"></textarea>
+                                                <div class="d-flex justify-content-between align-items-center gap-3 mt-3">
+                                                    <div class="small text-muted">Der Name und der Zeitpunkt werden automatisch gespeichert.</div>
+                                                    <button type="submit" class="btn btn-primary">Notiz speichern</button>
+                                                </div>
+                                            </form>
+
+                                            <div class="glma-note-list">
+                                                <t t-if="not selected.note_ids">
+                                                    <div class="glma-note-empty">Zu diesem Video gibt es noch keine Notizen.</div>
+                                                </t>
+                                                <t t-foreach="selected.note_ids" t-as="note">
+                                                    <article class="glma-note-item">
+                                                        <div class="glma-note-meta">
+                                                            <strong t-esc="note.person_id.name"/>
+                                                            <span aria-hidden="true">·</span>
+                                                            <time><span t-field="note.create_date"/></time>
+                                                        </div>
+                                                        <div class="glma-note-body" t-esc="note.body"/>
+                                                    </article>
+                                                </t>
+                                            </div>
+                                        </section>
+                                    </t>
                                     <div class="glma-legend">
                                         <span><i class="glma-dot glma-dot-green"></i> Grün: alle haben freigegeben</span>
                                         <span><i class="glma-dot glma-dot-orange"></i> Orange: noch nicht abgeschlossen</span>

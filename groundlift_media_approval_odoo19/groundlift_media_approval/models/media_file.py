@@ -47,6 +47,7 @@ class GlMediaApprovalFile(models.Model):
         help="Fester Personen-Snapshot. Später hinzugefügte Personen werden für diese Datei nicht nachgezogen.",
     )
     vote_ids = fields.One2many("gl.media.approval.vote", "file_id")
+    note_ids = fields.One2many("gl.media.approval.note", "file_id", string="Video-Notizen")
     required_count = fields.Integer(compute="_compute_vote_counts", store=True)
     approved_count = fields.Integer(compute="_compute_vote_counts", store=True)
     rejected_count = fields.Integer(compute="_compute_vote_counts", store=True)
@@ -65,6 +66,26 @@ class GlMediaApprovalFile(models.Model):
     deleted_remote = fields.Boolean(readonly=True, copy=False)
     deleted_remote_date = fields.Datetime(readonly=True, copy=False)
     note = fields.Text()
+
+
+    def add_note_from_website(self, person, body):
+        self.ensure_one()
+        if not person or not person.exists() or not person.active:
+            raise AccessError(_("Die angemeldete Person ist nicht mehr aktiv."))
+        if person not in self.approval_person_ids:
+            raise AccessError(_("Du bist für dieses Video nicht als bewertende Person eingetragen."))
+        if self.preview_media_type != "video":
+            raise ValidationError(_("Notizen können nur zu Videos angelegt werden."))
+        text = (body or "").strip()
+        if not text:
+            raise ValidationError(_("Bitte gib zuerst eine Notiz ein."))
+        if len(text) > 10000:
+            raise ValidationError(_("Die Notiz darf maximal 10.000 Zeichen lang sein."))
+        return self.env["gl.media.approval.note"].sudo().create({
+            "file_id": self.id,
+            "person_id": person.id,
+            "body": text,
+        })
 
     _sql_constraints = [
         ("remote_path_uniq", "unique(connection_id, remote_path)", "Diese Datei existiert für diese Verbindung bereits."),
