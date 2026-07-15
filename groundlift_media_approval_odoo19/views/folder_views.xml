@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_media_folder_tree" model="ir.ui.view">
+        <field name="name">gl.media.approval.folder.tree</field>
+        <field name="model">gl.media.approval.folder</field>
+        <field name="arch" type="xml">
+            <list>
+                <header>
+                    <button name="%(action_gl_media_homepage)d" type="action" string="Homepage aufrufen" display="always" class="btn-primary"/>
+                </header>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="connection_id"/>
+                <field name="remote_dir_name"/>
+                <field name="remote_path"/>
+                <field name="file_count"/>
+                <field name="reviewer_count"/>
+                <field name="website_visible"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_media_folder_form" model="ir.ui.view">
+        <field name="name">gl.media.approval.folder.form</field>
+        <field name="model">gl.media.approval.folder</field>
+        <field name="arch" type="xml">
+            <form string="Unterordner">
+                <header>
+                    <button name="action_create_remote_folder" type="object" string="Remote-Ordner anlegen" class="btn-primary"/>
+                    <button name="action_open_upload_wizard" type="object" string="Dateien hochladen" class="btn-secondary"/>
+                    <button name="action_open_homepage" type="object" string="Homepage aufrufen" class="btn-secondary"/>
+                    <button name="action_open_persons" type="object" string="Personen / PINs öffnen" class="btn-secondary"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="sequence"/>
+                            <field name="active"/>
+                            <field name="website_visible"/>
+                        </group>
+                        <group>
+                            <field name="connection_id"/>
+                            <field name="remote_dir_name"/>
+                            <field name="remote_path" readonly="1"/>
+                            <field name="file_count" readonly="1"/>
+                            <field name="reviewer_count" readonly="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Bewertende Personen">
+                            <div class="alert alert-info" role="alert">
+                                Hier die Personen eintragen oder auswählen, die diesen Unterordner bewerten dürfen.
+                                Jede Person braucht eine eindeutige 6-stellige PIN.
+                                Diese Liste wird beim Upload neuer Dateien als fester Freigabe-Kreis gespeichert.
+                                Spätere Änderungen wirken nur auf neue Uploads, nicht rückwirkend auf bestehende Dateien.
+                            </div>
+                            <field name="reviewer_line_ids" nolabel="1" context="{'default_active': True}">
+                                <list editable="bottom" create="1" delete="1">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="person_id" string="Bestehende Person" options="{'no_create_edit': False}"/>
+                                    <field name="name" required="1"/>
+                                    <field name="pin_code" string="PIN" required="1"/>
+                                    <field name="email"/>
+                                    <field name="active"/>
+                                </list>
+                            </field>
+                            <group string="Altbestand / technische Zuordnung" invisible="1">
+                                <field name="reviewer_person_ids" widget="many2many_tags"/>
+                            </group>
+                        </page>
+                        <page string="Dateien">
+                            <field name="file_ids" readonly="1">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="media_type"/>
+                                    <field name="decision_state"/>
+                                    <field name="voted_count"/>
+                                    <field name="required_count"/>
+                                    <field name="remote_path"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Notiz">
+                            <field name="note"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_media_folder" model="ir.actions.act_window">
+        <field name="name">Unterordner</field>
+        <field name="res_model">gl.media.approval.folder</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>
