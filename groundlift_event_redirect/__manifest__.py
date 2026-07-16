@@ -1,7 +1,7 @@
 {
     "name": "Groundlift Event Redirect",
     "summary": "Redirects the Odoo event overview to the Groundlift public events page.",
-    "version": "19.0.1.1.0",
+    "version": "19.0.1.1.1",
     "category": "Website/Website",
     "author": "Groundlift",
     "website": "https://groundlift.de",
