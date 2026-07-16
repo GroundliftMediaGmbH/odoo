@@ -212,13 +212,20 @@ class EventEvent(models.Model):
             _logger.info("Groundlift Event Sync Export übersprungen: deaktiviert.")
             return False
 
-        params = self._groundlift_get_params()
+        # event.event.name is a translated field in Odoo. A manual export runs
+        # in the current user's language, while an ir.cron may run in another
+        # user's language. Always export in one explicitly configured language
+        # so the five-minute cron cannot restore an older translation.
+        export_lang = self._groundlift_export_language()
+        export_model = self.with_context(lang=export_lang)
+
+        params = export_model._groundlift_get_params()
         if not params["sftp_host"] or not params["sftp_username"] or not params["remote_snippet_path"]:
             _logger.warning("Groundlift Event Sync Export übersprungen: SFTP-Parameter unvollständig.")
             return False
 
-        public_events = self._groundlift_collect_public_events()
-        snippet_html = self._groundlift_render_snippet(public_events)
+        public_events = export_model._groundlift_collect_public_events()
+        snippet_html = export_model._groundlift_render_snippet(public_events)
         payload_json = json.dumps(
             [event._groundlift_as_public_dict() for event in public_events],
             ensure_ascii=False,
@@ -230,8 +237,9 @@ class EventEvent(models.Model):
             if params["remote_json_path"]:
                 self._groundlift_sftp_upload(params["remote_json_path"], payload_json.encode("utf-8"))
             _logger.info(
-                "Groundlift Event Sync: %s Event(s) exportiert.",
+                "Groundlift Event Sync: %s Event(s) exportiert (Sprache: %s).",
                 len(public_events),
+                export_lang,
             )
             return True
         except Exception:
@@ -598,6 +606,15 @@ class EventEvent(models.Model):
             )
             return False
         return True
+
+    @api.model
+    def _groundlift_export_language(self):
+        """Return the fixed language used for every public website export."""
+        value = self.env["ir.config_parameter"].sudo().get_param(
+            "groundlift_event_sync.export_lang",
+            "de_DE",
+        )
+        return (value or "de_DE").strip() or "de_DE"
 
     @api.model
     def _groundlift_get_params(self):
