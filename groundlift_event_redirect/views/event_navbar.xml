@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Do not select links by their translated title attribute. Odoo 19
+        rejects translated attributes such as "title" as inheritance selectors.
+
+        The mobile and desktop links are selected through stable structural IDs
+        and their non-translated href instead. target="_top" ensures that the
+        external page replaces Odoo's website-preview iframe rather than being
+        loaded inside it.
+    -->
+    <template id="groundlift_event_navbar_external_links"
+              inherit_id="website_event.navbar"
+              name="Groundlift external event overview links">
+        <xpath expr="//div[@id='o_wevent_submenu_mobile']/a[@href='/event']"
+               position="attributes">
+            <attribute name="href">https://groundlift.de/public-events.php</attribute>
+            <attribute name="target">_top</attribute>
+        </xpath>
+
+        <xpath expr="//div[@id='o_wevent_submenu_desktop']//a[@href='/event']"
+               position="attributes">
+            <attribute name="href">https://groundlift.de/public-events.php</attribute>
+            <attribute name="target">_top</attribute>
+        </xpath>
+    </template>
+</odoo>
