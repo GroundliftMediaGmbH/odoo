@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import posixpath
 import re
 from datetime import datetime, time, timedelta, timezone
@@ -69,15 +70,37 @@ class EventEvent(models.Model):
 
     def action_groundlift_export_public_site(self):
         self.ensure_one()
-        self.env["event.event"].sudo().groundlift_export_public_site()
+        sync_model = self.env["event.event"].sudo()
+        stage = sync_model._groundlift_odoo_stage()
+
+        if not sync_model._groundlift_is_export_environment_allowed():
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "title": _("Groundlift Export blockiert"),
+                    "message": _(
+                        "Dieser Odoo.sh-Build ist '%s'. Der Export auf die Live-Website "
+                        "ist ausschließlich in Production erlaubt."
+                    ) % (stage or _("unbekannt")),
+                    "type": "warning",
+                    "sticky": True,
+                },
+            }
+
+        exported = sync_model.groundlift_export_public_site()
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",
             "params": {
                 "title": _("Groundlift Export"),
-                "message": _("Der Export für die externe public-events-Seite wurde ausgeführt."),
-                "type": "success",
-                "sticky": False,
+                "message": (
+                    _("Der Export für die externe public-events-Seite wurde ausgeführt.")
+                    if exported
+                    else _("Der Export wurde nicht ausgeführt. Bitte Systemparameter und Odoo-Log prüfen.")
+                ),
+                "type": "success" if exported else "danger",
+                "sticky": not exported,
             },
         }
 
@@ -541,9 +564,40 @@ class EventEvent(models.Model):
     # -------------------------------------------------------------------------
 
     @api.model
+    def _groundlift_odoo_stage(self):
+        """Return Odoo.sh stage: production, staging, dev or an empty string."""
+        return (os.environ.get("ODOO_STAGE") or "").strip().lower()
+
+    @api.model
+    def _groundlift_is_export_environment_allowed(self):
+        """Prevent copied staging/dev databases from overwriting the live Hetzner files."""
+        stage = self._groundlift_odoo_stage()
+        allow_non_production = self.env["ir.config_parameter"].sudo().get_param(
+            "groundlift_event_sync.allow_non_production",
+            "False",
+        )
+        allow_non_production = str(allow_non_production).lower() in {"1", "true", "yes", "on"}
+
+        # Outside Odoo.sh ODOO_STAGE may be absent. In that case the explicit
+        # enabled parameter remains authoritative for backwards compatibility.
+        return not stage or stage == "production" or allow_non_production
+
+    @api.model
     def _groundlift_sync_enabled(self):
         value = self.env["ir.config_parameter"].sudo().get_param("groundlift_event_sync.enabled", "False")
-        return str(value).lower() in {"1", "true", "yes", "on"}
+        enabled = str(value).lower() in {"1", "true", "yes", "on"}
+        if not enabled:
+            return False
+
+        if not self._groundlift_is_export_environment_allowed():
+            _logger.warning(
+                "Groundlift Event Sync blockiert: ODOO_STAGE=%s, Datenbank=%s. "
+                "Live-Export ist nur in Production erlaubt.",
+                self._groundlift_odoo_stage() or "unknown",
+                self.env.cr.dbname,
+            )
+            return False
+        return True
 
     @api.model
     def _groundlift_get_params(self):
