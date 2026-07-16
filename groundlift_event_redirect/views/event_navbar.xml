@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Use the real external URL for Odoo's event breadcrumb links.
+        The website preview can then recognize the link as external and open
+        it in the top-level browser window instead of redirecting its iframe.
+    -->
+    <template id="groundlift_event_navbar_external_links"
+              inherit_id="website_event.navbar"
+              name="Groundlift external event overview links">
+        <xpath expr="//a[@title='All Events']" position="attributes">
+            <attribute name="href">https://groundlift.de/public-events.php</attribute>
+        </xpath>
+        <xpath expr="//a[@title='Back to All Events']" position="attributes">
+            <attribute name="href">https://groundlift.de/public-events.php</attribute>
+        </xpath>
+    </template>
+</odoo>
