@@ -74,3 +74,16 @@ Das Modul ergänzt jede Veranstaltung um einen Tab **Groundlift Website** mit:
 
 Nicht mehr per JavaScript im Browser nachladen, sondern auf Hetzner **serverseitig** den exportierten HTML-Snippet in die Seite einbinden. Dafür gibt es in diesem Paket eine vorbereitete `public-events.php`.
 
+
+
+## Version 19.0.1.0.4 – feste Exportsprache
+
+Odoo 19 speichert den Veranstaltungstitel `event.event.name` als übersetzbares Feld.
+Der manuelle Button läuft in der Sprache des angemeldeten Benutzers, ein Cronjob kann
+hingegen in einer anderen Benutzersprache laufen. Dadurch konnte der manuelle Export
+den neuen deutschen Titel schreiben und der Fünf-Minuten-Cron anschließend eine alte
+Übersetzung wiederherstellen.
+
+Alle manuellen und automatischen Exporte verwenden nun konsequent `de_DE`.
+Optional kann die Sprache über den Systemparameter
+`groundlift_event_sync.export_lang` geändert werden.
