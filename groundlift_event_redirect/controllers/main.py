@@ -9,18 +9,17 @@ REDIRECT_URL = "https://groundlift.de/public-events.php"
 class GroundliftWebsiteEventRedirect(WebsiteEventController):
     """Redirect the public Odoo event overview to Groundlift.
 
-    Odoo's backend website preview renders frontend pages inside a same-origin
-    iframe. Redirecting that iframe to another domain breaks the website
-    preview because the browser then blocks access to the iframe document.
-    Therefore authenticated iframe/editor requests keep Odoo's normal event
-    overview, while regular browser requests are redirected.
+    Odoo renders frontend pages in a same-origin iframe while the website
+    builder is open. A cross-domain redirect inside that iframe prevents Odoo
+    from reading the iframe document. Therefore editor/preview requests keep
+    Odoo's original event overview, while normal public requests are redirected.
     """
 
     @staticmethod
     def _is_odoo_website_preview_request():
         http_request = request.httprequest
 
-        # Explicit editor/preview parameters used by Odoo.
+        # Explicit website editor/preview parameters used by Odoo.
         if (
             http_request.args.get("enable_editor") == "1"
             or http_request.args.get("edit_translations") == "1"
@@ -28,9 +27,9 @@ class GroundliftWebsiteEventRedirect(WebsiteEventController):
         ):
             return True
 
-        # Website preview navigation takes place inside an iframe. Restrict the
-        # exception to logged-in users, so a public third-party iframe still
-        # receives the requested redirect.
+        # Website preview navigation happens inside an iframe. Only exempt
+        # authenticated Odoo users so public third-party iframe requests still
+        # receive the intended redirect.
         fetch_destination = (
             http_request.headers.get("Sec-Fetch-Dest", "").strip().lower()
         )

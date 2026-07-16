@@ -1,18 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!--
-        Use the real external URL for Odoo's event breadcrumb links.
-        The website preview can then recognize the link as external and open
-        it in the top-level browser window instead of redirecting its iframe.
+        Do not select links by their translated title attribute. Odoo 19
+        rejects translated attributes such as "title" as inheritance selectors.
+
+        The mobile and desktop links are selected through stable structural IDs
+        and their non-translated href instead. target="_top" ensures that the
+        external page replaces Odoo's website-preview iframe rather than being
+        loaded inside it.
     -->
     <template id="groundlift_event_navbar_external_links"
               inherit_id="website_event.navbar"
               name="Groundlift external event overview links">
-        <xpath expr="//a[@title='All Events']" position="attributes">
+        <xpath expr="//div[@id='o_wevent_submenu_mobile']/a[@href='/event']"
+               position="attributes">
             <attribute name="href">https://groundlift.de/public-events.php</attribute>
+            <attribute name="target">_top</attribute>
         </xpath>
-        <xpath expr="//a[@title='Back to All Events']" position="attributes">
+
+        <xpath expr="//div[@id='o_wevent_submenu_desktop']//a[@href='/event']"
+               position="attributes">
             <attribute name="href">https://groundlift.de/public-events.php</attribute>
+            <attribute name="target">_top</attribute>
         </xpath>
     </template>
 </odoo>

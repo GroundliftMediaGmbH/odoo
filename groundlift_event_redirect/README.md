@@ -10,35 +10,39 @@ auf
 
 weiter.
 
-## Version 19.0.1.1.0
+## Version 19.0.1.1.1
 
-Diese Version behebt den Fehler des Odoo-Website-Builders:
+Diese Version behebt den Installationsfehler:
 
-`Cannot read properties of null (reading 'body')`
+`View inheritance may not use attribute 'title' as a selector.`
 
-Der Fehler entstand, weil Odoo seine Website im Backend in einem iframe anzeigt
-und die frühere Weiterleitung dieses iframe auf eine andere Domain geschickt
-hat. Die neue Version:
+Die vorherige View suchte die Odoo-Links über die übersetzbaren Attribute
+`title="All Events"` und `title="Back to All Events"`. Odoo 19 verbietet
+übersetzbare Attribute als XPath-Selektoren.
 
-- setzt die Odoo-Links „Alle Veranstaltungen“ direkt auf die externe Groundlift-Seite;
-- öffnet diese Links im Website-Preview korrekt außerhalb des iframe;
-- führt im Odoo-Website-iframe keine Cross-Domain-Weiterleitung mehr aus;
-- leitet normale öffentliche Aufrufe von `/event` weiterhin weiter;
+Die korrigierte Version:
+
+- verwendet stabile strukturelle Selektoren für die mobile und die Desktop-Navigation;
+- setzt die beiden Odoo-Links „Alle Veranstaltungen“ auf die externe Groundlift-Seite;
+- öffnet externe Links mit `target="_top"` außerhalb des Website-Preview-iFrames;
+- führt im authentifizierten Odoo-Website-iFrame keine Cross-Domain-Weiterleitung aus;
+- leitet normale öffentliche Aufrufe von `/event` weiterhin per HTTP 302 weiter;
 - verändert keine Event-Detail-, Ticket- oder Registrierungsseiten.
 
-## Update auf Odoo.sh
+## Installation auf Odoo.sh
 
-1. Den vorhandenen Ordner `groundlift_event_redirect` im GitHub-Repository vollständig durch diesen Ordner ersetzen.
+1. Den vorhandenen Ordner `groundlift_event_redirect` im GitHub-Repository vollständig ersetzen.
 2. Committen und auf den gewünschten Odoo.sh-Branch pushen.
-3. Warten, bis der Odoo.sh-Build erfolgreich abgeschlossen ist.
+3. Den erfolgreichen Build abwarten.
 4. In Odoo **Apps** öffnen.
 5. Den Filter **Apps** entfernen, falls das Modul nicht angezeigt wird.
-6. Nach **Groundlift Event Redirect** suchen und **Upgrade/Aktualisieren** ausführen.
-7. Die Website-Vorschau neu laden.
+6. Nach **Groundlift Event Redirect** suchen.
+7. Das Modul installieren beziehungsweise **Upgrade/Aktualisieren** ausführen.
+8. Website-Vorschau und Browserseite neu laden.
 
 ## Browserhinweis
 
-Die frühere Modulversion verwendete eine permanente 301-Weiterleitung. Chrome
-kann diese lokal zwischenspeichern. Falls ein alter Test weiterhin auftritt,
-die Seite in einem privaten Fenster testen oder den Browser-Cache für die
-Odoo-Staging-Domain leeren.
+Eine frühere Modulversion verwendete möglicherweise eine permanente
+301-Weiterleitung. Browser können diese lokal zwischenspeichern. Bei abweichendem
+Testverhalten bitte ein privates Browserfenster verwenden oder den Cache für die
+Odoo-Staging-Domain löschen.
