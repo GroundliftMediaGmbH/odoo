@@ -1,5 +1,11 @@
 # Changelog
 
+## 19.0.1.0.1
+
+- Installationsfehler in der Suchansicht behoben
+- Monatsstatusfelder `all_approved` und `all_paid` als gespeicherte, durchsuchbare Felder definiert
+- Abhängigkeiten der Monatszusammenfassung für neue, entfernte und geänderte Mitarbeiterzeilen präzisiert
+
 ## 19.0.1.0.0
 
 - Erstversion für Odoo 19 SH

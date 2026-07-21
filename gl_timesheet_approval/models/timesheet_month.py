@@ -81,11 +81,11 @@ class GlTimesheetMonth(models.Model):
         string="Mitarbeiter",
         copy=False,
     )
-    employee_count = fields.Integer(compute="_compute_summary")
-    approved_employee_count = fields.Integer(compute="_compute_summary")
-    rejected_employee_count = fields.Integer(compute="_compute_summary")
-    all_approved = fields.Boolean(compute="_compute_summary")
-    all_paid = fields.Boolean(compute="_compute_summary")
+    employee_count = fields.Integer(compute="_compute_summary", store=True)
+    approved_employee_count = fields.Integer(compute="_compute_summary", store=True)
+    rejected_employee_count = fields.Integer(compute="_compute_summary", store=True)
+    all_approved = fields.Boolean(compute="_compute_summary", store=True, index=True)
+    all_paid = fields.Boolean(compute="_compute_summary", store=True, index=True)
     notification_sent_at = fields.Datetime(copy=False, tracking=True)
     notification_recipient_count = fields.Integer(copy=False)
     last_refresh_at = fields.Datetime(copy=False, tracking=True)
@@ -113,9 +113,9 @@ class GlTimesheetMonth(models.Model):
             month.month_end = _last_day(month.month_start) if month.month_start else False
 
     @api.depends(
+        "employee_line_ids",
         "employee_line_ids.approval_state",
         "employee_line_ids.paid",
-        "employee_line_ids.day_ids",
     )
     def _compute_summary(self):
         for month in self:
