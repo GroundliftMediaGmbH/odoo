@@ -21,8 +21,8 @@ Stundenzettel von Minijobbern und geringfügig Beschäftigten.
   - „Die Stundenzettel von Groundlift von [Monat] sind online“
 - Manueller Button zum Einlesen/Aktualisieren und zum erneuten E-Mail-Versand
 - Datenquelle: abgeschlossene Einträge aus Odoo Anwesenheiten (`hr.attendance`)
-- Es werden nur als Minijob oder geringfügig beschäftigt erkannte Mitarbeitende übernommen
-- Mitarbeiter können alternativ im Mitarbeiterformular ausdrücklich eingeschlossen oder ausgeschlossen werden
+- Es werden ausschließlich Mitarbeitende übernommen, deren **Zahlungskategorie** exakt `Minijob` oder `Geringfügige Beschäftigung` lautet
+- Andere Beschäftigungsarten, Mitarbeiter-Tags, Jobtitel und frühere manuelle Einschlusswerte werden nicht berücksichtigt
 - Stundenlohn als Mitarbeiter-Override oder automatische Übernahme eines als stündlich erkannten Vertrags-/Beschäftigungslohns
 - Pro Mitarbeiter und Monat:
   - Bruttozeit
@@ -78,16 +78,18 @@ Bei freien Zugangsdaten erfolgt die Anmeldung direkt auf der Portal-Loginseite.
 
 ### 2. Mitarbeitende konfigurieren
 
-Menü: `Mitarbeiter → Mitarbeiter`, anschließend Reiter `Stundenzettel-Prüfung`.
+Im Odoo-Mitarbeiter- beziehungsweise Vertragsdatensatz muss die **Zahlungskategorie**
+auf einen der folgenden beiden Werte gesetzt sein:
 
-- `Automatisch aus Beschäftigungs-/Vertragsart`: Das Modul sucht in den verfügbaren
-  aktuellen Vertrags-/Beschäftigungsfeldern nach Begriffen wie `Minijob` oder `geringfügig`.
-- `Minijob` oder `Geringfügig beschäftigt`: Mitarbeiter ausdrücklich einschließen.
-- `Nicht ... anzeigen`: Mitarbeiter ausdrücklich ausschließen.
-- `Stundenlohn für Stundenzettel`: Empfohlener, eindeutiger Stundenlohn-Override.
+- `Minijob`
+- `Geringfügige Beschäftigung`
 
-Da individuelle Odoo-Datenbanken und deutsche Payroll-Lokalisierungen unterschiedliche
-Lohnfelder verwenden können, ist der explizite Stundenlohn am Mitarbeiter die zuverlässigste Einstellung.
+Nur diese beiden Werte werden beim Einlesen akzeptiert. Das Modul wertet keine Tags,
+Jobtitel, allgemeinen Vertragsarten oder früheren manuellen Auswahlfelder mehr als Ersatz aus.
+
+Im Reiter `Stundenzettel-Prüfung` werden die erkannte Zahlungskategorie und der daraus
+resultierende Einschlussstatus nur zur Kontrolle angezeigt. Der Stundenlohn kann dort
+weiterhin eindeutig überschrieben werden.
 
 ### 3. Ersten Monat testen
 
@@ -147,7 +149,7 @@ Das Portal enthält personenbezogene Arbeitszeit- und Lohndaten. Daher:
 
 ## Version
 
-`19.0.1.0.3`
+`19.0.1.0.4`
 
 
 ## Sichtbarkeit auf dem Odoo-Desktop
@@ -155,18 +157,16 @@ Das Portal enthält personenbezogene Arbeitszeit- und Lohndaten. Daher:
 Die App erscheint als **Stundenzettel-Prüfung** im App-Umschalter. Odoo-Systemadministratoren erhalten die erforderliche Verwaltungsgruppe automatisch. Weitere interne Benutzer können über die Odoo-Benutzerverwaltung der Gruppe **Stundenzettel-Prüfung: Verwaltung** zugeordnet werden.
 
 
-## Importdiagnose ab Version 1.0.3
+## Strikter Zahlungskategorie-Filter ab Version 1.0.4
 
-Nach `Anwesenheiten einlesen / aktualisieren` zeigt der Prüfmonat:
+Beim Einlesen wird ausschließlich ein Feld berücksichtigt, dessen technische Bezeichnung
+oder Feldbeschriftung `Zahlungskategorie` beziehungsweise `Payment Category` entspricht.
+Die am Anwesenheitstag gültige Odoo-19-Mitarbeiterversion hat Vorrang.
 
-- Anzahl abgeschlossener Anwesenheitseinträge im Monat
-- Anzahl der Mitarbeiter mit Anwesenheiten
-- Anzahl der als Minijob/geringfügig erkannt und übernommenen Mitarbeiter
-- Anzahl der nicht erkannten oder manuell ausgeschlossenen Mitarbeiter
-- einen konkreten Hinweis mit den erkannten Beschäftigungswerten
+Akzeptierte Werte:
 
-Die automatische Erkennung berücksichtigt in Odoo 19 insbesondere die aktuelle
-Mitarbeiterversion (`current_version_id`), `employee_type`, Vertragsarten,
-Beschäftigungsarten, Mitarbeiter-Tags und entsprechend bezeichnete Studio-Felder.
-Im Zweifel kann die Auswahl im Mitarbeiter-Reiter `Stundenzettel-Prüfung` ausdrücklich
-auf `Minijob` oder `Geringfügig beschäftigt` gesetzt werden.
+- `Minijob`
+- `Geringfügige Beschäftigung`
+
+Ein leeres, fehlendes oder anders befülltes Feld führt zum Ausschluss des Mitarbeiters.
+Der Grund wird in der Importdiagnose angezeigt.

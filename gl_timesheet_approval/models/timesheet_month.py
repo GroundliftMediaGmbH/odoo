@@ -303,8 +303,8 @@ class GlTimesheetMonth(models.Model):
             detail_text = "\n".join(excluded_details[:20])
             note = _(
                 "Es wurden %(attendance_count)s abgeschlossene Anwesenheiten von %(employee_count)s Mitarbeitern gefunden, "
-                "aber keine Person wurde als Minijob oder geringfügig beschäftigt erkannt. "
-                "Bitte im Mitarbeiter-Reiter 'Stundenzettel-Prüfung' die Beschäftigungsart kontrollieren oder ausdrücklich festlegen.\n%(details)s",
+                "aber keine Person besitzt in der Zahlungskategorie den Wert 'Minijob' oder "
+                "'Geringfügige Beschäftigung'. Bitte die Zahlungskategorie im Mitarbeiter-/Vertragsdatensatz kontrollieren.\n%(details)s",
                 attendance_count=len(attendances),
                 employee_count=len(source_employees),
                 details=detail_text,

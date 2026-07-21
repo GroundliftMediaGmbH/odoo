@@ -2,12 +2,15 @@
 import re
 import unicodedata
 
-from odoo import _, api, fields, models
+from odoo import _, fields, models
 
 
 class HrEmployee(models.Model):
     _inherit = "hr.employee"
 
+    # Kept for upgrade compatibility with versions <= 19.0.1.0.3.
+    # The import filter no longer uses this field; eligibility is determined
+    # exclusively from the Odoo payment category.
     gl_timesheet_employment_type = fields.Selection(
         selection=[
             ("auto", "Automatisch aus Beschäftigungs-/Vertragsart"),
@@ -15,12 +18,12 @@ class HrEmployee(models.Model):
             ("marginal", "Geringfügig beschäftigt"),
             ("exclude", "Nicht in der Stundenzettel-Prüfung anzeigen"),
         ],
-        string="Stundenzettel-Beschäftigungsart",
+        string="Frühere manuelle Beschäftigungsart",
         default="auto",
         required=True,
         help=(
-            "Bei 'Automatisch' wird nach Begriffen wie Minijob oder geringfügig in der "
-            "aktuellen Beschäftigungs-/Vertragsart gesucht. Die explizite Auswahl hat Vorrang."
+            "Kompatibilitätsfeld aus einer früheren Modulversion. Für neue Einlesevorgänge "
+            "wird ausschließlich die Odoo-Zahlungskategorie ausgewertet."
         ),
     )
     gl_timesheet_hourly_wage = fields.Monetary(
@@ -41,7 +44,7 @@ class HrEmployee(models.Model):
         compute="_compute_gl_timesheet_detection",
     )
     gl_timesheet_detection_info = fields.Char(
-        string="Erkannte Beschäftigungsart",
+        string="Erkannte Zahlungskategorie",
         compute="_compute_gl_timesheet_detection",
     )
 
@@ -82,79 +85,125 @@ class HrEmployee(models.Model):
                     records.append(record)
         return records
 
-    def _gl_timesheet_candidate_field_names(self, record):
-        """Find standard and Studio fields likely to contain employment classification."""
-        preferred = [
-            "contract_type_id",
-            "employment_type_id",
-            "employee_type_id",
-            "employee_type",
-            "employment_type",
-            "contract_type",
-            "category_ids",
-            "job_id",
-            "job_title",
-            "name",
-        ]
-        result = [field_name for field_name in preferred if field_name in record._fields]
+    def _gl_timesheet_payment_category_records(self, on_date=None):
+        """Return records in historical priority order for payment-category lookup."""
+        self.ensure_one()
+        records = []
 
-        field_tokens = (
-            "employment",
-            "employee type",
-            "contract type",
-            "beschaf",
-            "beschaef",
-            "anstell",
-            "arbeitsverhaltnis",
-            "arbeitsverhaeltnis",
-            "beschaftigungsart",
-            "beschaeftigungsart",
+        # Odoo 19 stores dated employee data in hr.version. The version valid on
+        # the attendance date must take precedence over today's employee values.
+        if on_date and hasattr(self, "_get_version"):
+            version = self.sudo()._get_version(on_date)
+            if version:
+                records.append(version.sudo())
+
+        for field_name in ("current_version_id", "current_contract_id", "contract_id"):
+            if field_name in self._fields and self[field_name]:
+                record = self[field_name].sudo()
+                if record not in records:
+                    records.append(record)
+
+        employee = self.sudo()
+        if employee not in records:
+            records.append(employee)
+        return records
+
+    def _gl_timesheet_payment_category_field_names(self, record):
+        """Find only fields whose technical name or caption denotes payment category."""
+        preferred_names = {
+            "payment_category",
+            "payment_category_id",
+            "payment_category_ids",
+            "pay_category",
+            "pay_category_id",
+            "payroll_category",
+            "payroll_category_id",
+            "l10n_de_payment_category",
+            "l10n_de_payment_category_id",
+            "zahlungskategorie",
+            "zahlungskategorie_id",
+        }
+        category_tokens = (
+            "zahlungskategorie",
+            "zahlung kategorie",
+            "payment category",
+            "pay category",
+            "payroll category",
         )
         allowed_types = {"selection", "many2one", "many2many", "char", "text"}
+        result = []
+
         for field_name, field in record._fields.items():
-            if field_name in result or field_name == "gl_timesheet_employment_type":
-                continue
             if field.type not in allowed_types:
                 continue
-            descriptor = self._gl_normalize_text(f"{field_name} {field.string or ''}")
-            if any(token in descriptor for token in field_tokens):
+            normalized_name = self._gl_normalize_text(field_name)
+            normalized_label = self._gl_normalize_text(field.string or "")
+            descriptor = f"{normalized_name} {normalized_label}".strip()
+            if field_name in preferred_names or any(token in descriptor for token in category_tokens):
                 result.append(field_name)
         return result
 
-    def _gl_timesheet_eligibility_details(self, on_date=None):
-        self.ensure_one()
-        explicit = self.gl_timesheet_employment_type or "auto"
-        if explicit == "minijob":
-            return True, _("Manuell als Minijob markiert")
-        if explicit == "marginal":
-            return True, _("Manuell als geringfügig beschäftigt markiert")
-        if explicit == "exclude":
-            return False, _("Manuell ausgeschlossen")
+    def _gl_timesheet_payment_category_values(self, record, field_name):
+        """Return display labels and selection keys for exact category matching."""
+        if not record or field_name not in record._fields:
+            return []
+        value = record[field_name]
+        if not value:
+            return []
 
-        needles = (
+        field = record._fields[field_name]
+        if field.type == "selection":
+            selection = dict(field._description_selection(self.env))
+            values = [selection.get(value, value), value]
+            return [str(item) for item in values if item not in (False, None, "")]
+        if field.type in ("many2one", "one2many", "many2many"):
+            return [text for text in value.mapped("display_name") if text]
+        return [str(value)]
+
+    def _gl_timesheet_eligibility_details(self, on_date=None):
+        """Strictly accept the two requested values from the payment category."""
+        self.ensure_one()
+        allowed_labels = {
             "minijob",
             "mini job",
-            "geringfugig",
-            "geringfuegig",
+            "geringfugige beschaftigung",
+            "geringfugig beschaftigt",
+            # Same two Odoo categories when selection labels/keys are returned
+            # in English or as technical selection values.
             "marginal employment",
             "marginally employed",
-        )
-        records = [self.sudo()] + self._gl_timesheet_contract_like_records(on_date=on_date)
-        observed_values = []
-        for record in records:
-            for field_name in self._gl_timesheet_candidate_field_names(record):
-                for text in self._gl_timesheet_text_values(record, field_name):
-                    normalized = self._gl_normalize_text(text)
-                    if not normalized:
-                        continue
-                    label = str(record._fields[field_name].string or field_name)
-                    observed_values.append(f"{label}: {text}")
-                    if any(needle in normalized for needle in needles):
-                        return True, f"{label}: {text}"
+            "marginal employment germany",
+            "marginal",
+            "marginal employment type",
+        }
+        found_category_field = False
+        found_empty_category = False
 
-        if observed_values:
-            return False, _("Nicht als Minijob erkannt (%s)", "; ".join(observed_values[:3]))
-        return False, _("Keine Beschäftigungs-/Vertragsart gefunden")
+        for record in self._gl_timesheet_payment_category_records(on_date=on_date):
+            for field_name in self._gl_timesheet_payment_category_field_names(record):
+                found_category_field = True
+                label = str(record._fields[field_name].string or field_name)
+                values = self._gl_timesheet_payment_category_values(record, field_name)
+                if not values:
+                    found_empty_category = True
+                    continue
+
+                # A non-empty payment category on the historically most relevant
+                # record is authoritative. Do not fall back to tags, job titles,
+                # contract types or manual flags.
+                display_value = values[0]
+                normalized_values = {self._gl_normalize_text(value) for value in values}
+                if normalized_values & allowed_labels:
+                    return True, _("%(field)s: %(value)s", field=label, value=display_value)
+                return False, _(
+                    "%(field)s: %(value)s (nicht Minijob/Geringfügige Beschäftigung)",
+                    field=label,
+                    value=display_value,
+                )
+
+        if found_category_field or found_empty_category:
+            return False, _("Zahlungskategorie ist leer")
+        return False, _("Feld 'Zahlungskategorie' wurde nicht gefunden")
 
     def _gl_is_timesheet_eligible(self):
         self.ensure_one()
