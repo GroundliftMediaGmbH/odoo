@@ -149,7 +149,7 @@ Das Portal enthält personenbezogene Arbeitszeit- und Lohndaten. Daher:
 
 ## Version
 
-`19.0.1.0.5`
+`19.0.1.0.6`
 
 
 ## Sichtbarkeit auf dem Odoo-Desktop
@@ -170,3 +170,8 @@ Akzeptierte Strukturtyp-Namen:
 
 Ein leeres, fehlendes oder anders befülltes `structure_type_id` führt zum Ausschluss des
 Mitarbeiters. Der tatsächlich gefundene Wert wird in der Importdiagnose angezeigt.
+
+
+## Portal-Design
+
+Seit Version 19.0.1.0.6 besitzt das Prüfportal ein vollständig im Modul enthaltenes, dunkel gestaltetes Groundlift-Frontend. Die Styles werden zusätzlich direkt im QWeb-Template eingebunden, sodass Website-Themes, Darkmode-Einstellungen oder gecachte Frontend-Assets die Lesbarkeit nicht mehr verändern.

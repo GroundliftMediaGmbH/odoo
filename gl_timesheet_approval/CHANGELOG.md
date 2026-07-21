@@ -1,5 +1,14 @@
 # Changelog
 
+## 19.0.1.0.6
+
+- Prüfportal visuell an das Groundlift Mitarbeiter-Stundenportal angeglichen.
+- Eigenständige, dunkel gestaltete und vollständig gekapselte CSS-Oberfläche ergänzt.
+- Website-Header und -Footer werden auf den Prüfseiten ausgeblendet, damit das aktive Odoo-Theme die Darstellung nicht mehr beeinflusst.
+- Bootstrap-Accordion durch native, theme-unabhängige `<details>`-Elemente ersetzt.
+- Tabellen, Formulare, Statusanzeigen und Buttons für Desktop und Mobilgeräte neu gestaltet.
+- Direktes Öffnen des zuletzt bearbeiteten Mitarbeiters nach dem Speichern ergänzt.
+
 ## 19.0.1.0.5
 
 - Importfilter greift nun direkt auf das technische Feld `structure_type_id` zu.

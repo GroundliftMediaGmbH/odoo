@@ -5,19 +5,21 @@ Vor der Auslieferung wurden folgende statische Prüfungen ausgeführt:
 - Python-Kompilierung aller Moduldateien (`compileall`)
 - Python-AST-Prüfung aller `.py`-Dateien
 - XML-Parsing aller Sicherheits-, Daten-, Backend- und QWeb-Dateien mit `lxml`
-- Syntaxprüfung der dynamischen QWeb-Ausdrücke
+- Prüfung der dynamischen QWeb-Ausdrücke und Formularrouten
 - Prüfung der ZIP-Struktur und des Modul-Manifests
 - Prüfung, dass Felder aus Such-Domains gespeichert oder über eine Suchmethode durchsuchbar sind
 - Prüfung der Odoo-19-Anwesenheitsfelder und des direkten, versionsbezogenen `structure_type_id`-Filters
-- Prüfung der neuen Importdiagnose-Felder in Modell und Ansicht
+- Prüfung der responsiven Portalstruktur für Login, Monatsübersicht, Mitarbeiterdetails und Tagesprüfung
 
-Eine echte Installation gegen eine laufende Odoo-19-Instanz war in der Erstellungsumgebung nicht verfügbar. Die erste Installation sollte deshalb – wie bei Custom-Modulen üblich – zunächst auf einem Odoo.sh-Staging-Branch erfolgen.
+Eine echte Installation gegen eine laufende Odoo-19-Instanz war in der Erstellungsumgebung nicht verfügbar. Das Upgrade sollte deshalb zunächst auf einem Odoo.sh-Staging-Branch erfolgen.
 
-## Version 19.0.1.0.5
+## Version 19.0.1.0.6
 
 - Python-Syntax aller Moduldateien geprüft
-- XML-Dateien auf Wohlgeformtheit geprüft
+- Sämtliche XML-Dateien auf Wohlgeformtheit geprüft
 - Manifest und ZIP-Struktur geprüft
-- Auswahlentscheidung direkt auf `structure_type_id` begrenzt
-- Historische Mitarbeiterversion am Anwesenheitstag priorisiert
-- Nur Minijob und Geringfügige Beschäftigung zugelassen
+- Vollständig gekapselte Portal-CSS-Regeln ergänzt
+- Inline-Einbindung der Portal-Styles geprüft
+- Website-Header-/Footer-Ausblendung auf den Prüfseiten geprüft
+- Theme-unabhängige `<details>`-Mitarbeiteransicht geprüft
+- Mobile Breakpoints und horizontal scrollbar ausgeführte Tagesübersicht geprüft

@@ -1,33 +1,868 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <template id="portal_styles" name="Stundenzettel-Prüfung Styles">
+        <style type="text/css">
+/* Groundlift Stundenzettel-Prüfung – eigenständiges Frontend
+   Bewusst vollständig unter .gl-ts-portal gekapselt, damit Website-Themes
+   weder Farben noch Abstände oder Formularfelder überschreiben. */
+
+body:has(#wrap.gl-ts-portal) {
+    margin: 0 !important;
+    background: #020617 !important;
+}
+
+body:has(#wrap.gl-ts-portal) > #wrapwrap,
+body:has(#wrap.gl-ts-portal) #wrapwrap {
+    min-height: 100vh !important;
+    background: #020617 !important;
+}
+
+body:has(#wrap.gl-ts-portal) header#top,
+body:has(#wrap.gl-ts-portal) footer#bottom,
+body:has(#wrap.gl-ts-portal) .o_footer,
+body:has(#wrap.gl-ts-portal) .o_header_standard {
+    display: none !important;
+}
+
+#wrap.gl-ts-portal,
+#wrap.gl-ts-portal * {
+    box-sizing: border-box;
+}
+
+#wrap.gl-ts-portal {
+    --gl-bg: #020617;
+    --gl-panel: rgba(15, 23, 42, .96);
+    --gl-panel-soft: rgba(15, 23, 42, .72);
+    --gl-panel-deep: rgba(2, 6, 23, .72);
+    --gl-border: rgba(148, 163, 184, .20);
+    --gl-border-soft: rgba(148, 163, 184, .13);
+    --gl-text: #f8fafc;
+    --gl-muted: #94a3b8;
+    --gl-purple: #a855f7;
+    --gl-blue: #0ea5e9;
+    --gl-green: #22c55e;
+    --gl-red: #f87171;
+    --gl-orange: #fb923c;
+    min-height: 100vh;
+    margin: 0;
+    padding: 1px 0;
+    background:
+        radial-gradient(circle at 8% 0%, rgba(168, 85, 247, .20), transparent 30%),
+        radial-gradient(circle at 92% 8%, rgba(14, 165, 233, .14), transparent 32%),
+        linear-gradient(180deg, #020617 0%, #07101f 52%, #020617 100%);
+    color: var(--gl-text);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+}
+
+#wrap.gl-ts-portal a {
+    color: inherit;
+}
+
+#wrap.gl-ts-portal button,
+#wrap.gl-ts-portal input {
+    font: inherit;
+}
+
+#wrap.gl-ts-portal .gl-ts-wrap {
+    width: min(1180px, calc(100% - 32px));
+    margin: 0 auto;
+    padding: clamp(26px, 5vw, 58px) 0 72px;
+}
+
+#wrap.gl-ts-portal .gl-ts-main-card,
+#wrap.gl-ts-portal .gl-ts-login-card,
+#wrap.gl-ts-portal .gl-ts-empty-card {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--gl-border);
+    border-radius: 28px;
+    background: linear-gradient(145deg, rgba(15, 23, 42, .985), rgba(2, 6, 23, .965));
+    box-shadow: 0 24px 70px rgba(0, 0, 0, .42), inset 0 1px 0 rgba(255, 255, 255, .055);
+}
+
+#wrap.gl-ts-portal .gl-ts-main-card::before,
+#wrap.gl-ts-portal .gl-ts-login-card::before,
+#wrap.gl-ts-portal .gl-ts-empty-card::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 12% 0%, rgba(168, 85, 247, .17), transparent 32%),
+        radial-gradient(circle at 92% 10%, rgba(14, 165, 233, .11), transparent 34%);
+}
+
+#wrap.gl-ts-portal .gl-ts-main-card > *,
+#wrap.gl-ts-portal .gl-ts-login-card > *,
+#wrap.gl-ts-portal .gl-ts-empty-card > * {
+    position: relative;
+    z-index: 1;
+}
+
+#wrap.gl-ts-portal .gl-ts-main-card {
+    padding: clamp(22px, 4vw, 36px);
+}
+
+#wrap.gl-ts-portal .gl-ts-login-card {
+    width: min(500px, 100%);
+    margin: min(8vh, 72px) auto 0;
+    padding: clamp(24px, 5vw, 38px);
+}
+
+#wrap.gl-ts-portal .gl-ts-empty-card {
+    padding: clamp(26px, 5vw, 42px);
+    text-align: center;
+}
+
+#wrap.gl-ts-portal .gl-ts-brand-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    color: #e9d5ff;
+    font-size: .72rem;
+    font-weight: 900;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+}
+
+#wrap.gl-ts-portal .gl-ts-brand-mark::before {
+    content: "";
+    width: 24px;
+    height: 3px;
+    border-radius: 99px;
+    background: linear-gradient(90deg, var(--gl-purple), var(--gl-blue));
+}
+
+#wrap.gl-ts-portal .gl-ts-title,
+#wrap.gl-ts-portal .gl-ts-login-card h1,
+#wrap.gl-ts-portal .gl-ts-empty-card h1,
+#wrap.gl-ts-portal .gl-ts-empty-card h2,
+#wrap.gl-ts-portal .gl-ts-empty-card h3 {
+    margin: 0;
+    color: var(--gl-text) !important;
+    font-weight: 900;
+    letter-spacing: -.045em;
+    line-height: 1.04;
+}
+
+#wrap.gl-ts-portal .gl-ts-title {
+    font-size: clamp(1.95rem, 5vw, 3rem);
+}
+
+#wrap.gl-ts-portal .gl-ts-login-card h1 {
+    font-size: clamp(1.8rem, 5vw, 2.55rem);
+}
+
+#wrap.gl-ts-portal .gl-ts-subtitle,
+#wrap.gl-ts-portal .gl-ts-login-card p,
+#wrap.gl-ts-portal .gl-ts-empty-card p {
+    margin: 10px 0 0;
+    color: var(--gl-muted) !important;
+    font-size: clamp(.95rem, 2.5vw, 1.05rem);
+}
+
+#wrap.gl-ts-portal .gl-ts-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 28px;
+}
+
+#wrap.gl-ts-portal .gl-ts-reviewer-line {
+    margin-top: 10px;
+    color: var(--gl-muted);
+}
+
+#wrap.gl-ts-portal .gl-ts-reviewer-line strong {
+    color: #e5e7eb;
+}
+
+#wrap.gl-ts-portal .gl-ts-role-pill,
+#wrap.gl-ts-portal .gl-ts-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 5px 10px;
+    border: 1px solid var(--gl-border);
+    border-radius: 999px;
+    font-size: .76rem;
+    font-weight: 900;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+#wrap.gl-ts-portal .gl-ts-role-pill {
+    margin-left: 7px;
+    color: #e9d5ff;
+    background: rgba(168, 85, 247, .13);
+    border-color: rgba(168, 85, 247, .32);
+}
+
+#wrap.gl-ts-portal .gl-ts-status-success {
+    color: #bbf7d0;
+    background: rgba(34, 197, 94, .13);
+    border-color: rgba(34, 197, 94, .34);
+}
+
+#wrap.gl-ts-portal .gl-ts-status-danger {
+    color: #fecaca;
+    background: rgba(248, 113, 113, .13);
+    border-color: rgba(248, 113, 113, .34);
+}
+
+#wrap.gl-ts-portal .gl-ts-status-warning {
+    color: #fed7aa;
+    background: rgba(251, 146, 60, .13);
+    border-color: rgba(251, 146, 60, .34);
+}
+
+#wrap.gl-ts-portal .gl-ts-status-muted {
+    color: #cbd5e1;
+    background: rgba(148, 163, 184, .10);
+    border-color: rgba(148, 163, 184, .22);
+}
+
+#wrap.gl-ts-portal .gl-ts-btn {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 11px 17px;
+    border: 1px solid rgba(148, 163, 184, .22);
+    border-radius: 999px;
+    background: linear-gradient(135deg, #f8fafc, #cbd5e1);
+    color: #020617 !important;
+    text-decoration: none !important;
+    font-weight: 850;
+    line-height: 1.1;
+    cursor: pointer;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, .22);
+    transition: transform .16s ease, filter .16s ease, border-color .16s ease;
+}
+
+#wrap.gl-ts-portal .gl-ts-btn:hover {
+    filter: brightness(1.05);
+    transform: translateY(-1px);
+}
+
+#wrap.gl-ts-portal .gl-ts-btn-secondary {
+    color: var(--gl-text) !important;
+    background: rgba(15, 23, 42, .70);
+    border-color: rgba(148, 163, 184, .28);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
+}
+
+#wrap.gl-ts-portal .gl-ts-btn-success {
+    color: #052e16 !important;
+    background: linear-gradient(135deg, #bbf7d0, #4ade80);
+    border-color: rgba(74, 222, 128, .65);
+}
+
+#wrap.gl-ts-portal .gl-ts-btn-danger {
+    color: #fff !important;
+    background: rgba(127, 29, 29, .74);
+    border-color: rgba(248, 113, 113, .45);
+}
+
+#wrap.gl-ts-portal .gl-ts-btn-small {
+    min-height: 36px;
+    padding: 8px 13px;
+    font-size: .84rem;
+}
+
+#wrap.gl-ts-portal .gl-ts-btn-wide {
+    width: 100%;
+}
+
+#wrap.gl-ts-portal .gl-ts-btn[disabled] {
+    cursor: not-allowed;
+    filter: grayscale(.55);
+    opacity: .48;
+    transform: none;
+}
+
+#wrap.gl-ts-portal .gl-ts-form-field {
+    margin-top: 17px;
+}
+
+#wrap.gl-ts-portal .gl-ts-label {
+    display: block;
+    margin-bottom: 8px;
+    color: #e5e7eb;
+    font-size: .78rem;
+    font-weight: 850;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+}
+
+#wrap.gl-ts-portal .gl-ts-input {
+    width: 100%;
+    min-height: 48px;
+    padding: 11px 14px;
+    border: 1px solid rgba(148, 163, 184, .28);
+    border-radius: 14px;
+    outline: none;
+    background: rgba(2, 6, 23, .68) !important;
+    color: var(--gl-text) !important;
+    caret-color: var(--gl-text);
+}
+
+#wrap.gl-ts-portal .gl-ts-input::placeholder {
+    color: #64748b;
+    opacity: 1;
+}
+
+#wrap.gl-ts-portal .gl-ts-input:focus {
+    border-color: rgba(216, 180, 254, .72);
+    box-shadow: 0 0 0 4px rgba(168, 85, 247, .16);
+}
+
+#wrap.gl-ts-portal .gl-ts-login-separator {
+    position: relative;
+    margin: 22px 0;
+    text-align: center;
+    color: #64748b;
+    font-size: .78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+}
+
+#wrap.gl-ts-portal .gl-ts-login-separator::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: var(--gl-border-soft);
+}
+
+#wrap.gl-ts-portal .gl-ts-login-separator span {
+    position: relative;
+    padding: 0 12px;
+    background: #080f1e;
+}
+
+#wrap.gl-ts-portal .gl-ts-flash {
+    margin: 0 0 18px;
+    padding: 14px 16px;
+    border: 1px solid var(--gl-border);
+    border-radius: 18px;
+    line-height: 1.45;
+}
+
+#wrap.gl-ts-portal .gl-ts-flash-success {
+    color: #bbf7d0;
+    background: rgba(34, 197, 94, .13);
+    border-color: rgba(34, 197, 94, .34);
+}
+
+#wrap.gl-ts-portal .gl-ts-flash-danger {
+    color: #fecaca;
+    background: rgba(248, 113, 113, .13);
+    border-color: rgba(248, 113, 113, .34);
+}
+
+#wrap.gl-ts-portal .gl-ts-flash-info,
+#wrap.gl-ts-portal .gl-ts-flash-warning {
+    color: #fed7aa;
+    background: rgba(251, 146, 60, .12);
+    border-color: rgba(251, 146, 60, .32);
+}
+
+#wrap.gl-ts-portal .gl-ts-month-panel {
+    display: grid;
+    grid-template-columns: minmax(220px, .75fr) minmax(0, 1.7fr);
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 22px;
+    padding: 20px;
+    border: 1px solid var(--gl-border);
+    border-radius: 22px;
+    background: var(--gl-panel-soft);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .045);
+}
+
+#wrap.gl-ts-portal .gl-ts-eyebrow {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--gl-muted);
+    font-size: .72rem;
+    font-weight: 900;
+    letter-spacing: .10em;
+    text-transform: uppercase;
+}
+
+#wrap.gl-ts-portal .gl-ts-month-title {
+    margin: 0;
+    color: var(--gl-text) !important;
+    font-size: clamp(1.6rem, 4vw, 2.45rem);
+    font-weight: 900;
+    letter-spacing: -.04em;
+    line-height: 1.05;
+}
+
+#wrap.gl-ts-portal .gl-ts-month-controls {
+    min-width: 0;
+}
+
+#wrap.gl-ts-portal .gl-ts-month-links {
+    display: flex;
+    gap: 8px;
+    max-width: 100%;
+    padding: 2px 0 7px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+#wrap.gl-ts-portal .gl-ts-month-link {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 8px 13px;
+    border: 1px solid var(--gl-border);
+    border-radius: 999px;
+    color: #cbd5e1 !important;
+    background: rgba(2, 6, 23, .46);
+    text-decoration: none !important;
+    font-size: .84rem;
+    font-weight: 850;
+}
+
+#wrap.gl-ts-portal .gl-ts-month-link:hover,
+#wrap.gl-ts-portal .gl-ts-month-link-active {
+    color: #020617 !important;
+    background: linear-gradient(135deg, #f8fafc, #cbd5e1);
+    border-color: transparent;
+}
+
+#wrap.gl-ts-portal .gl-ts-payment-head {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+#wrap.gl-ts-portal .gl-ts-employee-list {
+    display: grid;
+    gap: 14px;
+}
+
+#wrap.gl-ts-portal details.gl-ts-employee-card {
+    overflow: hidden;
+    border: 1px solid var(--gl-border);
+    border-radius: 22px;
+    background: rgba(15, 23, 42, .68);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .045);
+}
+
+#wrap.gl-ts-portal details.gl-ts-employee-card[open] {
+    border-color: rgba(216, 180, 254, .30);
+    box-shadow: 0 16px 42px rgba(0, 0, 0, .20), inset 0 1px 0 rgba(255, 255, 255, .055);
+}
+
+#wrap.gl-ts-portal summary.gl-ts-employee-summary {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(250px, auto) auto 20px;
+    align-items: center;
+    gap: 16px;
+    min-height: 82px;
+    padding: 17px 20px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+#wrap.gl-ts-portal summary.gl-ts-employee-summary::-webkit-details-marker {
+    display: none;
+}
+
+#wrap.gl-ts-portal summary.gl-ts-employee-summary::after {
+    content: "";
+    width: 10px;
+    height: 10px;
+    border-right: 2px solid #cbd5e1;
+    border-bottom: 2px solid #cbd5e1;
+    transform: rotate(45deg) translateY(-2px);
+    transition: transform .18s ease;
+}
+
+#wrap.gl-ts-portal details[open] > summary.gl-ts-employee-summary::after {
+    transform: rotate(225deg) translate(-2px, -2px);
+}
+
+#wrap.gl-ts-portal summary.gl-ts-employee-summary:hover {
+    background: rgba(255, 255, 255, .025);
+}
+
+#wrap.gl-ts-portal .gl-ts-employee-name {
+    display: block;
+    color: var(--gl-text) !important;
+    font-size: 1.08rem;
+    font-weight: 900;
+    letter-spacing: -.02em;
+}
+
+#wrap.gl-ts-portal .gl-ts-employee-job {
+    display: block;
+    margin-top: 3px;
+    color: var(--gl-muted);
+    font-size: .86rem;
+    font-weight: 650;
+}
+
+#wrap.gl-ts-portal .gl-ts-heading-numbers {
+    display: flex;
+    gap: 24px;
+}
+
+#wrap.gl-ts-portal .gl-ts-heading-number {
+    min-width: 102px;
+}
+
+#wrap.gl-ts-portal .gl-ts-heading-number small {
+    display: block;
+    color: var(--gl-muted) !important;
+    font-size: .70rem;
+    font-weight: 850;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+}
+
+#wrap.gl-ts-portal .gl-ts-heading-number strong {
+    display: block;
+    margin-top: 3px;
+    color: var(--gl-text) !important;
+    font-size: 1rem;
+}
+
+#wrap.gl-ts-portal .gl-ts-employee-body {
+    padding: 0 20px 20px;
+    border-top: 1px solid var(--gl-border-soft);
+}
+
+#wrap.gl-ts-portal .gl-ts-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+    padding: 18px 0;
+}
+
+#wrap.gl-ts-portal .gl-ts-summary-box {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--gl-border-soft);
+    border-radius: 17px;
+    background: var(--gl-panel-deep);
+}
+
+#wrap.gl-ts-portal .gl-ts-summary-box small {
+    display: block;
+    color: var(--gl-muted) !important;
+    font-size: .69rem;
+    font-weight: 850;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+#wrap.gl-ts-portal .gl-ts-summary-box strong {
+    display: block;
+    margin-top: 5px;
+    color: var(--gl-text) !important;
+    font-size: 1.04rem;
+    overflow-wrap: anywhere;
+}
+
+#wrap.gl-ts-portal .gl-ts-total-box {
+    background: linear-gradient(135deg, rgba(168, 85, 247, .20), rgba(14, 165, 233, .11)), rgba(2, 6, 23, .80);
+    border-color: rgba(216, 180, 254, .22);
+}
+
+#wrap.gl-ts-portal .gl-ts-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--gl-border-soft);
+    border-radius: 18px;
+    background: rgba(2, 6, 23, .48);
+}
+
+#wrap.gl-ts-portal table.gl-ts-day-table {
+    width: 100%;
+    min-width: 1100px;
+    margin: 0 !important;
+    border: 0 !important;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: transparent !important;
+    color: var(--gl-text) !important;
+}
+
+#wrap.gl-ts-portal table.gl-ts-day-table th,
+#wrap.gl-ts-portal table.gl-ts-day-table td {
+    padding: 13px 14px !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--gl-border-soft) !important;
+    background: transparent !important;
+    color: #e5e7eb !important;
+    vertical-align: top;
+}
+
+#wrap.gl-ts-portal table.gl-ts-day-table th {
+    color: #94a3b8 !important;
+    background: rgba(15, 23, 42, .74) !important;
+    font-size: .70rem;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+#wrap.gl-ts-portal table.gl-ts-day-table tr:last-child td {
+    border-bottom: 0 !important;
+}
+
+#wrap.gl-ts-portal table.gl-ts-day-table tbody tr:hover td {
+    background: rgba(255, 255, 255, .018) !important;
+}
+
+#wrap.gl-ts-portal .gl-ts-nowrap {
+    white-space: nowrap;
+}
+
+#wrap.gl-ts-portal .gl-ts-muted {
+    display: block;
+    margin-top: 4px;
+    color: var(--gl-muted) !important;
+    font-size: .78rem;
+}
+
+#wrap.gl-ts-portal .gl-ts-review-cell {
+    min-width: 290px;
+}
+
+#wrap.gl-ts-portal .gl-ts-review-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+#wrap.gl-ts-portal .gl-ts-payment-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding: 16px;
+    border: 1px solid var(--gl-border-soft);
+    border-radius: 18px;
+    background: rgba(2, 6, 23, .52);
+}
+
+#wrap.gl-ts-portal .gl-ts-payment-title {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--gl-muted);
+    font-size: .70rem;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+#wrap.gl-ts-portal .gl-ts-paid-text {
+    color: #bbf7d0;
+    font-weight: 850;
+}
+
+#wrap.gl-ts-portal .gl-ts-unpaid-text {
+    color: var(--gl-muted);
+}
+
+@media (max-width: 920px) {
+    #wrap.gl-ts-portal .gl-ts-month-panel {
+        grid-template-columns: 1fr;
+    }
+
+    #wrap.gl-ts-portal .gl-ts-payment-head {
+        justify-content: flex-start;
+    }
+
+    #wrap.gl-ts-portal summary.gl-ts-employee-summary {
+        grid-template-columns: 1fr auto 20px;
+    }
+
+    #wrap.gl-ts-portal .gl-ts-heading-numbers {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+
+    #wrap.gl-ts-portal summary.gl-ts-employee-summary > .gl-ts-status {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    #wrap.gl-ts-portal summary.gl-ts-employee-summary::after {
+        grid-column: 3;
+        grid-row: 1;
+    }
+
+    #wrap.gl-ts-portal .gl-ts-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #wrap.gl-ts-portal .gl-ts-total-box {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 720px) {
+    #wrap.gl-ts-portal .gl-ts-wrap {
+        width: min(100% - 20px, 1180px);
+        padding-top: 22px;
+    }
+
+    #wrap.gl-ts-portal .gl-ts-main-card,
+    #wrap.gl-ts-portal .gl-ts-login-card,
+    #wrap.gl-ts-portal .gl-ts-empty-card {
+        border-radius: 24px;
+    }
+
+    #wrap.gl-ts-portal .gl-ts-main-card,
+    #wrap.gl-ts-portal .gl-ts-login-card {
+        padding: 20px;
+    }
+
+    #wrap.gl-ts-portal .gl-ts-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    #wrap.gl-ts-portal .gl-ts-header > .gl-ts-btn {
+        width: 100%;
+    }
+
+    #wrap.gl-ts-portal .gl-ts-month-panel {
+        padding: 16px;
+    }
+
+    #wrap.gl-ts-portal summary.gl-ts-employee-summary {
+        grid-template-columns: 1fr 20px;
+        gap: 12px;
+        padding: 16px;
+    }
+
+    #wrap.gl-ts-portal summary.gl-ts-employee-summary > .gl-ts-status {
+        grid-column: 1;
+        grid-row: 3;
+        justify-self: start;
+    }
+
+    #wrap.gl-ts-portal summary.gl-ts-employee-summary::after {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    #wrap.gl-ts-portal .gl-ts-heading-numbers {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        gap: 16px;
+    }
+
+    #wrap.gl-ts-portal .gl-ts-employee-body {
+        padding: 0 14px 14px;
+    }
+
+    #wrap.gl-ts-portal .gl-ts-summary-grid {
+        padding-top: 14px;
+    }
+
+    #wrap.gl-ts-portal .gl-ts-payment-row {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    #wrap.gl-ts-portal .gl-ts-payment-row form,
+    #wrap.gl-ts-portal .gl-ts-payment-row .gl-ts-btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 430px) {
+    #wrap.gl-ts-portal .gl-ts-wrap {
+        width: min(100% - 14px, 1180px);
+    }
+
+    #wrap.gl-ts-portal .gl-ts-main-card,
+    #wrap.gl-ts-portal .gl-ts-login-card {
+        padding: 17px;
+    }
+
+    #wrap.gl-ts-portal .gl-ts-summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #wrap.gl-ts-portal .gl-ts-total-box {
+        grid-column: auto;
+    }
+
+    #wrap.gl-ts-portal .gl-ts-heading-numbers {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    #wrap.gl-ts-portal .gl-ts-heading-number {
+        min-width: 0;
+    }
+}
+
+        </style>
+    </template>
+
     <template id="portal_login" name="Stundenzettel-Prüfung: Anmeldung">
         <t t-call="website.layout">
             <t t-set="title">Stundenzettel-Prüfung</t>
-            <div id="wrap" class="gl-ts-portal gl-ts-login-page">
-                <div class="container py-5">
-                    <div class="gl-ts-login-card mx-auto">
+            <t t-call="gl_timesheet_approval.portal_styles"/>
+            <div id="wrap" class="gl-ts-portal">
+                <div class="gl-ts-wrap">
+                    <div class="gl-ts-login-card">
                         <div class="gl-ts-brand-mark">GROUNDLIFT</div>
                         <h1>Stundenzettel-Prüfung</h1>
-                        <p class="text-muted">Geschützter Zugang für 1. und 2. Prüfer.</p>
-                        <div t-if="error" class="alert alert-danger" role="alert">
+                        <p>Geschützter Zugang für 1. und 2. Prüfer.</p>
+                        <div t-if="error" class="gl-ts-flash gl-ts-flash-danger" role="alert">
                             <t t-esc="error"/>
                         </div>
-                        <form method="post" action="/stundenzettel/pruefung/login" class="mt-4">
+                        <form method="post" action="/stundenzettel/pruefung/login">
                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                            <div class="mb-3">
-                                <label for="gl_ts_login" class="form-label">Benutzername</label>
-                                <input id="gl_ts_login" type="text" name="login" class="form-control form-control-lg"
+                            <div class="gl-ts-form-field">
+                                <label for="gl_ts_login" class="gl-ts-label">Benutzername</label>
+                                <input id="gl_ts_login" type="text" name="login" class="gl-ts-input"
                                        autocomplete="username" required="required" t-att-value="login_value"/>
                             </div>
-                            <div class="mb-3">
-                                <label for="gl_ts_password" class="form-label">Passwort</label>
-                                <input id="gl_ts_password" type="password" name="password"
-                                       class="form-control form-control-lg" autocomplete="current-password" required="required"/>
+                            <div class="gl-ts-form-field">
+                                <label for="gl_ts_password" class="gl-ts-label">Passwort</label>
+                                <input id="gl_ts_password" type="password" name="password" class="gl-ts-input"
+                                       autocomplete="current-password" required="required"/>
                             </div>
-                            <button type="submit" class="btn btn-dark btn-lg w-100">Anmelden</button>
+                            <div class="gl-ts-form-field">
+                                <button type="submit" class="gl-ts-btn gl-ts-btn-wide">Anmelden</button>
+                            </div>
                         </form>
-                        <div class="gl-ts-divider"><span>oder</span></div>
-                        <a t-att-href="odoo_login_url" class="btn btn-outline-dark w-100">
+                        <div class="gl-ts-login-separator"><span>oder</span></div>
+                        <a t-att-href="odoo_login_url" class="gl-ts-btn gl-ts-btn-secondary gl-ts-btn-wide">
                             Mit bestehendem Odoo-Benutzer anmelden
                         </a>
                     </div>
@@ -39,14 +874,18 @@
     <template id="portal_access_denied" name="Stundenzettel-Prüfung: Kein Zugriff">
         <t t-call="website.layout">
             <t t-set="title">Kein Zugriff</t>
+            <t t-call="gl_timesheet_approval.portal_styles"/>
             <div id="wrap" class="gl-ts-portal">
-                <div class="container py-5">
-                    <div class="gl-ts-empty-card mx-auto text-center">
+                <div class="gl-ts-wrap">
+                    <div class="gl-ts-empty-card">
+                        <div class="gl-ts-brand-mark">GROUNDLIFT</div>
                         <h1>Kein Prüferzugang</h1>
                         <p>Der angemeldete Odoo-Benutzer ist nicht als 1. oder 2. Prüfer eingerichtet.</p>
-                        <a href="/web/session/logout?redirect=/stundenzettel/pruefung/login" class="btn btn-dark">
-                            Abmelden und erneut anmelden
-                        </a>
+                        <div class="gl-ts-form-field">
+                            <a href="/web/session/logout?redirect=/stundenzettel/pruefung/login" class="gl-ts-btn">
+                                Abmelden und erneut anmelden
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -56,117 +895,106 @@
     <template id="portal_page" name="Stundenzettel-Prüfung: Monatsübersicht">
         <t t-call="website.layout">
             <t t-set="title">Stundenzettel-Prüfung</t>
+            <t t-call="gl_timesheet_approval.portal_styles"/>
             <div id="wrap" class="gl-ts-portal">
-                <section class="gl-ts-header">
-                    <div class="container py-4">
-                        <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+                <div class="gl-ts-wrap">
+                    <main class="gl-ts-main-card">
+                        <div class="gl-ts-header">
                             <div>
                                 <div class="gl-ts-brand-mark">GROUNDLIFT</div>
-                                <h1 class="mb-1">Stundenzettel-Prüfung</h1>
+                                <h1 class="gl-ts-title">Stundenzettel-Prüfung</h1>
                                 <div class="gl-ts-reviewer-line">
                                     Angemeldet als <strong t-esc="reviewer.name"/>
-                                    <span class="badge rounded-pill text-bg-secondary ms-2">
+                                    <span class="gl-ts-role-pill">
                                         <t t-esc="'1. Prüfer' if reviewer.reviewer_level == '1' else '2. Prüfer'"/>
                                     </span>
                                 </div>
                             </div>
-                            <a href="/stundenzettel/pruefung/logout" class="btn btn-outline-light">Abmelden</a>
+                            <a href="/stundenzettel/pruefung/logout" class="gl-ts-btn gl-ts-btn-secondary">Abmelden</a>
                         </div>
-                    </div>
-                </section>
 
-                <main class="container py-4 py-lg-5">
-                    <div t-if="flash" t-attf-class="alert alert-#{flash['level']}" role="alert">
-                        <t t-esc="flash['message']"/>
-                    </div>
-
-                    <div class="gl-ts-month-bar mb-4">
-                        <div>
-                            <div class="gl-ts-label">Ausgewählter Monat</div>
-                            <h2 class="mb-0" t-if="selected_month" t-esc="selected_month.name"/>
-                            <h2 class="mb-0" t-else="">Noch kein Prüfmonat</h2>
+                        <div t-if="flash" t-att-class="'gl-ts-flash gl-ts-flash-%s' % flash['level']" role="alert">
+                            <t t-esc="flash['message']"/>
                         </div>
-                        <div class="d-flex flex-column align-items-lg-end gap-3">
-                            <div class="gl-ts-month-links" t-if="months">
-                                <a t-foreach="months" t-as="month_record"
-                                   t-att-href="'/stundenzettel/pruefung?month=%s' % month_record.month_start.strftime('%Y-%m')"
-                                   t-attf-class="btn #{'btn-dark' if selected_month and month_record.id == selected_month.id else 'btn-outline-dark'}">
-                                    <t t-esc="month_record.name"/>
-                                </a>
+
+                        <section class="gl-ts-month-panel">
+                            <div>
+                                <span class="gl-ts-eyebrow">Ausgewählter Monat</span>
+                                <h2 class="gl-ts-month-title" t-if="selected_month" t-esc="selected_month.name"/>
+                                <h2 class="gl-ts-month-title" t-else="">Noch kein Prüfmonat</h2>
                             </div>
-                            <div t-if="selected_month" class="gl-ts-month-payment">
-                                <span t-if="month_all_paid" class="badge text-bg-success fs-6">✓ Gesamtmonat überwiesen</span>
-                                <span t-else="" class="badge text-bg-secondary fs-6">Gesamtmonat nicht überwiesen</span>
-                                <form t-if="can_set_month_paid" method="post" class="d-inline-block ms-2"
-                                      t-att-action="'/stundenzettel/pruefung/monat/%s/ueberwiesen' % selected_month.id">
-                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                    <button t-if="not month_all_paid" type="submit" name="paid" value="1"
-                                            t-att-disabled="not month_all_approved" class="btn btn-sm btn-primary">
-                                        Alle als überwiesen markieren
-                                    </button>
-                                    <button t-else="" type="submit" name="paid" value="0" class="btn btn-sm btn-outline-secondary">
-                                        Monats-Markierung entfernen
-                                    </button>
-                                </form>
+                            <div class="gl-ts-month-controls">
+                                <div class="gl-ts-month-links" t-if="months">
+                                    <a t-foreach="months" t-as="month_record"
+                                       t-att-href="'/stundenzettel/pruefung?month=%s' % month_record.month_start.strftime('%Y-%m')"
+                                       t-att-class="'gl-ts-month-link gl-ts-month-link-active' if selected_month and month_record.id == selected_month.id else 'gl-ts-month-link'">
+                                        <t t-esc="month_record.name"/>
+                                    </a>
+                                </div>
+                                <div t-if="selected_month" class="gl-ts-payment-head">
+                                    <span t-if="month_all_paid" class="gl-ts-status gl-ts-status-success">✓ Gesamtmonat überwiesen</span>
+                                    <span t-else="" class="gl-ts-status gl-ts-status-warning">Gesamtmonat nicht überwiesen</span>
+                                    <form t-if="can_set_month_paid" method="post"
+                                          t-att-action="'/stundenzettel/pruefung/monat/%s/ueberwiesen' % selected_month.id">
+                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                        <button t-if="not month_all_paid" type="submit" name="paid" value="1"
+                                                t-att-disabled="not month_all_approved"
+                                                class="gl-ts-btn gl-ts-btn-small gl-ts-btn-success">
+                                            Alle als überwiesen markieren
+                                        </button>
+                                        <button t-else="" type="submit" name="paid" value="0"
+                                                class="gl-ts-btn gl-ts-btn-small gl-ts-btn-secondary">
+                                            Monats-Markierung entfernen
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
+                        </section>
+
+                        <div t-if="not selected_month" class="gl-ts-empty-card">
+                            <h3>Noch keine Monatsdaten vorhanden</h3>
+                            <p>Ein Prüfmonat wird automatisch am 1. des Folgemonats oder manuell im Backend erzeugt.</p>
                         </div>
-                    </div>
 
-                    <div t-if="not selected_month" class="gl-ts-empty-card text-center">
-                        <h3>Noch keine Monatsdaten vorhanden</h3>
-                        <p class="mb-0">Ein Prüfmonat wird automatisch am 1. des Folgemonats oder manuell im Backend erzeugt.</p>
-                    </div>
+                        <div t-elif="not employee_lines" class="gl-ts-empty-card">
+                            <h3>Keine relevanten Arbeitszeiten</h3>
+                            <p>Für diesen Monat wurden keine Arbeitszeiten mit dem Strukturtyp Minijob oder Geringfügige Beschäftigung gefunden.</p>
+                        </div>
 
-                    <div t-elif="not employee_lines" class="gl-ts-empty-card text-center">
-                        <h3>Keine relevanten Arbeitszeiten</h3>
-                        <p class="mb-0">Für diesen Monat wurden keine Arbeitszeiten von Minijobbern oder geringfügig Beschäftigten gefunden.</p>
-                    </div>
-
-                    <div t-else="" class="accordion gl-ts-employee-list" id="glTimesheetEmployees">
-                        <div t-foreach="employee_lines" t-as="employee" class="accordion-item gl-ts-employee-card"
-                             t-att-id="employee['anchor']">
-                            <h2 class="accordion-header" t-att-id="'heading-%s' % employee['id']">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                        t-att-data-bs-target="'#collapse-%s' % employee['id']"
-                                        aria-expanded="false" t-att-aria-controls="'collapse-%s' % employee['id']">
-                                    <span class="gl-ts-employee-heading">
-                                        <span>
-                                            <strong class="gl-ts-employee-name" t-esc="employee['employee_name']"/>
-                                            <small t-if="employee['job_title']" t-esc="employee['job_title']"/>
-                                        </span>
-                                        <span class="gl-ts-heading-numbers">
-                                            <span><small>Arbeitszeit</small><strong t-esc="employee['payable']"/></span>
-                                            <span><small>Gesamtlohn</small><strong t-esc="employee['total_salary']"/></span>
-                                        </span>
-                                        <span t-if="employee['approval_state'] == 'approved'" class="badge text-bg-success">Freigegeben</span>
-                                        <span t-elif="employee['approval_state'] == 'rejected'" class="badge text-bg-danger">Nicht freigegeben</span>
-                                        <span t-else="" class="badge text-bg-warning">Nicht freigegeben</span>
+                        <div t-else="" class="gl-ts-employee-list" id="glTimesheetEmployees">
+                            <details t-foreach="employee_lines" t-as="employee" class="gl-ts-employee-card"
+                                     t-att-id="employee['anchor']">
+                                <summary class="gl-ts-employee-summary">
+                                    <span>
+                                        <strong class="gl-ts-employee-name" t-esc="employee['employee_name']"/>
+                                        <small t-if="employee['job_title']" class="gl-ts-employee-job" t-esc="employee['job_title']"/>
                                     </span>
-                                </button>
-                            </h2>
-                            <div t-att-id="'collapse-%s' % employee['id']" class="accordion-collapse collapse"
-                                 t-att-aria-labelledby="'heading-%s' % employee['id']">
-                                <div class="accordion-body">
-                                    <div class="row g-3 gl-ts-summary-grid mb-4">
-                                        <div class="col-6 col-lg">
-                                            <div class="gl-ts-summary-box"><small>Bruttozeit</small><strong t-esc="employee['gross']"/></div>
-                                        </div>
-                                        <div class="col-6 col-lg">
-                                            <div class="gl-ts-summary-box"><small>Automatische Pausen</small><strong t-esc="employee['break']"/></div>
-                                        </div>
-                                        <div class="col-6 col-lg">
-                                            <div class="gl-ts-summary-box"><small>Arbeitszeit</small><strong t-esc="employee['payable']"/></div>
-                                        </div>
-                                        <div class="col-6 col-lg">
-                                            <div class="gl-ts-summary-box"><small>Stundenlohn</small><strong t-esc="employee['hourly_wage']"/></div>
-                                        </div>
-                                        <div class="col-12 col-lg">
-                                            <div class="gl-ts-summary-box gl-ts-total-box"><small>Gesamtlohn</small><strong t-esc="employee['total_salary']"/></div>
-                                        </div>
+                                    <span class="gl-ts-heading-numbers">
+                                        <span class="gl-ts-heading-number">
+                                            <small>Arbeitszeit</small>
+                                            <strong t-esc="employee['payable']"/>
+                                        </span>
+                                        <span class="gl-ts-heading-number">
+                                            <small>Gesamtlohn</small>
+                                            <strong t-esc="employee['total_salary']"/>
+                                        </span>
+                                    </span>
+                                    <span t-if="employee['approval_state'] == 'approved'" class="gl-ts-status gl-ts-status-success">Freigegeben</span>
+                                    <span t-elif="employee['approval_state'] == 'rejected'" class="gl-ts-status gl-ts-status-danger">Nicht freigegeben</span>
+                                    <span t-else="" class="gl-ts-status gl-ts-status-warning">Nicht freigegeben</span>
+                                </summary>
+
+                                <div class="gl-ts-employee-body">
+                                    <div class="gl-ts-summary-grid">
+                                        <div class="gl-ts-summary-box"><small>Bruttozeit</small><strong t-esc="employee['gross']"/></div>
+                                        <div class="gl-ts-summary-box"><small>Automatische Pausen</small><strong t-esc="employee['break']"/></div>
+                                        <div class="gl-ts-summary-box"><small>Arbeitszeit</small><strong t-esc="employee['payable']"/></div>
+                                        <div class="gl-ts-summary-box"><small>Stundenlohn</small><strong t-esc="employee['hourly_wage']"/></div>
+                                        <div class="gl-ts-summary-box gl-ts-total-box"><small>Gesamtlohn</small><strong t-esc="employee['total_salary']"/></div>
                                     </div>
 
-                                    <div class="table-responsive">
-                                        <table class="table align-middle gl-ts-day-table">
+                                    <div class="gl-ts-table-wrap">
+                                        <table class="gl-ts-day-table">
                                             <thead>
                                                 <tr>
                                                     <th>Datum</th>
@@ -182,45 +1010,47 @@
                                             <tbody>
                                                 <tr t-foreach="employee['days']" t-as="day">
                                                     <td><strong t-esc="day['date']"/></td>
-                                                    <td>
+                                                    <td class="gl-ts-nowrap">
                                                         <span t-esc="day['check_in']"/> – <span t-esc="day['check_out']"/>
-                                                        <small t-if="day['attendance_count'] &gt; 1" class="d-block text-muted">
+                                                        <small t-if="day['attendance_count'] &gt; 1" class="gl-ts-muted">
                                                             <t t-esc="day['attendance_count']"/> Anwesenheiten zusammengefasst
                                                         </small>
                                                     </td>
-                                                    <td class="text-nowrap" t-esc="day['gross']"/>
-                                                    <td class="text-nowrap">
+                                                    <td class="gl-ts-nowrap" t-esc="day['gross']"/>
+                                                    <td class="gl-ts-nowrap">
                                                         <span t-esc="day['break']"/>
-                                                        <small t-if="day['break'] != '00:00:00'" class="d-block text-muted">automatisch</small>
+                                                        <small t-if="day['break'] != '00:00:00'" class="gl-ts-muted">automatisch</small>
                                                     </td>
-                                                    <td class="text-nowrap"><strong t-esc="day['payable']"/></td>
+                                                    <td class="gl-ts-nowrap"><strong t-esc="day['payable']"/></td>
                                                     <td>
-                                                        <span t-if="day['reviewer1_state'] == 'approved'" class="badge text-bg-success">Freigegeben</span>
-                                                        <span t-elif="day['reviewer1_state'] == 'rejected'" class="badge text-bg-danger">Nicht freigegeben</span>
-                                                        <span t-else="" class="badge text-bg-secondary">Offen</span>
-                                                        <small t-if="day['reviewer1_name']" class="d-block text-muted mt-1" t-esc="day['reviewer1_name']"/>
+                                                        <span t-if="day['reviewer1_state'] == 'approved'" class="gl-ts-status gl-ts-status-success">Freigegeben</span>
+                                                        <span t-elif="day['reviewer1_state'] == 'rejected'" class="gl-ts-status gl-ts-status-danger">Nicht freigegeben</span>
+                                                        <span t-else="" class="gl-ts-status gl-ts-status-muted">Offen</span>
+                                                        <small t-if="day['reviewer1_name']" class="gl-ts-muted" t-esc="day['reviewer1_name']"/>
                                                     </td>
                                                     <td>
-                                                        <span t-if="day['reviewer2_state'] == 'approved'" class="badge text-bg-success">Freigegeben</span>
-                                                        <span t-elif="day['reviewer2_state'] == 'rejected'" class="badge text-bg-danger">Nicht freigegeben</span>
-                                                        <span t-else="" class="badge text-bg-secondary">Offen</span>
-                                                        <small t-if="day['reviewer2_name']" class="d-block text-muted mt-1" t-esc="day['reviewer2_name']"/>
+                                                        <span t-if="day['reviewer2_state'] == 'approved'" class="gl-ts-status gl-ts-status-success">Freigegeben</span>
+                                                        <span t-elif="day['reviewer2_state'] == 'rejected'" class="gl-ts-status gl-ts-status-danger">Nicht freigegeben</span>
+                                                        <span t-else="" class="gl-ts-status gl-ts-status-muted">Offen</span>
+                                                        <small t-if="day['reviewer2_name']" class="gl-ts-muted" t-esc="day['reviewer2_name']"/>
                                                     </td>
                                                     <td class="gl-ts-review-cell">
                                                         <form method="post" t-att-action="'/stundenzettel/pruefung/tag/%s' % day['id']">
                                                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                            <input type="text" name="note" class="form-control form-control-sm mb-2"
+                                                            <input type="text" name="note" class="gl-ts-input"
                                                                    placeholder="Bemerkung (optional)"/>
-                                                            <div class="d-flex flex-wrap gap-2">
-                                                                <button type="submit" name="state" value="approved" class="btn btn-success btn-sm">
+                                                            <div class="gl-ts-review-actions">
+                                                                <button type="submit" name="state" value="approved"
+                                                                        class="gl-ts-btn gl-ts-btn-small gl-ts-btn-success">
                                                                     Geprüft und freigegeben
                                                                 </button>
-                                                                <button type="submit" name="state" value="rejected" class="btn btn-outline-danger btn-sm">
+                                                                <button type="submit" name="state" value="rejected"
+                                                                        class="gl-ts-btn gl-ts-btn-small gl-ts-btn-danger">
                                                                     Nicht freigegeben
                                                                 </button>
                                                             </div>
                                                         </form>
-                                                        <small t-if="day['review_note']" class="d-block mt-2 text-muted">
+                                                        <small t-if="day['review_note']" class="gl-ts-muted">
                                                             Letzte Bemerkung: <t t-esc="day['review_note']"/>
                                                         </small>
                                                     </td>
@@ -229,34 +1059,48 @@
                                         </table>
                                     </div>
 
-                                    <div class="gl-ts-payment-row mt-3">
+                                    <div class="gl-ts-payment-row">
                                         <div>
-                                            <span class="gl-ts-label">Auszahlung des Monatslohns</span>
-                                            <div t-if="employee['paid']" class="text-success fw-bold">
+                                            <span class="gl-ts-payment-title">Auszahlung des Monatslohns</span>
+                                            <div t-if="employee['paid']" class="gl-ts-paid-text">
                                                 ✓ Überwiesen<t t-if="employee['paid_by']"> von <t t-esc="employee['paid_by']"/></t>
                                             </div>
-                                            <div t-else="" class="text-muted">Noch nicht als überwiesen markiert</div>
+                                            <div t-else="" class="gl-ts-unpaid-text">Noch nicht als überwiesen markiert</div>
                                         </div>
                                         <form t-if="employee['can_set_paid']" method="post"
                                               t-att-action="'/stundenzettel/pruefung/mitarbeiter/%s/ueberwiesen' % employee['id']">
                                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                             <button t-if="not employee['paid']" type="submit" name="paid" value="1"
                                                     t-att-disabled="employee['approval_state'] != 'approved'"
-                                                    class="btn btn-primary">
+                                                    class="gl-ts-btn gl-ts-btn-success">
                                                 Als überwiesen markieren
                                             </button>
-                                            <button t-else="" type="submit" name="paid" value="0" class="btn btn-outline-secondary">
+                                            <button t-else="" type="submit" name="paid" value="0"
+                                                    class="gl-ts-btn gl-ts-btn-secondary">
                                                 Überwiesen-Markierung entfernen
                                             </button>
                                         </form>
-                                        <div t-else="" class="text-muted small">Nur der 2. Prüfer kann diesen Status ändern.</div>
+                                        <div t-else="" class="gl-ts-unpaid-text">Nur der 2. Prüfer kann diesen Status ändern.</div>
                                     </div>
                                 </div>
-                            </div>
+                            </details>
                         </div>
-                    </div>
-                </main>
+                    </main>
+                </div>
             </div>
+            <script type="text/javascript">
+                document.addEventListener('DOMContentLoaded', function () {
+                    var hash = window.location.hash;
+                    if (!hash) { return; }
+                    var target = document.querySelector(hash);
+                    if (target &amp;&amp; target.tagName === 'DETAILS') {
+                        target.open = true;
+                        window.setTimeout(function () {
+                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
+                        }, 50);
+                    }
+                });
+            </script>
         </t>
     </template>
 </odoo>
