@@ -152,6 +152,13 @@
                             <field name="last_refresh_at" readonly="1"/>
                             <field name="last_refresh_by_id" readonly="1"/>
                         </group>
+                        <group string="Ergebnis des letzten Einlesens" col="4">
+                            <field name="source_attendance_count" readonly="1"/>
+                            <field name="source_employee_count" readonly="1"/>
+                            <field name="eligible_source_employee_count" readonly="1"/>
+                            <field name="excluded_source_employee_count" readonly="1"/>
+                            <field name="last_refresh_note" readonly="1" colspan="4" nolabel="1"/>
+                        </group>
                     </group>
                     <notebook>
                         <page string="Mitarbeiter">

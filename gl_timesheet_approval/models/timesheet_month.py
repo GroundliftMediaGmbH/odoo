@@ -90,6 +90,11 @@ class GlTimesheetMonth(models.Model):
     notification_recipient_count = fields.Integer(copy=False)
     last_refresh_at = fields.Datetime(copy=False, tracking=True)
     last_refresh_by_id = fields.Many2one("res.users", copy=False)
+    source_attendance_count = fields.Integer(string="Gefundene Anwesenheiten", copy=False, readonly=True)
+    source_employee_count = fields.Integer(string="Mitarbeiter mit Anwesenheiten", copy=False, readonly=True)
+    eligible_source_employee_count = fields.Integer(string="Davon berücksichtigt", copy=False, readonly=True)
+    excluded_source_employee_count = fields.Integer(string="Davon nicht erkannt/ausgeschlossen", copy=False, readonly=True)
+    last_refresh_note = fields.Text(string="Hinweis zum letzten Einlesen", copy=False, readonly=True)
 
     _sql_constraints = [
         (
@@ -179,13 +184,28 @@ class GlTimesheetMonth(models.Model):
         Day = self.env["gl.timesheet.day"].sudo()
 
         attendances = Attendance.search(self._attendance_domain(), order="employee_id, date, check_in")
-        grouped = defaultdict(lambda: self.env["hr.attendance"])
+        source_employees = attendances.mapped("employee_id")
+        grouped = defaultdict(lambda: Attendance.browse())
+        eligible_employee_ids = set()
+        excluded_reason_by_employee = {}
+
+        # Odoo 19 keeps employment data in dated employee versions. Evaluate the
+        # version valid on the attendance date so historical months remain correct.
         for attendance in attendances:
             employee = attendance.employee_id.sudo()
-            if employee._gl_is_timesheet_eligible():
+            eligible, details = employee._gl_timesheet_eligibility_details(on_date=attendance.date)
+            if eligible:
+                eligible_employee_ids.add(employee.id)
                 grouped[(employee.id, attendance.date)] |= attendance
+            else:
+                excluded_reason_by_employee[employee.id] = details
 
-        employee_ids = sorted({employee_id for employee_id, _work_date in grouped})
+        excluded_employee_ids = set(source_employees.ids) - eligible_employee_ids
+        excluded_details = [
+            f"{employee.display_name}: {excluded_reason_by_employee.get(employee.id, _('Nicht erkannt'))}"
+            for employee in source_employees.sudo().filtered(lambda item: item.id in excluded_employee_ids)
+        ]
+        employee_ids = sorted(eligible_employee_ids)
         existing_employee_lines = {
             line.employee_id.id: line for line in EmployeeMonth.search([("month_id", "=", self.id)])
         }
@@ -273,25 +293,71 @@ class GlTimesheetMonth(models.Model):
         )
         stale_employee_lines.unlink()
 
+        if not attendances:
+            note = _(
+                "Im Zeitraum %(start)s bis %(end)s wurden keine abgeschlossenen Anwesenheiten gefunden.",
+                start=fields.Date.to_string(self.month_start),
+                end=fields.Date.to_string(self.month_end),
+            )
+        elif not employee_ids:
+            detail_text = "\n".join(excluded_details[:20])
+            note = _(
+                "Es wurden %(attendance_count)s abgeschlossene Anwesenheiten von %(employee_count)s Mitarbeitern gefunden, "
+                "aber keine Person wurde als Minijob oder geringfügig beschäftigt erkannt. "
+                "Bitte im Mitarbeiter-Reiter 'Stundenzettel-Prüfung' die Beschäftigungsart kontrollieren oder ausdrücklich festlegen.\n%(details)s",
+                attendance_count=len(attendances),
+                employee_count=len(source_employees),
+                details=detail_text,
+            )
+        else:
+            note = _(
+                "%(attendance_count)s abgeschlossene Anwesenheiten von %(source_count)s Mitarbeitern gefunden; "
+                "%(eligible_count)s Mitarbeiter wurden übernommen.",
+                attendance_count=len(attendances),
+                source_count=len(source_employees),
+                eligible_count=len(employee_ids),
+            )
+            if excluded_details:
+                note += _(" Nicht übernommen: %s", "; ".join(excluded_details[:10]))
+
         self.write(
             {
                 "last_refresh_at": fields.Datetime.now(),
                 "last_refresh_by_id": self.env.user.id,
+                "source_attendance_count": len(attendances),
+                "source_employee_count": len(source_employees),
+                "eligible_source_employee_count": len(employee_ids),
+                "excluded_source_employee_count": len(source_employees) - len(employee_ids),
+                "last_refresh_note": note,
             }
         )
-        return True
+        _logger.info("Groundlift Stundenzettel %s: %s", self.display_name, note)
+        return {
+            "attendance_count": len(attendances),
+            "source_employee_count": len(source_employees),
+            "eligible_employee_count": len(employee_ids),
+            "note": note,
+        }
 
     def action_refresh_from_attendance(self):
-        for month in self:
-            month._refresh_from_attendance()
+        results = [month._refresh_from_attendance() for month in self]
+        eligible_count = sum(result["eligible_employee_count"] for result in results)
+        attendance_count = sum(result["attendance_count"] for result in results)
+        if not attendance_count or not eligible_count:
+            notification_type = "warning"
+            sticky = True
+        else:
+            notification_type = "success"
+            sticky = False
+        message = "\n".join(result["note"] for result in results)
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",
             "params": {
                 "title": _("Stundenzettel aktualisiert"),
-                "message": _("Die Anwesenheiten wurden sekundengenau neu eingelesen."),
-                "type": "success",
-                "sticky": False,
+                "message": message,
+                "type": notification_type,
+                "sticky": sticky,
                 "next": {"type": "ir.actions.client", "tag": "reload"},
             },
         }

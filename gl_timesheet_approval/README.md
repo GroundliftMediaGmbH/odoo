@@ -147,9 +147,26 @@ Das Portal enthält personenbezogene Arbeitszeit- und Lohndaten. Daher:
 
 ## Version
 
-`19.0.1.0.0`
+`19.0.1.0.3`
 
 
 ## Sichtbarkeit auf dem Odoo-Desktop
 
 Die App erscheint als **Stundenzettel-Prüfung** im App-Umschalter. Odoo-Systemadministratoren erhalten die erforderliche Verwaltungsgruppe automatisch. Weitere interne Benutzer können über die Odoo-Benutzerverwaltung der Gruppe **Stundenzettel-Prüfung: Verwaltung** zugeordnet werden.
+
+
+## Importdiagnose ab Version 1.0.3
+
+Nach `Anwesenheiten einlesen / aktualisieren` zeigt der Prüfmonat:
+
+- Anzahl abgeschlossener Anwesenheitseinträge im Monat
+- Anzahl der Mitarbeiter mit Anwesenheiten
+- Anzahl der als Minijob/geringfügig erkannt und übernommenen Mitarbeiter
+- Anzahl der nicht erkannten oder manuell ausgeschlossenen Mitarbeiter
+- einen konkreten Hinweis mit den erkannten Beschäftigungswerten
+
+Die automatische Erkennung berücksichtigt in Odoo 19 insbesondere die aktuelle
+Mitarbeiterversion (`current_version_id`), `employee_type`, Vertragsarten,
+Beschäftigungsarten, Mitarbeiter-Tags und entsprechend bezeichnete Studio-Felder.
+Im Zweifel kann die Auswahl im Mitarbeiter-Reiter `Stundenzettel-Prüfung` ausdrücklich
+auf `Minijob` oder `Geringfügig beschäftigt` gesetzt werden.

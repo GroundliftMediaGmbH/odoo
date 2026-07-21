@@ -11,6 +11,8 @@
                         <group string="Beschäftigung">
                             <field name="gl_timesheet_employment_type"/>
                             <field name="gl_timesheet_hourly_wage"/>
+                            <field name="gl_timesheet_is_eligible" readonly="1"/>
+                            <field name="gl_timesheet_detection_info" readonly="1"/>
                             <field name="gl_timesheet_currency_id" invisible="1"/>
                         </group>
                         <group string="Hinweis">

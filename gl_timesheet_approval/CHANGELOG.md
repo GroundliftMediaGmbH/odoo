@@ -1,5 +1,13 @@
 # Changelog
 
+## 19.0.1.0.3
+
+- Odoo-19-Feld `employee_type` der aktuellen Mitarbeiterversion wird ausgewertet.
+- Automatische Erkennung berücksichtigt Vertragsarten, Beschäftigungsarten, Tags und passende Studio-Felder.
+- Import zeigt gefundene Anwesenheiten, Mitarbeiter, übernommene und ausgeschlossene Personen an.
+- Warnung mit Diagnose, wenn Anwesenheiten existieren, aber keine Minijobber erkannt werden.
+- Sudo-Recordset beim Gruppieren der Anwesenheiten vereinheitlicht.
+
 ## 19.0.1.0.2
 
 - Odoo-Systemadministratoren erhalten die Modul-Verwaltungsgruppe automatisch als implizite Gruppe.
