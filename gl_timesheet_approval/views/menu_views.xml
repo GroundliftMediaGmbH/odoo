@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_gl_timesheet_root"
+              name="Stundenzettel-Prüfung"
+              sequence="55"
+              groups="gl_timesheet_approval.group_gl_timesheet_manager"
+              web_icon="gl_timesheet_approval,static/description/icon.png"/>
+
+    <menuitem id="menu_gl_timesheet_months"
+              name="Prüfmonate"
+              parent="menu_gl_timesheet_root"
+              action="action_gl_timesheet_month"
+              sequence="10"/>
+
+    <menuitem id="menu_gl_timesheet_employee_months"
+              name="Mitarbeiter-Stundenzettel"
+              parent="menu_gl_timesheet_root"
+              action="action_gl_timesheet_employee_month"
+              sequence="20"/>
+
+    <menuitem id="menu_gl_timesheet_reviewers"
+              name="Prüfer"
+              parent="menu_gl_timesheet_root"
+              action="action_gl_timesheet_reviewer"
+              sequence="30"/>
+
+    <menuitem id="menu_gl_timesheet_history"
+              name="Prüfhistorie"
+              parent="menu_gl_timesheet_root"
+              action="action_gl_timesheet_review_log"
+              sequence="40"/>
+</odoo>

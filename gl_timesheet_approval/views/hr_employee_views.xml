@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_employee_form_gl_timesheet" model="ir.ui.view">
+        <field name="name">hr.employee.form.gl.timesheet.approval</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Stundenzettel-Prüfung" groups="gl_timesheet_approval.group_gl_timesheet_manager">
+                    <group>
+                        <group string="Beschäftigung">
+                            <field name="gl_timesheet_employment_type"/>
+                            <field name="gl_timesheet_hourly_wage"/>
+                            <field name="gl_timesheet_currency_id" invisible="1"/>
+                        </group>
+                        <group string="Hinweis">
+                            <div class="text-muted">
+                                Nur Mitarbeitende mit Minijob oder geringfügiger Beschäftigung werden in die Monatsprüfung übernommen.
+                                Bei der Einstellung „Automatisch“ wird die aktuelle Beschäftigungs-/Vertragsart ausgewertet.
+                            </div>
+                            <button name="action_open_gl_timesheet_months" type="object" string="Bisherige Prüfmonate öffnen" class="btn-secondary"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,248 @@
+.gl-ts-portal {
+    min-height: 100vh;
+    background: #f3f4f6;
+    color: #111827;
+}
+
+.gl-ts-header {
+    background: linear-gradient(135deg, #0b0d12 0%, #242936 100%);
+    color: #fff;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+}
+
+.gl-ts-header h1,
+.gl-ts-login-card h1 {
+    font-weight: 800;
+    letter-spacing: -0.03em;
+}
+
+.gl-ts-brand-mark {
+    display: inline-block;
+    margin-bottom: 0.35rem;
+    font-size: 0.76rem;
+    font-weight: 900;
+    letter-spacing: 0.22em;
+    color: #ff4057;
+}
+
+.gl-ts-reviewer-line {
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.gl-ts-login-page {
+    display: flex;
+    align-items: center;
+}
+
+.gl-ts-login-card,
+.gl-ts-empty-card,
+.gl-ts-month-bar {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    box-shadow: 0 16px 48px rgba(17, 24, 39, 0.08);
+}
+
+.gl-ts-login-card {
+    max-width: 480px;
+    padding: 2rem;
+}
+
+.gl-ts-empty-card {
+    max-width: 760px;
+    padding: 2.5rem;
+}
+
+.gl-ts-divider {
+    position: relative;
+    margin: 1.35rem 0;
+    text-align: center;
+    color: #9ca3af;
+}
+
+.gl-ts-divider::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: #e5e7eb;
+}
+
+.gl-ts-divider span {
+    position: relative;
+    padding: 0 0.8rem;
+    background: #fff;
+}
+
+.gl-ts-month-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1.35rem 1.5rem;
+}
+
+.gl-ts-label {
+    display: block;
+    margin-bottom: 0.25rem;
+    color: #6b7280;
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.gl-ts-month-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.gl-ts-employee-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.gl-ts-employee-card {
+    overflow: hidden;
+    border: 1px solid #dfe3e8 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 8px 30px rgba(17, 24, 39, 0.06);
+}
+
+.gl-ts-employee-card .accordion-button {
+    padding: 1.15rem 1.25rem;
+    background: #fff;
+    box-shadow: none;
+}
+
+.gl-ts-employee-card .accordion-button:not(.collapsed) {
+    color: #111827;
+    background: #fafafa;
+}
+
+.gl-ts-employee-heading {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(260px, auto) auto;
+    align-items: center;
+    width: 100%;
+    gap: 1rem;
+    padding-right: 1rem;
+}
+
+.gl-ts-employee-name {
+    display: block;
+    font-size: 1.06rem;
+}
+
+.gl-ts-employee-heading small {
+    display: block;
+    color: #6b7280;
+}
+
+.gl-ts-heading-numbers {
+    display: flex;
+    gap: 2rem;
+}
+
+.gl-ts-heading-numbers span {
+    min-width: 105px;
+}
+
+.gl-ts-heading-numbers strong,
+.gl-ts-heading-numbers small {
+    display: block;
+}
+
+.gl-ts-summary-box {
+    height: 100%;
+    padding: 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #f9fafb;
+}
+
+.gl-ts-summary-box small,
+.gl-ts-summary-box strong {
+    display: block;
+}
+
+.gl-ts-summary-box small {
+    margin-bottom: 0.25rem;
+    color: #6b7280;
+}
+
+.gl-ts-summary-box strong {
+    font-size: 1.05rem;
+}
+
+.gl-ts-total-box {
+    color: #fff;
+    background: #111827;
+    border-color: #111827;
+}
+
+.gl-ts-total-box small {
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.gl-ts-day-table {
+    min-width: 1120px;
+}
+
+.gl-ts-day-table thead th {
+    color: #4b5563;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.gl-ts-review-cell {
+    min-width: 285px;
+}
+
+.gl-ts-payment-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.15rem;
+    border: 1px solid #dbe2ea;
+    border-radius: 12px;
+    background: #f8fafc;
+}
+
+@media (max-width: 991.98px) {
+    .gl-ts-employee-heading {
+        grid-template-columns: 1fr auto;
+    }
+
+    .gl-ts-heading-numbers {
+        grid-column: 1 / -1;
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .gl-ts-login-card {
+        padding: 1.4rem;
+    }
+
+    .gl-ts-month-bar {
+        padding: 1rem;
+    }
+
+    .gl-ts-employee-heading {
+        grid-template-columns: 1fr;
+    }
+
+    .gl-ts-heading-numbers {
+        grid-column: auto;
+    }
+}
