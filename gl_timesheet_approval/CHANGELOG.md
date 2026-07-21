@@ -1,5 +1,13 @@
 # Changelog
 
+## 19.0.1.0.5
+
+- Importfilter greift nun direkt auf das technische Feld `structure_type_id` zu.
+- Maßgeblich ist die am Anwesenheitstag gültige Odoo-19-Mitarbeiterversion (`hr.version`).
+- Ausschließlich die Strukturtyp-Namen **Minijob** und **Geringfügige Beschäftigung** werden akzeptiert.
+- Fehleranfällige Erkennung über Feldnamen oder Feldbeschriftungen entfernt.
+- Importdiagnose zeigt den konkreten Wert aus `structure_type_id` an.
+
 ## 19.0.1.0.4
 
 - Importfilter strikt auf das Feld **Zahlungskategorie** begrenzt.

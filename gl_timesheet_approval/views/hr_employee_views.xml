@@ -8,7 +8,7 @@
             <xpath expr="//notebook" position="inside">
                 <page string="Stundenzettel-Prüfung" groups="gl_timesheet_approval.group_gl_timesheet_manager">
                     <group>
-                        <group string="Zahlungskategorie und Lohn">
+                        <group string="Strukturtyp und Lohn">
                             <field name="gl_timesheet_hourly_wage"/>
                             <field name="gl_timesheet_is_eligible" readonly="1"/>
                             <field name="gl_timesheet_detection_info" readonly="1"/>
@@ -16,9 +16,9 @@
                         </group>
                         <group string="Hinweis">
                             <div class="text-muted">
-                                Es werden ausschließlich Mitarbeitende übernommen, deren Odoo-Zahlungskategorie
-                                exakt „Minijob“ oder „Geringfügige Beschäftigung“ lautet. Andere Beschäftigungsarten,
-                                Tags oder frühere manuelle Einstellungen werden nicht berücksichtigt.
+                                Es werden ausschließlich Mitarbeitende übernommen, deren technisches Feld
+                                „structure_type_id“ exakt auf „Minijob“ oder „Geringfügige Beschäftigung“ verweist.
+                                Andere Beschäftigungsarten, Tags oder frühere manuelle Einstellungen werden nicht berücksichtigt.
                             </div>
                             <button name="action_open_gl_timesheet_months" type="object" string="Bisherige Prüfmonate öffnen" class="btn-secondary"/>
                         </group>

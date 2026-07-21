@@ -8,15 +8,16 @@ Vor der Auslieferung wurden folgende statische Prüfungen ausgeführt:
 - Syntaxprüfung der dynamischen QWeb-Ausdrücke
 - Prüfung der ZIP-Struktur und des Modul-Manifests
 - Prüfung, dass Felder aus Such-Domains gespeichert oder über eine Suchmethode durchsuchbar sind
-- Prüfung der Odoo-19-Anwesenheitsfelder und des strikten, versionsbezogenen Zahlungskategorie-Filters
+- Prüfung der Odoo-19-Anwesenheitsfelder und des direkten, versionsbezogenen `structure_type_id`-Filters
 - Prüfung der neuen Importdiagnose-Felder in Modell und Ansicht
 
 Eine echte Installation gegen eine laufende Odoo-19-Instanz war in der Erstellungsumgebung nicht verfügbar. Die erste Installation sollte deshalb – wie bei Custom-Modulen üblich – zunächst auf einem Odoo.sh-Staging-Branch erfolgen.
 
-## Version 19.0.1.0.4
+## Version 19.0.1.0.5
 
 - Python-Syntax aller Moduldateien geprüft
 - XML-Dateien auf Wohlgeformtheit geprüft
 - Manifest und ZIP-Struktur geprüft
-- Auswahlentscheidung auf Zahlungskategorie begrenzt
+- Auswahlentscheidung direkt auf `structure_type_id` begrenzt
+- Historische Mitarbeiterversion am Anwesenheitstag priorisiert
 - Nur Minijob und Geringfügige Beschäftigung zugelassen

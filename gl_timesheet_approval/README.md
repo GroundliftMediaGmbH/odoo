@@ -21,7 +21,7 @@ Stundenzettel von Minijobbern und geringfügig Beschäftigten.
   - „Die Stundenzettel von Groundlift von [Monat] sind online“
 - Manueller Button zum Einlesen/Aktualisieren und zum erneuten E-Mail-Versand
 - Datenquelle: abgeschlossene Einträge aus Odoo Anwesenheiten (`hr.attendance`)
-- Es werden ausschließlich Mitarbeitende übernommen, deren **Zahlungskategorie** exakt `Minijob` oder `Geringfügige Beschäftigung` lautet
+- Es werden ausschließlich Mitarbeitende übernommen, deren technisches Feld **`structure_type_id`** auf `Minijob` oder `Geringfügige Beschäftigung` verweist
 - Andere Beschäftigungsarten, Mitarbeiter-Tags, Jobtitel und frühere manuelle Einschlusswerte werden nicht berücksichtigt
 - Stundenlohn als Mitarbeiter-Override oder automatische Übernahme eines als stündlich erkannten Vertrags-/Beschäftigungslohns
 - Pro Mitarbeiter und Monat:
@@ -78,8 +78,8 @@ Bei freien Zugangsdaten erfolgt die Anmeldung direkt auf der Portal-Loginseite.
 
 ### 2. Mitarbeitende konfigurieren
 
-Im Odoo-Mitarbeiter- beziehungsweise Vertragsdatensatz muss die **Zahlungskategorie**
-auf einen der folgenden beiden Werte gesetzt sein:
+In der am Arbeitstag gültigen Odoo-Mitarbeiterversion muss das technische Feld
+**`structure_type_id`** auf einen der folgenden beiden Strukturtypen gesetzt sein:
 
 - `Minijob`
 - `Geringfügige Beschäftigung`
@@ -87,8 +87,8 @@ auf einen der folgenden beiden Werte gesetzt sein:
 Nur diese beiden Werte werden beim Einlesen akzeptiert. Das Modul wertet keine Tags,
 Jobtitel, allgemeinen Vertragsarten oder früheren manuellen Auswahlfelder mehr als Ersatz aus.
 
-Im Reiter `Stundenzettel-Prüfung` werden die erkannte Zahlungskategorie und der daraus
-resultierende Einschlussstatus nur zur Kontrolle angezeigt. Der Stundenlohn kann dort
+Im Reiter `Stundenzettel-Prüfung` werden der erkannte Strukturtyp aus `structure_type_id`
+und der daraus resultierende Einschlussstatus nur zur Kontrolle angezeigt. Der Stundenlohn kann dort
 weiterhin eindeutig überschrieben werden.
 
 ### 3. Ersten Monat testen
@@ -149,7 +149,7 @@ Das Portal enthält personenbezogene Arbeitszeit- und Lohndaten. Daher:
 
 ## Version
 
-`19.0.1.0.4`
+`19.0.1.0.5`
 
 
 ## Sichtbarkeit auf dem Odoo-Desktop
@@ -157,16 +157,16 @@ Das Portal enthält personenbezogene Arbeitszeit- und Lohndaten. Daher:
 Die App erscheint als **Stundenzettel-Prüfung** im App-Umschalter. Odoo-Systemadministratoren erhalten die erforderliche Verwaltungsgruppe automatisch. Weitere interne Benutzer können über die Odoo-Benutzerverwaltung der Gruppe **Stundenzettel-Prüfung: Verwaltung** zugeordnet werden.
 
 
-## Strikter Zahlungskategorie-Filter ab Version 1.0.4
+## Strikter Strukturtyp-Filter ab Version 1.0.5
 
-Beim Einlesen wird ausschließlich ein Feld berücksichtigt, dessen technische Bezeichnung
-oder Feldbeschriftung `Zahlungskategorie` beziehungsweise `Payment Category` entspricht.
-Die am Anwesenheitstag gültige Odoo-19-Mitarbeiterversion hat Vorrang.
+Beim Einlesen wird direkt das technische Many2one-Feld `structure_type_id` ausgewertet.
+Die am Anwesenheitstag gültige Odoo-19-Mitarbeiterversion (`hr.version`) ist maßgeblich.
+Es erfolgt keine Suche mehr über Feldbeschriftungen oder ähnlich benannte Felder.
 
-Akzeptierte Werte:
+Akzeptierte Strukturtyp-Namen:
 
 - `Minijob`
 - `Geringfügige Beschäftigung`
 
-Ein leeres, fehlendes oder anders befülltes Feld führt zum Ausschluss des Mitarbeiters.
-Der Grund wird in der Importdiagnose angezeigt.
+Ein leeres, fehlendes oder anders befülltes `structure_type_id` führt zum Ausschluss des
+Mitarbeiters. Der tatsächlich gefundene Wert wird in der Importdiagnose angezeigt.
