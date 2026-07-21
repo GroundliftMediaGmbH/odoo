@@ -209,6 +209,12 @@ body:has(#wrap.gl-ts-portal) .o_header_standard {
     border-color: rgba(34, 197, 94, .34);
 }
 
+#wrap.gl-ts-portal .gl-ts-status-paid {
+    color: #bae6fd;
+    background: rgba(14, 165, 233, .14);
+    border-color: rgba(14, 165, 233, .38);
+}
+
 #wrap.gl-ts-portal .gl-ts-status-danger {
     color: #fecaca;
     background: rgba(248, 113, 113, .13);
@@ -979,7 +985,8 @@ body:has(#wrap.gl-ts-portal) .o_header_standard {
                                             <strong t-esc="employee['total_salary']"/>
                                         </span>
                                     </span>
-                                    <span t-if="employee['approval_state'] == 'approved'" class="gl-ts-status gl-ts-status-success">Freigegeben</span>
+                                    <span t-if="employee['paid']" class="gl-ts-status gl-ts-status-paid">Überwiesen</span>
+                                    <span t-elif="employee['approval_state'] == 'approved'" class="gl-ts-status gl-ts-status-success">Freigegeben</span>
                                     <span t-elif="employee['approval_state'] == 'rejected'" class="gl-ts-status gl-ts-status-danger">Nicht freigegeben</span>
                                     <span t-else="" class="gl-ts-status gl-ts-status-warning">Nicht freigegeben</span>
                                 </summary>

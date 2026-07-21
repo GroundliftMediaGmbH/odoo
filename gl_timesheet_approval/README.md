@@ -149,7 +149,7 @@ Das Portal enthält personenbezogene Arbeitszeit- und Lohndaten. Daher:
 
 ## Version
 
-`19.0.1.0.6`
+`19.0.1.0.7`
 
 
 ## Sichtbarkeit auf dem Odoo-Desktop
@@ -175,3 +175,14 @@ Mitarbeiters. Der tatsächlich gefundene Wert wird in der Importdiagnose angezei
 ## Portal-Design
 
 Seit Version 19.0.1.0.6 besitzt das Prüfportal ein vollständig im Modul enthaltenes, dunkel gestaltetes Groundlift-Frontend. Die Styles werden zusätzlich direkt im QWeb-Template eingebunden, sodass Website-Themes, Darkmode-Einstellungen oder gecachte Frontend-Assets die Lesbarkeit nicht mehr verändern.
+
+
+## Mitarbeiterstatus ab Version 1.0.7
+
+Die Statusplakette in der Monatsübersicht verwendet folgende Priorität:
+
+1. **Überwiesen**, sobald der Mitarbeiter-Monat als überwiesen markiert wurde.
+2. **Freigegeben**, wenn beide Prüfstufen vollständig freigegeben haben.
+3. **Nicht freigegeben** in allen übrigen Fällen.
+
+Der Überweisungsstatus verändert die zugrunde liegenden Freigaben nicht, sondern erweitert nur die sichtbare Abschlussstufe.

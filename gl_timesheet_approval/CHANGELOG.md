@@ -1,5 +1,12 @@
 # Changelog
 
+## 19.0.1.0.7
+
+- Statusplakette der Mitarbeiterkarten um **Überwiesen** ergänzt.
+- Anzeigepriorität auf **Überwiesen → Freigegeben → Nicht freigegeben** festgelegt.
+- Eigene blaue Statusgestaltung für überwiesene Mitarbeiter-Monate ergänzt.
+- Freigabe- und Zahlungslogik unverändert beibehalten.
+
 ## 19.0.1.0.6
 
 - Prüfportal visuell an das Groundlift Mitarbeiter-Stundenportal angeglichen.

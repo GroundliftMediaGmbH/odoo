@@ -205,6 +205,12 @@ body:has(#wrap.gl-ts-portal) .o_header_standard {
     border-color: rgba(34, 197, 94, .34);
 }
 
+#wrap.gl-ts-portal .gl-ts-status-paid {
+    color: #bae6fd;
+    background: rgba(14, 165, 233, .14);
+    border-color: rgba(14, 165, 233, .38);
+}
+
 #wrap.gl-ts-portal .gl-ts-status-danger {
     color: #fecaca;
     background: rgba(248, 113, 113, .13);

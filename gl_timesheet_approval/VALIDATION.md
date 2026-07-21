@@ -23,3 +23,10 @@ Eine echte Installation gegen eine laufende Odoo-19-Instanz war in der Erstellun
 - Website-Header-/Footer-Ausblendung auf den Prüfseiten geprüft
 - Theme-unabhängige `<details>`-Mitarbeiteransicht geprüft
 - Mobile Breakpoints und horizontal scrollbar ausgeführte Tagesübersicht geprüft
+
+## Version 19.0.1.0.7
+
+- QWeb-Statuspriorität `paid` vor `approval_state` geprüft
+- Status **Überwiesen** in der zusammengeklappten Mitarbeiterkarte geprüft
+- Inline- und Asset-CSS für den neuen Zahlungsstatus synchronisiert
+- Python-Syntax, XML-Wohlgeformtheit, Manifest und ZIP-Struktur geprüft
