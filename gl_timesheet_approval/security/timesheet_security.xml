@@ -2,6 +2,17 @@
 <odoo>
     <record id="group_gl_timesheet_manager" model="res.groups">
         <field name="name">Stundenzettel-Prüfung: Verwaltung</field>
+        <field name="comment">Zugriff auf die Backend-Verwaltung der Groundlift-Stundenzettel-Prüfung.</field>
+    </record>
+
+    <!--
+        Odoo zeigt Root-Menüs nur Benutzern an, die deren Gruppe besitzen.
+        Systemadministratoren erhalten diese Modulgruppe deshalb implizit.
+        Das funktioniert sowohl bei einer Neuinstallation als auch beim Upgrade
+        einer bereits installierten Version.
+    -->
+    <record id="base.group_system" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('gl_timesheet_approval.group_gl_timesheet_manager'))]"/>
     </record>
 
     <record id="rule_gl_timesheet_month_company" model="ir.rule">

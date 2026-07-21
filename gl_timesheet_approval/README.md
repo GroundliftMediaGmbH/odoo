@@ -148,3 +148,8 @@ Das Portal enthält personenbezogene Arbeitszeit- und Lohndaten. Daher:
 ## Version
 
 `19.0.1.0.0`
+
+
+## Sichtbarkeit auf dem Odoo-Desktop
+
+Die App erscheint als **Stundenzettel-Prüfung** im App-Umschalter. Odoo-Systemadministratoren erhalten die erforderliche Verwaltungsgruppe automatisch. Weitere interne Benutzer können über die Odoo-Benutzerverwaltung der Gruppe **Stundenzettel-Prüfung: Verwaltung** zugeordnet werden.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 19.0.1.0.2
+
+- Odoo-Systemadministratoren erhalten die Modul-Verwaltungsgruppe automatisch als implizite Gruppe.
+- Das Root-Menü besitzt nun direkt die Aktion „Prüfmonate“ und erscheint dadurch zuverlässig als App auf dem Odoo-Desktop.
+- Bestehende Installationen erhalten die Korrektur beim Modul-Upgrade.
+
 ## 19.0.1.0.1
 
 - Installationsfehler in der Suchansicht behoben

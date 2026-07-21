@@ -2,6 +2,7 @@
 <odoo>
     <menuitem id="menu_gl_timesheet_root"
               name="Stundenzettel-Prüfung"
+              action="action_gl_timesheet_month"
               sequence="55"
               groups="gl_timesheet_approval.group_gl_timesheet_manager"
               web_icon="gl_timesheet_approval,static/description/icon.png"/>
