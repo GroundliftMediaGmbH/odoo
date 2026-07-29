@@ -3,7 +3,7 @@
 
     const root = document.getElementById("gl-editor-root");
     const posterId = parseInt(root?.dataset?.posterId || "0", 10);
-    const APP_VERSION = "19.0.1.5.1";
+    const APP_VERSION = "19.0.1.6.0";
 
     const state = {
         loading: true,
@@ -661,6 +661,16 @@
                 console.warn("Template asset konnte nicht geladen werden", asset, error);
             }
         }
+        if (template.photo_only) {
+            const fullCanvasBox = {
+                x: 0,
+                y: 0,
+                width: template.canvas_width,
+                height: template.canvas_height,
+            };
+            bboxes.image_mask = fullCanvasBox;
+            geometries.image_mask = { bbox: fullCanvasBox, corners: null };
+        }
         const info = { template, imagesByRole, bboxes, geometries, regions, staticOverlays };
         state.templateCache.set(template.key, info);
         return info;
@@ -1195,6 +1205,14 @@
         const template = info.template;
         const templateKey = template.key;
         ctx.clearRect(0, 0, template.canvas_width, template.canvas_height);
+
+        if (template.photo_only) {
+            await safeLayer("Veranstaltungsbild", () => drawSourceImage(ctx, info, getImageTransform(template.key)));
+            if (showGuides) {
+                safeLayer("Bildgriffe", () => drawImageHandles(ctx, info.geometries.image_mask));
+            }
+            return;
+        }
 
         // Ebenenreihenfolge:
         // 1) Verlauf ganz hinten

@@ -26,7 +26,35 @@ TEMPLATE_ORDER = [
     "stream_problem",
     "stream_ende",
     "sudhaus_main",
+    "design_element_square",
+    "design_element_scope",
+    "design_element_flat",
 ]
+
+PHOTO_ONLY_TEMPLATES = [
+    {
+        "key": "design_element_square",
+        "name": "Designelement quadratisch",
+        "output_suffix": "DesignelementQuadratisch",
+        "canvas_width": 1600,
+        "canvas_height": 1600,
+    },
+    {
+        "key": "design_element_scope",
+        "name": 'Designelement "scope"',
+        "output_suffix": "DesignelementScope",
+        "canvas_width": 1600,
+        "canvas_height": 680,
+    },
+    {
+        "key": "design_element_flat",
+        "name": 'Designelement "flat"',
+        "output_suffix": "DesignelementFlat",
+        "canvas_width": 1140,
+        "canvas_height": 641,
+    },
+]
+
 SHORT_DESCRIPTION_FIELD_CANDIDATES = [
     "x_studio_event_kurzbeschreibung",
     "website_short_description",
@@ -144,6 +172,9 @@ class GraphicsPoster(models.Model):
             "stream_problem": "StreamProblem",
             "stream_ende": "StreamEnde",
             "sudhaus_main": "SudhausMain",
+            "design_element_square": "DesignelementQuadratisch",
+            "design_element_scope": "DesignelementScope",
+            "design_element_flat": "DesignelementFlat",
         }
         return mapping.get(key, self._template_folder_to_title(key).replace(" ", ""))
 
@@ -241,7 +272,21 @@ class GraphicsPoster(models.Model):
                 "canvas_height": canvas_height,
                 "assets": assets,
                 "is_drink_card": key == "sudhaus_main",
+                "photo_only": False,
             })
+
+        existing_keys = {spec["key"] for spec in specs}
+        for photo_template in PHOTO_ONLY_TEMPLATES:
+            if photo_template["key"] in existing_keys:
+                continue
+            specs.append({
+                **photo_template,
+                "folder_name": "",
+                "assets": [],
+                "is_drink_card": False,
+                "photo_only": True,
+            })
+
         specs.sort(key=lambda s: (order_index.get(s["key"], 999), s["name"]))
         return specs
 
