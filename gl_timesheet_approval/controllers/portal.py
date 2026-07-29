@@ -230,6 +230,49 @@ class GlTimesheetApprovalPortal(http.Controller):
         return self._secure_response(response)
 
     @http.route(
+        "/stundenzettel/pruefung/monat/<int:month_id>/excel",
+        type="http",
+        auth="public",
+        website=True,
+        sitemap=False,
+        methods=["GET"],
+    )
+    def download_month_excel(self, month_id, **_kwargs):
+        reviewer = self._get_reviewer()
+        user = request.env.user
+        is_manager = bool(
+            user
+            and not user._is_public()
+            and user.has_group("gl_timesheet_approval.group_gl_timesheet_manager")
+        )
+        month = request.env["gl.timesheet.month"].sudo().browse(month_id).exists()
+        if not month:
+            return request.not_found()
+
+        reviewer_allowed = bool(reviewer and reviewer.company_id == month.company_id)
+        manager_allowed = bool(
+            is_manager and month.company_id.id in request.env.companies.ids
+        )
+        if not reviewer_allowed and not manager_allowed:
+            if not reviewer and (not user or user._is_public()):
+                return request.redirect("/stundenzettel/pruefung/login")
+            return request.not_found()
+
+        content = month._build_xlsx_export()
+        filename = f"Groundlift_Stundenzettel_{month.month_start.strftime('%Y-%m')}.xlsx"
+        response = request.make_response(
+            content,
+            headers=[
+                (
+                    "Content-Type",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ),
+                ("Content-Disposition", f'attachment; filename="{filename}"'),
+            ],
+        )
+        return self._secure_response(response)
+
+    @http.route(
         "/stundenzettel/pruefung/tag/<int:day_id>",
         type="http",
         auth="public",

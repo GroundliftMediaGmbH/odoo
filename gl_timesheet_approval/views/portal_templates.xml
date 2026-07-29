@@ -938,6 +938,10 @@ body:has(#wrap.gl-ts-portal) .o_header_standard {
                                     </a>
                                 </div>
                                 <div t-if="selected_month" class="gl-ts-payment-head">
+                                    <a t-att-href="'/stundenzettel/pruefung/monat/%s/excel' % selected_month.id"
+                                       class="gl-ts-btn gl-ts-btn-small gl-ts-btn-secondary">
+                                        Excel herunterladen
+                                    </a>
                                     <span t-if="month_all_paid" class="gl-ts-status gl-ts-status-success">✓ Gesamtmonat überwiesen</span>
                                     <span t-else="" class="gl-ts-status gl-ts-status-warning">Gesamtmonat nicht überwiesen</span>
                                     <form t-if="can_set_month_paid" method="post"
