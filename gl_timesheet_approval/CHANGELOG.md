@@ -1,5 +1,15 @@
 # Changelog
 
+## 19.0.1.0.8
+
+- Monatsweisen Excel-Export als echte `.xlsx`-Datei ergänzt.
+- Download direkt im Prüfportal und im Backend-Prüfmonat verfügbar.
+- Arbeitsmappe enthält die Blätter **Übersicht**, **Arbeitstage**, **Anwesenheiten** und **Prüfhistorie**.
+- Sekundengenaue Zeiten bleiben als Excel-Zeitwerte summier- und filterbar.
+- Löhne werden als numerische Währungswerte exportiert.
+- Freigabe-, Prüfer- und Überweisungsstatus sowie Bemerkungen und Zeitstempel werden vollständig ausgegeben.
+- Formeleinschleusung über Textfelder wird im Export deaktiviert.
+
 ## 19.0.1.0.7
 
 - Statusplakette der Mitarbeiterkarten um **Überwiesen** ergänzt.

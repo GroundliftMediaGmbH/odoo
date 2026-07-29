@@ -43,6 +43,7 @@ Stundenzettel von Minijobbern und geringfügig Beschäftigten.
 - Ein Mitarbeiter ist erst grün freigegeben, wenn **alle Tage von Prüfer 1 und Prüfer 2 freigegeben** wurden
 - Änderungen an Anwesenheitsdaten oder Stundenlohn setzen betroffene Freigaben und eine vorhandene Überwiesen-Markierung zurück
 - Historie aller Vormonate sowie separate Prüfhistorie mit Zeitstempel und Prüfer
+- Monatsweiser Excel-Download mit Übersicht, Arbeitstagen, Quell-Anwesenheiten und Prüfhistorie
 - Portal ist von Suchmaschinen ausgeschlossen und sendet `no-store`-Header
 - Freie Passwörter werden nur als sicherer Hash gespeichert
 - Nach fünf fehlerhaften freien Anmeldungen wird der Zugang 15 Minuten gesperrt
@@ -141,7 +142,7 @@ Das Portal enthält personenbezogene Arbeitszeit- und Lohndaten. Daher:
 - `models/hr_employee.py`: Minijob-Auswahl und Stundenlohn
 - `models/reviewer.py`: Prüfer, Anmeldearten und Passwort-Hash
 - `models/timesheet_month.py`: Monats-, Mitarbeiter-, Tages- und Historienmodelle
-- `controllers/portal.py`: Login, Portal, Freigabe und Überwiesen-Aktion
+- `controllers/portal.py`: Login, Portal, Freigabe, Überwiesen-Aktion und Excel-Download
 - `views/portal_templates.xml`: geschützte Website
 - `views/timesheet_month_views.xml`: Backend-Prüfmonate
 - `views/reviewer_views.xml`: Backend-Prüferverwaltung
@@ -149,7 +150,7 @@ Das Portal enthält personenbezogene Arbeitszeit- und Lohndaten. Daher:
 
 ## Version
 
-`19.0.1.0.7`
+`19.0.1.0.8`
 
 
 ## Sichtbarkeit auf dem Odoo-Desktop
@@ -186,3 +187,15 @@ Die Statusplakette in der Monatsübersicht verwendet folgende Priorität:
 3. **Nicht freigegeben** in allen übrigen Fällen.
 
 Der Überweisungsstatus verändert die zugrunde liegenden Freigaben nicht, sondern erweitert nur die sichtbare Abschlussstufe.
+
+
+## Excel-Export ab Version 1.0.8
+
+Für jeden Prüfmonat steht im Prüfportal und im Backend der Button **Excel herunterladen** zur Verfügung. Die erzeugte `.xlsx`-Datei enthält:
+
+- **Übersicht**: Monatssummen und Status je Mitarbeiter
+- **Arbeitstage**: sekundengenaue Tagesdaten, Pausen, Tageslohn und beide Prüfstufen
+- **Anwesenheiten**: sämtliche zugrunde liegenden Odoo-Anwesenheitsbuchungen
+- **Prüfhistorie**: Freigaben, Ablehnungen, Änderungen und Überweisungsmarkierungen
+
+Zeiten werden als echte Excel-Zeitwerte mit dem Format `[h]:mm:ss` geschrieben. Dadurch bleiben auch Monatssummen über 24 Stunden korrekt und können in Excel weiterverarbeitet werden.

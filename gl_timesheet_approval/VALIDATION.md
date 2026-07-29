@@ -30,3 +30,13 @@ Eine echte Installation gegen eine laufende Odoo-19-Instanz war in der Erstellun
 - Status **Überwiesen** in der zusammengeklappten Mitarbeiterkarte geprüft
 - Inline- und Asset-CSS für den neuen Zahlungsstatus synchronisiert
 - Python-Syntax, XML-Wohlgeformtheit, Manifest und ZIP-Struktur geprüft
+
+
+## Version 19.0.1.0.8
+
+- Python-Syntax der XLSX-Erzeugung und Download-Route geprüft
+- QWeb- und Backend-Downloadbuttons auf gültige Routen geprüft
+- Zugriffsschutz für freie Prüfer, Odoo-Prüfer und Backend-Verwalter geprüft
+- XLSX-Arbeitsblätter, Spaltenformate, Filter und Freeze-Panes statisch geprüft
+- Formeleinschleusung über exportierte Textwerte deaktiviert
+- Manifest, XML-Wohlgeformtheit und ZIP-Struktur geprüft

@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 import hashlib
+import io
 import logging
 from collections import defaultdict
 from datetime import datetime
 
 import pytz
+import xlsxwriter
 from dateutil.relativedelta import relativedelta
 
 from odoo import _, api, fields, models
@@ -429,6 +431,671 @@ class GlTimesheetMonth(models.Model):
                 "type": "success",
                 "sticky": False,
             },
+        }
+
+    @staticmethod
+    def _xlsx_duration(seconds):
+        return max(0, int(seconds or 0)) / 86400.0
+
+    def _xlsx_local_datetime(self, value, employee=None):
+        self.ensure_one()
+        if not value:
+            return False
+        tz_name = (
+            (employee.tz if employee and employee.tz else False)
+            or self.company_id.partner_id.tz
+            or "Europe/Berlin"
+        )
+        try:
+            timezone = pytz.timezone(tz_name)
+        except pytz.UnknownTimeZoneError:
+            timezone = pytz.timezone("Europe/Berlin")
+        utc_value = pytz.UTC.localize(value) if value.tzinfo is None else value.astimezone(pytz.UTC)
+        return utc_value.astimezone(timezone).replace(tzinfo=None)
+
+    def _xlsx_structure_type_name(self, employee, work_date):
+        self.ensure_one()
+        for record in employee.sudo()._gl_timesheet_structure_type_records(on_date=work_date):
+            if "structure_type_id" not in record._fields:
+                continue
+            structure_type = record["structure_type_id"]
+            if not structure_type:
+                return ""
+            if "name" in structure_type._fields and structure_type["name"]:
+                return str(structure_type["name"])
+            return structure_type.display_name or ""
+        return ""
+
+    def _build_xlsx_export(self):
+        """Create a complete month workbook as an in-memory XLSX file."""
+        self.ensure_one()
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(
+            output,
+            {
+                "in_memory": True,
+                "strings_to_formulas": False,
+                "strings_to_urls": False,
+            },
+        )
+
+        currency_symbol = self.currency_id.symbol or self.currency_id.name or "€"
+        safe_currency_symbol = str(currency_symbol).replace('"', '""')
+        money_number_format = f'#,##0.00 "{safe_currency_symbol}"'
+
+        workbook.set_properties(
+            {
+                "title": f"Groundlift Stundenzettel {self.name}",
+                "subject": "Monatlicher Stundenzettel- und Prüfexport",
+                "author": "Groundlift",
+                "company": self.company_id.name,
+                "comments": "Erzeugt durch die Odoo-App Groundlift Stundenzettel-Prüfung.",
+            }
+        )
+
+        formats = {
+            "title": workbook.add_format(
+                {
+                    "bold": True,
+                    "font_size": 20,
+                    "font_color": "#FFFFFF",
+                    "bg_color": "#111827",
+                    "align": "left",
+                    "valign": "vcenter",
+                }
+            ),
+            "subtitle": workbook.add_format(
+                {
+                    "bold": True,
+                    "font_size": 12,
+                    "font_color": "#6D28D9",
+                }
+            ),
+            "meta_label": workbook.add_format(
+                {
+                    "bold": True,
+                    "font_color": "#475569",
+                    "bg_color": "#F1F5F9",
+                    "border": 1,
+                    "border_color": "#CBD5E1",
+                }
+            ),
+            "meta_value": workbook.add_format(
+                {
+                    "font_color": "#0F172A",
+                    "border": 1,
+                    "border_color": "#CBD5E1",
+                }
+            ),
+            "meta_datetime": workbook.add_format(
+                {
+                    "font_color": "#0F172A",
+                    "border": 1,
+                    "border_color": "#CBD5E1",
+                    "num_format": "dd.mm.yyyy hh:mm:ss",
+                }
+            ),
+            "kpi_label": workbook.add_format(
+                {
+                    "bold": True,
+                    "font_color": "#64748B",
+                    "bg_color": "#F8FAFC",
+                    "align": "center",
+                    "border": 1,
+                    "border_color": "#E2E8F0",
+                }
+            ),
+            "kpi_value": workbook.add_format(
+                {
+                    "bold": True,
+                    "font_size": 14,
+                    "font_color": "#0F172A",
+                    "bg_color": "#FFFFFF",
+                    "align": "center",
+                    "border": 1,
+                    "border_color": "#E2E8F0",
+                }
+            ),
+            "kpi_duration": workbook.add_format(
+                {
+                    "bold": True,
+                    "font_size": 14,
+                    "font_color": "#0F172A",
+                    "bg_color": "#FFFFFF",
+                    "align": "center",
+                    "border": 1,
+                    "border_color": "#E2E8F0",
+                    "num_format": "[h]:mm:ss",
+                }
+            ),
+            "kpi_money": workbook.add_format(
+                {
+                    "bold": True,
+                    "font_size": 14,
+                    "font_color": "#0F172A",
+                    "bg_color": "#FFFFFF",
+                    "align": "center",
+                    "border": 1,
+                    "border_color": "#E2E8F0",
+                    "num_format": money_number_format,
+                }
+            ),
+            "header": workbook.add_format(
+                {
+                    "bold": True,
+                    "font_color": "#FFFFFF",
+                    "bg_color": "#1E293B",
+                    "border": 1,
+                    "border_color": "#334155",
+                    "align": "center",
+                    "valign": "vcenter",
+                    "text_wrap": True,
+                }
+            ),
+            "text": workbook.add_format(
+                {
+                    "font_color": "#0F172A",
+                    "border": 1,
+                    "border_color": "#E2E8F0",
+                    "valign": "top",
+                }
+            ),
+            "text_wrap": workbook.add_format(
+                {
+                    "font_color": "#0F172A",
+                    "border": 1,
+                    "border_color": "#E2E8F0",
+                    "valign": "top",
+                    "text_wrap": True,
+                }
+            ),
+            "integer": workbook.add_format(
+                {
+                    "font_color": "#0F172A",
+                    "border": 1,
+                    "border_color": "#E2E8F0",
+                    "align": "right",
+                    "num_format": "0",
+                }
+            ),
+            "date": workbook.add_format(
+                {
+                    "font_color": "#0F172A",
+                    "border": 1,
+                    "border_color": "#E2E8F0",
+                    "num_format": "dd.mm.yyyy",
+                }
+            ),
+            "time": workbook.add_format(
+                {
+                    "font_color": "#0F172A",
+                    "border": 1,
+                    "border_color": "#E2E8F0",
+                    "num_format": "hh:mm:ss",
+                }
+            ),
+            "datetime": workbook.add_format(
+                {
+                    "font_color": "#0F172A",
+                    "border": 1,
+                    "border_color": "#E2E8F0",
+                    "num_format": "dd.mm.yyyy hh:mm:ss",
+                }
+            ),
+            "duration": workbook.add_format(
+                {
+                    "font_color": "#0F172A",
+                    "border": 1,
+                    "border_color": "#E2E8F0",
+                    "num_format": "[h]:mm:ss",
+                }
+            ),
+            "money": workbook.add_format(
+                {
+                    "font_color": "#0F172A",
+                    "border": 1,
+                    "border_color": "#E2E8F0",
+                    "num_format": money_number_format,
+                }
+            ),
+            "status_paid": workbook.add_format(
+                {
+                    "bold": True,
+                    "font_color": "#075985",
+                    "bg_color": "#E0F2FE",
+                    "border": 1,
+                    "border_color": "#7DD3FC",
+                    "align": "center",
+                }
+            ),
+            "status_approved": workbook.add_format(
+                {
+                    "bold": True,
+                    "font_color": "#166534",
+                    "bg_color": "#DCFCE7",
+                    "border": 1,
+                    "border_color": "#86EFAC",
+                    "align": "center",
+                }
+            ),
+            "status_pending": workbook.add_format(
+                {
+                    "bold": True,
+                    "font_color": "#9A3412",
+                    "bg_color": "#FFEDD5",
+                    "border": 1,
+                    "border_color": "#FDBA74",
+                    "align": "center",
+                }
+            ),
+            "status_rejected": workbook.add_format(
+                {
+                    "bold": True,
+                    "font_color": "#991B1B",
+                    "bg_color": "#FEE2E2",
+                    "border": 1,
+                    "border_color": "#FCA5A5",
+                    "align": "center",
+                }
+            ),
+            "total_label": workbook.add_format(
+                {
+                    "bold": True,
+                    "font_color": "#FFFFFF",
+                    "bg_color": "#334155",
+                    "border": 1,
+                    "border_color": "#475569",
+                }
+            ),
+            "total_duration": workbook.add_format(
+                {
+                    "bold": True,
+                    "font_color": "#FFFFFF",
+                    "bg_color": "#334155",
+                    "border": 1,
+                    "border_color": "#475569",
+                    "num_format": "[h]:mm:ss",
+                }
+            ),
+            "total_money": workbook.add_format(
+                {
+                    "bold": True,
+                    "font_color": "#FFFFFF",
+                    "bg_color": "#334155",
+                    "border": 1,
+                    "border_color": "#475569",
+                    "num_format": money_number_format,
+                }
+            ),
+        }
+
+        employee_lines = self.employee_line_ids.sorted(
+            key=lambda line: (line.employee_id.name or "").casefold()
+        )
+        total_gross = sum(employee_lines.mapped("gross_seconds"))
+        total_break = sum(employee_lines.mapped("break_seconds"))
+        total_payable = sum(employee_lines.mapped("payable_seconds"))
+        total_salary = sum(employee_lines.mapped("total_salary"))
+        paid_count = len(employee_lines.filtered("paid"))
+        export_time = self._xlsx_local_datetime(fields.Datetime.now())
+        refresh_time = self._xlsx_local_datetime(self.last_refresh_at) if self.last_refresh_at else False
+
+        overview = workbook.add_worksheet("Übersicht")
+        overview.hide_gridlines(2)
+        overview.set_landscape()
+        overview.fit_to_pages(1, 0)
+        overview.set_margins(0.3, 0.3, 0.5, 0.5)
+        overview.merge_range("A1:M1", f"Groundlift Stundenzettel – {self.name}", formats["title"])
+        overview.set_row(0, 34)
+        overview.write("A3", "Firma", formats["meta_label"])
+        overview.merge_range("B3:D3", self.company_id.name or "", formats["meta_value"])
+        overview.write("E3", "Monat", formats["meta_label"])
+        overview.merge_range("F3:G3", self.name or "", formats["meta_value"])
+        overview.write("H3", "Exportiert am", formats["meta_label"])
+        overview.merge_range("I3:M3", export_time, formats["meta_datetime"])
+        overview.write("A4", "Datenstand", formats["meta_label"])
+        if refresh_time:
+            overview.merge_range("B4:D4", refresh_time, formats["meta_datetime"])
+        else:
+            overview.merge_range("B4:D4", "Noch nicht eingelesen", formats["meta_value"])
+        overview.write("E4", "Anwesenheiten", formats["meta_label"])
+        overview.merge_range("F4:G4", self.source_attendance_count, formats["meta_value"])
+        overview.write("H4", "Monatsstatus", formats["meta_label"])
+        month_status = "Überwiesen" if self.all_paid else ("Freigegeben" if self.all_approved else "Nicht freigegeben")
+        overview.merge_range("I4:M4", month_status, formats["meta_value"])
+
+        kpis = [
+            ("Mitarbeiter", len(employee_lines), formats["kpi_value"]),
+            ("Arbeitszeit", self._xlsx_duration(total_payable), formats["kpi_duration"]),
+            ("Gesamtlohn", total_salary, formats["kpi_money"]),
+            ("Freigegeben", self.approved_employee_count, formats["kpi_value"]),
+            ("Überwiesen", paid_count, formats["kpi_value"]),
+        ]
+        kpi_columns = [(0, 1), (2, 3), (4, 5), (6, 8), (9, 12)]
+        for (label, value, value_format), (start_col, end_col) in zip(kpis, kpi_columns):
+            overview.merge_range(5, start_col, 5, end_col, label, formats["kpi_label"])
+            overview.merge_range(6, start_col, 6, end_col, value, value_format)
+        overview.set_row(5, 22)
+        overview.set_row(6, 30)
+
+        overview_headers = [
+            "Mitarbeiter",
+            "Funktion",
+            "Bruttozeit",
+            "Pause",
+            "Arbeitszeit",
+            "Stundenlohn",
+            "Gesamtlohn",
+            "Status",
+            "Überwiesen von",
+            "Überwiesen am",
+            "Arbeitstage",
+            "Anwesenheiten",
+            "Zahlungskategorie",
+        ]
+        overview_header_row = 9
+        for column, header in enumerate(overview_headers):
+            overview.write(overview_header_row, column, header, formats["header"])
+        overview.set_row(overview_header_row, 34)
+
+        row = overview_header_row + 1
+        for line in employee_lines:
+            employee_status = "Überwiesen" if line.paid else (
+                "Freigegeben" if line.approval_state == "approved" else "Nicht freigegeben"
+            )
+            status_format = (
+                formats["status_paid"]
+                if line.paid
+                else formats["status_approved"]
+                if line.approval_state == "approved"
+                else formats["status_rejected"]
+                if line.approval_state == "rejected"
+                else formats["status_pending"]
+            )
+            first_day = min(line.day_ids.mapped("work_date")) if line.day_ids else self.month_start
+            structure_type_name = self._xlsx_structure_type_name(line.employee_id, first_day)
+            overview.write(row, 0, line.employee_id.name or "", formats["text"])
+            overview.write(row, 1, line.employee_id.job_title or "", formats["text"])
+            overview.write_number(row, 2, self._xlsx_duration(line.gross_seconds), formats["duration"])
+            overview.write_number(row, 3, self._xlsx_duration(line.break_seconds), formats["duration"])
+            overview.write_number(row, 4, self._xlsx_duration(line.payable_seconds), formats["duration"])
+            overview.write_number(row, 5, float(line.hourly_wage or 0.0), formats["money"])
+            overview.write_number(row, 6, float(line.total_salary or 0.0), formats["money"])
+            overview.write(row, 7, employee_status, status_format)
+            overview.write(row, 8, line.paid_by_id.name if line.paid_by_id else "", formats["text"])
+            paid_at = self._xlsx_local_datetime(line.paid_at, employee=line.employee_id) if line.paid_at else False
+            if paid_at:
+                overview.write_datetime(row, 9, paid_at, formats["datetime"])
+            else:
+                overview.write_blank(row, 9, None, formats["datetime"])
+            overview.write_number(row, 10, len(line.day_ids), formats["integer"])
+            overview.write_number(row, 11, sum(line.day_ids.mapped("attendance_count")), formats["integer"])
+            overview.write(row, 12, structure_type_name, formats["text"])
+            row += 1
+
+        total_row = row
+        overview.merge_range(total_row, 0, total_row, 1, "Gesamtsumme", formats["total_label"])
+        overview.write_number(total_row, 2, self._xlsx_duration(total_gross), formats["total_duration"])
+        overview.write_number(total_row, 3, self._xlsx_duration(total_break), formats["total_duration"])
+        overview.write_number(total_row, 4, self._xlsx_duration(total_payable), formats["total_duration"])
+        overview.write_blank(total_row, 5, None, formats["total_label"])
+        overview.write_number(total_row, 6, float(total_salary), formats["total_money"])
+        for column in range(7, len(overview_headers)):
+            overview.write_blank(total_row, column, None, formats["total_label"])
+
+        if employee_lines:
+            overview.autofilter(overview_header_row, 0, total_row - 1, len(overview_headers) - 1)
+        overview.freeze_panes(overview_header_row + 1, 2)
+        overview.set_column("A:A", 25)
+        overview.set_column("B:B", 22)
+        overview.set_column("C:E", 13)
+        overview.set_column("F:G", 14)
+        overview.set_column("H:H", 18)
+        overview.set_column("I:I", 20)
+        overview.set_column("J:J", 20)
+        overview.set_column("K:L", 13)
+        overview.set_column("M:M", 25)
+
+        review_labels = {
+            "pending": "Offen",
+            "approved": "Freigegeben",
+            "rejected": "Nicht freigegeben",
+        }
+        days_sheet = workbook.add_worksheet("Arbeitstage")
+        days_sheet.hide_gridlines(2)
+        days_sheet.freeze_panes(2, 2)
+        days_sheet.merge_range("A1:V1", f"Arbeitstage – {self.name}", formats["title"])
+        day_headers = [
+            "Mitarbeiter",
+            "Funktion",
+            "Datum",
+            "Wochentag",
+            "Von",
+            "Bis",
+            "Anwesenheiten",
+            "Bruttozeit",
+            "Pause",
+            "Arbeitszeit",
+            "Stundenlohn",
+            "Tageslohn",
+            "Zahlungskategorie",
+            "1. Prüfer Status",
+            "1. Prüfer",
+            "1. Prüfer Zeitpunkt",
+            "2. Prüfer Status",
+            "2. Prüfer",
+            "2. Prüfer Zeitpunkt",
+            "Bemerkung",
+            "Quell-Anwesenheits-IDs",
+            "Monatsstatus",
+        ]
+        for column, header in enumerate(day_headers):
+            days_sheet.write(1, column, header, formats["header"])
+        days_sheet.set_row(1, 38)
+        weekdays = ("Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag")
+        day_row = 2
+        for line in employee_lines:
+            employee_status = "Überwiesen" if line.paid else (
+                "Freigegeben" if line.approval_state == "approved" else "Nicht freigegeben"
+            )
+            employee_status_format = (
+                formats["status_paid"] if line.paid else formats["status_approved"]
+                if line.approval_state == "approved" else formats["status_pending"]
+            )
+            for day in line.day_ids.sorted(key=lambda item: (item.work_date, item.first_check_in)):
+                check_in = self._xlsx_local_datetime(day.first_check_in, employee=line.employee_id)
+                check_out = self._xlsx_local_datetime(day.last_check_out, employee=line.employee_id)
+                reviewer1_at = self._xlsx_local_datetime(day.reviewer1_at, employee=line.employee_id) if day.reviewer1_at else False
+                reviewer2_at = self._xlsx_local_datetime(day.reviewer2_at, employee=line.employee_id) if day.reviewer2_at else False
+                day_salary = (day.payable_seconds / 3600.0) * line.hourly_wage
+                days_sheet.write(day_row, 0, line.employee_id.name or "", formats["text"])
+                days_sheet.write(day_row, 1, line.employee_id.job_title or "", formats["text"])
+                days_sheet.write_datetime(day_row, 2, day.work_date, formats["date"])
+                days_sheet.write(day_row, 3, weekdays[day.work_date.weekday()], formats["text"])
+                days_sheet.write_datetime(day_row, 4, check_in, formats["time"])
+                days_sheet.write_datetime(day_row, 5, check_out, formats["time"])
+                days_sheet.write_number(day_row, 6, day.attendance_count, formats["integer"])
+                days_sheet.write_number(day_row, 7, self._xlsx_duration(day.gross_seconds), formats["duration"])
+                days_sheet.write_number(day_row, 8, self._xlsx_duration(day.break_seconds), formats["duration"])
+                days_sheet.write_number(day_row, 9, self._xlsx_duration(day.payable_seconds), formats["duration"])
+                days_sheet.write_number(day_row, 10, float(line.hourly_wage or 0.0), formats["money"])
+                days_sheet.write_number(day_row, 11, float(day_salary), formats["money"])
+                days_sheet.write(day_row, 12, self._xlsx_structure_type_name(line.employee_id, day.work_date), formats["text"])
+                reviewer1_format = (
+                    formats["status_approved"] if day.reviewer1_state == "approved" else
+                    formats["status_rejected"] if day.reviewer1_state == "rejected" else
+                    formats["status_pending"]
+                )
+                reviewer2_format = (
+                    formats["status_approved"] if day.reviewer2_state == "approved" else
+                    formats["status_rejected"] if day.reviewer2_state == "rejected" else
+                    formats["status_pending"]
+                )
+                days_sheet.write(day_row, 13, review_labels.get(day.reviewer1_state, day.reviewer1_state or ""), reviewer1_format)
+                days_sheet.write(day_row, 14, day.reviewer1_by_id.name if day.reviewer1_by_id else "", formats["text"])
+                if reviewer1_at:
+                    days_sheet.write_datetime(day_row, 15, reviewer1_at, formats["datetime"])
+                else:
+                    days_sheet.write_blank(day_row, 15, None, formats["datetime"])
+                days_sheet.write(day_row, 16, review_labels.get(day.reviewer2_state, day.reviewer2_state or ""), reviewer2_format)
+                days_sheet.write(day_row, 17, day.reviewer2_by_id.name if day.reviewer2_by_id else "", formats["text"])
+                if reviewer2_at:
+                    days_sheet.write_datetime(day_row, 18, reviewer2_at, formats["datetime"])
+                else:
+                    days_sheet.write_blank(day_row, 18, None, formats["datetime"])
+                days_sheet.write(day_row, 19, day.review_note or "", formats["text_wrap"])
+                days_sheet.write(day_row, 20, ", ".join(str(source_id) for source_id in day.source_attendance_ids.ids), formats["text_wrap"])
+                days_sheet.write(day_row, 21, employee_status, employee_status_format)
+                day_row += 1
+        if day_row > 2:
+            days_sheet.autofilter(1, 0, day_row - 1, len(day_headers) - 1)
+        days_sheet.set_column("A:A", 25)
+        days_sheet.set_column("B:B", 22)
+        days_sheet.set_column("C:F", 13)
+        days_sheet.set_column("G:G", 13)
+        days_sheet.set_column("H:J", 13)
+        days_sheet.set_column("K:L", 14)
+        days_sheet.set_column("M:M", 25)
+        days_sheet.set_column("N:N", 19)
+        days_sheet.set_column("O:O", 20)
+        days_sheet.set_column("P:P", 21)
+        days_sheet.set_column("Q:Q", 19)
+        days_sheet.set_column("R:R", 20)
+        days_sheet.set_column("S:S", 21)
+        days_sheet.set_column("T:T", 34)
+        days_sheet.set_column("U:U", 24)
+        days_sheet.set_column("V:V", 18)
+
+        attendance_sheet = workbook.add_worksheet("Anwesenheiten")
+        attendance_sheet.hide_gridlines(2)
+        attendance_sheet.freeze_panes(2, 2)
+        attendance_sheet.merge_range("A1:J1", f"Quell-Anwesenheiten – {self.name}", formats["title"])
+        attendance_headers = [
+            "Odoo Anwesenheits-ID",
+            "Mitarbeiter",
+            "Funktion",
+            "Datum",
+            "Einchecken",
+            "Auschecken",
+            "Dauer",
+            "Zahlungskategorie",
+            "Aggregierter Arbeitstag",
+            "Prüfmonat",
+        ]
+        for column, header in enumerate(attendance_headers):
+            attendance_sheet.write(1, column, header, formats["header"])
+        attendance_sheet.set_row(1, 38)
+        attendance_row = 2
+        seen_attendance_ids = set()
+        for line in employee_lines:
+            for day in line.day_ids.sorted(key=lambda item: (item.work_date, item.first_check_in)):
+                for attendance in day.source_attendance_ids.sorted(key=lambda item: (item.check_in, item.id)):
+                    if attendance.id in seen_attendance_ids:
+                        continue
+                    seen_attendance_ids.add(attendance.id)
+                    check_in = self._xlsx_local_datetime(attendance.check_in, employee=line.employee_id)
+                    check_out = self._xlsx_local_datetime(attendance.check_out, employee=line.employee_id) if attendance.check_out else False
+                    duration_seconds = _seconds_between(attendance.check_in, attendance.check_out)
+                    attendance_sheet.write_number(attendance_row, 0, attendance.id, formats["integer"])
+                    attendance_sheet.write(attendance_row, 1, line.employee_id.name or "", formats["text"])
+                    attendance_sheet.write(attendance_row, 2, line.employee_id.job_title or "", formats["text"])
+                    attendance_sheet.write_datetime(attendance_row, 3, attendance.date or day.work_date, formats["date"])
+                    attendance_sheet.write_datetime(attendance_row, 4, check_in, formats["datetime"])
+                    if check_out:
+                        attendance_sheet.write_datetime(attendance_row, 5, check_out, formats["datetime"])
+                    else:
+                        attendance_sheet.write_blank(attendance_row, 5, None, formats["datetime"])
+                    attendance_sheet.write_number(attendance_row, 6, self._xlsx_duration(duration_seconds), formats["duration"])
+                    attendance_sheet.write(attendance_row, 7, self._xlsx_structure_type_name(line.employee_id, attendance.date or day.work_date), formats["text"])
+                    attendance_sheet.write_datetime(attendance_row, 8, day.work_date, formats["date"])
+                    attendance_sheet.write(attendance_row, 9, self.name or "", formats["text"])
+                    attendance_row += 1
+        if attendance_row > 2:
+            attendance_sheet.autofilter(1, 0, attendance_row - 1, len(attendance_headers) - 1)
+        attendance_sheet.set_column("A:A", 20)
+        attendance_sheet.set_column("B:B", 25)
+        attendance_sheet.set_column("C:C", 22)
+        attendance_sheet.set_column("D:D", 13)
+        attendance_sheet.set_column("E:F", 21)
+        attendance_sheet.set_column("G:G", 13)
+        attendance_sheet.set_column("H:H", 25)
+        attendance_sheet.set_column("I:I", 20)
+        attendance_sheet.set_column("J:J", 18)
+
+        action_labels = {
+            "reviewer1_approved": "1. Prüfer: freigegeben",
+            "reviewer1_rejected": "1. Prüfer: nicht freigegeben",
+            "reviewer2_approved": "2. Prüfer: freigegeben",
+            "reviewer2_rejected": "2. Prüfer: nicht freigegeben",
+            "paid": "Als überwiesen markiert",
+            "paid_undone": "Überwiesen-Markierung entfernt",
+            "attendance_changed": "Anwesenheit geändert",
+            "wage_changed": "Stundenlohn geändert",
+        }
+        log_sheet = workbook.add_worksheet("Prüfhistorie")
+        log_sheet.hide_gridlines(2)
+        log_sheet.freeze_panes(2, 2)
+        log_sheet.merge_range("A1:H1", f"Prüfhistorie – {self.name}", formats["title"])
+        log_headers = [
+            "Zeitpunkt",
+            "Mitarbeiter",
+            "Arbeitstag",
+            "Prüfer",
+            "Aktion",
+            "Bemerkung",
+            "Aktueller Monatsstatus",
+            "Aktuell überwiesen",
+        ]
+        for column, header in enumerate(log_headers):
+            log_sheet.write(1, column, header, formats["header"])
+        log_sheet.set_row(1, 38)
+        log_row = 2
+        logs = self.log_ids.sorted(key=lambda item: (item.created_at or datetime.min, item.id))
+        for log in logs:
+            employee_line = log.employee_month_id
+            employee = employee_line.employee_id
+            created_at = self._xlsx_local_datetime(log.created_at, employee=employee) if log.created_at else False
+            current_status = "Überwiesen" if employee_line.paid else (
+                "Freigegeben" if employee_line.approval_state == "approved" else "Nicht freigegeben"
+            )
+            current_status_format = (
+                formats["status_paid"] if employee_line.paid else formats["status_approved"]
+                if employee_line.approval_state == "approved" else formats["status_pending"]
+            )
+            if created_at:
+                log_sheet.write_datetime(log_row, 0, created_at, formats["datetime"])
+            else:
+                log_sheet.write_blank(log_row, 0, None, formats["datetime"])
+            log_sheet.write(log_row, 1, employee.name or "", formats["text"])
+            if log.day_id and log.day_id.work_date:
+                log_sheet.write_datetime(log_row, 2, log.day_id.work_date, formats["date"])
+            else:
+                log_sheet.write_blank(log_row, 2, None, formats["date"])
+            log_sheet.write(log_row, 3, log.reviewer_id.name if log.reviewer_id else "System", formats["text"])
+            log_sheet.write(log_row, 4, action_labels.get(log.action, log.action or ""), formats["text"])
+            log_sheet.write(log_row, 5, log.note or "", formats["text_wrap"])
+            log_sheet.write(log_row, 6, current_status, current_status_format)
+            log_sheet.write(log_row, 7, "Ja" if employee_line.paid else "Nein", current_status_format)
+            log_row += 1
+        if log_row > 2:
+            log_sheet.autofilter(1, 0, log_row - 1, len(log_headers) - 1)
+        log_sheet.set_column("A:A", 21)
+        log_sheet.set_column("B:B", 25)
+        log_sheet.set_column("C:C", 14)
+        log_sheet.set_column("D:D", 22)
+        log_sheet.set_column("E:E", 32)
+        log_sheet.set_column("F:F", 45)
+        log_sheet.set_column("G:H", 21)
+
+        workbook.close()
+        return output.getvalue()
+
+    def action_download_xlsx(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_url",
+            "url": f"/stundenzettel/pruefung/monat/{self.id}/excel",
+            "target": "self",
         }
 
     def action_open_portal(self):
