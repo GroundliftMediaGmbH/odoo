@@ -1,5 +1,14 @@
 # Changelog
 
+## 19.0.1.0.9
+
+- Pausenberechnung korrigiert: Bei mehr als 6 Stunden tatsächlicher Arbeitszeit werden 30 Minuten Pause zur Bruttozeit addiert.
+- Die tatsächliche Arbeitszeit wird nicht mehr um 30 Minuten gekürzt.
+- Gesamtlohn basiert weiterhin auf der tatsächlichen Arbeitszeit.
+- Bestehende gespeicherte Tage mit der alten Berechnung werden beim Modul-Upgrade automatisch korrigiert.
+- Freigaben und Überwiesen-Status betroffener Datensätze werden wegen der geänderten Abrechnungswerte zurückgesetzt.
+- Beim manuellen erneuten Einlesen erkennt die App zusätzlich abweichende Berechnungswerte auch ohne Änderung der Odoo-Anwesenheit.
+
 ## 19.0.1.0.8
 
 - Monatsweisen Excel-Export als echte `.xlsx`-Datei ergänzt.

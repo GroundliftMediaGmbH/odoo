@@ -107,9 +107,10 @@ Für jede abgeschlossene Anwesenheit wird die exakte Differenz zwischen `check_i
 `check_out` in ganzen Sekunden berechnet. Alle Anwesenheiten desselben Mitarbeiters am
 selben lokalen Odoo-Anwesenheitsdatum werden summiert.
 
-- Bruttozeit bis einschließlich `06:00:00`: keine automatische Pause
-- Bruttozeit größer als `06:00:00`: `00:30:00` automatische Pause
-- Arbeitszeit = Bruttozeit − automatische Pause
+- Erfasste Arbeitszeit bis einschließlich `06:00:00`: keine automatische Pause
+- Erfasste Arbeitszeit größer als `06:00:00`: `00:30:00` automatische Pause
+- Arbeitszeit = Summe der tatsächlichen Odoo-Anwesenheiten; sie wird durch die automatische Pause **nicht gekürzt**
+- Bruttozeit = Arbeitszeit + automatische Pause
 - Gesamtlohn = Arbeitszeit in Sekunden / 3600 × Stundenlohn
 
 Die Werte werden als Monatssnapshot gespeichert. Dadurch bleiben vergangene Monate

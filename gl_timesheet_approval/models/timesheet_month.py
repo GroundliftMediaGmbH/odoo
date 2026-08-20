@@ -240,11 +240,17 @@ class GlTimesheetMonth(models.Model):
                 signature = self._day_signature(day_attendances)
                 first_check_in = min(day_attendances.mapped("check_in"))
                 last_check_out = max(day_attendances.mapped("check_out"))
-                gross_seconds = sum(
+                # The summed Odoo attendances represent the employee's actual worked time.
+                # If more than six hours were actually worked, add a statutory 30-minute
+                # break to the gross/presence time. The break must NOT reduce the actual
+                # worked/payable time.
+                worked_seconds = sum(
                     _seconds_between(attendance.check_in, attendance.check_out)
                     for attendance in day_attendances
                 )
-                break_seconds = 1800 if gross_seconds > 6 * 3600 else 0
+                break_seconds = 1800 if worked_seconds > 6 * 3600 else 0
+                gross_seconds = worked_seconds + break_seconds
+                payable_seconds = worked_seconds
                 values = {
                     "employee_month_id": employee_line.id,
                     "work_date": work_date,
@@ -253,36 +259,53 @@ class GlTimesheetMonth(models.Model):
                     "attendance_count": len(day_attendances),
                     "gross_seconds": gross_seconds,
                     "break_seconds": break_seconds,
-                    "payable_seconds": max(0, gross_seconds - break_seconds),
+                    "payable_seconds": payable_seconds,
                     "source_signature": signature,
                     "source_attendance_ids": [(6, 0, day_attendances.ids)],
                 }
                 existing_day = day_by_date.get(work_date)
                 if not existing_day:
                     Day.create(values)
-                elif existing_day.source_signature != signature:
-                    values.update(
-                        {
-                            "reviewer1_state": "pending",
-                            "reviewer1_by_id": False,
-                            "reviewer1_at": False,
-                            "reviewer2_state": "pending",
-                            "reviewer2_by_id": False,
-                            "reviewer2_at": False,
-                        }
+                else:
+                    source_changed = existing_day.source_signature != signature
+                    calculation_changed = (
+                        existing_day.gross_seconds != gross_seconds
+                        or existing_day.break_seconds != break_seconds
+                        or existing_day.payable_seconds != payable_seconds
                     )
-                    existing_day.write(values)
-                    if employee_line.paid:
-                        employee_line.write({"paid": False, "paid_by_id": False, "paid_at": False})
-                    self.env["gl.timesheet.review.log"].create(
-                        {
-                            "month_id": self.id,
-                            "employee_month_id": employee_line.id,
-                            "day_id": existing_day.id,
-                            "action": "attendance_changed",
-                            "note": _("Anwesenheitsdaten wurden aktualisiert; Freigaben wurden zurückgesetzt."),
-                        }
-                    )
+                    if source_changed or calculation_changed:
+                        values.update(
+                            {
+                                "reviewer1_state": "pending",
+                                "reviewer1_by_id": False,
+                                "reviewer1_at": False,
+                                "reviewer2_state": "pending",
+                                "reviewer2_by_id": False,
+                                "reviewer2_at": False,
+                            }
+                        )
+                        existing_day.write(values)
+                        if employee_line.paid:
+                            employee_line.write({"paid": False, "paid_by_id": False, "paid_at": False})
+                        if source_changed:
+                            action = "attendance_changed"
+                            note = _("Anwesenheitsdaten wurden aktualisiert; Freigaben wurden zurückgesetzt.")
+                        else:
+                            action = "calculation_changed"
+                            note = _(
+                                "Berechnungslogik korrigiert: Bei mehr als 6 Stunden wird die "
+                                "30-minütige Pause zur Bruttozeit addiert und nicht von der "
+                                "Arbeitszeit abgezogen; Freigaben wurden zurückgesetzt."
+                            )
+                        self.env["gl.timesheet.review.log"].create(
+                            {
+                                "month_id": self.id,
+                                "employee_month_id": employee_line.id,
+                                "day_id": existing_day.id,
+                                "action": action,
+                                "note": note,
+                            }
+                        )
 
             removed_days = employee_line.day_ids.filtered(lambda line: line.work_date not in expected_dates)
             if removed_days:
@@ -1030,6 +1053,7 @@ class GlTimesheetMonth(models.Model):
             "paid": "Als überwiesen markiert",
             "paid_undone": "Überwiesen-Markierung entfernt",
             "attendance_changed": "Anwesenheit geändert",
+            "calculation_changed": "Berechnungslogik korrigiert",
             "wage_changed": "Stundenlohn geändert",
         }
         log_sheet = workbook.add_worksheet("Prüfhistorie")
@@ -1398,6 +1422,7 @@ class GlTimesheetReviewLog(models.Model):
             ("paid", "Als überwiesen markiert"),
             ("paid_undone", "Überwiesen-Markierung entfernt"),
             ("attendance_changed", "Anwesenheit geändert"),
+            ("calculation_changed", "Berechnungslogik korrigiert"),
             ("wage_changed", "Stundenlohn geändert"),
         ],
         required=True,

@@ -40,3 +40,14 @@ Eine echte Installation gegen eine laufende Odoo-19-Instanz war in der Erstellun
 - XLSX-Arbeitsblätter, Spaltenformate, Filter und Freeze-Panes statisch geprüft
 - Formeleinschleusung über exportierte Textwerte deaktiviert
 - Manifest, XML-Wohlgeformtheit und ZIP-Struktur geprüft
+
+## Version 19.0.1.0.9
+
+- Pausenformel statisch geprüft: `Arbeitszeit = erfasste Anwesenheitszeit`.
+- Schwellenwert geprüft: nur bei `Arbeitszeit > 06:00:00` werden exakt `00:30:00` Pause angesetzt.
+- Bruttoformel geprüft: `Bruttozeit = Arbeitszeit + Pause`.
+- Lohnformel geprüft: `Gesamtlohn = Arbeitszeit × Stundenlohn`; die Pause erhöht den Lohn nicht.
+- Re-Import bestehender Tage erkennt alte Berechnungswerte und korrigiert sie.
+- Upgrade-Migration für bereits gespeicherte Tage mit alter Formel ergänzt.
+- Python-Syntax, XML-Wohlgeformtheit, Manifest und ZIP-Struktur geprüft.
+
