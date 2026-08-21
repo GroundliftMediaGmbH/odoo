@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="modal_ticket_registration_cleverreach_optin"
+              inherit_id="website_event.modal_ticket_registration"
+              name="Groundlift CleverReach Opt-in im Ticket-Popup">
+        <xpath expr="//form[@id='registration_form']//div[hasclass('modal-footer')]" position="before">
+            <div class="px-3 pt-3 pb-2 border-top gl-cr-event-optin">
+                <div class="form-check">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           id="gl_cr_newsletter_optin"
+                           name="gl_cr_newsletter_optin"
+                           value="1"
+                           checked="checked"/>
+                    <label class="form-check-label" for="gl_cr_newsletter_optin">
+                        Ich möchte auch über andere Veranstaltungen informiert werden - Friendly Newsletter: Nervt nicht, informiert!
+                    </label>
+                </div>
+            </div>
+        </xpath>
+    </template>
+
+    <template id="registration_attendee_details_cleverreach_optin"
+              inherit_id="website_event.registration_attendee_details"
+              name="Groundlift CleverReach Opt-in an Teilnehmerformular weiterreichen">
+        <xpath expr="//form[@id='attendee_registration']/input[@name='csrf_token']" position="after">
+            <input type="hidden"
+                   name="gl_cr_newsletter_optin"
+                   t-att-value="'1' if gl_cr_newsletter_optin else '0'"/>
+        </xpath>
+    </template>
+</odoo>
