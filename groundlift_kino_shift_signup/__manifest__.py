@@ -2,7 +2,7 @@
 {
     "name": "Groundlift Kino Dienstplan Anmeldung",
     "summary": "Monatliche Kino-Schichtabfrage mit Website-Eintragung und Erinnerungen",
-    "version": "19.0.1.8.0",
+    "version": "19.0.1.9.1",
     "category": "Human Resources",
     "author": "Groundlift Media GmbH",
     "license": "LGPL-3",
