@@ -1,18 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!--
+        Odoo 19 renders two different ticket-modal branches:
+        1) multiple ticket types -> #o_wevent_tickets_collapse + its footer
+        2) a single ticket type  -> .o_wevent_registration_single + its footer
+
+        An inherited QWeb XPath locator acts on the first matching node.  The
+        previous generic modal-footer XPath therefore only modified the first
+        (multi-ticket) branch.  Groundlift normally uses a single ticket type,
+        so the checkbox was not rendered there.  Keep explicit insertions for
+        both branches.
+    -->
     <template id="modal_ticket_registration_cleverreach_optin"
               inherit_id="website_event.modal_ticket_registration"
+              priority="90"
               name="Groundlift CleverReach Opt-in im Ticket-Popup">
-        <xpath expr="//form[@id='registration_form']//div[hasclass('modal-footer')]" position="before">
-            <div class="px-3 pt-3 pb-2 border-top gl-cr-event-optin">
-                <div class="form-check">
+
+        <!-- Multiple ticket types -->
+        <xpath expr="//div[@id='o_wevent_tickets_collapse']/following-sibling::div[hasclass('modal-footer')]" position="before">
+            <div class="modal-body px-3 py-3 border-top gl-cr-event-optin">
+                <div class="form-check mb-0">
                     <input class="form-check-input"
                            type="checkbox"
-                           id="gl_cr_newsletter_optin"
+                           id="gl_cr_newsletter_optin_multi"
                            name="gl_cr_newsletter_optin"
                            value="1"
                            checked="checked"/>
-                    <label class="form-check-label" for="gl_cr_newsletter_optin">
+                    <label class="form-check-label" for="gl_cr_newsletter_optin_multi">
+                        Ich möchte auch über andere Veranstaltungen informiert werden - Friendly Newsletter: Nervt nicht, informiert!
+                    </label>
+                </div>
+            </div>
+        </xpath>
+
+        <!-- Single ticket type -->
+        <xpath expr="//div[hasclass('o_wevent_registration_single')]/div[hasclass('modal-footer')]" position="before">
+            <div class="modal-body px-3 py-3 border-top gl-cr-event-optin">
+                <div class="form-check mb-0">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           id="gl_cr_newsletter_optin_single"
+                           name="gl_cr_newsletter_optin"
+                           value="1"
+                           checked="checked"/>
+                    <label class="form-check-label" for="gl_cr_newsletter_optin_single">
                         Ich möchte auch über andere Veranstaltungen informiert werden - Friendly Newsletter: Nervt nicht, informiert!
                     </label>
                 </div>
@@ -22,6 +53,7 @@
 
     <template id="registration_attendee_details_cleverreach_optin"
               inherit_id="website_event.registration_attendee_details"
+              priority="90"
               name="Groundlift CleverReach Opt-in an Teilnehmerformular weiterreichen">
         <xpath expr="//form[@id='attendee_registration']/input[@name='csrf_token']" position="after">
             <input type="hidden"
