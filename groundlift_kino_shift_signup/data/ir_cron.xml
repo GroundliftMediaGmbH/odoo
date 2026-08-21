@@ -10,6 +10,16 @@
         <field name="active">True</field>
     </record>
 
+    <record id="ir_cron_gl_kino_shift_signup_deadline_confirmation" model="ir.cron">
+        <field name="name">Kino Dienstplan: Schichtbestätigung nach Eintragungsfrist</field>
+        <field name="model_id" ref="model_gl_kino_shift_campaign"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_send_signup_deadline_confirmations()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active">True</field>
+    </record>
+
     <record id="ir_cron_gl_kino_shift_open_slot_reminder" model="ir.cron">
         <field name="name">Kino Dienstplan: Erinnerung offene Slots</field>
         <field name="model_id" ref="model_gl_kino_shift_campaign"/>
