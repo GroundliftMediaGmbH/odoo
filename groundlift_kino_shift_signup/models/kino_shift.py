@@ -919,6 +919,47 @@ class GroundliftKinoShiftCampaign(models.Model):
         self._refresh_state_from_slots()
         return "Danke, du hast %s an %s abgegeben." % (slot.display_line_short, requester.name)
 
+    def is_swap_allowed_for_slot(self, slot):
+        """A shift may only be swapped up to and including the day before it takes place."""
+        self.ensure_one()
+        if not slot or slot.campaign_id.id != self.id or not slot.date or slot.is_blocked:
+            return False
+        today = fields.Date.context_today(self)
+        return fields.Date.to_date(slot.date) > today
+
+    def _expire_due_swap_requests(self):
+        """Close swap requests once the shift date itself has been reached."""
+        today = fields.Date.context_today(self)
+        slots = self.env["gl.kino.shift.slot"].sudo().search(
+            [
+                ("campaign_id", "in", self.ids),
+                ("swap_requested", "=", True),
+                ("date", "<=", today),
+            ]
+        ) if self.ids else self.env["gl.kino.shift.slot"].sudo()
+        if not slots:
+            return True
+        campaigns = slots.mapped("campaign_id")
+        slots.write(
+            {
+                "swap_requested": False,
+                "swap_requested_by_id": False,
+                "swap_requested_date": False,
+            }
+        )
+        for campaign in campaigns:
+            campaign._refresh_state_from_slots()
+        return True
+
+    @api.model
+    def cron_expire_due_swap_requests(self):
+        today = fields.Date.context_today(self)
+        campaigns = self.sudo().search(
+            [("slot_ids.swap_requested", "=", True), ("slot_ids.date", "<=", today)]
+        )
+        campaigns._expire_due_swap_requests()
+        return True
+
     def action_request_swap_from_invite(self, invite, slot):
         self.ensure_one()
         if not invite or invite.campaign_id.id != self.id:
@@ -932,6 +973,17 @@ class GroundliftKinoShiftCampaign(models.Model):
         slot.invalidate_recordset(["employee_id", "swap_requested", "is_blocked"])
         if slot.is_blocked:
             return "Dieser Kinotag ist gesperrt und kann nicht mehr getauscht werden."
+        if not self.is_swap_allowed_for_slot(slot):
+            if slot.swap_requested:
+                slot.write(
+                    {
+                        "swap_requested": False,
+                        "swap_requested_by_id": False,
+                        "swap_requested_date": False,
+                    }
+                )
+                self._refresh_state_from_slots()
+            return "Die Tauschfrist für %s ist abgelaufen. Tauschen ist nur bis zum Tag vor der Schicht möglich." % slot.display_line_short
         if not slot.employee_id or slot.employee_id.id != invite.employee_id.id:
             return "Du bist für diesen Termin nicht eingetragen und kannst daher keine Tauschanfrage stellen."
         if slot.swap_requested:
@@ -1014,6 +1066,17 @@ class GroundliftKinoShiftCampaign(models.Model):
         slot.invalidate_recordset(["employee_id", "swap_requested", "swap_requested_by_id", "takeover_requested_by_id", "is_blocked"])
         if slot.is_blocked:
             return "Dieser Kinotag ist inzwischen gesperrt. Es findet an diesem Tag leider doch kein Kino statt."
+        if not self.is_swap_allowed_for_slot(slot):
+            if slot.swap_requested:
+                slot.write(
+                    {
+                        "swap_requested": False,
+                        "swap_requested_by_id": False,
+                        "swap_requested_date": False,
+                    }
+                )
+                self._refresh_state_from_slots()
+            return "Die Tauschfrist für %s ist abgelaufen. Eine Übernahme ist nur bis zum Tag vor der Schicht möglich." % slot.display_line_short
         if not slot.swap_requested:
             return "Diese Tauschanfrage ist nicht mehr offen."
         if slot.employee_id and slot.employee_id.id == invite.employee_id.id:

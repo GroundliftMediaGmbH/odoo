@@ -38,9 +38,16 @@ class GroundliftKinoShiftController(http.Controller):
         priority_quota = 0
         takeover_request_slots = request.env["gl.kino.shift.slot"].sudo()
         correction_available_by_slot_id = {}
+        swap_available_by_slot_id = {}
         monthly_shift_count = 0
         monthly_shift_remaining = 0
         max_monthly_shift_count = campaign.max_monthly_shift_count if campaign else 6
+
+        if campaign:
+            swap_available_by_slot_id = {
+                slot.id: campaign.is_swap_allowed_for_slot(slot)
+                for slot in campaign.slot_ids
+            }
 
         if campaign and invite:
             preference_by_slot_id = campaign.get_preference_by_slot_for_employee(invite.employee_id)
@@ -67,6 +74,7 @@ class GroundliftKinoShiftController(http.Controller):
             "priority_quota": priority_quota,
             "takeover_request_slots": takeover_request_slots,
             "correction_available_by_slot_id": correction_available_by_slot_id,
+            "swap_available_by_slot_id": swap_available_by_slot_id,
             "monthly_shift_count": monthly_shift_count,
             "monthly_shift_remaining": monthly_shift_remaining,
             "max_monthly_shift_count": max_monthly_shift_count,

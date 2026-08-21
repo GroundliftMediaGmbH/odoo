@@ -215,6 +215,8 @@
                                                     <t t-foreach="week_rows" t-as="week">
                                                         <t t-foreach="week" t-as="slot">
                                                             <tr>
+                                                                <t t-set="swap_is_active" t-value="slot.swap_requested and swap_available_by_slot_id.get(slot.id)"/>
+                                                                <t t-set="swap_is_available" t-value="swap_available_by_slot_id.get(slot.id)"/>
                                                                 <td>
                                                                     <strong><t t-out="slot.weekday_label"/>:</strong>
                                                                     <t t-out="slot.date_label"/>
@@ -231,13 +233,13 @@
                                                                     </t>
                                                                 </td>
                                                                 <td>
-                                                                    <t t-if="slot.swap_requested">
+                                                                    <t t-if="swap_is_active">
                                                                         <span class="badge text-bg-danger">Tauschanfrage</span>
                                                                         <t t-if="slot.employee_id">
                                                                             <div class="small text-muted mt-1">aktuell: <t t-out="slot.employee_id.name"/></div>
                                                                         </t>
                                                                     </t>
-                                                                    <t t-if="not slot.swap_requested and slot.employee_id">
+                                                                    <t t-if="not swap_is_active and slot.employee_id">
                                                                         <span class="badge text-bg-success">fix besetzt</span>
                                                                         <span class="ms-2"><t t-out="slot.employee_id.name"/></span>
                                                                         <t t-if="slot.takeover_requested_by_id">
@@ -246,7 +248,7 @@
                                                                             </div>
                                                                         </t>
                                                                     </t>
-                                                                    <t t-if="not slot.swap_requested and not slot.employee_id">
+                                                                    <t t-if="not swap_is_active and not slot.employee_id">
                                                                         <t t-if="slot.fill_request_state == 'waiting' and slot.fill_request_current_employee_id">
                                                                             <span class="badge text-bg-info">Einzelanfrage läuft</span>
                                                                             <div class="small text-muted mt-1">aktuell angefragt: <t t-out="slot.fill_request_current_employee_id.name"/></div>
@@ -265,7 +267,7 @@
                                                                     <t t-set="can_take_more_shifts" t-value="monthly_shift_remaining &gt; 0 or is_own_slot"/>
                                                                     <t t-if="is_own_slot">
                                                                         <div class="text-success fw-semibold mb-2">Von dir übernommen</div>
-                                                                        <t t-if="not slot.swap_requested">
+                                                                        <t t-if="not swap_is_active">
                                                                             <t t-if="slot.takeover_requested_by_id">
                                                                                 <div class="alert alert-warning py-2 px-3 mb-2 small">
                                                                                     <strong><t t-out="slot.takeover_requested_by_id.name"/></strong>
@@ -303,22 +305,27 @@
                                                                                         <button type="submit" class="btn btn-outline-dark btn-sm">Korrigieren</button>
                                                                                     </form>
                                                                                 </t>
-                                                                                <form method="post" action="/kino-dienstplan/swap/request" class="m-0" onsubmit="return confirm('Kannst du an diesem Tag wirklich nicht?');">
-                                                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                                                    <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
-                                                                                    <input type="hidden" name="employee_token" t-att-value="invite.token"/>
-                                                                                    <t t-if="employee_portal"><input type="hidden" name="return_access_token" t-att-value="employee_portal.token"/></t>
-                                                                                    <input type="hidden" name="slot_id" t-att-value="slot.id"/>
-                                                                                    <button type="submit" class="btn btn-outline-danger btn-sm">Tauschen</button>
-                                                                                </form>
+                                                                                <t t-if="swap_is_available">
+                                                                                    <form method="post" action="/kino-dienstplan/swap/request" class="m-0" onsubmit="return confirm('Kannst du an diesem Tag wirklich nicht?');">
+                                                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                                                        <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
+                                                                                        <input type="hidden" name="employee_token" t-att-value="invite.token"/>
+                                                                                        <t t-if="employee_portal"><input type="hidden" name="return_access_token" t-att-value="employee_portal.token"/></t>
+                                                                                        <input type="hidden" name="slot_id" t-att-value="slot.id"/>
+                                                                                        <button type="submit" class="btn btn-outline-danger btn-sm">Tauschen</button>
+                                                                                    </form>
+                                                                                </t>
+                                                                                <t t-if="not swap_is_available">
+                                                                                    <span class="text-muted small">Tauschfrist abgelaufen</span>
+                                                                                </t>
                                                                             </div>
                                                                         </t>
-                                                                        <t t-if="slot.swap_requested">
+                                                                        <t t-if="swap_is_active">
                                                                             <span class="text-muted small">Tauschanfrage läuft</span>
                                                                         </t>
                                                                     </t>
 
-                                                                    <t t-if="not is_own_slot and slot.swap_requested">
+                                                                    <t t-if="not is_own_slot and swap_is_active">
                                                                         <t t-if="monthly_shift_remaining &gt; 0">
                                                                             <form method="post" action="/kino-dienstplan/swap/accept" class="m-0">
                                                                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
@@ -334,7 +341,7 @@
                                                                         </t>
                                                                     </t>
 
-                                                                    <t t-if="not is_own_slot and not slot.swap_requested">
+                                                                    <t t-if="not is_own_slot and not swap_is_active">
                                                                         <t t-if="current_pref">
                                                                             <div class="small text-muted mb-2">
                                                                                 Deine Auswahl: <strong><t t-out="current_pref.priority_label"/></strong>
@@ -404,7 +411,7 @@
                                                 Prioritäten können bis zwei Wochen vor der ersten Schicht gesetzt werden. Danach können nur noch freie Termine direkt übernommen oder bestehende Termine per Tauschanfrage geändert werden.
                                                 Eine eigene Eintragung kann innerhalb von 24 Stunden über „Korrigieren“ zurückgenommen werden, solange die Eintragungsfrist noch läuft.
                                                 Pro Person können maximal <t t-out="max_monthly_shift_count"/> Schichten im Monat übernommen werden.
-                                                Eine laufende Tauschanfrage wird als „Tauschanfrage“ angezeigt, bis jemand den Termin übernimmt.
+                                                Eine laufende Tauschanfrage wird als „Tauschanfrage“ angezeigt, bis jemand den Termin übernimmt. Tauschen und Übernehmen einer Tauschanfrage ist nur bis einschließlich zum Tag vor der jeweiligen Schicht möglich.
                                             </p>
                                         </div>
                                     </t>

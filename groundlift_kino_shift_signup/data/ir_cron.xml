@@ -20,6 +20,16 @@
         <field name="active">True</field>
     </record>
 
+    <record id="ir_cron_gl_kino_shift_expire_swaps" model="ir.cron">
+        <field name="name">Kino Dienstplan: abgelaufene Tauschanfragen schließen</field>
+        <field name="model_id" ref="model_gl_kino_shift_campaign"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_expire_due_swap_requests()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active">True</field>
+    </record>
+
     <record id="ir_cron_gl_kino_shift_open_slot_reminder" model="ir.cron">
         <field name="name">Kino Dienstplan: Erinnerung offene Slots</field>
         <field name="model_id" ref="model_gl_kino_shift_campaign"/>
