@@ -10,3 +10,7 @@ access_inbox_filter_assign_todo_wizard_user,inbox.filter.assign.todo.wizard.user
 access_inbox_filter_settings_system,inbox.filter.settings.system,model_inbox_filter_settings,base.group_system,1,1,0,0
 access_inbox_filter_settings_user,inbox.filter.settings.user,model_inbox_filter_settings,base.group_user,1,0,0,0
 access_inbox_filter_prompt_regenerate_wizard_user,inbox.filter.prompt.regenerate.wizard.user,model_inbox_filter_prompt_regenerate_wizard,base.group_user,1,1,1,1
+access_inbox_filter_batch_user,inbox.filter.batch.user,model_inbox_filter_batch,base.group_user,1,1,1,0
+access_inbox_filter_batch_manager,inbox.filter.batch.manager,model_inbox_filter_batch,base.group_system,1,1,1,1
+access_inbox_filter_batch_line_user,inbox.filter.batch.line.user,model_inbox_filter_batch_line,base.group_user,1,1,1,0
+access_inbox_filter_batch_line_manager,inbox.filter.batch.line.manager,model_inbox_filter_batch_line,base.group_system,1,1,1,1

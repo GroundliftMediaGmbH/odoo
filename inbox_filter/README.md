@@ -66,3 +66,13 @@ GPT-gestützte Sortierung neuer CRM-Leads aus der Phase „Neu“ in:
 - Öffnet anschließend einen Vergleichsdialog: alter Prompt links, neuer Prompt rechts.
 - Über **Neuen Prompt als Standard** werden alle neuen Prompts übernommen; die bisherigen Live-Lernbeispiele werden dabei konsolidiert und zurückgesetzt.
 - Über **Alten Prompt behalten** wird der Dialog geschlossen, ohne bestehende Prompts zu verändern.
+
+
+## Version 19.0.1.2.0
+
+- Neuer Button **Alle mit Fehler neu einsortieren**: verarbeitet nur Historien-Vorgänge mit Status Fehler, die nicht als **Perfekt erkannt** gesperrt sind.
+- **Alle neu einsortieren** und der neue Fehlerlauf arbeiten als Batch mit sichtbarem Live-Fortschritt.
+- OpenAI-Rate-Limit-Schutz: konservatives lokales TPM-Budget, Sicherheitsreserve, Mindestabstand, Auswertung von Rate-Limit-Headern/429-Reset und automatische Fortsetzung statt Retry-Spam.
+- Klassifizierungen erhalten ein begrenztes `max_completion_tokens`, um unnötige TPM-Reservierung zu vermeiden.
+- Fehlerhafte Sortierungen werden alle 15 Minuten auf fällige Wiederholungsversuche geprüft; dauerhafte Fehler erhalten exponentiell größere Retry-Abstände.
+- Begonnene Batch-Jobs laufen per Cron weiter, wenn die Fortschrittsseite geschlossen wird.

@@ -18,6 +18,7 @@ class InboxFilterHistory(models.Model):
         "lead_id", "category", "moved_to", "target_stage_id", "project_id", "event_id",
         "employee_id", "user_id", "ticket_ref_model", "ticket_ref_id", "status",
         "gpt_response_json", "reason", "summary", "error_message",
+        "retry_count", "last_retry_at", "next_retry_at",
     }
 
     name = fields.Char(required=True, tracking=True)
@@ -66,6 +67,9 @@ class InboxFilterHistory(models.Model):
         default="applied",
         tracking=True,
     )
+    retry_count = fields.Integer(string="Fehler-Wiederholungen", default=0, readonly=True)
+    last_retry_at = fields.Datetime(string="Letzter Wiederholungsversuch", readonly=True)
+    next_retry_at = fields.Datetime(string="Nächster Wiederholungsversuch", readonly=True, index=True)
     active = fields.Boolean(default=True)
 
     @api.depends(
@@ -519,7 +523,10 @@ class InboxFilterHistory(models.Model):
         }
 
     def action_reclassify_all(self):
-        return self.env["inbox.filter.service"].reclassify_all_history_records_action()
+        return self.env["inbox.filter.batch"].action_start_batch("all")
+
+    def action_reclassify_errors(self):
+        return self.env["inbox.filter.batch"].action_start_batch("errors")
 
     def action_undo(self):
         for rec in self:
