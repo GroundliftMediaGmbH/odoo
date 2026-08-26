@@ -25,8 +25,14 @@
                     </t>
 
                     <t t-else="">
-                        <t t-if="success">
+                        <t t-if="success == 'added'">
                             <div class="gl-ap-alert gl-ap-alert-success">Der Eintrag wurde gespeichert und ist sofort in der Groundlift-Gästeliste berücksichtigt.</div>
+                        </t>
+                        <t t-if="success == 'updated'">
+                            <div class="gl-ap-alert gl-ap-alert-success">Der Eintrag wurde geändert. Die aktualisierte Anzahl und Ticketkategorie sind sofort berücksichtigt.</div>
+                        </t>
+                        <t t-if="success == 'cancelled'">
+                            <div class="gl-ap-alert gl-ap-alert-success">Der Eintrag wurde storniert. Die reservierten Plätze sind wieder freigegeben.</div>
                         </t>
                         <t t-if="error">
                             <div class="gl-ap-alert gl-ap-alert-error" t-esc="error"/>
@@ -182,17 +188,135 @@
                             <div class="gl-ap-entry-list">
                                 <t t-foreach="portal_lines" t-as="line">
                                     <div class="gl-ap-entry">
-                                        <div>
-                                            <strong t-esc="line.name"/>
-                                            <div class="gl-ap-entry-meta">
-                                                <span t-esc="'%s Person(en)' % line.quantity_int"/>
-                                                <span t-if="line.artist_portal_entry_type == 'guestlist'">Gästeliste</span>
-                                                <span t-if="line.artist_portal_entry_type == 'box_office'">Abendkasse</span>
-                                                <span t-if="line.price_option_id and line.artist_portal_entry_type == 'box_office'"
-                                                      t-esc="option_labels.get(line.price_option_id.id, line.price_option_id.name)"/>
-                                                <span t-if="line.artist_portal_submitted_by">von <t t-esc="line.artist_portal_submitted_by"/></span>
+                                        <div class="gl-ap-entry-top">
+                                            <div class="gl-ap-entry-content">
+                                                <strong t-esc="line.name"/>
+                                                <div class="gl-ap-entry-meta">
+                                                    <span t-esc="'%s Person(en)' % line.quantity_int"/>
+                                                    <span t-if="line.artist_portal_entry_type == 'guestlist'">Gästeliste</span>
+                                                    <span t-if="line.artist_portal_entry_type == 'box_office'">Abendkasse</span>
+                                                    <span t-if="line.price_option_id and line.artist_portal_entry_type == 'box_office'"
+                                                          t-esc="option_labels.get(line.price_option_id.id, line.price_option_id.name)"/>
+                                                    <span t-if="line.artist_portal_submitted_by">von <t t-esc="line.artist_portal_submitted_by"/></span>
+                                                </div>
+                                                <div class="gl-ap-entry-note" t-if="line.contact_data">
+                                                    Kontakt: <t t-esc="line.contact_data"/>
+                                                </div>
+                                                <div class="gl-ap-entry-note" t-if="line.note" t-esc="line.note"/>
                                             </div>
-                                            <div class="gl-ap-entry-note" t-if="line.note" t-esc="line.note"/>
+                                            <div class="gl-ap-entry-actions">
+                                                <button type="button"
+                                                        class="gl-ap-secondary gl-ap-edit-toggle"
+                                                        t-att-data-target="'gl-ap-edit-%s' % line.id">
+                                                    Ändern
+                                                </button>
+                                                <form method="post"
+                                                      class="gl-ap-cancel-form"
+                                                      t-att-action="'/event/artist/%s/%s/cancel/%s' % (event.id, token, line.id)"
+                                                      onsubmit="return confirm('Diesen Eintrag wirklich stornieren? Die reservierten Plätze werden sofort wieder freigegeben.');">
+                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                    <button type="submit" class="gl-ap-danger">Stornieren</button>
+                                                </form>
+                                            </div>
+                                        </div>
+
+                                        <div t-att-id="'gl-ap-edit-%s' % line.id"
+                                             t-attf-class="gl-ap-edit-panel #{'is-open' if edit_line_id == line.id else ''}">
+                                            <div class="gl-ap-edit-title">Eintrag ändern</div>
+                                            <form class="gl-ap-form gl-ap-edit-form"
+                                                  method="post"
+                                                  t-att-action="'/event/artist/%s/%s/update/%s' % (event.id, token, line.id)">
+                                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+
+                                                <div class="gl-ap-type-grid">
+                                                    <label class="gl-ap-type-card">
+                                                        <input type="radio"
+                                                               name="entry_type"
+                                                               value="guestlist"
+                                                               t-att-checked="((edit_form.get('entry_type') if edit_line_id == line.id else line.artist_portal_entry_type) == 'guestlist') and 'checked' or None"/>
+                                                        <span>
+                                                            <strong>Gästeliste</strong>
+                                                            <small>Kostenloser Platz.</small>
+                                                        </span>
+                                                    </label>
+                                                    <label class="gl-ap-type-card">
+                                                        <input type="radio"
+                                                               name="entry_type"
+                                                               value="box_office"
+                                                               t-att-checked="((edit_form.get('entry_type') if edit_line_id == line.id else line.artist_portal_entry_type) == 'box_office') and 'checked' or None"/>
+                                                        <span>
+                                                            <strong>Ticket · Abendkasse</strong>
+                                                            <small>Reserviert, Zahlung am Veranstaltungsabend.</small>
+                                                        </span>
+                                                    </label>
+                                                </div>
+
+                                                <div class="gl-ap-form-grid">
+                                                    <label>
+                                                        <span>Name des Gastes *</span>
+                                                        <input type="text"
+                                                               name="name"
+                                                               required="required"
+                                                               maxlength="160"
+                                                               t-att-value="edit_form.get('name', '') if edit_line_id == line.id else line.name"/>
+                                                    </label>
+                                                    <label>
+                                                        <span>Anzahl *</span>
+                                                        <select name="quantity" required="required">
+                                                            <t t-foreach="quantity_values" t-as="qty">
+                                                                <option t-att-value="qty"
+                                                                        t-att-selected="str(qty) == (edit_form.get('quantity', '1') if edit_line_id == line.id else str(line.quantity_int)) and 'selected' or None"
+                                                                        t-esc="qty"/>
+                                                            </t>
+                                                        </select>
+                                                    </label>
+                                                </div>
+
+                                                <div class="gl-ap-form-grid gl-ap-box-office-field">
+                                                    <label class="gl-ap-full">
+                                                        <span>Ticketkategorie für Abendkasse *</span>
+                                                        <select name="price_option_id">
+                                                            <option value="">Bitte auswählen</option>
+                                                            <t t-foreach="box_office_rows" t-as="row">
+                                                                <option t-att-value="row['option'].id"
+                                                                        t-att-selected="str(row['option'].id) == (edit_form.get('price_option_id', '') if edit_line_id == line.id else str(line.price_option_id.id or '')) and 'selected' or None"
+                                                                        t-esc="row['label']"/>
+                                                            </t>
+                                                        </select>
+                                                    </label>
+                                                </div>
+
+                                                <div class="gl-ap-form-grid">
+                                                    <label>
+                                                        <span>Kontaktdaten</span>
+                                                        <input type="text"
+                                                               name="contact_data"
+                                                               maxlength="250"
+                                                               t-att-value="edit_form.get('contact_data', '') if edit_line_id == line.id else (line.contact_data or '')"/>
+                                                    </label>
+                                                    <label>
+                                                        <span>Eingetragen von</span>
+                                                        <input type="text"
+                                                               name="submitted_by"
+                                                               maxlength="160"
+                                                               t-att-value="edit_form.get('submitted_by', '') if edit_line_id == line.id else (line.artist_portal_submitted_by or '')"/>
+                                                    </label>
+                                                </div>
+
+                                                <label class="gl-ap-full">
+                                                    <span>Bemerkung</span>
+                                                    <textarea name="note" maxlength="1500" rows="3"><t t-esc="edit_form.get('note', '') if edit_line_id == line.id else (line.note or '')"/></textarea>
+                                                </label>
+
+                                                <div class="gl-ap-edit-buttons">
+                                                    <button type="submit" class="gl-ap-submit">Änderungen speichern</button>
+                                                    <button type="button"
+                                                            class="gl-ap-secondary gl-ap-edit-close"
+                                                            t-att-data-target="'gl-ap-edit-%s' % line.id">
+                                                        Abbrechen
+                                                    </button>
+                                                </div>
+                                            </form>
                                         </div>
                                     </div>
                                 </t>
@@ -204,13 +328,14 @@
 
             <script type="text/javascript">
                 document.addEventListener('DOMContentLoaded', function () {
-                    const radios = document.querySelectorAll('input[name="entry_type"]');
-                    const boxOfficeField = document.querySelector('.gl-ap-box-office-field');
-                    const boxOfficeSelect = boxOfficeField ? boxOfficeField.querySelector('select[name="price_option_id"]') : null;
-
-                    function syncType() {
-                        const selected = document.querySelector('input[name="entry_type"]:checked');
+                    function syncFormType(formEl) {
+                        if (!formEl) {
+                            return;
+                        }
+                        const selected = formEl.querySelector('input[name="entry_type"]:checked');
                         const boxOffice = selected &amp;&amp; selected.value === 'box_office';
+                        const boxOfficeField = formEl.querySelector('.gl-ap-box-office-field');
+                        const boxOfficeSelect = boxOfficeField ? boxOfficeField.querySelector('select[name="price_option_id"]') : null;
                         if (boxOfficeField) {
                             boxOfficeField.style.display = boxOffice ? '' : 'none';
                         }
@@ -219,10 +344,46 @@
                         }
                     }
 
-                    radios.forEach(function (radio) {
-                        radio.addEventListener('change', syncType);
+                    document.querySelectorAll('.gl-ap-form').forEach(function (formEl) {
+                        formEl.querySelectorAll('input[name="entry_type"]').forEach(function (radio) {
+                            radio.addEventListener('change', function () {
+                                syncFormType(formEl);
+                            });
+                        });
+                        syncFormType(formEl);
                     });
-                    syncType();
+
+                    document.querySelectorAll('.gl-ap-edit-toggle').forEach(function (button) {
+                        button.addEventListener('click', function () {
+                            const target = document.getElementById(button.dataset.target);
+                            if (!target) {
+                                return;
+                            }
+                            const willOpen = !target.classList.contains('is-open');
+                            document.querySelectorAll('.gl-ap-edit-panel.is-open').forEach(function (panel) {
+                                panel.classList.remove('is-open');
+                            });
+                            if (willOpen) {
+                                target.classList.add('is-open');
+                                syncFormType(target.querySelector('.gl-ap-form'));
+                            }
+                        });
+                    });
+
+                    document.querySelectorAll('.gl-ap-edit-close').forEach(function (button) {
+                        button.addEventListener('click', function () {
+                            const target = document.getElementById(button.dataset.target);
+                            if (target) {
+                                target.classList.remove('is-open');
+                            }
+                        });
+                    });
+
+                    const openEdit = document.querySelector('.gl-ap-edit-panel.is-open');
+                    if (openEdit) {
+                        syncFormType(openEdit.querySelector('.gl-ap-form'));
+                        openEdit.scrollIntoView({behavior: 'smooth', block: 'center'});
+                    }
                 });
             </script>
         </t>

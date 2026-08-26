@@ -87,3 +87,54 @@
     .gl-ap-stat-value { font-size: 2rem; }
     .gl-ap-stat-label { font-size: .78rem; }
 }
+
+/* Artist/agency self-service actions */
+.gl-ap-entry { display: block; }
+.gl-ap-entry-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
+.gl-ap-entry-content { min-width: 0; flex: 1 1 auto; }
+.gl-ap-entry-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.gl-ap-cancel-form { margin: 0; }
+.gl-ap-secondary,
+.gl-ap-danger {
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: .84rem;
+    font-weight: 750;
+    cursor: pointer;
+    line-height: 1.1;
+}
+.gl-ap-secondary {
+    border: 1px solid var(--gl-border);
+    background: #242429;
+    color: #fff;
+}
+.gl-ap-secondary:hover { background: #303036; }
+.gl-ap-danger {
+    border: 1px solid rgba(238, 92, 92, .48);
+    background: rgba(190, 48, 48, .16);
+    color: #ffb9b9;
+}
+.gl-ap-danger:hover { background: rgba(190, 48, 48, .27); color: #fff; }
+.gl-ap-edit-panel {
+    display: none;
+    margin-top: 14px;
+    padding-top: 16px;
+    border-top: 1px solid var(--gl-border);
+}
+.gl-ap-edit-panel.is-open { display: block; }
+.gl-ap-edit-title { color: #fff; font-weight: 800; margin-bottom: 14px; }
+.gl-ap-edit-form {
+    padding: 16px;
+    border: 1px solid var(--gl-border);
+    border-radius: 12px;
+    background: #111114;
+}
+.gl-ap-edit-buttons { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.gl-ap-edit-buttons .gl-ap-submit { margin: 0; }
+@media (max-width: 700px) {
+    .gl-ap-entry-top { flex-direction: column; }
+    .gl-ap-entry-actions { width: 100%; }
+    .gl-ap-entry-actions > button,
+    .gl-ap-entry-actions .gl-ap-cancel-form,
+    .gl-ap-entry-actions .gl-ap-cancel-form button { flex: 1 1 auto; }
+}

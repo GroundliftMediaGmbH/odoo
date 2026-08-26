@@ -19,6 +19,27 @@ class EventArtistPortalController(http.Controller):
             return request.env['event.event'].sudo()
         return event
 
+    def _get_portal_line(self, event, line_id, require_active=True):
+        """Return only an entry created through this exact event portal.
+
+        The event token authorizes access to the event, but the line id itself is
+        never trusted. This prevents modifying a guest-list entry from another
+        event by changing the id in the request.
+        """
+        try:
+            line_id = int(line_id)
+        except (TypeError, ValueError):
+            return request.env['gl.event.guestlist.line'].sudo()
+
+        domain = [
+            ('id', '=', line_id),
+            ('event_id', '=', event.id),
+            ('artist_portal_created', '=', True),
+        ]
+        if require_active:
+            domain.append(('active', '=', True))
+        return request.env['gl.event.guestlist.line'].sudo().search(domain, limit=1)
+
     def _ticket_price_label(self, ticket):
         """Return the ticket price with the currency's normal precision.
 
@@ -48,7 +69,81 @@ class EventArtistPortalController(http.Controller):
             parts.append(price_label)
         return ' – '.join(parts) or option.name or 'Ticket'
 
-    def _prepare_values(self, event, token, success=False, error=None, form=None):
+    def _entry_form_from_post(self, post):
+        return {
+            'entry_type': (post.get('entry_type') or '').strip(),
+            'name': (post.get('name') or '').strip(),
+            'quantity': (post.get('quantity') or '1').strip(),
+            'price_option_id': (post.get('price_option_id') or '').strip(),
+            'contact_data': (post.get('contact_data') or '').strip(),
+            'submitted_by': (post.get('submitted_by') or '').strip(),
+            'note': (post.get('note') or '').strip(),
+        }
+
+    def _validate_entry_form(self, event, form):
+        """Validate a portal entry and resolve its guest-list price option."""
+        if form['entry_type'] not in ('guestlist', 'box_office'):
+            raise ValidationError('Bitte wähle Gästeliste oder Abendkasse aus.')
+        if not form['name']:
+            raise ValidationError('Bitte gib den Namen des Gastes an.')
+        if len(form['name']) > 160:
+            raise ValidationError('Der Gastname ist zu lang.')
+        if len(form['contact_data']) > 250:
+            raise ValidationError('Die Kontaktdaten sind zu lang.')
+        if len(form['submitted_by']) > 160:
+            raise ValidationError('Der Ansprechpartner ist zu lang.')
+        if len(form['note']) > 1500:
+            raise ValidationError('Die Bemerkung ist zu lang.')
+
+        try:
+            quantity = int(form['quantity'])
+        except (TypeError, ValueError):
+            quantity = 0
+        if quantity < 1 or quantity > 20:
+            raise ValidationError('Die Anzahl muss zwischen 1 und 20 liegen.')
+
+        event._sync_guestlist_price_options()
+        if form['entry_type'] == 'guestlist':
+            option = event.guestlist_price_option_ids.filtered(
+                lambda opt: opt.active and opt.is_free
+            )[:1]
+            if not option:
+                raise ValidationError('Die kostenlose Gästelisten-Kategorie konnte nicht gefunden werden.')
+        else:
+            try:
+                option_id = int(form['price_option_id'])
+            except (TypeError, ValueError):
+                option_id = 0
+            option = request.env['gl.event.guestlist.price.option'].sudo().search([
+                ('id', '=', option_id),
+                ('event_id', '=', event.id),
+                ('active', '=', True),
+                ('is_free', '=', False),
+                ('is_waitlist', '=', False),
+                ('ticket_id', '!=', False),
+            ], limit=1)
+            if not option or option.ticket_id.gl_is_guestlist_summary_ticket:
+                raise ValidationError('Bitte wähle eine gültige Ticketkategorie für die Abendkasse aus.')
+
+        return quantity, option
+
+    def _entry_write_values(self, form, quantity, option):
+        return {
+            'name': form['name'],
+            'quantity': str(quantity),
+            'price_option_id': option.id,
+            'ordered_by': 'personal',
+            'contact_data': form['contact_data'] or False,
+            'note': form['note'] or False,
+            'employee_id': False,
+            'artist_portal_entry_type': form['entry_type'],
+            'artist_portal_submitted_by': form['submitted_by'] or False,
+        }
+
+    def _prepare_values(
+        self, event, token, success=None, error=None, form=None,
+        edit_line_id=None, edit_form=None,
+    ):
         event = event.sudo()
         event._sync_guestlist_price_options()
 
@@ -153,6 +248,8 @@ class EventArtistPortalController(http.Controller):
             'success': success,
             'error': error,
             'form': form or {},
+            'edit_line_id': edit_line_id,
+            'edit_form': edit_form or {},
             'quantity_values': list(range(1, 21)),
         }
 
@@ -164,11 +261,10 @@ class EventArtistPortalController(http.Controller):
         event = self._get_event_by_token(event_id, token, require_active=False)
         if not event:
             return request.not_found()
-        values = self._prepare_values(
-            event,
-            token,
-            success=kwargs.get('success') == '1',
-        )
+        success = kwargs.get('success')
+        if success == '1':
+            success = 'added'
+        values = self._prepare_values(event, token, success=success)
         return request.render('gl_event_artist_portal.artist_portal_page', values)
 
     @http.route(
@@ -180,76 +276,77 @@ class EventArtistPortalController(http.Controller):
         if not event:
             return request.not_found()
 
-        form = {
-            'entry_type': (post.get('entry_type') or '').strip(),
-            'name': (post.get('name') or '').strip(),
-            'quantity': (post.get('quantity') or '1').strip(),
-            'price_option_id': (post.get('price_option_id') or '').strip(),
-            'contact_data': (post.get('contact_data') or '').strip(),
-            'submitted_by': (post.get('submitted_by') or '').strip(),
-            'note': (post.get('note') or '').strip(),
-        }
-
+        form = self._entry_form_from_post(post)
         try:
-            if form['entry_type'] not in ('guestlist', 'box_office'):
-                raise ValidationError('Bitte wähle Gästeliste oder Abendkasse aus.')
-            if not form['name']:
-                raise ValidationError('Bitte gib den Namen des Gastes an.')
-            if len(form['name']) > 160:
-                raise ValidationError('Der Gastname ist zu lang.')
-            if len(form['contact_data']) > 250:
-                raise ValidationError('Die Kontaktdaten sind zu lang.')
-            if len(form['submitted_by']) > 160:
-                raise ValidationError('Der Ansprechpartner ist zu lang.')
-            if len(form['note']) > 1500:
-                raise ValidationError('Die Bemerkung ist zu lang.')
-
-            try:
-                quantity = int(form['quantity'])
-            except (TypeError, ValueError):
-                quantity = 0
-            if quantity < 1 or quantity > 20:
-                raise ValidationError('Die Anzahl muss zwischen 1 und 20 liegen.')
-
-            event._sync_guestlist_price_options()
-            if form['entry_type'] == 'guestlist':
-                option = event.guestlist_price_option_ids.filtered(
-                    lambda opt: opt.active and opt.is_free
-                )[:1]
-                if not option:
-                    raise ValidationError('Die kostenlose Gästelisten-Kategorie konnte nicht gefunden werden.')
-            else:
-                try:
-                    option_id = int(form['price_option_id'])
-                except (TypeError, ValueError):
-                    option_id = 0
-                option = request.env['gl.event.guestlist.price.option'].sudo().search([
-                    ('id', '=', option_id),
-                    ('event_id', '=', event.id),
-                    ('active', '=', True),
-                    ('is_free', '=', False),
-                    ('is_waitlist', '=', False),
-                    ('ticket_id', '!=', False),
-                ], limit=1)
-                if not option or option.ticket_id.gl_is_guestlist_summary_ticket:
-                    raise ValidationError('Bitte wähle eine gültige Ticketkategorie für die Abendkasse aus.')
-
-            request.env['gl.event.guestlist.line'].sudo().create({
+            quantity, option = self._validate_entry_form(event, form)
+            vals = self._entry_write_values(form, quantity, option)
+            vals.update({
                 'event_id': event.id,
-                'name': form['name'],
-                'quantity': str(quantity),
-                'price_option_id': option.id,
-                'ordered_by': 'personal',
-                'contact_data': form['contact_data'] or False,
-                'note': form['note'] or False,
-                'employee_id': False,
                 'artist_portal_created': True,
-                'artist_portal_entry_type': form['entry_type'],
-                'artist_portal_submitted_by': form['submitted_by'] or False,
             })
-
+            # The guest-list model performs its capacity validation after create.
+            # A savepoint guarantees that a rejected overbooking is fully rolled
+            # back even though we render the validation error ourselves.
+            with request.env.cr.savepoint():
+                request.env['gl.event.guestlist.line'].sudo().create(vals)
         except ValidationError as exc:
             values = self._prepare_values(event, token, error=str(exc), form=form)
             return request.render('gl_event_artist_portal.artist_portal_page', values)
 
-        return request.redirect('/event/artist/%s/%s?success=1' % (event.id, token))
+        return request.redirect('/event/artist/%s/%s?success=added' % (event.id, token))
+
+    @http.route(
+        '/event/artist/<int:event_id>/<string:token>/update/<int:line_id>',
+        type='http', auth='public', website=True, sitemap=False, methods=['POST']
+    )
+    def artist_portal_update(self, event_id, token, line_id, **post):
+        event = self._get_event_by_token(event_id, token, require_active=True)
+        if not event:
+            return request.not_found()
+        line = self._get_portal_line(event, line_id, require_active=True)
+        if not line:
+            return request.not_found()
+
+        form = self._entry_form_from_post(post)
+        try:
+            quantity, option = self._validate_entry_form(event, form)
+            vals = self._entry_write_values(form, quantity, option)
+            # Same protection as on create: if the new quantity/category would
+            # exceed capacity, the guest-list constraint raises and the original
+            # entry remains untouched.
+            with request.env.cr.savepoint():
+                line.write(vals)
+        except ValidationError as exc:
+            values = self._prepare_values(
+                event,
+                token,
+                error=str(exc),
+                edit_line_id=line.id,
+                edit_form=form,
+            )
+            return request.render('gl_event_artist_portal.artist_portal_page', values)
+
+        return request.redirect('/event/artist/%s/%s?success=updated' % (event.id, token))
+
+    @http.route(
+        '/event/artist/<int:event_id>/<string:token>/cancel/<int:line_id>',
+        type='http', auth='public', website=True, sitemap=False, methods=['POST']
+    )
+    def artist_portal_cancel(self, event_id, token, line_id, **post):
+        event = self._get_event_by_token(event_id, token, require_active=True)
+        if not event:
+            return request.not_found()
+        line = self._get_portal_line(event, line_id, require_active=True)
+        if not line:
+            return request.not_found()
+
+        try:
+            # Archive instead of deleting: the capacity is released immediately,
+            # while Groundlift keeps an internal audit trail of the cancellation.
+            with request.env.cr.savepoint():
+                line.write({'active': False})
+        except ValidationError as exc:
+            values = self._prepare_values(event, token, error=str(exc))
+            return request.render('gl_event_artist_portal.artist_portal_page', values)
+
+        return request.redirect('/event/artist/%s/%s?success=cancelled' % (event.id, token))
