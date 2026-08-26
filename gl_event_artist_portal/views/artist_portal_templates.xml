@@ -143,10 +143,10 @@
                                         <span>Ticketkategorie für Abendkasse *</span>
                                         <select name="price_option_id">
                                             <option value="">Bitte auswählen</option>
-                                            <t t-foreach="box_office_options" t-as="option">
-                                                <option t-att-value="option.id"
-                                                        t-att-selected="str(option.id) == form.get('price_option_id', '') and 'selected' or None"
-                                                        t-esc="option.name"/>
+                                            <t t-foreach="box_office_rows" t-as="row">
+                                                <option t-att-value="row['option'].id"
+                                                        t-att-selected="str(row['option'].id) == form.get('price_option_id', '') and 'selected' or None"
+                                                        t-esc="row['label']"/>
                                             </t>
                                         </select>
                                     </label>
@@ -188,7 +188,8 @@
                                                 <span t-esc="'%s Person(en)' % line.quantity_int"/>
                                                 <span t-if="line.artist_portal_entry_type == 'guestlist'">Gästeliste</span>
                                                 <span t-if="line.artist_portal_entry_type == 'box_office'">Abendkasse</span>
-                                                <span t-if="line.price_option_id and line.artist_portal_entry_type == 'box_office'" t-esc="line.price_option_id.name"/>
+                                                <span t-if="line.price_option_id and line.artist_portal_entry_type == 'box_office'"
+                                                      t-esc="option_labels.get(line.price_option_id.id, line.price_option_id.name)"/>
                                                 <span t-if="line.artist_portal_submitted_by">von <t t-esc="line.artist_portal_submitted_by"/></span>
                                             </div>
                                             <div class="gl-ap-entry-note" t-if="line.note" t-esc="line.note"/>
