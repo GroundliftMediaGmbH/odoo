@@ -46,3 +46,8 @@ Das Portal ist ausschließlich erreichbar, solange die Veranstaltung in der Odoo
 - **Verkauft**: native Odoo-Ticketzahl `event.event.ticket.seats_taken` der echten Ticketarten; die technische Gästelisten-Summenzeile wird ausgeschlossen.
 - **Reserviert**: verbindliche Zeilen der vorhandenen Gästelisten-App, die einer Ticketart zugeordnet sind.
 - **Verfügbar**: native Odoo-Verfügbarkeit abzüglich verbindlicher Gästelistenplätze; ein globales Veranstaltungslimit wird zusätzlich berücksichtigt.
+
+## 19.0.1.0.1
+
+- Odoo-19-QWeb-Fix: `t-field` für das Veranstaltungsdatum liegt nun auf einem echten `<span>`-Element statt auf `<t>`. Dadurch wird der Künstler-/Agentur-Link ohne QWeb-AssertionError gerendert.
+

@@ -11,7 +11,7 @@
                         <h1 t-esc="event.name"/>
                         <div class="gl-ap-event-meta">
                             <span t-if="event.date_begin">
-                                <t t-field="event.date_begin" t-options="{'widget': 'datetime'}"/>
+                                <span t-field="event.date_begin" t-options="{'widget': 'datetime'}"/>
                             </span>
                             <span t-if="event.address_id and event.address_id.name"> · <t t-esc="event.address_id.name"/></span>
                         </div>
