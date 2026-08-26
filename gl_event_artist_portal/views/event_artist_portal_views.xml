@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_event_form_artist_portal_inherit" model="ir.ui.view">
+        <field name="name">event.event.form.artist.portal.inherit</field>
+        <field name="model">event.event</field>
+        <field name="inherit_id" ref="gl_event_guestlist.view_event_form_guestlist_inherit"/>
+        <field name="arch" type="xml">
+            <!--
+                Keep the Groundlift guest-list tab focused on the guest list itself.
+                All information that is meant to be handed to artists/agencies lives
+                in its own tab.
+            -->
+            <xpath expr="//page[@name='guestlist']" position="after">
+                <page string="Info für Band/Agentur" name="artist_agent_info">
+                    <group>
+                        <group string="Künstler- / Agenturportal">
+                            <field name="artist_portal_available" readonly="1"/>
+                            <field name="artist_portal_status" readonly="1" nolabel="1"/>
+                            <button name="action_regenerate_artist_portal_token"
+                                    type="object"
+                                    string="Portal-Link neu erzeugen"
+                                    class="btn-secondary"
+                                    confirm="Dadurch wird der bisherige Künstler-/Agentur-Link ungültig. Fortfahren?"/>
+                        </group>
+                        <group string="Link / QR-Code">
+                            <field name="artist_portal_url" widget="url" readonly="1" invisible="not artist_portal_available"/>
+                            <field name="artist_portal_qr_html" widget="html" readonly="1" nolabel="1"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+
+            <!-- Keep the optional provenance columns exactly as before. -->
+            <xpath expr="//page[@name='guestlist']//field[@name='price_option_id']" position="after">
+                <field name="artist_portal_created" string="Künstlerportal" optional="hide" readonly="1"/>
+                <field name="artist_portal_entry_type" string="Portal-Art" optional="show" readonly="1"/>
+                <field name="artist_portal_submitted_by" string="Agentur / Ansprechpartner" optional="hide" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
