@@ -1,0 +1,219 @@
+# -*- coding: utf-8 -*-
+from hmac import compare_digest
+
+from odoo import http
+from odoo.exceptions import ValidationError
+from odoo.http import request
+from odoo.tools.misc import formatLang
+
+
+class EventArtistPortalController(http.Controller):
+
+    def _get_event_by_token(self, event_id, token, require_active=False):
+        event = request.env['event.event'].sudo().browse(event_id).exists()
+        if not event or not event.artist_portal_access_token:
+            return request.env['event.event'].sudo()
+        if not compare_digest(str(event.artist_portal_access_token), str(token or '')):
+            return request.env['event.event'].sudo()
+        if require_active and not event._is_artist_portal_stage():
+            return request.env['event.event'].sudo()
+        return event
+
+    def _ticket_price_label(self, ticket):
+        if 'price' not in ticket._fields:
+            return ''
+        currency = ticket.currency_id if 'currency_id' in ticket._fields else ticket.event_id.company_id.currency_id
+        return formatLang(request.env, ticket.price or 0.0, currency_obj=currency)
+
+    def _prepare_values(self, event, token, success=False, error=None, form=None):
+        event = event.sudo()
+        event._sync_guestlist_price_options()
+
+        real_tickets = event.event_ticket_ids.filtered(
+            lambda ticket: not ticket.gl_is_guestlist_summary_ticket
+        ).sorted(lambda ticket: (ticket.sequence, ticket.id))
+
+        active_lines = event.guestlist_line_ids.sudo().filtered(
+            lambda line: line.active and not line.is_waitlist
+        )
+        portal_lines = event.guestlist_line_ids.sudo().filtered(
+            lambda line: line.active and line.artist_portal_created
+        ).sorted(lambda line: line.id, reverse=True)
+
+        global_remaining = event._get_remaining_seats_after_guestlist()
+        ticket_rows = []
+        total_sold = 0
+        total_portal_box_office = 0
+        total_portal_guestlist = 0
+
+        for line in active_lines.filtered('artist_portal_created'):
+            if line.artist_portal_entry_type == 'box_office':
+                total_portal_box_office += line.quantity_int
+            elif line.artist_portal_entry_type == 'guestlist':
+                total_portal_guestlist += line.quantity_int
+
+        for ticket in real_tickets:
+            sold = ticket.seats_taken or 0
+            total_sold += sold
+            guestlist_qty = ticket._get_guestlist_counted_qty_for_ticket()
+            portal_box_office_qty = sum(
+                active_lines.filtered(
+                    lambda line: line.artist_portal_created
+                    and line.artist_portal_entry_type == 'box_office'
+                    and line.price_option_id.ticket_id == ticket
+                ).mapped('quantity_int')
+            )
+
+            ticket_remaining = None
+            if ticket.seats_max:
+                ticket_remaining = max((ticket.seats_available or 0) - guestlist_qty, 0)
+
+            if global_remaining is False:
+                effective_remaining = ticket_remaining
+            elif ticket_remaining is None:
+                effective_remaining = max(global_remaining, 0)
+            else:
+                effective_remaining = max(min(ticket_remaining, global_remaining), 0)
+
+            ticket_rows.append({
+                'ticket': ticket,
+                'sold': sold,
+                'guestlist_qty': guestlist_qty,
+                'portal_box_office_qty': portal_box_office_qty,
+                'remaining': effective_remaining,
+                'price_label': self._ticket_price_label(ticket),
+            })
+
+        if global_remaining is False:
+            if real_tickets and all(ticket.seats_max for ticket in real_tickets):
+                overall_remaining = sum(
+                    max((ticket.seats_available or 0) - ticket._get_guestlist_counted_qty_for_ticket(), 0)
+                    for ticket in real_tickets
+                )
+            else:
+                overall_remaining = None
+        else:
+            overall_remaining = max(global_remaining, 0)
+
+        box_office_options = event.guestlist_price_option_ids.filtered(
+            lambda option: option.active
+            and not option.is_free
+            and not option.is_waitlist
+            and option.ticket_id
+            and not option.ticket_id.gl_is_guestlist_summary_ticket
+        ).sorted(lambda option: (option.sequence, option.id))
+
+        return {
+            'event': event,
+            'token': token,
+            'portal_active': event._is_artist_portal_stage(),
+            'ticket_rows': ticket_rows,
+            'box_office_options': box_office_options,
+            'portal_lines': portal_lines,
+            'total_sold': total_sold,
+            'overall_remaining': overall_remaining,
+            'total_portal_guestlist': total_portal_guestlist,
+            'total_portal_box_office': total_portal_box_office,
+            'success': success,
+            'error': error,
+            'form': form or {},
+            'quantity_values': list(range(1, 21)),
+        }
+
+    @http.route(
+        '/event/artist/<int:event_id>/<string:token>',
+        type='http', auth='public', website=True, sitemap=False, methods=['GET']
+    )
+    def artist_portal_page(self, event_id, token, **kwargs):
+        event = self._get_event_by_token(event_id, token, require_active=False)
+        if not event:
+            return request.not_found()
+        values = self._prepare_values(
+            event,
+            token,
+            success=kwargs.get('success') == '1',
+        )
+        return request.render('gl_event_artist_portal.artist_portal_page', values)
+
+    @http.route(
+        '/event/artist/<int:event_id>/<string:token>/add',
+        type='http', auth='public', website=True, sitemap=False, methods=['POST']
+    )
+    def artist_portal_add(self, event_id, token, **post):
+        event = self._get_event_by_token(event_id, token, require_active=True)
+        if not event:
+            return request.not_found()
+
+        form = {
+            'entry_type': (post.get('entry_type') or '').strip(),
+            'name': (post.get('name') or '').strip(),
+            'quantity': (post.get('quantity') or '1').strip(),
+            'price_option_id': (post.get('price_option_id') or '').strip(),
+            'contact_data': (post.get('contact_data') or '').strip(),
+            'submitted_by': (post.get('submitted_by') or '').strip(),
+            'note': (post.get('note') or '').strip(),
+        }
+
+        try:
+            if form['entry_type'] not in ('guestlist', 'box_office'):
+                raise ValidationError('Bitte wähle Gästeliste oder Abendkasse aus.')
+            if not form['name']:
+                raise ValidationError('Bitte gib den Namen des Gastes an.')
+            if len(form['name']) > 160:
+                raise ValidationError('Der Gastname ist zu lang.')
+            if len(form['contact_data']) > 250:
+                raise ValidationError('Die Kontaktdaten sind zu lang.')
+            if len(form['submitted_by']) > 160:
+                raise ValidationError('Der Ansprechpartner ist zu lang.')
+            if len(form['note']) > 1500:
+                raise ValidationError('Die Bemerkung ist zu lang.')
+
+            try:
+                quantity = int(form['quantity'])
+            except (TypeError, ValueError):
+                quantity = 0
+            if quantity < 1 or quantity > 20:
+                raise ValidationError('Die Anzahl muss zwischen 1 und 20 liegen.')
+
+            event._sync_guestlist_price_options()
+            if form['entry_type'] == 'guestlist':
+                option = event.guestlist_price_option_ids.filtered(
+                    lambda opt: opt.active and opt.is_free
+                )[:1]
+                if not option:
+                    raise ValidationError('Die kostenlose Gästelisten-Kategorie konnte nicht gefunden werden.')
+            else:
+                try:
+                    option_id = int(form['price_option_id'])
+                except (TypeError, ValueError):
+                    option_id = 0
+                option = request.env['gl.event.guestlist.price.option'].sudo().search([
+                    ('id', '=', option_id),
+                    ('event_id', '=', event.id),
+                    ('active', '=', True),
+                    ('is_free', '=', False),
+                    ('is_waitlist', '=', False),
+                    ('ticket_id', '!=', False),
+                ], limit=1)
+                if not option or option.ticket_id.gl_is_guestlist_summary_ticket:
+                    raise ValidationError('Bitte wähle eine gültige Ticketkategorie für die Abendkasse aus.')
+
+            request.env['gl.event.guestlist.line'].sudo().create({
+                'event_id': event.id,
+                'name': form['name'],
+                'quantity': str(quantity),
+                'price_option_id': option.id,
+                'ordered_by': 'personal',
+                'contact_data': form['contact_data'] or False,
+                'note': form['note'] or False,
+                'employee_id': False,
+                'artist_portal_created': True,
+                'artist_portal_entry_type': form['entry_type'],
+                'artist_portal_submitted_by': form['submitted_by'] or False,
+            })
+
+        except ValidationError as exc:
+            values = self._prepare_values(event, token, error=str(exc), form=form)
+            return request.render('gl_event_artist_portal.artist_portal_page', values)
+
+        return request.redirect('/event/artist/%s/%s?success=1' % (event.id, token))
