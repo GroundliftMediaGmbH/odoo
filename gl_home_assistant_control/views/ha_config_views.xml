@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_ha_config_form" model="ir.ui.view">
+        <field name="name">gl.ha.config.form</field>
+        <field name="model">gl.ha.config</field>
+        <field name="arch" type="xml">
+            <form string="Home Assistant Einstellungen">
+                <header>
+                    <button name="action_test_connection" type="object" string="Verbindung testen" class="oe_highlight"/>
+                    <button name="action_sync_entities" type="object" string="Entitäten synchronisieren"/>
+                    <button name="action_refresh_schedules" type="object" string="Zeitfenster aktualisieren"/>
+                    <button name="action_run_automation" type="object" string="Automatik jetzt prüfen"/>
+                    <button name="action_import_history_24h" type="object" string="24h Verlauf importieren"/>
+                    <button name="action_open_dashboard" type="object" string="Dashboard öffnen"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <notebook>
+                        <page string="Home Assistant">
+                            <group>
+                                <group string="Verbindung">
+                                    <field name="active"/>
+                                    <field name="base_url" placeholder="https://deine-home-assistant-url.example"/>
+                                    <field name="access_token" password="True"/>
+                                    <field name="verify_ssl"/>
+                                    <field name="request_timeout"/>
+                                    <field name="extra_headers_json" placeholder='{"CF-Access-Client-Id":"…","CF-Access-Client-Secret":"…"}'/>
+                                    <field name="timezone_name"/>
+                                </group>
+                                <group string="Status">
+                                    <field name="last_test_at" readonly="1"/>
+                                    <field name="last_test_message" readonly="1"/>
+                                    <field name="last_state_sync_at" readonly="1"/>
+                                    <field name="last_schedule_sync_at" readonly="1"/>
+                                    <field name="last_automation_at" readonly="1"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Historie &amp; Warnungen">
+                            <group>
+                                <group string="Historie">
+                                    <field name="state_poll_minutes"/>
+                                    <field name="history_retention_days"/>
+                                    <field name="unavailable_grace_minutes"/>
+                                </group>
+                                <group string="Warn-E-Mail">
+                                    <field name="alert_email_enabled"/>
+                                    <field name="alert_email_to" invisible="not alert_email_enabled"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Automatik">
+                            <group>
+                                <group string="Allgemein">
+                                    <field name="automation_enabled"/>
+                                    <field name="default_manual_override_minutes"/>
+                                    <field name="schedule_horizon_days"/>
+                                </group>
+                                <group string="Veranstaltungen">
+                                    <field name="event_stage_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                                    <p class="text-muted">Leer = alle aktiven, nicht stornierten Veranstaltungen. Optional können z. B. nur die bei euch relevanten Veranstaltungsphasen ausgewählt werden.</p>
+                                </group>
+                                <group string="Kino">
+                                    <field name="cinema_default_duration_minutes"/>
+                                    <p class="text-muted">Die Kinospielzeiten werden aus dem installierten Modul gl_kino_newsletter_nl2go und dessen Cinetixx-Anbindung gelesen. Pro Tag wird ein gemeinsames Zeitfenster von der ersten bis zum Ende der letzten Vorstellung erzeugt.</p>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_gl_ha_config_list" model="ir.ui.view">
+        <field name="name">gl.ha.config.list</field>
+        <field name="model">gl.ha.config</field>
+        <field name="arch" type="xml">
+            <list string="Home Assistant Einstellungen">
+                <field name="name"/>
+                <field name="base_url"/>
+                <field name="active"/>
+                <field name="automation_enabled"/>
+                <field name="last_state_sync_at"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_gl_ha_config" model="ir.actions.act_window">
+        <field name="name">Home Assistant Einstellungen</field>
+        <field name="res_model">gl.ha.config</field>
+        <field name="view_mode">form</field>
+        <field name="res_id" ref="gl_home_assistant_control.default_ha_config"/>
+        <field name="target">current</field>
+    </record>
+</odoo>

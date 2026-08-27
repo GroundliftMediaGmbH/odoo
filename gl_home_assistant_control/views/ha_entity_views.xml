@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_ha_entity_list" model="ir.ui.view">
+        <field name="name">gl.ha.entity.list</field>
+        <field name="model">gl.ha.entity</field>
+        <field name="arch" type="xml">
+            <list string="Home Assistant Entitäten" decoration-danger="not is_available" decoration-muted="not active">
+                <field name="name"/>
+                <field name="room"/>
+                <field name="dashboard_group" optional="show"/>
+                <field name="entity_id"/>
+                <field name="domain"/>
+                <field name="state"/>
+                <field name="numeric_value" optional="show"/>
+                <field name="unit" optional="show"/>
+                <field name="is_available"/>
+                <field name="show_dashboard"/>
+                <field name="dashboard_role" optional="show"/>
+                <field name="controllable"/>
+                <field name="history_enabled" optional="hide"/>
+                <field name="alert_enabled" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_ha_entity_form" model="ir.ui.view">
+        <field name="name">gl.ha.entity.form</field>
+        <field name="model">gl.ha.entity</field>
+        <field name="arch" type="xml">
+            <form string="Home Assistant Entität">
+                <header>
+                    <button name="action_clear_override" type="object" string="Manuelle Übersteuerung beenden" invisible="not manual_override_until"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <group>
+                        <group string="Zuordnung">
+                            <field name="active"/>
+                            <field name="entity_id" readonly="1"/>
+                            <field name="ha_name" readonly="1"/>
+                            <field name="domain" readonly="1"/>
+                            <field name="room"/>
+                            <field name="dashboard_group"/>
+                            <field name="device_class" readonly="1"/>
+                            <field name="unit" readonly="1"/>
+                        </group>
+                        <group string="Dashboard &amp; Überwachung">
+                            <field name="show_dashboard"/>
+                            <field name="dashboard_role"/>
+                            <field name="controllable"/>
+                            <field name="history_enabled"/>
+                            <field name="alert_enabled"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Steuerung">
+                            <field name="control_type"/>
+                            <field name="min_value" invisible="control_type not in ['temperature','number']"/>
+                            <field name="max_value" invisible="control_type not in ['temperature','number']"/>
+                            <field name="has_min_value" invisible="1"/>
+                            <field name="has_max_value" invisible="1"/>
+                            <field name="step" invisible="control_type not in ['temperature','number']"/>
+                            <field name="manual_override_until" readonly="1"/>
+                            <field name="manual_override_value" readonly="1"/>
+                        </group>
+                        <group string="Aktueller Zustand">
+                            <field name="is_available" readonly="1"/>
+                            <field name="state" readonly="1"/>
+                            <field name="numeric_value" readonly="1" invisible="not has_numeric_value"/>
+                            <field name="control_value" readonly="1" invisible="not has_control_value"/>
+                            <field name="last_seen_at" readonly="1"/>
+                            <field name="last_changed" readonly="1"/>
+                            <field name="last_updated" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Home Assistant Attribute">
+                        <field name="attributes_json" nolabel="1" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_ha_entity" model="ir.actions.act_window">
+        <field name="name">Entitäten</field>
+        <field name="res_model">gl.ha.entity</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

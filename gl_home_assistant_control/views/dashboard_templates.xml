@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="ha_dashboard_page" name="GROUNDLIFT Home Assistant Dashboard">
+        <t t-call="web.frontend_layout">
+            <t t-set="title"><t t-esc="current_page.name if current_page else dashboard.name"/></t>
+            <link rel="stylesheet" href="/gl_home_assistant_control/static/src/css/dashboard.css?v=112"/>
+            <main id="gl-ha-app"
+                  t-att-data-slug="dashboard.slug"
+                  t-att-data-page-slug="current_page.slug if current_page else ''">
+                <div class="gl-ha-shell">
+                    <header class="gl-ha-header">
+                        <div>
+                            <div class="gl-ha-eyebrow">GROUNDLIFT · HOME ASSISTANT</div>
+                            <h1><t t-esc="current_page.name if current_page else dashboard.name"/></h1>
+                        </div>
+                        <div class="gl-ha-header-actions">
+                            <select id="gl-ha-period" aria-label="Diagrammzeitraum">
+                                <option value="6">6 Stunden</option>
+                                <option value="24" selected="selected">24 Stunden</option>
+                                <option value="168">7 Tage</option>
+                                <option value="720">30 Tage</option>
+                            </select>
+                            <button id="gl-ha-refresh" type="button">Aktualisieren</button>
+                        </div>
+                    </header>
+
+                    <nav class="gl-ha-nav" aria-label="Dashboard-Seiten">
+                        <a t-att-href="'/groundlift/ha/%s' % dashboard.slug"
+                           t-att-class="'active' if not current_page else ''">
+                            <t t-esc="dashboard.main_page_label or 'Übersicht'"/>
+                        </a>
+                        <t t-foreach="pages" t-as="page">
+                            <a t-att-href="'/groundlift/ha/%s/%s' % (dashboard.slug, page.slug)"
+                               t-att-class="'active' if current_page and current_page.id == page.id else ''">
+                                <t t-esc="page.name"/>
+                            </a>
+                        </t>
+                    </nav>
+
+                    <section id="gl-ha-status" class="gl-ha-status"></section>
+                    <section id="gl-ha-alerts" class="gl-ha-alerts"></section>
+                    <section id="gl-ha-windows" class="gl-ha-windows"></section>
+                    <section id="gl-ha-rooms" class="gl-ha-rooms">
+                        <div class="gl-ha-loading">Lade Home-Assistant-Daten …</div>
+                    </section>
+                    <footer class="gl-ha-footer">Steuerbefehle werden serverseitig über Odoo an Home Assistant gesendet.</footer>
+                </div>
+            </main>
+            <script src="/gl_home_assistant_control/static/src/js/dashboard.js?v=112" defer="defer"></script>
+        </t>
+    </template>
+</odoo>

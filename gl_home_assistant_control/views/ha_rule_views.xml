@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_ha_rule_list" model="ir.ui.view">
+        <field name="name">gl.ha.automation.rule.list</field>
+        <field name="model">gl.ha.automation.rule</field>
+        <field name="arch" type="xml">
+            <list string="Automatikregeln">
+                <field name="sequence" widget="handle"/>
+                <field name="active"/>
+                <field name="name"/>
+                <field name="source"/>
+                <field name="project_id" optional="show" invisible="source != 'project'"/>
+                <field name="project_template_id" optional="show" invisible="source != 'project'"/>
+                <field name="target_entity_ids" widget="many2many_tags"/>
+                <field name="minutes_before" invisible="source == 'daily'"/>
+                <field name="minutes_after" invisible="source == 'daily'"/>
+                <field name="project_start_at" optional="show" invisible="source != 'project'"/>
+                <field name="project_end_at" optional="show" invisible="source != 'project'"/>
+                <field name="daily_start_hour" widget="float_time" invisible="source != 'daily'"/>
+                <field name="daily_end_hour" widget="float_time" invisible="source != 'daily'"/>
+                <field name="condition_entity_ids" widget="many2many_tags" optional="show"/>
+                <field name="condition_match_mode" optional="hide"/>
+                <field name="condition_threshold" optional="show"/>
+                <field name="last_desired_state"/>
+                <field name="last_evaluated_at"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_ha_rule_form" model="ir.ui.view">
+        <field name="name">gl.ha.automation.rule.form</field>
+        <field name="model">gl.ha.automation.rule</field>
+        <field name="arch" type="xml">
+            <form string="Automatikregel">
+                <sheet>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <group>
+                        <group string="Zeitquelle und Ziele">
+                            <field name="active"/>
+                            <field name="sequence"/>
+                            <field name="source"/>
+                            <field name="project_id" invisible="source != 'project'" options="{'no_create': True}"/>
+                            <field name="project_template_id" invisible="source != 'project'" options="{'no_create': True, 'no_create_edit': True}"/>
+                            <field name="project_start_at" invisible="source != 'project'"/>
+                            <field name="project_end_at" invisible="source != 'project'"/>
+                            <field name="target_entity_ids"
+                                   widget="many2many_tags"
+                                   options="{'no_create': True, 'no_create_edit': True}"/>
+                            <field name="minutes_before" invisible="source == 'daily'"/>
+                            <field name="minutes_after" invisible="source == 'daily'"/>
+                            <field name="daily_start_hour" widget="float_time" invisible="source != 'daily'"/>
+                            <field name="daily_end_hour" widget="float_time" invisible="source != 'daily'"/>
+                            <group string="Wochentage" invisible="source != 'daily'" col="7">
+                                <field name="daily_monday"/>
+                                <field name="daily_tuesday"/>
+                                <field name="daily_wednesday"/>
+                                <field name="daily_thursday"/>
+                                <field name="daily_friday"/>
+                                <field name="daily_saturday"/>
+                                <field name="daily_sunday"/>
+                            </group>
+                            <p class="text-muted">Eine Regel kann mehrere Schalter/Lichter gleichzeitig steuern. Alle ausgewählten Entitäten erhalten dieselbe Automatikentscheidung.</p>
+                            <p class="text-muted" invisible="source != 'cinema'">Bei Kino wird pro Kalendertag ein gemeinsames Betriebsfenster gebildet: Vorlauf vor der ersten Vorstellung, Nachlauf nach dem Ende der letzten Vorstellung. Zwischen den Vorstellungen bleibt das Zeitfenster aktiv.</p>
+                            <p class="text-muted" invisible="source != 'daily'">Das tägliche Zeitprogramm schaltet die ausgewählten Geräte an den gewählten Wochentagen zur eingestellten Uhrzeit ein und wieder aus. Beispiel: Lüftung täglich AN 08:00, AUS 08:30. Für mehrere Zeitblöcke am selben Tag einfach mehrere Regeln für dieselbe Entität anlegen.</p>
+                            <p class="text-muted" invisible="source != 'daily'">Liegt die Ausschaltzeit vor der Einschaltzeit, läuft das Zeitfenster automatisch über Mitternacht, z. B. 23:00–01:00.</p>
+                            <p class="text-muted" invisible="source != 'project'">Bei einer Projekt-Automatik wählst du das Odoo-Projekt aus und trägst den für die Gebäudesteuerung relevanten Beginn und das Ende manuell ein. Bei Ende nach Mitternacht bitte das Folgedatum verwenden, z. B. 12.02.2027 14:00 bis 13.02.2027 03:00.</p>
+                            <p class="text-muted" invisible="source != 'project'">Eine Projekt-Vorlage übernimmt Geräte, Vor-/Nachlauf und optionale Sensorbedingungen. Die übernommenen Werte bleiben in der konkreten Projektregel frei anpassbar.</p>
+                            <p class="text-muted" invisible="source != 'project'">Wenn sich Projekt-, Kino-, Veranstaltungs- oder Zeitregeln für dasselbe Gerät überschneiden, bleibt das Gerät eingeschaltet, solange mindestens eine dieser Regeln noch aktiv ist.</p>
+                        </group>
+                        <group string="Optionale Sensorbedingungen">
+                            <field name="condition_entity_ids"
+                                   widget="many2many_tags"
+                                   options="{'no_create': True, 'no_create_edit': True}"/>
+                            <field name="condition_match_mode" invisible="not condition_entity_ids"/>
+                            <field name="condition_operator" invisible="not condition_entity_ids"/>
+                            <field name="condition_threshold" invisible="not condition_entity_ids"/>
+                            <p class="text-muted">Mehrere Sensoren können gemeinsam ausgewählt werden. Über „Verknüpfung der Sensoren“ legst du fest, ob alle Sensoren oder mindestens einer den Grenzwert erfüllen müssen. Operator und Grenzwert gelten für alle ausgewählten Sensoren.</p>
+                            <p class="text-muted">Beispiel Außenlicht: mehrere Lux-Sensoren auswählen, „kleiner als“ und z. B. 50 Lux. Bei „Alle Sensoren“ wird nur eingeschaltet, wenn jeder ausgewählte Sensor unter 50 Lux liegt.</p>
+                        </group>
+                    </group>
+                    <!-- Legacy-Felder nur für verlustfreie Updates älterer Regeln. -->
+                    <field name="target_entity_id" invisible="1"/>
+                    <field name="condition_entity_id" invisible="1"/>
+                    <group string="Letzte Auswertung">
+                        <field name="last_evaluated_at" readonly="1"/>
+                        <field name="last_desired_state" readonly="1"/>
+                        <field name="last_action_at" readonly="1"/>
+                        <field name="last_message" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_ha_rule" model="ir.actions.act_window">
+        <field name="name">Automatikregeln</field>
+        <field name="res_model">gl.ha.automation.rule</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

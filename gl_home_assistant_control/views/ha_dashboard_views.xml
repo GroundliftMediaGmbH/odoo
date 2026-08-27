@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_ha_dashboard_page_list" model="ir.ui.view">
+        <field name="name">gl.ha.dashboard.page.list</field>
+        <field name="model">gl.ha.dashboard.page</field>
+        <field name="arch" type="xml">
+            <list string="Dashboard-Unterseiten">
+                <field name="sequence" widget="handle"/>
+                <field name="active"/>
+                <field name="dashboard_id"/>
+                <field name="name"/>
+                <field name="slug"/>
+                <field name="sensor_layout"/>
+                <field name="separate_controls_sensors" optional="show"/>
+                <field name="show_history_charts" optional="show"/>
+                <field name="allow_control" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_ha_dashboard_page_form" model="ir.ui.view">
+        <field name="name">gl.ha.dashboard.page.form</field>
+        <field name="model">gl.ha.dashboard.page</field>
+        <field name="arch" type="xml">
+            <form string="Dashboard-Unterseite">
+                <header>
+                    <button name="action_open_page" type="object" string="Unterseite öffnen" class="oe_highlight"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <group>
+                        <group string="Unterseite">
+                            <field name="dashboard_id"/>
+                            <field name="active"/>
+                            <field name="sequence"/>
+                            <field name="slug"/>
+                            <field name="allow_control"/>
+                        </group>
+                        <group string="Darstellung">
+                            <field name="separate_controls_sensors"/>
+                            <field name="sensor_layout"/>
+                            <field name="group_mode"/>
+                            <field name="grid_columns"/>
+                            <field name="show_history_charts"/>
+                            <field name="show_entity_ids"/>
+                            <field name="show_last_seen"/>
+                        </group>
+                    </group>
+                    <group string="Zusätzliche Bereiche">
+                        <field name="show_status"/>
+                        <field name="show_alerts"/>
+                        <field name="show_windows"/>
+                    </group>
+                    <group string="Messwerte / Geräte auf dieser Unterseite">
+                        <field name="entity_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                        <p class="text-muted">Hier können z. B. nur Temperatur- und Luftfeuchtesensoren für eine Unterseite „Klima“ ausgewählt werden. Die Zuordnung „Sensor / Messwert“ oder „Aktives Element / Steuerung“ erfolgt pro Entität.</p>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_gl_ha_dashboard_list" model="ir.ui.view">
+        <field name="name">gl.ha.dashboard.list</field>
+        <field name="model">gl.ha.dashboard</field>
+        <field name="arch" type="xml">
+            <list string="Dashboards">
+                <field name="sequence" widget="handle"/>
+                <field name="active"/>
+                <field name="name"/>
+                <field name="slug"/>
+                <field name="refresh_seconds"/>
+                <field name="default_history_hours"/>
+                <field name="allow_control"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_ha_dashboard_form" model="ir.ui.view">
+        <field name="name">gl.ha.dashboard.form</field>
+        <field name="model">gl.ha.dashboard</field>
+        <field name="arch" type="xml">
+            <form string="Home Assistant Dashboard">
+                <header>
+                    <button name="action_open_dashboard" type="object" string="Dashboard öffnen" class="oe_highlight"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <group>
+                        <group string="Dashboard">
+                            <field name="active"/>
+                            <field name="sequence"/>
+                            <field name="slug"/>
+                            <field name="main_page_label"/>
+                            <field name="refresh_seconds"/>
+                            <field name="default_history_hours"/>
+                            <field name="allow_control"/>
+                        </group>
+                        <group string="URL">
+                            <p>Hauptseite: <code>/groundlift/ha/&lt;slug&gt;</code></p>
+                            <p class="text-muted">Unterseiten erhalten automatisch die URL <code>/groundlift/ha/&lt;slug&gt;/&lt;unterseite&gt;</code>.</p>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Hauptseite">
+                            <group>
+                                <group string="Angezeigte Entitäten">
+                                    <field name="entity_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                                    <field name="include_default_entities"/>
+                                    <p class="text-muted">Empfohlen: Entitäten explizit auswählen. Solange keine Auswahl gesetzt ist, kann „Globale Dashboard-Entitäten verwenden“ das bisherige Verhalten beibehalten. Wird diese Option ausgeschaltet, bleibt eine leere Hauptseite bewusst leer.</p>
+                                </group>
+                                <group string="Darstellung">
+                                    <field name="separate_controls_sensors"/>
+                                    <field name="sensor_layout"/>
+                                    <field name="group_mode"/>
+                                    <field name="grid_columns"/>
+                                    <field name="show_history_charts"/>
+                                    <field name="show_entity_ids"/>
+                                    <field name="show_last_seen"/>
+                                </group>
+                            </group>
+                            <group string="Zusätzliche Bereiche">
+                                <field name="show_status"/>
+                                <field name="show_alerts"/>
+                                <field name="show_windows"/>
+                            </group>
+                        </page>
+                        <page string="Unterseiten">
+                            <p class="text-muted">Hier lassen sich eigene Seiten wie „Klima“, „Energie“, „Kino“ oder „Heizung“ anlegen. Jede Unterseite besitzt eine eigene Entitätsauswahl und Darstellung.</p>
+                            <field name="page_ids"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_ha_dashboard" model="ir.actions.act_window">
+        <field name="name">Dashboards</field>
+        <field name="res_model">gl.ha.dashboard</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_gl_ha_dashboard_page" model="ir.actions.act_window">
+        <field name="name">Dashboard-Unterseiten</field>
+        <field name="res_model">gl.ha.dashboard.page</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>
