@@ -22,6 +22,8 @@ Odoo-19-SH-App zur serverseitigen Verbindung mit Home Assistant. Das Modul liest
 - Manuelle Übersteuerung der Automatik mit konfigurierbarer Dauer; Button „Automatik“ hebt sie sofort auf.
 - Warnungen bei `unavailable`/`unknown` bzw. verschwundenen Entitäten, auf Wunsch zusätzlich per E-Mail.
 - Zeitfenster-Cache für Groundlift-Events und Kino – dadurch keine Cinetixx-Abfrage jede Minute.
+- **Mehrfachauswahl in Automatikregeln:** Eine Regel kann mehrere Schalter/Lichter gleichzeitig steuern.
+- **Mehrere optionale Messsensoren pro Regel:** Sensoren lassen sich mit „alle müssen zutreffen“ oder „mindestens einer muss zutreffen“ verknüpfen; Operator und Grenzwert gelten gemeinsam für die Auswahl.
 
 ## Kino-Automatik / Cinetixx – Tagesbetrieb
 
@@ -44,6 +46,19 @@ Beispiel:
 Dann ist das Automatik-Zeitfenster für das Licht von **13:30 bis 23:05 Uhr** aktiv, auch wenn zwischen einzelnen Vorstellungen längere Pausen liegen.
 
 Vorstellungen ohne gemeldetes Ende verwenden die in den Einstellungen konfigurierte Fallbackdauer.
+
+## Mehrfachauswahl in Automatikregeln
+
+Unter **Gebäudesteuerung → Automatikregeln** können im Feld **Zu schaltende Entitäten** mehrere Aktoren gleichzeitig ausgewählt werden. Eine einzige Regel kann damit beispielsweise Außenbeleuchtung, Girlande und Hausfassade gemeinsam schalten.
+
+Auch **Optionale Messsensoren** sind eine Mehrfachauswahl. Für mehrere Sensoren gibt es zwei Verknüpfungen:
+
+- **Alle Sensoren müssen zutreffen**: jeder verfügbare Messwert muss den gewählten Operator/Grenzwert erfüllen.
+- **Mindestens ein Sensor muss zutreffen**: ein erfüllender Sensor reicht aus.
+
+Operator und Grenzwert gelten für alle Sensoren dieser Regel. Bei nicht entscheidbaren Sensorzuständen (`unknown`/`unavailable`) wird sicherheitsorientiert mit einer dreiwertigen Logik gearbeitet: Ist das Ergebnis wegen des fehlenden Sensors tatsächlich offen, wird während eines aktiven Zeitfensters der aktuelle Schaltzustand gehalten statt blind ausgeschaltet.
+
+Beim Update von Version 1.1.0 werden bestehende Einzel-Zielentitäten und Einzel-Sensorbedingungen automatisch in die neuen Mehrfachauswahlfelder übernommen.
 
 ## Veranstaltungsautomatik
 
