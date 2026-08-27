@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="default_ha_config" model="gl.ha.config">
+        <field name="name">GROUNDLIFT Home Assistant</field>
+        <field name="timezone_name">Europe/Berlin</field>
+    </record>
+    <record id="default_ha_dashboard" model="gl.ha.dashboard">
+        <field name="name">GROUNDLIFT Gebäudesteuerung</field>
+        <field name="slug">hauptansicht</field>
+        <field name="refresh_seconds">15</field>
+        <field name="allow_control">True</field>
+    </record>
+</odoo>

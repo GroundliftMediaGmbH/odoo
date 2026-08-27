@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_gl_ha_live_dashboard" model="ir.actions.act_url">
+        <field name="name">Live Dashboard</field>
+        <field name="url">/groundlift/ha</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_gl_ha_root" name="Gebäudesteuerung" sequence="65" groups="gl_home_assistant_control.group_ha_viewer"/>
+    <menuitem id="menu_gl_ha_live_dashboard" name="Live Dashboard" parent="menu_gl_ha_root" action="action_gl_ha_live_dashboard" sequence="5" groups="gl_home_assistant_control.group_ha_viewer"/>
+    <menuitem id="menu_gl_ha_dashboard" name="Dashboards" parent="menu_gl_ha_root" action="action_gl_ha_dashboard" sequence="10" groups="gl_home_assistant_control.group_ha_viewer"/>
+    <menuitem id="menu_gl_ha_entity" name="Entitäten" parent="menu_gl_ha_root" action="action_gl_ha_entity" sequence="20" groups="gl_home_assistant_control.group_ha_viewer"/>
+    <menuitem id="menu_gl_ha_alert" name="Warnungen" parent="menu_gl_ha_root" action="action_gl_ha_alert" sequence="30" groups="gl_home_assistant_control.group_ha_viewer"/>
+    <menuitem id="menu_gl_ha_rule" name="Automatikregeln" parent="menu_gl_ha_root" action="action_gl_ha_rule" sequence="40" groups="gl_home_assistant_control.group_ha_manager"/>
+    <menuitem id="menu_gl_ha_schedule" name="Zeitfenster" parent="menu_gl_ha_root" action="action_gl_ha_schedule" sequence="50" groups="gl_home_assistant_control.group_ha_manager"/>
+    <menuitem id="menu_gl_ha_config" name="Einstellungen" parent="menu_gl_ha_root" action="action_gl_ha_config" sequence="90" groups="gl_home_assistant_control.group_ha_manager"/>
+</odoo>

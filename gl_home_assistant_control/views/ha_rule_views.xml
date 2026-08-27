@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_ha_rule_list" model="ir.ui.view">
+        <field name="name">gl.ha.automation.rule.list</field>
+        <field name="model">gl.ha.automation.rule</field>
+        <field name="arch" type="xml">
+            <list string="Automatikregeln">
+                <field name="sequence" widget="handle"/>
+                <field name="active"/>
+                <field name="name"/>
+                <field name="source"/>
+                <field name="target_entity_id"/>
+                <field name="minutes_before"/>
+                <field name="minutes_after"/>
+                <field name="condition_entity_id" optional="show"/>
+                <field name="condition_threshold" optional="show"/>
+                <field name="last_desired_state"/>
+                <field name="last_evaluated_at"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_ha_rule_form" model="ir.ui.view">
+        <field name="name">gl.ha.automation.rule.form</field>
+        <field name="model">gl.ha.automation.rule</field>
+        <field name="arch" type="xml">
+            <form string="Automatikregel">
+                <sheet>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <group>
+                        <group string="Zeitquelle">
+                            <field name="active"/>
+                            <field name="sequence"/>
+                            <field name="source"/>
+                            <field name="target_entity_id"/>
+                            <field name="minutes_before"/>
+                            <field name="minutes_after"/>
+                        </group>
+                        <group string="Optionale Sensorbedingung">
+                            <field name="condition_entity_id"/>
+                            <field name="condition_operator" invisible="not condition_entity_id"/>
+                            <field name="condition_threshold" invisible="not condition_entity_id"/>
+                            <p class="text-muted">Beispiel Außenlicht: Sensor auswählen, „kleiner als“ und z. B. 50 Lux. Dann wird innerhalb des Event-/Kino-Zeitfensters nur bei Dunkelheit eingeschaltet.</p>
+                        </group>
+                    </group>
+                    <group string="Letzte Auswertung">
+                        <field name="last_evaluated_at" readonly="1"/>
+                        <field name="last_desired_state" readonly="1"/>
+                        <field name="last_action_at" readonly="1"/>
+                        <field name="last_message" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_ha_rule" model="ir.actions.act_window">
+        <field name="name">Automatikregeln</field>
+        <field name="res_model">gl.ha.automation.rule</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>
