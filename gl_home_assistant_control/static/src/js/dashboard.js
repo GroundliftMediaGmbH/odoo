@@ -18,6 +18,7 @@
     let historyFetchedAt = 0;
     let refreshTimer = null;
     const draftValues = new Map();
+    const expandedPlans = new Set();
 
     function esc(value) {
         return String(value == null ? "" : value)
@@ -55,6 +56,18 @@
         return new Intl.DateTimeFormat("de-DE", {
             day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"
         }).format(d);
+    }
+
+    function formatDay(value) {
+        const parts = String(value || "").split("-");
+        if (parts.length !== 3) return esc(value || "–");
+        return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    }
+
+    function formatTime(value) {
+        const d = parseUtc(value);
+        if (!d || Number.isNaN(d.getTime())) return "–";
+        return new Intl.DateTimeFormat("de-DE", {hour: "2-digit", minute: "2-digit"}).format(d) + " Uhr";
     }
 
     function formatValue(entity) {
@@ -115,25 +128,85 @@
             </div>`).join("");
     }
 
+    function planKey(item) {
+        return `${item.date}:${item.target_id}`;
+    }
+
+    function planStatusLabel(status) {
+        return status === "active" ? "AKTIV" : "GEPLANT";
+    }
+
+    function planSourceLabel(detail) {
+        if (detail.source === "cinema") return "Kino";
+        if (detail.source === "event") return `Veranstaltung: ${detail.source_name || "–"}`;
+        return detail.source_name || detail.source || "–";
+    }
+
+    function detailTimingStatus(detail) {
+        const start = parseUtc(detail.start_at);
+        const end = parseUtc(detail.end_at);
+        const now = Date.now();
+        return start && end && start.getTime() <= now && now <= end.getTime() ? "active" : "planned";
+    }
+
+    function planDetailHtml(item, detail) {
+        const status = detailTimingStatus(detail);
+        const conditioned = Number(detail.condition_count || 0) > 0
+            ? `<span class="gl-ha-plan-condition">sensorabhängig</span>`
+            : "";
+        const meta = [detail.rule_name ? `Regel: ${detail.rule_name}` : "", detail.source_details || ""]
+            .filter(Boolean).join(" · ");
+        return `<div class="gl-ha-plan-detail-row">
+            <div class="gl-ha-plan-date">${esc(formatDay(item.date))}</div>
+            <div class="gl-ha-plan-target">${esc(item.target_name)}</div>
+            <div><span class="gl-ha-plan-status ${esc(status)}">${planStatusLabel(status)}</span></div>
+            <div class="gl-ha-plan-time"><span>AN</span><strong>${esc(formatTime(detail.start_at))}</strong></div>
+            <div class="gl-ha-plan-time"><span>AUS</span><strong>${esc(formatTime(detail.end_at))}</strong></div>
+            <div class="gl-ha-plan-source">(${esc(planSourceLabel(detail))}) ${conditioned}</div>
+            ${meta ? `<div class="gl-ha-plan-meta">${esc(meta)}</div>` : ""}
+        </div>`;
+    }
+
     function renderWindows() {
         if (!state?.view?.show_windows) {
             windowsEl.innerHTML = "";
             return;
         }
-        const windows = state?.windows || [];
-        if (!windows.length) {
-            windowsEl.innerHTML = "";
+        const plan = state?.automation_plan || [];
+        if (!plan.length) {
+            windowsEl.innerHTML = `
+                <div class="gl-ha-section-head"><h2>Nächste Automatik-Zeitfenster</h2><span>24 h</span></div>
+                <div class="gl-ha-empty">In den nächsten 24 Stunden sind keine automatischen Schaltvorgänge geplant.</div>`;
             return;
         }
-        const first = windows.slice(0, 8);
+
         windowsEl.innerHTML = `
             <div class="gl-ha-section-head"><h2>Nächste Automatik-Zeitfenster</h2><span>24 h</span></div>
-            <div class="gl-ha-window-strip">${first.map(w => `
-                <div class="gl-ha-window">
-                    <span class="gl-ha-window-source">${w.source === "cinema" ? "Kino" : "Event"}</span>
-                    <strong>${esc(w.name)}</strong>
-                    <small>${esc(formatDate(w.start_at))} – ${esc(formatDate(w.end_at))}${w.details ? " · " + esc(w.details) : ""}</small>
-                </div>`).join("")}</div>`;
+            <div class="gl-ha-plan-list">
+                <div class="gl-ha-plan-head" aria-hidden="true">
+                    <div>Datum</div><div>Element</div><div>Status</div><div>AN</div><div>AUS</div><div></div>
+                </div>
+                ${plan.map(item => {
+                    const key = planKey(item);
+                    const expanded = expandedPlans.has(key);
+                    const multiPhase = Number(item.phase_count || 1) > 1
+                        ? `<span class="gl-ha-plan-phase-note">${Number(item.phase_count)} Schaltphasen</span>`
+                        : "";
+                    return `<div class="gl-ha-plan-item ${expanded ? "open" : ""}" data-plan-key="${esc(key)}">
+                        <button type="button" class="gl-ha-plan-row" aria-expanded="${expanded ? "true" : "false"}">
+                            <div class="gl-ha-plan-date">${esc(formatDay(item.date))}</div>
+                            <div class="gl-ha-plan-target">${esc(item.target_name)} ${multiPhase}</div>
+                            <div><span class="gl-ha-plan-status ${esc(item.status)}">${planStatusLabel(item.status)}</span></div>
+                            <div class="gl-ha-plan-time"><span>AN</span><strong>${esc(formatTime(item.start_at))}</strong></div>
+                            <div class="gl-ha-plan-time"><span>AUS</span><strong>${esc(formatTime(item.end_at))}</strong></div>
+                            <div class="gl-ha-plan-toggle" aria-hidden="true">⌄</div>
+                        </button>
+                        <div class="gl-ha-plan-details" ${expanded ? "" : "hidden"}>
+                            ${(item.details || []).map(detail => planDetailHtml(item, detail)).join("")}
+                        </div>
+                    </div>`;
+                }).join("")}
+            </div>`;
     }
 
     function controlHtml(entity) {
@@ -403,6 +476,20 @@
             if (card) card.classList.remove("busy");
         }
     }
+
+    windowsEl.addEventListener("click", (event) => {
+        const row = event.target.closest(".gl-ha-plan-row");
+        if (!row) return;
+        const item = row.closest(".gl-ha-plan-item");
+        if (!item) return;
+        const key = item.dataset.planKey;
+        if (expandedPlans.has(key)) expandedPlans.delete(key);
+        else expandedPlans.add(key);
+        item.classList.toggle("open", expandedPlans.has(key));
+        row.setAttribute("aria-expanded", expandedPlans.has(key) ? "true" : "false");
+        const details = item.querySelector(".gl-ha-plan-details");
+        if (details) details.hidden = !expandedPlans.has(key);
+    });
 
     roomsEl.addEventListener("click", (event) => {
         const adjust = event.target.closest(".gl-ha-adjust");

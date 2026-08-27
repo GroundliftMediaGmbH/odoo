@@ -3,7 +3,7 @@
     <template id="ha_dashboard_page" name="GROUNDLIFT Home Assistant Dashboard">
         <t t-call="web.frontend_layout">
             <t t-set="title"><t t-esc="current_page.name if current_page else dashboard.name"/></t>
-            <link rel="stylesheet" href="/gl_home_assistant_control/static/src/css/dashboard.css?v=110"/>
+            <link rel="stylesheet" href="/gl_home_assistant_control/static/src/css/dashboard.css?v=112"/>
             <main id="gl-ha-app"
                   t-att-data-slug="dashboard.slug"
                   t-att-data-page-slug="current_page.slug if current_page else ''">
@@ -46,7 +46,7 @@
                     <footer class="gl-ha-footer">Steuerbefehle werden serverseitig über Odoo an Home Assistant gesendet.</footer>
                 </div>
             </main>
-            <script src="/gl_home_assistant_control/static/src/js/dashboard.js?v=110" defer="defer"></script>
+            <script src="/gl_home_assistant_control/static/src/js/dashboard.js?v=112" defer="defer"></script>
         </t>
     </template>
 </odoo>

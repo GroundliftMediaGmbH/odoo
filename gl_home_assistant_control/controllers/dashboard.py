@@ -103,11 +103,17 @@ class GlHaDashboardController(http.Controller):
             )
 
         windows = request.env["gl.ha.schedule.window"].sudo().browse([])
+        automation_plan = []
         if view["show_windows"]:
+            # Rohfenster bleiben im JSON erhalten (Abwärtskompatibilität), die
+            # Oberfläche nutzt ab v1.1.2 jedoch den effektiven Plan pro Entität.
             windows = request.env["gl.ha.schedule.window"].sudo().search([
                 ("end_at", ">=", now),
                 ("start_at", "<=", now + timedelta(hours=24)),
-            ], order="start_at asc", limit=20)
+            ], order="start_at asc", limit=40)
+            automation_plan = request.env["gl.ha.automation.rule"].sudo().dashboard_plan(
+                config=config, now=now, hours=24
+            )
 
         return {
             "dashboard": {
@@ -141,6 +147,7 @@ class GlHaDashboardController(http.Controller):
                 "start_at": fields.Datetime.to_string(w.start_at),
                 "end_at": fields.Datetime.to_string(w.end_at),
             } for w in windows],
+            "automation_plan": automation_plan,
         }
 
     def _entity_json(self, e, can_control):

@@ -140,3 +140,10 @@ Odoo.sh läuft in der Cloud. Eine lokale Adresse wie `http://homeassistant.local
 - Das Dashboard erhält niemals den Home-Assistant-Token.
 - Der Token und optionale Proxy-Header sind nur für Home-Assistant-Administratoren in Odoo sichtbar.
 - Eine als „Sensor / Messwert“ konfigurierte Entität kann über das Dashboard nicht geschaltet werden, selbst wenn sie technisch steuerbar wäre.
+
+
+## Version 1.1.2
+- Automatik-Zeitfenster im Frontend als kompakte Liste statt Kacheln.
+- Eine Hauptzeile pro Kalendertag und geschalteter Entität mit effektiver AN-/AUS-Zeit (inkl. Vor-/Nachlauf).
+- Hauptzeilen sind aufklappbar; darunter erscheinen die beitragenden Kino-/Event-Zeitfenster einzeln.
+- Überlappende Regeln werden zu Schaltphasen zusammengeführt; getrennte Phasen werden kenntlich gemacht.

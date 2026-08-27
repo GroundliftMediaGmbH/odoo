@@ -3,6 +3,8 @@ import logging
 from collections import defaultdict
 from datetime import timedelta
 
+import pytz
+
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
@@ -202,6 +204,116 @@ class GlHaAutomationRule(models.Model):
             ("start_at", "<=", now + timedelta(minutes=self.minutes_before)),
             ("end_at", ">=", now - timedelta(minutes=self.minutes_after)),
         ]))
+
+    @api.model
+    def dashboard_plan(self, config=None, now=None, hours=24):
+        """Berechnet die *effektiven* Schaltzeiten für die Dashboard-Vorschau.
+
+        Anders als ``gl.ha.schedule.window`` zeigt diese Methode nicht nur die
+        Roh-Zeitfenster von Kino/Event, sondern berücksichtigt pro Regel den
+        Vor- und Nachlauf und ordnet das Ergebnis den tatsächlich geschalteten
+        Entitäten zu. Mehrere Kino-/Event-Regeln derselben Entität werden pro
+        lokalem Kalendertag zu genau einer übersichtlichen Zeile verdichtet.
+        Die einzelnen Beiträge bleiben als aufklappbare Details erhalten.
+        """
+        config = config or self.env["gl.ha.config"].sudo().get_config()
+        now = fields.Datetime.to_datetime(now or fields.Datetime.now())
+        hours = max(1, int(hours or 24))
+        horizon_end = now + timedelta(hours=hours)
+
+        rules = self.sudo().search([("active", "=", True)], order="sequence, id")
+        if not rules:
+            return []
+
+        max_before = max([r.minutes_before for r in rules] or [0])
+        max_after = max([r.minutes_after for r in rules] or [0])
+        windows = self.env["gl.ha.schedule.window"].sudo().search([
+            ("start_at", "<=", horizon_end + timedelta(minutes=max_before)),
+            ("end_at", ">=", now - timedelta(minutes=max_after)),
+        ], order="start_at, source, name")
+        windows_by_source = defaultdict(list)
+        for window in windows:
+            windows_by_source[window.source].append(window)
+
+        try:
+            local_tz = pytz.timezone(config.timezone_name or "Europe/Berlin")
+        except Exception:
+            local_tz = pytz.timezone("Europe/Berlin")
+
+        def local_day(value):
+            value = fields.Datetime.to_datetime(value)
+            aware = pytz.UTC.localize(value) if value.tzinfo is None else value.astimezone(pytz.UTC)
+            return aware.astimezone(local_tz).date().isoformat()
+
+        grouped = {}
+        for rule in rules:
+            targets = rule._target_entities().filtered(lambda entity: entity.active)
+            if not targets:
+                continue
+            condition_count = len(rule._condition_entities())
+            for window in windows_by_source.get(rule.source, []):
+                effective_start = fields.Datetime.to_datetime(window.start_at) - timedelta(minutes=rule.minutes_before)
+                effective_end = fields.Datetime.to_datetime(window.end_at) + timedelta(minutes=rule.minutes_after)
+                if effective_end < now or effective_start > horizon_end:
+                    continue
+
+                day = local_day(effective_start)
+                for target in targets:
+                    key = (day, target.id)
+                    group = grouped.setdefault(key, {
+                        "date": day,
+                        "target_id": target.id,
+                        "target_name": target.name,
+                        "details": [],
+                    })
+                    group["details"].append({
+                        "source": window.source,
+                        "source_name": window.name or "",
+                        "source_details": window.details or "",
+                        "rule_name": rule.name or "",
+                        "start_at": effective_start,
+                        "end_at": effective_end,
+                        "condition_count": condition_count,
+                    })
+
+        result = []
+        for group in grouped.values():
+            details = sorted(group["details"], key=lambda item: (item["start_at"], item["end_at"], item["source"]))
+            # Schaltphasen zusammenführen. So bleibt sichtbar, wenn innerhalb
+            # eines Tages tatsächlich eine AUS-Lücke zwischen zwei Regeln liegt.
+            phases = []
+            for detail in details:
+                start = detail["start_at"]
+                end = detail["end_at"]
+                if not phases or start > phases[-1][1]:
+                    phases.append([start, end])
+                elif end > phases[-1][1]:
+                    phases[-1][1] = end
+
+            active_now = any(start <= now <= end for start, end in phases)
+            group_start = phases[0][0]
+            group_end = phases[-1][1]
+            result.append({
+                "date": group["date"],
+                "target_id": group["target_id"],
+                "target_name": group["target_name"],
+                "status": "active" if active_now else "planned",
+                "start_at": fields.Datetime.to_string(group_start),
+                "end_at": fields.Datetime.to_string(group_end),
+                "phase_count": len(phases),
+                "phases": [{
+                    "start_at": fields.Datetime.to_string(start),
+                    "end_at": fields.Datetime.to_string(end),
+                } for start, end in phases],
+                "details": [{
+                    **{key: value for key, value in detail.items() if key not in ("start_at", "end_at")},
+                    "start_at": fields.Datetime.to_string(detail["start_at"]),
+                    "end_at": fields.Datetime.to_string(detail["end_at"]),
+                } for detail in details],
+            })
+
+        result.sort(key=lambda item: (item["start_at"], item["target_name"].lower(), item["target_id"]))
+        return result
 
     @api.model
     def evaluate_all(self, config=None):
