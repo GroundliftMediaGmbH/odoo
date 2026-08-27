@@ -147,3 +147,15 @@ Odoo.sh läuft in der Cloud. Eine lokale Adresse wie `http://homeassistant.local
 - Eine Hauptzeile pro Kalendertag und geschalteter Entität mit effektiver AN-/AUS-Zeit (inkl. Vor-/Nachlauf).
 - Hauptzeilen sind aufklappbar; darunter erscheinen die beitragenden Kino-/Event-Zeitfenster einzeln.
 - Überlappende Regeln werden zu Schaltphasen zusammengeführt; getrennte Phasen werden kenntlich gemacht.
+
+
+## Neu in 19.0.1.1.3 – tägliche Zeitprogramme
+
+Automatikregeln können zusätzlich die Zeitquelle **„Tägliches Zeitprogramm“** verwenden. Damit lassen sich Geräte unabhängig von Kino- oder Odoo-Veranstaltungen zu festen Uhrzeiten schalten, z. B. eine Lüftung täglich von 08:00 bis 08:30.
+
+- Ein- und Ausschaltzeit werden als lokale Uhrzeit in der unter Einstellungen konfigurierten Zeitzone ausgewertet.
+- Standardmäßig sind Montag bis Sonntag aktiv; einzelne Wochentage können abgewählt werden.
+- Mehrere Ziel-Entitäten und die optionalen Mehrfach-Sensorbedingungen funktionieren auch für Zeitprogramme.
+- Mehrere Laufzeiten pro Tag werden durch mehrere Regeln für dasselbe Gerät abgebildet. Die Automatik verknüpft aktive Regeln logisch mit ODER.
+- Zeitfenster über Mitternacht werden unterstützt, z. B. 23:00 bis 01:00.
+- Die geplanten Zeitprogramme erscheinen zusammen mit Kino- und Event-Automatiken in der aufklappbaren Automatik-Liste des Live-Dashboards.

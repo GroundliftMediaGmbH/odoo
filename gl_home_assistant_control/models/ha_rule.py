@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 from collections import defaultdict
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 import pytz
 
@@ -22,6 +22,7 @@ class GlHaAutomationRule(models.Model):
     source = fields.Selection([
         ("event", "Groundlift Veranstaltungen"),
         ("cinema", "Kinovorstellungen"),
+        ("daily", "Tägliches Zeitprogramm"),
     ], required=True, default="event")
 
     # Neue Mehrfachauswahl. Die beiden alten Many2one-Felder bleiben bewusst im
@@ -55,6 +56,27 @@ class GlHaAutomationRule(models.Model):
         default=60,
         help="Bei Kino: Nachlauf nach dem Ende der letzten Vorstellung des jeweiligen Tages.",
     )
+
+    # Zeitgesteuerte Automatik unabhängig von Kino/Veranstaltungen. Mehrere
+    # Zeitblöcke pro Gerät werden einfach als mehrere Regeln angelegt; die
+    # bestehende OR-Logik hält das Ziel an, solange mindestens eine Regel aktiv ist.
+    daily_start_hour = fields.Float(
+        string="Einschalten um",
+        default=8.0,
+        help="Lokale Uhrzeit, zu der das Zeitprogramm einschaltet.",
+    )
+    daily_end_hour = fields.Float(
+        string="Ausschalten um",
+        default=8.5,
+        help="Lokale Uhrzeit, zu der das Zeitprogramm ausschaltet. Liegt sie vor der Einschaltzeit, läuft das Zeitfenster über Mitternacht.",
+    )
+    daily_monday = fields.Boolean(string="Mo", default=True)
+    daily_tuesday = fields.Boolean(string="Di", default=True)
+    daily_wednesday = fields.Boolean(string="Mi", default=True)
+    daily_thursday = fields.Boolean(string="Do", default=True)
+    daily_friday = fields.Boolean(string="Fr", default=True)
+    daily_saturday = fields.Boolean(string="Sa", default=True)
+    daily_sunday = fields.Boolean(string="So", default=True)
 
     condition_entity_ids = fields.Many2many(
         "gl.ha.entity",
@@ -121,11 +143,90 @@ class GlHaAutomationRule(models.Model):
             if rec.minutes_before < 0 or rec.minutes_after < 0:
                 raise ValidationError(_("Vor- und Nachlauf dürfen nicht negativ sein."))
 
+    @api.constrains(
+        "source", "daily_start_hour", "daily_end_hour",
+        "daily_monday", "daily_tuesday", "daily_wednesday",
+        "daily_thursday", "daily_friday", "daily_saturday", "daily_sunday",
+    )
+    def _check_daily_timer(self):
+        for rec in self:
+            if rec.source != "daily":
+                continue
+            if not (0.0 <= rec.daily_start_hour < 24.0) or not (0.0 <= rec.daily_end_hour < 24.0):
+                raise ValidationError(_("Ein- und Ausschaltzeit müssen zwischen 00:00 und 23:59 liegen."))
+            if rec._hour_to_minutes(rec.daily_start_hour) == rec._hour_to_minutes(rec.daily_end_hour):
+                raise ValidationError(_("Ein- und Ausschaltzeit dürfen beim täglichen Zeitprogramm nicht identisch sein."))
+            if not any(rec._daily_weekday_flags()):
+                raise ValidationError(_("Bitte mindestens einen Wochentag für das tägliche Zeitprogramm auswählen."))
+
     @api.constrains("target_entity_ids", "target_entity_id")
     def _check_target_entities(self):
         for rec in self:
             if not rec.target_entity_ids and not rec.target_entity_id:
                 raise ValidationError(_("Bitte mindestens eine zu schaltende Entität auswählen."))
+
+    @api.model
+    def _timezone(self, config=None):
+        config = config or self.env["gl.ha.config"].sudo().get_config()
+        try:
+            return pytz.timezone(config.timezone_name or "Europe/Berlin")
+        except Exception:
+            return pytz.timezone("Europe/Berlin")
+
+    @api.model
+    def _hour_to_minutes(self, value):
+        # float_time speichert z. B. 08:30 als 8.5. Auf die nächste Minute
+        # runden, damit die minütliche Automatik exakt und stabil arbeitet.
+        return max(0, min(1439, int(round(float(value or 0.0) * 60))))
+
+    def _daily_weekday_flags(self):
+        self.ensure_one()
+        return (
+            self.daily_monday, self.daily_tuesday, self.daily_wednesday,
+            self.daily_thursday, self.daily_friday, self.daily_saturday,
+            self.daily_sunday,
+        )
+
+    def _daily_enabled_on(self, local_date):
+        self.ensure_one()
+        return bool(self._daily_weekday_flags()[local_date.weekday()])
+
+    @api.model
+    def _safe_localize(self, tz, value):
+        try:
+            return tz.localize(value, is_dst=None)
+        except Exception:
+            # Für seltene DST-Sonderfälle einen deterministischen Zeitpunkt
+            # wählen. Normale Tageszeiten wie 08:00 sind davon nicht betroffen.
+            return tz.localize(value, is_dst=False)
+
+    def _daily_period_for_date(self, local_date, config=None):
+        """UTC-naiven Start/Endzeitpunkt für einen lokalen Starttag liefern."""
+        self.ensure_one()
+        if self.source != "daily" or not self._daily_enabled_on(local_date):
+            return None
+        tz = self._timezone(config)
+        start_minute = self._hour_to_minutes(self.daily_start_hour)
+        end_minute = self._hour_to_minutes(self.daily_end_hour)
+        start_local = self._safe_localize(
+            tz, datetime.combine(local_date, time(start_minute // 60, start_minute % 60))
+        )
+        end_date = local_date + timedelta(days=1) if end_minute <= start_minute else local_date
+        end_local = self._safe_localize(
+            tz, datetime.combine(end_date, time(end_minute // 60, end_minute % 60))
+        )
+        return (
+            start_local.astimezone(pytz.UTC).replace(tzinfo=None),
+            end_local.astimezone(pytz.UTC).replace(tzinfo=None),
+        )
+
+    def _daily_days_label(self):
+        self.ensure_one()
+        flags = self._daily_weekday_flags()
+        if all(flags):
+            return _("Täglich")
+        names = [_('Mo'), _('Di'), _('Mi'), _('Do'), _('Fr'), _('Sa'), _('So')]
+        return ", ".join(name for name, enabled in zip(names, flags) if enabled)
 
     def _target_entities(self):
         """Liefert neue M2M-Ziele plus ggf. noch vorhandenes Legacy-Ziel."""
@@ -197,8 +298,21 @@ class GlHaAutomationRule(models.Model):
         ok, unknown = self._condition_result()
         return ok and not unknown
 
-    def _window_active(self, now):
+    def _window_active(self, now, config=None):
         self.ensure_one()
+        now = fields.Datetime.to_datetime(now)
+        if self.source == "daily":
+            tz = self._timezone(config)
+            aware_utc = pytz.UTC.localize(now) if now.tzinfo is None else now.astimezone(pytz.UTC)
+            local_today = aware_utc.astimezone(tz).date()
+            # Vortag mitprüfen, damit Zeitprogramme über Mitternacht (z. B.
+            # 23:00–01:00) nach 00:00 weiterhin korrekt aktiv bleiben.
+            for start_day in (local_today - timedelta(days=1), local_today):
+                period = self._daily_period_for_date(start_day, config)
+                if period and period[0] <= now <= period[1]:
+                    return True
+            return False
+
         return bool(self.env["gl.ha.schedule.window"].sudo().search_count([
             ("source", "=", self.source),
             ("start_at", "<=", now + timedelta(minutes=self.minutes_before)),
@@ -211,8 +325,8 @@ class GlHaAutomationRule(models.Model):
 
         Anders als ``gl.ha.schedule.window`` zeigt diese Methode nicht nur die
         Roh-Zeitfenster von Kino/Event, sondern berücksichtigt pro Regel den
-        Vor- und Nachlauf und ordnet das Ergebnis den tatsächlich geschalteten
-        Entitäten zu. Mehrere Kino-/Event-Regeln derselben Entität werden pro
+        Vor- und Nachlauf sowie tägliche Zeitprogramme und ordnet das Ergebnis
+        den tatsächlich geschalteten Entitäten zu. Mehrere Regeln derselben Entität werden pro
         lokalem Kalendertag zu genau einer übersichtlichen Zeile verdichtet.
         Die einzelnen Beiträge bleiben als aufklappbare Details erhalten.
         """
@@ -225,20 +339,19 @@ class GlHaAutomationRule(models.Model):
         if not rules:
             return []
 
-        max_before = max([r.minutes_before for r in rules] or [0])
-        max_after = max([r.minutes_after for r in rules] or [0])
+        schedule_rules = rules.filtered(lambda r: r.source != "daily")
+        max_before = max([r.minutes_before for r in schedule_rules] or [0])
+        max_after = max([r.minutes_after for r in schedule_rules] or [0])
         windows = self.env["gl.ha.schedule.window"].sudo().search([
             ("start_at", "<=", horizon_end + timedelta(minutes=max_before)),
             ("end_at", ">=", now - timedelta(minutes=max_after)),
+            ("source", "in", ["event", "cinema"]),
         ], order="start_at, source, name")
         windows_by_source = defaultdict(list)
         for window in windows:
             windows_by_source[window.source].append(window)
 
-        try:
-            local_tz = pytz.timezone(config.timezone_name or "Europe/Berlin")
-        except Exception:
-            local_tz = pytz.timezone("Europe/Berlin")
+        local_tz = self._timezone(config)
 
         def local_day(value):
             value = fields.Datetime.to_datetime(value)
@@ -246,35 +359,59 @@ class GlHaAutomationRule(models.Model):
             return aware.astimezone(local_tz).date().isoformat()
 
         grouped = {}
+
+        def add_detail(rule, targets, day, start_at, end_at, source, source_name, source_details):
+            if end_at < now or start_at > horizon_end:
+                return
+            condition_count = len(rule._condition_entities())
+            for target in targets:
+                key = (day, target.id)
+                group = grouped.setdefault(key, {
+                    "date": day,
+                    "target_id": target.id,
+                    "target_name": target.name,
+                    "details": [],
+                })
+                group["details"].append({
+                    "source": source,
+                    "source_name": source_name or "",
+                    "source_details": source_details or "",
+                    "rule_name": rule.name or "",
+                    "start_at": start_at,
+                    "end_at": end_at,
+                    "condition_count": condition_count,
+                })
+
+        aware_now = pytz.UTC.localize(now) if now.tzinfo is None else now.astimezone(pytz.UTC)
+        aware_horizon = pytz.UTC.localize(horizon_end) if horizon_end.tzinfo is None else horizon_end.astimezone(pytz.UTC)
+        first_local_day = aware_now.astimezone(local_tz).date() - timedelta(days=1)
+        last_local_day = aware_horizon.astimezone(local_tz).date()
+
         for rule in rules:
             targets = rule._target_entities().filtered(lambda entity: entity.active)
             if not targets:
                 continue
-            condition_count = len(rule._condition_entities())
+
+            if rule.source == "daily":
+                day_cursor = first_local_day
+                while day_cursor <= last_local_day:
+                    period = rule._daily_period_for_date(day_cursor, config)
+                    if period:
+                        start_at, end_at = period
+                        add_detail(
+                            rule, targets, day_cursor.isoformat(), start_at, end_at,
+                            "daily", _("Zeitprogramm"), rule._daily_days_label(),
+                        )
+                    day_cursor += timedelta(days=1)
+                continue
+
             for window in windows_by_source.get(rule.source, []):
                 effective_start = fields.Datetime.to_datetime(window.start_at) - timedelta(minutes=rule.minutes_before)
                 effective_end = fields.Datetime.to_datetime(window.end_at) + timedelta(minutes=rule.minutes_after)
-                if effective_end < now or effective_start > horizon_end:
-                    continue
-
-                day = local_day(effective_start)
-                for target in targets:
-                    key = (day, target.id)
-                    group = grouped.setdefault(key, {
-                        "date": day,
-                        "target_id": target.id,
-                        "target_name": target.name,
-                        "details": [],
-                    })
-                    group["details"].append({
-                        "source": window.source,
-                        "source_name": window.name or "",
-                        "source_details": window.details or "",
-                        "rule_name": rule.name or "",
-                        "start_at": effective_start,
-                        "end_at": effective_end,
-                        "condition_count": condition_count,
-                    })
+                add_detail(
+                    rule, targets, local_day(effective_start), effective_start, effective_end,
+                    window.source, window.name or "", window.details or "",
+                )
 
         result = []
         for group in grouped.values():
@@ -351,7 +488,7 @@ class GlHaAutomationRule(models.Model):
             wants_on = False
             hold_current = False
             for rule in target_rules:
-                window = rule._window_active(now)
+                window = rule._window_active(now, config)
                 condition, condition_unknown = rule._condition_result()
                 desired = window and condition
                 wants_on = wants_on or desired

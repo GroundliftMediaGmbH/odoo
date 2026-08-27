@@ -10,8 +10,10 @@
                 <field name="name"/>
                 <field name="source"/>
                 <field name="target_entity_ids" widget="many2many_tags"/>
-                <field name="minutes_before"/>
-                <field name="minutes_after"/>
+                <field name="minutes_before" invisible="source == 'daily'"/>
+                <field name="minutes_after" invisible="source == 'daily'"/>
+                <field name="daily_start_hour" widget="float_time" invisible="source != 'daily'"/>
+                <field name="daily_end_hour" widget="float_time" invisible="source != 'daily'"/>
                 <field name="condition_entity_ids" widget="many2many_tags" optional="show"/>
                 <field name="condition_match_mode" optional="hide"/>
                 <field name="condition_threshold" optional="show"/>
@@ -36,10 +38,23 @@
                             <field name="target_entity_ids"
                                    widget="many2many_tags"
                                    options="{'no_create': True, 'no_create_edit': True}"/>
-                            <field name="minutes_before"/>
-                            <field name="minutes_after"/>
+                            <field name="minutes_before" invisible="source == 'daily'"/>
+                            <field name="minutes_after" invisible="source == 'daily'"/>
+                            <field name="daily_start_hour" widget="float_time" invisible="source != 'daily'"/>
+                            <field name="daily_end_hour" widget="float_time" invisible="source != 'daily'"/>
+                            <group string="Wochentage" invisible="source != 'daily'" col="7">
+                                <field name="daily_monday"/>
+                                <field name="daily_tuesday"/>
+                                <field name="daily_wednesday"/>
+                                <field name="daily_thursday"/>
+                                <field name="daily_friday"/>
+                                <field name="daily_saturday"/>
+                                <field name="daily_sunday"/>
+                            </group>
                             <p class="text-muted">Eine Regel kann mehrere Schalter/Lichter gleichzeitig steuern. Alle ausgewählten Entitäten erhalten dieselbe Automatikentscheidung.</p>
                             <p class="text-muted" invisible="source != 'cinema'">Bei Kino wird pro Kalendertag ein gemeinsames Betriebsfenster gebildet: Vorlauf vor der ersten Vorstellung, Nachlauf nach dem Ende der letzten Vorstellung. Zwischen den Vorstellungen bleibt das Zeitfenster aktiv.</p>
+                            <p class="text-muted" invisible="source != 'daily'">Das tägliche Zeitprogramm schaltet die ausgewählten Geräte an den gewählten Wochentagen zur eingestellten Uhrzeit ein und wieder aus. Beispiel: Lüftung täglich AN 08:00, AUS 08:30. Für mehrere Zeitblöcke am selben Tag einfach mehrere Regeln für dieselbe Entität anlegen.</p>
+                            <p class="text-muted" invisible="source != 'daily'">Liegt die Ausschaltzeit vor der Einschaltzeit, läuft das Zeitfenster automatisch über Mitternacht, z. B. 23:00–01:00.</p>
                         </group>
                         <group string="Optionale Sensorbedingungen">
                             <field name="condition_entity_ids"

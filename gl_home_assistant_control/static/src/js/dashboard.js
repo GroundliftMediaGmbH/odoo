@@ -139,6 +139,7 @@
     function planSourceLabel(detail) {
         if (detail.source === "cinema") return "Kino";
         if (detail.source === "event") return `Veranstaltung: ${detail.source_name || "–"}`;
+        if (detail.source === "daily") return "Zeitprogramm";
         return detail.source_name || detail.source || "–";
     }
 
