@@ -120,6 +120,15 @@ class GlHaScheduleWindow(models.Model):
         return dt
 
     @api.model
+    def _cinema_datetime_local(self, raw_value, tz):
+        """Parse a Cinetixx timestamp and normalize it to the configured cinema timezone."""
+        dt = datetime.fromisoformat(str(raw_value).replace("Z", "+00:00"))
+        if dt.tzinfo:
+            return dt.astimezone(tz)
+        # Cinetixx values without an offset are interpreted as cinema-local time.
+        return tz.localize(dt)
+
+    @api.model
     def _refresh_cinema(self, config):
         KinoConfig = self.env["gl.kino.newsletter.config"].sudo()
         Issue = self.env["gl.kino.newsletter.issue"].sudo()
@@ -144,33 +153,88 @@ class GlHaScheduleWindow(models.Model):
             })
             shows.extend(issue._fetch_cinetixx_shows())
 
-        vals_list = []
+        # Kino-Automatik arbeitet absichtlich tageweise: pro lokalem Kalendertag
+        # entsteht GENAU EIN Zeitfenster von der ersten Vorstellung bis zum Ende
+        # der letzten Vorstellung. Vor-/Nachlauf der Automatikregel werden dann
+        # nur vor dieses Tagesfenster bzw. hinter dieses Tagesfenster gelegt.
+        daily = {}
         dedupe = set()
         for show in shows:
             raw_start = show.get("start")
             if not raw_start:
                 continue
-            start_dt = datetime.fromisoformat(str(raw_start).replace("Z", "+00:00"))
+            try:
+                start_local = self._cinema_datetime_local(raw_start, tz)
+            except Exception:
+                _logger.warning("Ungültiger Cinetixx-Startzeitpunkt übersprungen: %r", raw_start, exc_info=True)
+                continue
+
             raw_end = show.get("end")
             if raw_end:
-                end_dt = datetime.fromisoformat(str(raw_end).replace("Z", "+00:00"))
+                try:
+                    end_local = self._cinema_datetime_local(raw_end, tz)
+                except Exception:
+                    _logger.warning("Ungültiger Cinetixx-Endzeitpunkt; verwende Fallbackdauer: %r", raw_end, exc_info=True)
+                    minutes = self._parse_duration_minutes(show.get("duration"), config.cinema_default_duration_minutes)
+                    end_local = start_local + timedelta(minutes=minutes)
             else:
                 minutes = self._parse_duration_minutes(show.get("duration"), config.cinema_default_duration_minutes)
-                end_dt = start_dt + timedelta(minutes=minutes)
-            start_odoo = self._aware_to_odoo(start_dt)
-            end_odoo = self._aware_to_odoo(end_dt)
-            ref = show.get("show_id") or "%s|%s|%s" % (show.get("film") or "Film", show.get("kino") or "", raw_start)
-            dedupe_key = (ref, start_odoo)
+                end_local = start_local + timedelta(minutes=minutes)
+
+            if end_local < start_local:
+                end_local = start_local + timedelta(minutes=config.cinema_default_duration_minutes)
+
+            ref = show.get("show_id") or "%s|%s|%s" % (
+                show.get("film") or "Film",
+                show.get("kino") or "",
+                raw_start,
+            )
+            dedupe_key = (str(ref), start_local.isoformat())
             if dedupe_key in dedupe:
                 continue
             dedupe.add(dedupe_key)
+
+            day = start_local.date()
+            bucket = daily.setdefault(day, {
+                "start_local": start_local,
+                "end_local": end_local,
+                "films": [],
+                "cinemas": set(),
+                "count": 0,
+            })
+            if start_local < bucket["start_local"]:
+                bucket["start_local"] = start_local
+            if end_local > bucket["end_local"]:
+                bucket["end_local"] = end_local
+            film = (show.get("film") or "").strip()
+            if film and film not in bucket["films"]:
+                bucket["films"].append(film)
+            cinema = (show.get("kino") or "").strip()
+            if cinema:
+                bucket["cinemas"].add(cinema)
+            bucket["count"] += 1
+
+        vals_list = []
+        for day in sorted(daily):
+            bucket = daily[day]
+            count = bucket["count"]
+            cinemas = ", ".join(sorted(bucket["cinemas"]))
+            film_preview = ", ".join(bucket["films"][:3])
+            if len(bucket["films"]) > 3:
+                film_preview += _(" + weitere")
+            detail_parts = [_(("%s Vorstellung" if count == 1 else "%s Vorstellungen")) % count]
+            if cinemas:
+                detail_parts.append(cinemas)
+            if film_preview:
+                detail_parts.append(film_preview)
+
             vals_list.append({
-                "name": show.get("film") or _("Kinovorstellung"),
+                "name": _("Kino – Tagesbetrieb"),
                 "source": "cinema",
-                "source_ref": str(ref),
-                "start_at": start_odoo,
-                "end_at": end_odoo,
-                "details": show.get("kino") or _("Kino"),
+                "source_ref": "cinema-day:%s" % day.isoformat(),
+                "start_at": self._aware_to_odoo(bucket["start_local"]),
+                "end_at": self._aware_to_odoo(bucket["end_local"]),
+                "details": " · ".join(detail_parts),
             })
 
         now = fields.Datetime.now()

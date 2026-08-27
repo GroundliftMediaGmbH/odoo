@@ -19,6 +19,11 @@ body { background: var(--gl-bg) !important; color: var(--gl-text) !important; }
 .gl-ha-header button, .gl-ha-header select, .gl-ha-controls button { border: 1px solid var(--gl-line); background: var(--gl-card-2); color: var(--gl-text); border-radius: 10px; padding: 10px 14px; font-weight: 700; }
 .gl-ha-header button:hover, .gl-ha-controls button:hover { border-color: rgba(255,255,255,.3); transform: translateY(-1px); }
 .gl-ha-header button:disabled { opacity: .45; }
+
+.gl-ha-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: -4px 0 18px; padding-bottom: 14px; border-bottom: 1px solid var(--gl-line); }
+.gl-ha-nav a { color: var(--gl-muted); text-decoration: none; border: 1px solid var(--gl-line); background: rgba(255,255,255,.025); border-radius: 999px; padding: 7px 12px; font-size: 12px; font-weight: 750; transition: .16s ease; }
+.gl-ha-nav a:hover { color: #fff; border-color: rgba(255,255,255,.28); }
+.gl-ha-nav a.active { color: #fff; background: var(--gl-card-2); border-color: rgba(255,59,63,.55); }
 .gl-ha-status { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 22px; }
 .gl-ha-status-card { background: var(--gl-card); border: 1px solid var(--gl-line); border-radius: 14px; padding: 14px 16px; }
 .gl-ha-status-card span { display: block; color: var(--gl-muted); font-size: 12px; margin-bottom: 6px; }
@@ -40,7 +45,7 @@ body { background: var(--gl-bg) !important; color: var(--gl-text) !important; }
 .gl-ha-window strong { margin: 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gl-ha-window small { color: var(--gl-muted); }
 .gl-ha-room { margin-bottom: 26px; }
-.gl-ha-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; }
+.gl-ha-grid { display: grid; grid-template-columns: repeat(var(--gl-cols, 4), minmax(0,1fr)); gap: 14px; }
 .gl-ha-entity { position: relative; min-width: 0; border: 1px solid var(--gl-line); background: linear-gradient(180deg, rgba(255,255,255,.025), transparent), var(--gl-card); border-radius: 16px; padding: 16px; transition: .18s ease; overflow: hidden; }
 .gl-ha-entity.active { box-shadow: inset 0 0 0 1px rgba(75,209,139,.22); }
 .gl-ha-entity.offline { opacity: .65; border-color: rgba(255,59,63,.45); }
@@ -49,7 +54,7 @@ body { background: var(--gl-bg) !important; color: var(--gl-text) !important; }
 .gl-ha-entity h3 { margin: 0; color: #fff; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gl-ha-entity small { display: block; color: var(--gl-muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; }
 .gl-ha-dot { width: 10px; height: 10px; flex: 0 0 10px; border-radius: 50%; background: var(--gl-green); box-shadow: 0 0 0 4px rgba(75,209,139,.12); margin-top: 3px; }
-.gl-ha-entity.offline .gl-ha-dot { background: var(--gl-accent); box-shadow: 0 0 0 4px rgba(255,59,63,.12); }
+.gl-ha-entity.offline .gl-ha-dot, .gl-ha-sensor.offline .gl-ha-dot { background: var(--gl-accent); box-shadow: 0 0 0 4px rgba(255,59,63,.12); }
 .gl-ha-main-value { margin: 18px 0 2px; font-size: 34px; line-height: 1; font-weight: 800; letter-spacing: -.03em; }
 .gl-ha-subvalue { color: var(--gl-muted); font-size: 13px; }
 .gl-ha-override { display: inline-block; margin-top: 9px; font-size: 11px; font-weight: 700; color: #111; background: var(--gl-yellow); padding: 4px 7px; border-radius: 999px; }
@@ -60,6 +65,24 @@ body { background: var(--gl-bg) !important; color: var(--gl-text) !important; }
 .gl-ha-controls button.secondary { color: var(--gl-yellow); }
 .gl-ha-number-control .gl-ha-draft { min-width: 68px; text-align: center; font-weight: 800; }
 .gl-ha-lastseen { margin-top: 10px; color: var(--gl-muted); font-size: 10px; }
+
+.gl-ha-role-section { margin: 18px 0 30px; }
+.gl-ha-role-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin: 0 0 10px; padding-bottom: 9px; border-bottom: 1px solid var(--gl-line); }
+.gl-ha-role-head h2 { margin: 0; color: #fff; font-size: 22px; }
+.gl-ha-role-head span { color: var(--gl-muted); font-size: 12px; }
+.gl-ha-room-head { margin-top: 12px; }
+.gl-ha-room-head h3 { margin: 0; color: #fff; font-size: 15px; }
+.gl-ha-sensor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.gl-ha-sensor { position: relative; min-width: 0; border: 1px solid var(--gl-line); background: var(--gl-card); border-radius: 12px; padding: 12px 13px; overflow: hidden; transition: .16s ease; }
+.gl-ha-sensor.active { box-shadow: inset 0 0 0 1px rgba(75,209,139,.18); }
+.gl-ha-sensor.offline { opacity: .65; border-color: rgba(255,59,63,.45); }
+.gl-ha-sensor.busy, .gl-ha-entity.busy { opacity: .55; pointer-events: none; }
+.gl-ha-sensor-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.gl-ha-sensor-name { color: #fff; font-size: 13px; font-weight: 750; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gl-ha-sensor small { display: block; color: var(--gl-muted); font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; }
+.gl-ha-sensor-value { margin-top: 9px; color: #fff; font-size: 23px; line-height: 1.05; font-weight: 800; letter-spacing: -.02em; }
+.gl-ha-chart-wrap.compact { height: 58px; margin-top: 8px; }
+.gl-ha-chart-wrap.compact .gl-ha-chart { height: 58px; }
 .gl-ha-footer { text-align: center; color: var(--gl-muted); font-size: 11px; padding: 28px 0 10px; }
 .gl-ha-loading, .gl-ha-empty, .gl-ha-error { border: 1px solid var(--gl-line); background: var(--gl-card); border-radius: 14px; padding: 20px; color: var(--gl-muted); }
 .gl-ha-error { display: flex; flex-direction: column; gap: 5px; color: #fff; border-color: rgba(255,59,63,.45); }
@@ -75,9 +98,13 @@ body { background: var(--gl-bg) !important; color: var(--gl-text) !important; }
     .gl-ha-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
 @media (max-width: 600px) {
+    .gl-ha-sensor-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
     .gl-ha-shell { padding: 12px; }
     .gl-ha-header-actions { width: 100%; }
     .gl-ha-header-actions select, .gl-ha-header-actions button { flex: 1; }
     .gl-ha-status, .gl-ha-grid, .gl-ha-window-strip { grid-template-columns: 1fr; }
     .gl-ha-alert { flex-direction: column; gap: 6px; }
+}
+@media (max-width: 420px) {
+    .gl-ha-sensor-grid { grid-template-columns: 1fr; }
 }

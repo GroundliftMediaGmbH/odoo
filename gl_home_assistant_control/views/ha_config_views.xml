@@ -62,7 +62,7 @@
                                 </group>
                                 <group string="Kino">
                                     <field name="cinema_default_duration_minutes"/>
-                                    <p class="text-muted">Die Kinospielzeiten werden aus dem installierten Modul gl_kino_newsletter_nl2go und dessen Cinetixx-Anbindung gelesen.</p>
+                                    <p class="text-muted">Die Kinospielzeiten werden aus dem installierten Modul gl_kino_newsletter_nl2go und dessen Cinetixx-Anbindung gelesen. Pro Tag wird ein gemeinsames Zeitfenster von der ersten bis zum Ende der letzten Vorstellung erzeugt.</p>
                                 </group>
                             </group>
                         </page>

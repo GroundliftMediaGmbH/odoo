@@ -46,11 +46,21 @@ class GlHaEntity(models.Model):
     entity_id = fields.Char(string="Home Assistant Entity ID", required=True, index=True)
     domain = fields.Char(index=True, readonly=True)
     room = fields.Char(string="Raum/Gruppe")
+    dashboard_group = fields.Char(
+        string="Dashboard-Gruppe",
+        help="Optionale frei definierbare Anzeigegruppe. Bleibt das Feld leer, kann das Dashboard stattdessen den Home-Assistant-Raum verwenden.",
+    )
     device_class = fields.Char(readonly=True)
     unit = fields.Char(string="Einheit", readonly=True)
 
     active = fields.Boolean(default=True)
     show_dashboard = fields.Boolean(string="Im Dashboard anzeigen", default=True)
+    dashboard_role = fields.Selection([
+        ("auto", "Automatisch"),
+        ("control", "Aktives Element / Steuerung"),
+        ("sensor", "Sensor / Messwert"),
+    ], string="Darstellung im Dashboard", default="auto", required=True,
+       help="Legt fest, ob die Entität in getrennten Dashboard-Bereichen als Steuerung oder Sensor erscheint. 'Automatisch' verwendet die Steuerbarkeit der Entität.")
     controllable = fields.Boolean(string="Steuerbar", default=False)
     history_enabled = fields.Boolean(string="Verlauf aufzeichnen", default=True)
     alert_enabled = fields.Boolean(string="Bei Ausfall warnen", default=True)
@@ -86,6 +96,14 @@ class GlHaEntity(models.Model):
         "UNIQUE(entity_id)",
         "Die Home-Assistant Entity ID muss eindeutig sein.",
     )
+
+    def init(self):
+        # Bestehende Entitäten aus älteren Versionen werden automatisch
+        # nach ihrer technischen Steuerbarkeit einsortiert, solange keine
+        # manuelle Dashboard-Rolle gesetzt wurde.
+        self.env.cr.execute(
+            "UPDATE gl_ha_entity SET dashboard_role = 'auto' WHERE dashboard_role IS NULL"
+        )
 
     @api.constrains("step")
     def _check_step(self):
@@ -230,6 +248,14 @@ class GlHaEntity(models.Model):
                     entity=rec,
                     config=config,
                 )
+
+    def dashboard_display_role(self):
+        self.ensure_one()
+        if self.dashboard_role in {"control", "sensor"}:
+            return self.dashboard_role
+        if self.controllable and self.control_type != "none":
+            return "control"
+        return "sensor"
 
     def action_clear_override(self):
         self.write({"manual_override_until": False, "manual_override_value": False})

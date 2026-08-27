@@ -26,8 +26,16 @@ class GlHaAutomationRule(models.Model):
         required=True,
         domain="[('control_type','=','toggle'),('controllable','=',True)]",
     )
-    minutes_before = fields.Integer(string="Einschalten vor Beginn (Min.)", default=60)
-    minutes_after = fields.Integer(string="Ausschalten nach Ende (Min.)", default=60)
+    minutes_before = fields.Integer(
+        string="Einschalten vor Beginn (Min.)",
+        default=60,
+        help="Bei Kino: Vorlauf vor der ersten Vorstellung des jeweiligen Tages.",
+    )
+    minutes_after = fields.Integer(
+        string="Ausschalten nach Ende (Min.)",
+        default=60,
+        help="Bei Kino: Nachlauf nach dem Ende der letzten Vorstellung des jeweiligen Tages.",
+    )
 
     condition_entity_id = fields.Many2one(
         "gl.ha.entity",

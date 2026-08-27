@@ -5,6 +5,7 @@
     if (!app) return;
 
     const slug = app.dataset.slug || "";
+    const pageSlug = app.dataset.pageSlug || "";
     const roomsEl = document.getElementById("gl-ha-rooms");
     const alertsEl = document.getElementById("gl-ha-alerts");
     const statusEl = document.getElementById("gl-ha-status");
@@ -60,8 +61,10 @@
         if (entity.domain === "climate" && entity.has_numeric_value) {
             return `${Number(entity.numeric_value).toFixed(1)}${entity.unit || " °C"}`;
         }
-        if (entity.has_numeric_value && entity.domain !== "switch" && entity.domain !== "light" && entity.domain !== "fan" && entity.domain !== "binary_sensor" && entity.domain !== "input_boolean") {
-            const v = Math.abs(entity.numeric_value) >= 100 ? Number(entity.numeric_value).toFixed(0) : Number(entity.numeric_value).toFixed(1);
+        if (entity.has_numeric_value && !["switch", "light", "fan", "binary_sensor", "input_boolean"].includes(entity.domain)) {
+            const v = Math.abs(entity.numeric_value) >= 100
+                ? Number(entity.numeric_value).toFixed(0)
+                : Number(entity.numeric_value).toFixed(1);
             return `${v}${entity.unit ? " " + entity.unit : ""}`;
         }
         const lower = String(entity.state || "").toLowerCase();
@@ -70,26 +73,36 @@
         return entity.state || "–";
     }
 
-    function statusClass(entity) {
-        if (!entity.is_available) return "gl-ha-entity offline";
+    function statusClass(entity, baseClass) {
+        let cls = baseClass || "gl-ha-entity";
+        if (!entity.is_available) return `${cls} offline`;
         const lower = String(entity.state || "").toLowerCase();
-        if (["on", "heat", "heating", "cool", "cooling"].includes(lower)) return "gl-ha-entity active";
-        return "gl-ha-entity";
+        if (["on", "heat", "heating", "cool", "cooling"].includes(lower)) cls += " active";
+        return cls;
     }
 
     function renderStatus() {
-        if (!state) return;
+        if (!state?.view?.show_status) {
+            statusEl.innerHTML = "";
+            statusEl.style.display = "none";
+            return;
+        }
+        statusEl.style.display = "grid";
         const c = state.connection || {};
         const online = (state.entities || []).filter(e => e.is_available).length;
         const total = (state.entities || []).length;
         statusEl.innerHTML = `
-            <div class="gl-ha-status-card"><span>Entitäten</span><strong>${online}/${total} erreichbar</strong></div>
+            <div class="gl-ha-status-card"><span>Angezeigt</span><strong>${online}/${total} erreichbar</strong></div>
             <div class="gl-ha-status-card"><span>Letzter Statusabruf</span><strong>${esc(formatDate(c.last_state_sync_at))}</strong></div>
             <div class="gl-ha-status-card"><span>Zeitfenster</span><strong>${esc(formatDate(c.last_schedule_sync_at))}</strong></div>
             <div class="gl-ha-status-card"><span>Automatik</span><strong>${esc(formatDate(c.last_automation_at))}</strong></div>`;
     }
 
     function renderAlerts() {
+        if (!state?.view?.show_alerts) {
+            alertsEl.innerHTML = "";
+            return;
+        }
         const alerts = state?.alerts || [];
         if (!alerts.length) {
             alertsEl.innerHTML = "";
@@ -103,6 +116,10 @@
     }
 
     function renderWindows() {
+        if (!state?.view?.show_windows) {
+            windowsEl.innerHTML = "";
+            return;
+        }
         const windows = state?.windows || [];
         if (!windows.length) {
             windowsEl.innerHTML = "";
@@ -120,7 +137,7 @@
     }
 
     function controlHtml(entity) {
-        if (!entity.controllable) return "";
+        if (!entity.controllable || entity.display_role !== "control") return "";
         if (entity.control_type === "toggle") {
             return `<div class="gl-ha-controls">
                 <button class="gl-ha-command" data-id="${entity.id}" data-command="on">Ein</button>
@@ -144,47 +161,109 @@
         return "";
     }
 
+    function chartHtml(entity, compact) {
+        if (!state?.view?.show_history_charts || !entity.history_enabled || !entity.has_numeric_value) return "";
+        return `<div class="gl-ha-chart-wrap${compact ? " compact" : ""}"><canvas class="gl-ha-chart" data-entity-id="${entity.id}"></canvas></div>`;
+    }
+
+    function technicalHtml(entity) {
+        return state?.view?.show_entity_ids ? `<small>${esc(entity.entity_id)}</small>` : "";
+    }
+
+    function lastSeenHtml(entity) {
+        return state?.view?.show_last_seen
+            ? `<div class="gl-ha-lastseen">zuletzt gesehen: ${esc(formatDate(entity.last_seen_at))}</div>`
+            : "";
+    }
+
     function entityHtml(entity) {
         const override = entity.override_active
             ? `<div class="gl-ha-override">Manuell bis ${esc(formatDate(entity.override_until))}</div>`
             : "";
-        const chart = entity.history_enabled && entity.has_numeric_value
-            ? `<div class="gl-ha-chart-wrap"><canvas class="gl-ha-chart" data-entity-id="${entity.id}"></canvas></div>`
-            : "";
-        return `<article class="${statusClass(entity)}" data-entity-id="${entity.id}">
+        return `<article class="${statusClass(entity, "gl-ha-entity gl-ha-item")}" data-entity-id="${entity.id}">
             <div class="gl-ha-entity-head">
                 <div>
                     <h3>${esc(entity.name)}</h3>
-                    <small>${esc(entity.entity_id)}</small>
+                    ${technicalHtml(entity)}
                 </div>
                 <span class="gl-ha-dot" title="${entity.is_available ? "Erreichbar" : "Nicht erreichbar"}"></span>
             </div>
             <div class="gl-ha-main-value">${esc(formatValue(entity))}</div>
             ${entity.domain === "climate" && entity.has_control_value ? `<div class="gl-ha-subvalue">Soll: ${Number(entity.control_value).toFixed(1)} °C</div>` : ""}
             ${override}
-            ${chart}
+            ${chartHtml(entity, false)}
             ${controlHtml(entity)}
-            <div class="gl-ha-lastseen">zuletzt gesehen: ${esc(formatDate(entity.last_seen_at))}</div>
+            ${lastSeenHtml(entity)}
         </article>`;
+    }
+
+    function sensorHtml(entity) {
+        return `<article class="${statusClass(entity, "gl-ha-sensor gl-ha-item")}" data-entity-id="${entity.id}">
+            <div class="gl-ha-sensor-head">
+                <div class="gl-ha-sensor-name">${esc(entity.name)}</div>
+                <span class="gl-ha-dot" title="${entity.is_available ? "Erreichbar" : "Nicht erreichbar"}"></span>
+            </div>
+            ${technicalHtml(entity)}
+            <div class="gl-ha-sensor-value">${esc(formatValue(entity))}</div>
+            ${entity.domain === "climate" && entity.has_control_value ? `<div class="gl-ha-subvalue">Soll: ${Number(entity.control_value).toFixed(1)} °C</div>` : ""}
+            ${chartHtml(entity, true)}
+            ${lastSeenHtml(entity)}
+        </article>`;
+    }
+
+    function groupEntities(entities) {
+        const grouped = new Map();
+        const mode = state?.view?.group_mode || "custom";
+        entities.forEach(entity => {
+            let group = "";
+            if (mode === "room") group = entity.room || "Allgemein";
+            else if (mode === "custom") group = entity.dashboard_group || entity.room || "Allgemein";
+            if (!grouped.has(group)) grouped.set(group, []);
+            grouped.get(group).push(entity);
+        });
+        return grouped;
+    }
+
+    function roomBlocks(entities, compactSensors) {
+        const grouped = groupEntities(entities);
+        return [...grouped.entries()].map(([room, items]) => `
+            <section class="gl-ha-room">
+                ${room ? `<div class="gl-ha-section-head gl-ha-room-head"><h3>${esc(room)}</h3><span>${items.length}</span></div>` : ""}
+                <div class="${compactSensors ? "gl-ha-sensor-grid" : "gl-ha-grid"}">
+                    ${items.map(compactSensors ? sensorHtml : entityHtml).join("")}
+                </div>
+            </section>`).join("");
+    }
+
+    function roleSection(title, entities, compactSensors) {
+        if (!entities.length) return "";
+        return `<section class="gl-ha-role-section">
+            <div class="gl-ha-role-head"><h2>${esc(title)}</h2><span>${entities.length} Elemente</span></div>
+            ${roomBlocks(entities, compactSensors)}
+        </section>`;
     }
 
     function renderRooms() {
         if (!state) return;
-        const grouped = new Map();
-        (state.entities || []).forEach(entity => {
-            const room = entity.room || "Allgemein";
-            if (!grouped.has(room)) grouped.set(room, []);
-            grouped.get(room).push(entity);
-        });
-        if (!grouped.size) {
-            roomsEl.innerHTML = `<div class="gl-ha-empty">Noch keine Entitäten ausgewählt. Zuerst in Odoo „Entitäten synchronisieren“ und die gewünschten Geräte dem Dashboard zuordnen.</div>`;
+        const entities = state.entities || [];
+        if (!entities.length) {
+            roomsEl.innerHTML = `<div class="gl-ha-empty"><strong>Auf dieser Seite sind noch keine Entitäten ausgewählt.</strong><br/>Die Auswahl erfolgt in Odoo unter Gebäudesteuerung → Dashboards bzw. Dashboard-Unterseiten.</div>`;
             return;
         }
-        roomsEl.innerHTML = [...grouped.entries()].map(([room, entities]) => `
-            <section class="gl-ha-room">
-                <div class="gl-ha-section-head"><h2>${esc(room)}</h2><span>${entities.length} Entitäten</span></div>
-                <div class="gl-ha-grid">${entities.map(entityHtml).join("")}</div>
-            </section>`).join("");
+
+        const columns = Math.min(6, Math.max(2, Number(state?.view?.grid_columns || 4)));
+        roomsEl.style.setProperty("--gl-cols", columns);
+
+        if (state?.view?.separate_controls_sensors) {
+            const controls = entities.filter(e => e.display_role === "control");
+            const sensors = entities.filter(e => e.display_role !== "control");
+            const compactSensors = state?.view?.sensor_layout === "compact";
+            roomsEl.innerHTML =
+                roleSection("Steuerung", controls, false) +
+                roleSection("Sensoren & Messwerte", sensors, compactSensors);
+        } else {
+            roomsEl.innerHTML = roomBlocks(entities, false);
+        }
         drawAllCharts();
     }
 
@@ -192,8 +271,8 @@
         if (!points || points.length < 2) return;
         const rect = canvas.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
-        const width = Math.max(260, Math.floor(rect.width));
-        const height = Math.max(92, Math.floor(rect.height));
+        const width = Math.max(180, Math.floor(rect.width));
+        const height = Math.max(56, Math.floor(rect.height));
         canvas.width = width * dpr;
         canvas.height = height * dpr;
         const ctx = canvas.getContext("2d");
@@ -205,7 +284,7 @@
         let min = Math.min(...values);
         let max = Math.max(...values);
         if (min === max) { min -= 1; max += 1; }
-        const pad = 8;
+        const pad = 6;
         const innerW = width - pad * 2;
         const innerH = height - pad * 2;
 
@@ -234,6 +313,7 @@
     }
 
     function renderAll() {
+        periodEl.style.display = state?.view?.show_history_charts ? "block" : "none";
         renderStatus();
         renderAlerts();
         renderWindows();
@@ -241,14 +321,20 @@
     }
 
     async function loadHistory(force) {
-        if (!state) return;
+        if (!state || !state?.view?.show_history_charts) {
+            history = {};
+            return;
+        }
         const now = Date.now();
         if (!force && now - historyFetchedAt < 60000) return;
-        const ids = (state.entities || []).filter(e => e.history_enabled && e.has_numeric_value).map(e => e.id);
+        const ids = (state.entities || [])
+            .filter(e => e.history_enabled && e.has_numeric_value)
+            .map(e => e.id);
         if (!ids.length) return;
         try {
             history = await rpc("/groundlift/ha/history", {
                 slug,
+                page_slug: pageSlug,
                 entity_ids: ids,
                 hours: Number(periodEl.value || state.dashboard.history_hours || 24),
             }) || {};
@@ -262,7 +348,7 @@
     async function loadData(forceHistory) {
         refreshBtn.disabled = true;
         try {
-            state = await rpc("/groundlift/ha/data", {slug});
+            state = await rpc("/groundlift/ha/data", {slug, page_slug: pageSlug});
             if (state?.dashboard?.history_hours && !periodEl.dataset.initialized) {
                 periodEl.value = String(state.dashboard.history_hours);
                 periodEl.dataset.initialized = "1";
@@ -271,6 +357,7 @@
             await loadHistory(!!forceHistory);
             scheduleRefresh();
         } catch (err) {
+            statusEl.style.display = "block";
             statusEl.innerHTML = `<div class="gl-ha-error"><strong>Dashboard konnte nicht geladen werden.</strong><span>${esc(err.message)}</span></div>`;
         } finally {
             refreshBtn.disabled = false;
@@ -296,11 +383,12 @@
                 ? draftValues.get(entity.id)
                 : (entity.has_control_value ? entity.control_value : entity.numeric_value);
         }
-        const card = document.querySelector(`.gl-ha-entity[data-entity-id="${entity.id}"]`);
+        const card = document.querySelector(`[data-entity-id="${entity.id}"]`);
         if (card) card.classList.add("busy");
         try {
             const updated = await rpc("/groundlift/ha/command", {
                 slug,
+                page_slug: pageSlug,
                 entity_id: entity.id,
                 command,
                 value,

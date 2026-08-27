@@ -9,6 +9,7 @@
     <menuitem id="menu_gl_ha_root" name="Gebäudesteuerung" sequence="65" groups="gl_home_assistant_control.group_ha_viewer"/>
     <menuitem id="menu_gl_ha_live_dashboard" name="Live Dashboard" parent="menu_gl_ha_root" action="action_gl_ha_live_dashboard" sequence="10" groups="gl_home_assistant_control.group_ha_viewer"/>
     <menuitem id="menu_gl_ha_dashboard" name="Dashboards" parent="menu_gl_ha_root" action="action_gl_ha_dashboard" sequence="20" groups="gl_home_assistant_control.group_ha_viewer"/>
+    <menuitem id="menu_gl_ha_dashboard_page" name="Dashboard-Unterseiten" parent="menu_gl_ha_root" action="action_gl_ha_dashboard_page" sequence="25" groups="gl_home_assistant_control.group_ha_manager"/>
     <menuitem id="menu_gl_ha_entity" name="Entitäten" parent="menu_gl_ha_root" action="action_gl_ha_entity" sequence="30" groups="gl_home_assistant_control.group_ha_viewer"/>
     <menuitem id="menu_gl_ha_alert" name="Warnungen" parent="menu_gl_ha_root" action="action_gl_ha_alert" sequence="40" groups="gl_home_assistant_control.group_ha_viewer"/>
     <menuitem id="menu_gl_ha_rule" name="Automatikregeln" parent="menu_gl_ha_root" action="action_gl_ha_rule" sequence="50" groups="gl_home_assistant_control.group_ha_manager"/>

@@ -35,6 +35,7 @@
                             <field name="target_entity_id"/>
                             <field name="minutes_before"/>
                             <field name="minutes_after"/>
+                            <p class="text-muted" invisible="source != 'cinema'">Bei Kino wird pro Kalendertag ein gemeinsames Betriebsfenster gebildet: Vorlauf vor der ersten Vorstellung, Nachlauf nach dem Ende der letzten Vorstellung. Zwischen den Vorstellungen bleibt das Zeitfenster aktiv.</p>
                         </group>
                         <group string="Optionale Sensorbedingung">
                             <field name="condition_entity_id"/>

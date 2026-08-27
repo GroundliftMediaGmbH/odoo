@@ -1,6 +1,6 @@
 # GROUNDLIFT Home Assistant Steuerung – Odoo 19 SH
 
-Odoo-19-SH-App zur serverseitigen Verbindung mit Home Assistant. Das Modul liest Sensoren/Aktoren, zeigt mehrere PC-Dashboards, zeichnet Verläufe auf, erlaubt manuelle Steuerung und schaltet Beleuchtung anhand von Groundlift-Veranstaltungen bzw. Kino-Spielzeiten.
+Odoo-19-SH-App zur serverseitigen Verbindung mit Home Assistant. Das Modul liest Sensoren/Aktoren, zeigt konfigurierbare PC-Dashboards und Unterseiten, zeichnet Verläufe auf, erlaubt manuelle Steuerung und schaltet Beleuchtung anhand von Groundlift-Veranstaltungen bzw. Kino-Spielzeiten.
 
 ## Enthaltene Funktionen
 
@@ -9,86 +9,107 @@ Odoo-19-SH-App zur serverseitigen Verbindung mit Home Assistant. Das Modul liest
 - Automatische Entitätserkennung für u. a. `sensor`, `binary_sensor`, `switch`, `light`, `climate`, `fan`, `number`, `input_number`, `input_boolean`.
 - Anzeige von Temperatur, Luftfeuchte, Helligkeit/Lux, Schaltzuständen, Thermostaten, Zu-/Abluft usw., sofern Home Assistant diese als Entitäten bereitstellt.
 - Lokaler Verlauf in Odoo mit konfigurierbarer Aufbewahrung; optionaler Import der letzten 24 Stunden aus Home Assistant.
-- Responsive Dark-Mode-Dashboard unter `/groundlift/ha/<slug>` mit Diagrammen ohne externe JavaScript-Bibliothek.
-- Mehrere Dashboards für unterschiedliche PCs/Anwendungsorte mit jeweils eigener Entitätsauswahl.
+- Responsive Dark-Mode-Dashboard unter `/groundlift/ha/<slug>`.
+- Mehrere Dashboards für unterschiedliche PCs/Anwendungsorte.
+- **Explizite Auswahl**, welche Entitäten auf der Hauptseite sichtbar sind. Für bestehende Dashboards bleibt der globale Fallback zunächst aktiv; er kann abgeschaltet werden, damit eine leere Auswahl bewusst leer bleibt.
+- **Trennung von aktiven Elementen und Sensoren**: Entitäten können automatisch oder manuell als „Aktives Element / Steuerung“ bzw. „Sensor / Messwert“ einsortiert werden.
+- **Kompakte Sensordarstellung**, damit Messwerte nicht mehr dieselbe große Karte wie Schalter oder Thermostate belegen müssen.
+- **Konfigurierbare Dashboard-Unterseiten** wie „Klima“, „Energie“, „Kino“ oder „Heizung“. Jede Unterseite besitzt eine eigene Entitätsauswahl, URL und Darstellung.
+- Gruppierung nach Home-Assistant-Raum oder einer frei definierbaren **Dashboard-Gruppe** je Entität; Gruppierung kann pro Haupt-/Unterseite abgeschaltet werden.
+- Statusleiste, Warnungen, Automatik-Zeitfenster, Entity IDs, „zuletzt gesehen“ und Verlaufsdiagramme lassen sich je Haupt-/Unterseite separat ein- oder ausblenden.
 - Manuelle Schaltung von Schaltern/Lichtern/Lüftern sowie Sollwertänderung von Thermostaten und Reglern.
 - Thermostate verwenden die von Home Assistant gemeldete Schrittweite; ohne Angabe wird **0,5 °C** verwendet.
 - Manuelle Übersteuerung der Automatik mit konfigurierbarer Dauer; Button „Automatik“ hebt sie sofort auf.
-- Warnungen bei `unavailable`/`unknown` bzw. verschwundenen Entitäten, auf Wunsch zusätzlich per E-Mail. Fällt ein Lux-/Bedingungssensor während eines aktiven Zeitfensters aus, hält die Automatik den aktuellen Lichtzustand statt ungeprüft auszuschalten.
-- Warnungen bei Home-Assistant-Verbindungsfehlern, Zeitplanfehlern und fehlgeschlagenen Automatik-Schaltbefehlen.
+- Warnungen bei `unavailable`/`unknown` bzw. verschwundenen Entitäten, auf Wunsch zusätzlich per E-Mail.
 - Zeitfenster-Cache für Groundlift-Events und Kino – dadurch keine Cinetixx-Abfrage jede Minute.
+
+## Kino-Automatik / Cinetixx – Tagesbetrieb
+
+Die Kino-Automatik wird **tageweise zusammengefasst**:
+
+1. Für jeden lokalen Kalendertag werden alle Cinetixx-Vorstellungen geladen.
+2. Beginn des Kino-Zeitfensters = Beginn der **ersten** Vorstellung des Tages.
+3. Ende des Kino-Zeitfensters = Ende der **letzten** Vorstellung des Tages.
+4. Der in der Automatikregel eingestellte Vorlauf gilt nur vor der ersten Vorstellung.
+5. Der Nachlauf gilt nur nach dem Ende der letzten Vorstellung.
+6. Zwischen zwei Vorstellungen bleibt das Kino-Zeitfenster durchgehend aktiv.
+
+Beispiel:
+
+- Erste Vorstellung: 14:30 Uhr
+- Letzte Vorstellung endet: 22:20 Uhr
+- Vorlauf: 60 Minuten
+- Nachlauf: 45 Minuten
+
+Dann ist das Automatik-Zeitfenster für das Licht von **13:30 bis 23:05 Uhr** aktiv, auch wenn zwischen einzelnen Vorstellungen längere Pausen liegen.
+
+Vorstellungen ohne gemeldetes Ende verwenden die in den Einstellungen konfigurierte Fallbackdauer.
 
 ## Veranstaltungsautomatik
 
-Das Modul liest die Standardfelder `event.event.date_begin` und `event.event.date_end` aus Odoo Events; bei Odoo-19-Events mit mehreren Slots werden die einzelnen Slotzeiten verwendet. Als storniert markierte Veranstaltungen werden nicht in den Beleuchtungs-Cache übernommen. In den Einstellungen können zusätzlich bestimmte Veranstaltungsphasen ausgewählt werden (leer = alle aktiven, nicht stornierten). Pro Automatikregel sind Vor- und Nachlauf konfigurierbar, standardmäßig 60 Minuten.
-
-Beispiel Außenbeleuchtung:
-
-1. Ziel: `switch.aussenbeleuchtung`
-2. Quelle: **Groundlift Veranstaltungen**
-3. Vorlauf: `60` Minuten
-4. Nachlauf: `60` Minuten
-5. Sensorbedingung: `sensor.aussen_helligkeit`
-6. Operator: `kleiner als`
-7. Grenzwert: z. B. `50` Lux
-
-Die Beleuchtung wird dann nur eingeschaltet, wenn ein Event-Zeitfenster aktiv **und** der Außenlichtwert unter dem Grenzwert liegt. Nach Ende des Zeitfensters wird ausgeschaltet.
+Das Modul liest die Standardfelder `event.event.date_begin` und `event.event.date_end` aus Odoo Events; bei Odoo-19-Events mit mehreren Slots werden die einzelnen Slotzeiten verwendet. Als storniert markierte Veranstaltungen werden nicht in den Beleuchtungs-Cache übernommen. In den Einstellungen können zusätzlich bestimmte Veranstaltungsphasen ausgewählt werden.
 
 Mehrere Regeln dürfen dasselbe Ziel haben. Das Modul verknüpft sie logisch mit ODER. Dadurch kann dieselbe Außenbeleuchtung sowohl bei Veranstaltungen als auch bei Kino-Spielzeiten aktiv sein, ohne dass eine zweite Regel sie fälschlich ausschaltet.
 
-## Kino-Automatik / Cinetixx
+## Dashboard-Konfiguration
 
-Dieses Modul hat absichtlich die Abhängigkeit:
+### 1. Entitäten vorbereiten
 
-`gl_kino_newsletter_nl2go`
+Unter **Gebäudesteuerung → Entitäten** kann jede Home-Assistant-Entität konfiguriert werden:
 
-Es verwendet dessen vorhandene Cinetixx-Konfiguration und Parser für `SHOW_BEGINNING`/`SHOW_END`. Für Vorstellungen ohne Ende wird die konfigurierbare Fallbackdauer verwendet (standardmäßig 120 Minuten).
+- **Raum/Gruppe**: aus Home Assistant übernommen bzw. manuell korrigierbar.
+- **Dashboard-Gruppe**: frei definierbare Gruppe, z. B. „Außenklima“, „Energie Eingang“, „Sudhaus Lüftung“.
+- **Darstellung im Dashboard**:
+  - **Automatisch**: steuerbare Geräte werden als aktive Elemente, andere als Sensoren behandelt.
+  - **Aktives Element / Steuerung**: erscheint im Steuerungsbereich.
+  - **Sensor / Messwert**: erscheint im Sensorbereich und erhält dort keine Steuerbuttons.
+- **Im Dashboard anzeigen**: globale Fallback-Freigabe; wird nur benötigt, wenn ein Dashboard „Globale Dashboard-Entitäten verwenden“ aktiviert hat.
 
-Für Kino-Licht wird eine zweite Regel mit Quelle **Kinovorstellungen** und denselben 60 Minuten Vor-/Nachlauf angelegt. Der gleiche Lux-Sensor kann wieder als Bedingung verwendet werden.
+### 2. Hauptseite eines Dashboards konfigurieren
+
+Unter **Gebäudesteuerung → Dashboards**:
+
+- Entitäten für die Hauptseite explizit auswählen.
+- Optional „Globale Dashboard-Entitäten verwenden“ aktivieren.
+- Steuerung und Sensoren trennen.
+- Sensordarstellung „kompakt“ oder „große Karten“ wählen.
+- Gruppierung wählen:
+  - Dashboard-Gruppe, sonst Raum
+  - nur Raum
+  - keine Untergruppierung
+- Spaltenzahl einstellen.
+- Statusleiste, Warnungen und Zeitfenster ein-/ausblenden.
+- Verlaufsdiagramme, technische Entity IDs und „zuletzt gesehen“ nur dort einschalten, wo sie tatsächlich benötigt werden.
+
+### 3. Unterseiten anlegen
+
+Im Dashboard-Reiter **Unterseiten** oder über **Gebäudesteuerung → Dashboard-Unterseiten** können eigene Seiten angelegt werden.
+
+Beispiele:
+
+- `Klima` → Temperatur + Luftfeuchte aller Räume
+- `Energie` → Leistung, Stromstärke, Spannung, Verbrauch
+- `Heizung` → Thermostate und Raumtemperaturen
+- `Kino` → nur die für den Kinobetrieb relevanten Schalter/Sensoren
+
+Jede Unterseite besitzt eine eigene URL:
+
+`/groundlift/ha/<dashboard-slug>/<unterseiten-slug>`
+
+und kann ihre Entitäten, Gruppierung und Darstellung unabhängig von der Hauptseite konfigurieren.
 
 ## Sehr wichtig bei Odoo.sh + Raspberry Pi
 
-Odoo.sh läuft in der Cloud. Eine lokale Adresse wie
+Odoo.sh läuft in der Cloud. Eine lokale Adresse wie `http://homeassistant.local` oder `http://192.168.x.x` ist vom Odoo.sh-Server normalerweise nicht erreichbar. Es wird deshalb eine von Odoo.sh erreichbare, abgesicherte HTTPS-Adresse für Home Assistant benötigt, z. B. eine Home-Assistant-Cloud-Remote-URL oder ein sicher konfigurierter Reverse Proxy/Tunnel.
 
-- `http://homeassistant.local`
-- `http://192.168.x.x[:Port]`
+## Installation / Update
 
-ist vom Odoo.sh-Server **normalerweise nicht erreichbar**.
-
-Es wird deshalb eine von Odoo.sh erreichbare, abgesicherte HTTPS-Adresse für Home Assistant benötigt, z. B. eine Home-Assistant-Cloud-Remote-URL oder ein sicher konfigurierter Reverse Proxy/Tunnel. Der Home-Assistant-Long-Lived-Token bleibt als API-Authentifizierung erforderlich.
-
-Für vorgeschaltete Dienste unterstützt die App zusätzlich optionale HTTP-Header als JSON, z. B. für Service-Token eines Access-Proxys. Diese Header werden ausschließlich serverseitig gespeichert/verwendet.
-
-## Installation
-
-1. Den Ordner `gl_home_assistant_control` in das Odoo.sh-Repository unter `addons/` kopieren.
-2. Sicherstellen, dass `gl_kino_newsletter_nl2go` im gleichen Odoo-System installiert/upgradefähig ist.
-3. Commit + Push auf den gewünschten Odoo.sh-Branch.
-4. Apps-Liste aktualisieren.
-5. **GROUNDLIFT Home Assistant Steuerung** installieren.
-6. Benutzergruppen vergeben:
-   - **Home Assistant → Anzeige** – Dashboard ansehen
-   - **Home Assistant → Steuerung** – zusätzlich manuell schalten
-   - **Home Assistant → Administration** – Konfiguration, Entitäten, Regeln
-
-## Erstkonfiguration
-
-Unter **Gebäudesteuerung → Einstellungen**:
-
-1. Erreichbare Home-Assistant-URL eintragen.
-2. Long-Lived Access Token eintragen.
-3. Ggf. SSL-Prüfung und optionale Proxy-Header konfigurieren.
-4. **Verbindung testen**.
-5. **Entitäten synchronisieren**.
-6. Unter **Entitäten**:
-   - Namen/Räume prüfen,
-   - Dashboard-Sichtbarkeit festlegen,
-   - Steuerbarkeit kontrollieren,
-   - Verlauf/Warnungen konfigurieren.
-7. Unter **Dashboards** pro PC/Anwendungsfall ein Dashboard anlegen und Entitäten zuordnen.
-8. Unter **Automatikregeln** Event- und Kino-Regeln anlegen.
-9. **Zeitfenster aktualisieren** und danach **Automatik jetzt prüfen**.
-10. Optional **24h Verlauf importieren**.
+1. Den Ordner `gl_home_assistant_control` in das Odoo.sh-Repository unter `addons/` kopieren bzw. die bestehende Version ersetzen.
+2. Commit + Push auf den gewünschten Odoo.sh-Branch.
+3. Apps-Liste aktualisieren.
+4. Das Modul **GROUNDLIFT Home Assistant Steuerung** aktualisieren.
+5. Danach einmal unter **Gebäudesteuerung → Einstellungen** auf **Zeitfenster aktualisieren** klicken, damit vorhandene einzelne Kino-Zeitfenster sofort durch die neuen Tagesfenster ersetzt werden.
+6. Dashboard und Unterseiten konfigurieren.
 
 ## Cronjobs
 
@@ -97,26 +118,10 @@ Unter **Gebäudesteuerung → Einstellungen**:
 - Automatik-Auswertung: jede Minute
 - Historienbereinigung: täglich
 
-Die Odoo-Historie schreibt nicht zwingend jede Minute einen Messpunkt. Das Intervall ist standardmäßig 5 Minuten und in den Einstellungen veränderbar.
-
-## Home-Assistant-Services
-
-Die Steuerung verwendet echte Home-Assistant-Services, nicht nur das Setzen eines API-Zustands:
-
-- `switch/light/fan/input_boolean`: `turn_on` / `turn_off`
-- `climate`: `set_temperature`
-- `number/input_number`: `set_value`
-
-Damit werden die tatsächlichen Zigbee-Geräte über die in Home Assistant konfigurierte Integration angesteuert.
-
 ## Sicherheit
 
 - Dashboard-Routen erfordern einen angemeldeten Odoo-Benutzer.
 - Anzeige und Steuerung sind getrennte Benutzergruppen.
 - Das Dashboard erhält niemals den Home-Assistant-Token.
 - Der Token und optionale Proxy-Header sind nur für Home-Assistant-Administratoren in Odoo sichtbar.
-- Für extern erreichbaren Home Assistant wird HTTPS dringend empfohlen.
-
-## Hinweis zur ersten Inbetriebnahme
-
-Die App kann nicht wissen, welche konkrete Home-Assistant-Entity-ID bei euch „Außenlicht“, „Zu-/Abluft“, „Thermostat Sudhaus“ usw. ist. Nach der ersten Synchronisierung werden diese Entitäten automatisch eingelesen; anschließend ordnet ihr sie in Odoo einmalig Räumen, Dashboards und Automatikregeln zu.
+- Eine als „Sensor / Messwert“ konfigurierte Entität kann über das Dashboard nicht geschaltet werden, selbst wenn sie technisch steuerbar wäre.

@@ -7,6 +7,7 @@
             <list string="Home Assistant Entitäten" decoration-danger="not is_available" decoration-muted="not active">
                 <field name="name"/>
                 <field name="room"/>
+                <field name="dashboard_group" optional="show"/>
                 <field name="entity_id"/>
                 <field name="domain"/>
                 <field name="state"/>
@@ -14,6 +15,7 @@
                 <field name="unit" optional="show"/>
                 <field name="is_available"/>
                 <field name="show_dashboard"/>
+                <field name="dashboard_role" optional="show"/>
                 <field name="controllable"/>
                 <field name="history_enabled" optional="hide"/>
                 <field name="alert_enabled" optional="hide"/>
@@ -38,11 +40,13 @@
                             <field name="ha_name" readonly="1"/>
                             <field name="domain" readonly="1"/>
                             <field name="room"/>
+                            <field name="dashboard_group"/>
                             <field name="device_class" readonly="1"/>
                             <field name="unit" readonly="1"/>
                         </group>
                         <group string="Dashboard &amp; Überwachung">
                             <field name="show_dashboard"/>
+                            <field name="dashboard_role"/>
                             <field name="controllable"/>
                             <field name="history_enabled"/>
                             <field name="alert_enabled"/>

@@ -2,14 +2,16 @@
 <odoo>
     <template id="ha_dashboard_page" name="GROUNDLIFT Home Assistant Dashboard">
         <t t-call="web.frontend_layout">
-            <t t-set="title"><t t-esc="dashboard.name"/></t>
-            <link rel="stylesheet" href="/gl_home_assistant_control/static/src/css/dashboard.css"/>
-            <main id="gl-ha-app" t-att-data-slug="dashboard.slug">
+            <t t-set="title"><t t-esc="current_page.name if current_page else dashboard.name"/></t>
+            <link rel="stylesheet" href="/gl_home_assistant_control/static/src/css/dashboard.css?v=110"/>
+            <main id="gl-ha-app"
+                  t-att-data-slug="dashboard.slug"
+                  t-att-data-page-slug="current_page.slug if current_page else ''">
                 <div class="gl-ha-shell">
                     <header class="gl-ha-header">
                         <div>
                             <div class="gl-ha-eyebrow">GROUNDLIFT · HOME ASSISTANT</div>
-                            <h1><t t-esc="dashboard.name"/></h1>
+                            <h1><t t-esc="current_page.name if current_page else dashboard.name"/></h1>
                         </div>
                         <div class="gl-ha-header-actions">
                             <select id="gl-ha-period" aria-label="Diagrammzeitraum">
@@ -22,6 +24,19 @@
                         </div>
                     </header>
 
+                    <nav class="gl-ha-nav" aria-label="Dashboard-Seiten">
+                        <a t-att-href="'/groundlift/ha/%s' % dashboard.slug"
+                           t-att-class="'active' if not current_page else ''">
+                            <t t-esc="dashboard.main_page_label or 'Übersicht'"/>
+                        </a>
+                        <t t-foreach="pages" t-as="page">
+                            <a t-att-href="'/groundlift/ha/%s/%s' % (dashboard.slug, page.slug)"
+                               t-att-class="'active' if current_page and current_page.id == page.id else ''">
+                                <t t-esc="page.name"/>
+                            </a>
+                        </t>
+                    </nav>
+
                     <section id="gl-ha-status" class="gl-ha-status"></section>
                     <section id="gl-ha-alerts" class="gl-ha-alerts"></section>
                     <section id="gl-ha-windows" class="gl-ha-windows"></section>
@@ -31,7 +46,7 @@
                     <footer class="gl-ha-footer">Steuerbefehle werden serverseitig über Odoo an Home Assistant gesendet.</footer>
                 </div>
             </main>
-            <script src="/gl_home_assistant_control/static/src/js/dashboard.js" defer="defer"></script>
+            <script src="/gl_home_assistant_control/static/src/js/dashboard.js?v=110" defer="defer"></script>
         </t>
     </template>
 </odoo>
