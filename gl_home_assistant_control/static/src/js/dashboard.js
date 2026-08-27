@@ -140,6 +140,7 @@
         if (detail.source === "cinema") return "Kino";
         if (detail.source === "event") return `Veranstaltung: ${detail.source_name || "–"}`;
         if (detail.source === "daily") return "Zeitprogramm";
+        if (detail.source === "project") return `Projekt: ${detail.source_name || "–"}`;
         return detail.source_name || detail.source || "–";
     }
 

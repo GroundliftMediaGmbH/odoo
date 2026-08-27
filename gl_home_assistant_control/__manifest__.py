@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 {
     "name": "GROUNDLIFT Home Assistant Steuerung",
-    "summary": "Home-Assistant-Dashboard, Sensorverlauf, Steuerung sowie Event-, Kino- und Zeit-Automationen",
-    "version": "19.0.1.1.3",
+    "summary": "Home-Assistant-Dashboard, Sensorverlauf sowie Event-, Kino-, Zeit- und Projekt-Automationen",
+    "version": "19.0.1.1.4",
     "category": "Operations/IoT",
     "author": "GROUNDLIFT / ChatGPT",
     "license": "LGPL-3",
@@ -12,6 +12,7 @@
         "web",
         "event",
         "website",
+        "project",
         "gl_kino_newsletter_nl2go",
     ],
     "data": [
@@ -21,6 +22,7 @@
         "data/ir_cron.xml",
         "views/ha_config_views.xml",
         "views/ha_entity_views.xml",
+        "views/ha_project_template_views.xml",
         "views/ha_rule_views.xml",
         "views/ha_dashboard_views.xml",
         "views/ha_alert_views.xml",

@@ -159,3 +159,11 @@ Automatikregeln können zusätzlich die Zeitquelle **„Tägliches Zeitprogramm�
 - Mehrere Laufzeiten pro Tag werden durch mehrere Regeln für dasselbe Gerät abgebildet. Die Automatik verknüpft aktive Regeln logisch mit ODER.
 - Zeitfenster über Mitternacht werden unterstützt, z. B. 23:00 bis 01:00.
 - Die geplanten Zeitprogramme erscheinen zusammen mit Kino- und Event-Automatiken in der aufklappbaren Automatik-Liste des Live-Dashboards.
+
+## Projekt-Automationen (v1.1.4)
+
+Automatikregeln können jetzt direkt an ein Odoo-Projekt gebunden werden. In der Regel wird das Projekt ausgewählt und der für die Gebäudesteuerung relevante Projektbeginn sowie das Projektende manuell eingetragen. Vor- und Nachlauf funktionieren wie bei Kino und Veranstaltungen. Projektzeiträume dürfen über Mitternacht laufen; das Ende wird dann mit dem Folgedatum eingetragen.
+
+Unter **Gebäudesteuerung → Projekt-Vorlagen** lassen sich wiederverwendbare Vorlagen anlegen. Eine Vorlage speichert die zu schaltenden Entitäten, Vor-/Nachlauf sowie optionale Sensorbedingungen. Beim Auswählen der Vorlage in einer Projektregel werden diese Werte kopiert und können anschließend projektspezifisch verändert werden. Bestehende Regeln werden durch spätere Änderungen an der Vorlage nicht rückwirkend verändert.
+
+Alle Automatikquellen werden pro Zielentität logisch ODER-verknüpft. Endet eine Projektregel, während für dieselbe Entität noch Kino-, Veranstaltungs- oder Zeitautomatik aktiv ist, bleibt das Gerät eingeschaltet und wird erst ausgeschaltet, wenn keine Regel mehr EIN verlangt.

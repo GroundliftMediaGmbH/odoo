@@ -9,9 +9,13 @@
                 <field name="active"/>
                 <field name="name"/>
                 <field name="source"/>
+                <field name="project_id" optional="show" invisible="source != 'project'"/>
+                <field name="project_template_id" optional="show" invisible="source != 'project'"/>
                 <field name="target_entity_ids" widget="many2many_tags"/>
                 <field name="minutes_before" invisible="source == 'daily'"/>
                 <field name="minutes_after" invisible="source == 'daily'"/>
+                <field name="project_start_at" optional="show" invisible="source != 'project'"/>
+                <field name="project_end_at" optional="show" invisible="source != 'project'"/>
                 <field name="daily_start_hour" widget="float_time" invisible="source != 'daily'"/>
                 <field name="daily_end_hour" widget="float_time" invisible="source != 'daily'"/>
                 <field name="condition_entity_ids" widget="many2many_tags" optional="show"/>
@@ -35,6 +39,10 @@
                             <field name="active"/>
                             <field name="sequence"/>
                             <field name="source"/>
+                            <field name="project_id" invisible="source != 'project'" options="{'no_create': True}"/>
+                            <field name="project_template_id" invisible="source != 'project'" options="{'no_create': True, 'no_create_edit': True}"/>
+                            <field name="project_start_at" invisible="source != 'project'"/>
+                            <field name="project_end_at" invisible="source != 'project'"/>
                             <field name="target_entity_ids"
                                    widget="many2many_tags"
                                    options="{'no_create': True, 'no_create_edit': True}"/>
@@ -55,6 +63,9 @@
                             <p class="text-muted" invisible="source != 'cinema'">Bei Kino wird pro Kalendertag ein gemeinsames Betriebsfenster gebildet: Vorlauf vor der ersten Vorstellung, Nachlauf nach dem Ende der letzten Vorstellung. Zwischen den Vorstellungen bleibt das Zeitfenster aktiv.</p>
                             <p class="text-muted" invisible="source != 'daily'">Das tägliche Zeitprogramm schaltet die ausgewählten Geräte an den gewählten Wochentagen zur eingestellten Uhrzeit ein und wieder aus. Beispiel: Lüftung täglich AN 08:00, AUS 08:30. Für mehrere Zeitblöcke am selben Tag einfach mehrere Regeln für dieselbe Entität anlegen.</p>
                             <p class="text-muted" invisible="source != 'daily'">Liegt die Ausschaltzeit vor der Einschaltzeit, läuft das Zeitfenster automatisch über Mitternacht, z. B. 23:00–01:00.</p>
+                            <p class="text-muted" invisible="source != 'project'">Bei einer Projekt-Automatik wählst du das Odoo-Projekt aus und trägst den für die Gebäudesteuerung relevanten Beginn und das Ende manuell ein. Bei Ende nach Mitternacht bitte das Folgedatum verwenden, z. B. 12.02.2027 14:00 bis 13.02.2027 03:00.</p>
+                            <p class="text-muted" invisible="source != 'project'">Eine Projekt-Vorlage übernimmt Geräte, Vor-/Nachlauf und optionale Sensorbedingungen. Die übernommenen Werte bleiben in der konkreten Projektregel frei anpassbar.</p>
+                            <p class="text-muted" invisible="source != 'project'">Wenn sich Projekt-, Kino-, Veranstaltungs- oder Zeitregeln für dasselbe Gerät überschneiden, bleibt das Gerät eingeschaltet, solange mindestens eine dieser Regeln noch aktiv ist.</p>
                         </group>
                         <group string="Optionale Sensorbedingungen">
                             <field name="condition_entity_ids"

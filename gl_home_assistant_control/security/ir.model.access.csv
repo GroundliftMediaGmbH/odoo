@@ -13,3 +13,4 @@ access_gl_ha_dashboard_viewer,gl.ha.dashboard viewer,model_gl_ha_dashboard,gl_ho
 access_gl_ha_dashboard_manager,gl.ha.dashboard manager,model_gl_ha_dashboard,gl_home_assistant_control.group_ha_manager,1,1,1,1
 access_gl_ha_dashboard_page_viewer,gl.ha.dashboard.page viewer,model_gl_ha_dashboard_page,gl_home_assistant_control.group_ha_viewer,1,0,0,0
 access_gl_ha_dashboard_page_manager,gl.ha.dashboard.page manager,model_gl_ha_dashboard_page,gl_home_assistant_control.group_ha_manager,1,1,1,1
+access_gl_ha_project_template_manager,gl.ha.project.template manager,model_gl_ha_project_template,gl_home_assistant_control.group_ha_manager,1,1,1,1

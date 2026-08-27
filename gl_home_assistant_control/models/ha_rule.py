@@ -23,6 +23,7 @@ class GlHaAutomationRule(models.Model):
         ("event", "Groundlift Veranstaltungen"),
         ("cinema", "Kinovorstellungen"),
         ("daily", "Tägliches Zeitprogramm"),
+        ("project", "Odoo-Projekt (manuell)"),
     ], required=True, default="event")
 
     # Neue Mehrfachauswahl. Die beiden alten Many2one-Felder bleiben bewusst im
@@ -49,12 +50,12 @@ class GlHaAutomationRule(models.Model):
     minutes_before = fields.Integer(
         string="Einschalten vor Beginn (Min.)",
         default=60,
-        help="Bei Kino: Vorlauf vor der ersten Vorstellung des jeweiligen Tages.",
+        help="Bei Kino: Vorlauf vor der ersten Vorstellung des Tages; bei Veranstaltung/Projekt: Vorlauf vor dem jeweiligen Beginn.",
     )
     minutes_after = fields.Integer(
         string="Ausschalten nach Ende (Min.)",
         default=60,
-        help="Bei Kino: Nachlauf nach dem Ende der letzten Vorstellung des jeweiligen Tages.",
+        help="Bei Kino: Nachlauf nach der letzten Vorstellung des Tages; bei Veranstaltung/Projekt: Nachlauf nach dem jeweiligen Ende.",
     )
 
     # Zeitgesteuerte Automatik unabhängig von Kino/Veranstaltungen. Mehrere
@@ -77,6 +78,33 @@ class GlHaAutomationRule(models.Model):
     daily_friday = fields.Boolean(string="Fr", default=True)
     daily_saturday = fields.Boolean(string="Sa", default=True)
     daily_sunday = fields.Boolean(string="So", default=True)
+
+    # Projektbezogene Automatik: Das Odoo-Projekt dient als eindeutige Referenz.
+    # Beginn und Ende werden bewusst in dieser App manuell gepflegt, damit auch
+    # Projekte ohne passende Datetime-Felder (oder mit abweichender Projektlaufzeit)
+    # exakt für die Gebäudesteuerung terminiert werden können.
+    project_id = fields.Many2one(
+        "project.project",
+        string="Odoo-Projekt",
+        ondelete="set null",
+        index=True,
+        help="Projekt, an dem diese Automatik hängt.",
+    )
+    project_template_id = fields.Many2one(
+        "gl.ha.project.template",
+        string="Projekt-Vorlage",
+        ondelete="set null",
+        domain="[('active','=',True)]",
+        help="Die Vorlage kopiert Geräte, Vor-/Nachlauf und optionale Sensorbedingungen in diese Regel. Danach können alle Werte projektspezifisch angepasst werden.",
+    )
+    project_start_at = fields.Datetime(
+        string="Projektbeginn",
+        help="Manuell gepflegter Beginn des für die Gebäudesteuerung relevanten Projektzeitraums.",
+    )
+    project_end_at = fields.Datetime(
+        string="Projektende",
+        help="Manuell gepflegtes Ende. Bei Veranstaltungen über Mitternacht bitte das Folgedatum wählen, z. B. 13.02.2027 03:00.",
+    )
 
     condition_entity_ids = fields.Many2many(
         "gl.ha.entity",
@@ -164,6 +192,38 @@ class GlHaAutomationRule(models.Model):
         for rec in self:
             if not rec.target_entity_ids and not rec.target_entity_id:
                 raise ValidationError(_("Bitte mindestens eine zu schaltende Entität auswählen."))
+
+    @api.constrains("source", "project_id", "project_start_at", "project_end_at")
+    def _check_project_timer(self):
+        for rec in self:
+            if rec.source != "project":
+                continue
+            if not rec.project_id:
+                raise ValidationError(_("Bitte für die Projekt-Automatik ein Odoo-Projekt auswählen."))
+            if not rec.project_start_at or not rec.project_end_at:
+                raise ValidationError(_("Bitte Projektbeginn und Projektende vollständig eintragen."))
+            if fields.Datetime.to_datetime(rec.project_end_at) <= fields.Datetime.to_datetime(rec.project_start_at):
+                raise ValidationError(_("Das Projektende muss nach dem Projektbeginn liegen. Bei Ende nach Mitternacht bitte das Folgedatum auswählen."))
+
+    @api.onchange("project_template_id")
+    def _onchange_project_template_id(self):
+        for rec in self:
+            template = rec.project_template_id
+            if not template:
+                continue
+            rec.target_entity_ids = template.target_entity_ids
+            rec.minutes_before = template.minutes_before
+            rec.minutes_after = template.minutes_after
+            rec.condition_entity_ids = template.condition_entity_ids
+            rec.condition_match_mode = template.condition_match_mode
+            rec.condition_operator = template.condition_operator
+            rec.condition_threshold = template.condition_threshold
+
+    @api.onchange("project_id")
+    def _onchange_project_id(self):
+        for rec in self:
+            if rec.project_id and not rec.name:
+                rec.name = _("Projekt – %s") % rec.project_id.display_name
 
     @api.model
     def _timezone(self, config=None):
@@ -313,6 +373,15 @@ class GlHaAutomationRule(models.Model):
                     return True
             return False
 
+        if self.source == "project":
+            if not self.project_id or not self.project_start_at or not self.project_end_at:
+                return False
+            if "active" in self.project_id._fields and not self.project_id.active:
+                return False
+            effective_start = fields.Datetime.to_datetime(self.project_start_at) - timedelta(minutes=self.minutes_before)
+            effective_end = fields.Datetime.to_datetime(self.project_end_at) + timedelta(minutes=self.minutes_after)
+            return effective_start <= now <= effective_end
+
         return bool(self.env["gl.ha.schedule.window"].sudo().search_count([
             ("source", "=", self.source),
             ("start_at", "<=", now + timedelta(minutes=self.minutes_before)),
@@ -339,7 +408,7 @@ class GlHaAutomationRule(models.Model):
         if not rules:
             return []
 
-        schedule_rules = rules.filtered(lambda r: r.source != "daily")
+        schedule_rules = rules.filtered(lambda r: r.source in ("event", "cinema"))
         max_before = max([r.minutes_before for r in schedule_rules] or [0])
         max_after = max([r.minutes_after for r in schedule_rules] or [0])
         windows = self.env["gl.ha.schedule.window"].sudo().search([
@@ -403,6 +472,22 @@ class GlHaAutomationRule(models.Model):
                             "daily", _("Zeitprogramm"), rule._daily_days_label(),
                         )
                     day_cursor += timedelta(days=1)
+                continue
+
+            if rule.source == "project":
+                if not rule.project_id or not rule.project_start_at or not rule.project_end_at:
+                    continue
+                if "active" in rule.project_id._fields and not rule.project_id.active:
+                    continue
+                effective_start = fields.Datetime.to_datetime(rule.project_start_at) - timedelta(minutes=rule.minutes_before)
+                effective_end = fields.Datetime.to_datetime(rule.project_end_at) + timedelta(minutes=rule.minutes_after)
+                template_detail = _("Odoo-Projekt")
+                if rule.project_template_id:
+                    template_detail += _(" · Vorlage: %s") % rule.project_template_id.name
+                add_detail(
+                    rule, targets, local_day(effective_start), effective_start, effective_end,
+                    "project", rule.project_id.display_name or _("Projekt"), template_detail,
+                )
                 continue
 
             for window in windows_by_source.get(rule.source, []):
