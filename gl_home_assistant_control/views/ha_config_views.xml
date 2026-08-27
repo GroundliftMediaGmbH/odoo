@@ -87,8 +87,10 @@
     </record>
 
     <record id="action_gl_ha_config" model="ir.actions.act_window">
-        <field name="name">Einstellungen</field>
+        <field name="name">Home Assistant Einstellungen</field>
         <field name="res_model">gl.ha.config</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">form</field>
+        <field name="res_id" ref="gl_home_assistant_control.default_ha_config"/>
+        <field name="target">current</field>
     </record>
 </odoo>
