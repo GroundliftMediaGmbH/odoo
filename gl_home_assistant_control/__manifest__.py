@@ -2,7 +2,7 @@
 {
     "name": "GROUNDLIFT Home Assistant Steuerung",
     "summary": "Home-Assistant-Dashboard, Sensorverlauf sowie Event-, Kino-, Zeit- und Projekt-Automationen",
-    "version": "19.0.1.1.4",
+    "version": "19.0.1.1.5",
     "category": "Operations/IoT",
     "author": "GROUNDLIFT / ChatGPT",
     "license": "LGPL-3",

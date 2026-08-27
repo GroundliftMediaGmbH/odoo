@@ -35,21 +35,52 @@
                 <sheet>
                     <div class="oe_title"><h1><field name="name"/></h1></div>
                     <group>
-                        <group string="Zeitquelle und Ziele">
-                            <field name="active"/>
-                            <field name="sequence"/>
-                            <field name="source"/>
-                            <field name="project_id" invisible="source != 'project'" options="{'no_create': True}"/>
-                            <field name="project_template_id" invisible="source != 'project'" options="{'no_create': True, 'no_create_edit': True}"/>
-                            <field name="project_start_at" invisible="source != 'project'"/>
-                            <field name="project_end_at" invisible="source != 'project'"/>
+                        <group string="Zeitquelle und Ziele" col="2">
+                            <!--
+                                Die Labels werden absichtlich explizit ausgegeben.
+                                In Odoo 19 kann die automatische Label-Erzeugung in
+                                dieser gemischten Gruppe (dynamisch unsichtbare Felder,
+                                M2M-Tags und Hilfetexte) je nach View-Rendering entfallen.
+                                Mit label + nolabel bleibt die Beschriftung stabil.
+                            -->
+                            <label for="active" string="Aktiv"/>
+                            <field name="active" nolabel="1"/>
+
+                            <label for="sequence" string="Reihenfolge"/>
+                            <field name="sequence" nolabel="1"/>
+
+                            <label for="source" string="Zeitquelle"/>
+                            <field name="source" nolabel="1"/>
+
+                            <label for="project_id" string="Odoo-Projekt" invisible="source != 'project'"/>
+                            <field name="project_id" nolabel="1" invisible="source != 'project'" options="{'no_create': True}"/>
+
+                            <label for="project_template_id" string="Projekt-Vorlage" invisible="source != 'project'"/>
+                            <field name="project_template_id" nolabel="1" invisible="source != 'project'" options="{'no_create': True, 'no_create_edit': True}"/>
+
+                            <label for="project_start_at" string="Projektbeginn" invisible="source != 'project'"/>
+                            <field name="project_start_at" nolabel="1" invisible="source != 'project'"/>
+
+                            <label for="project_end_at" string="Projektende" invisible="source != 'project'"/>
+                            <field name="project_end_at" nolabel="1" invisible="source != 'project'"/>
+
+                            <label for="target_entity_ids" string="Zu schaltende Entitäten"/>
                             <field name="target_entity_ids"
+                                   nolabel="1"
                                    widget="many2many_tags"
                                    options="{'no_create': True, 'no_create_edit': True}"/>
-                            <field name="minutes_before" invisible="source == 'daily'"/>
-                            <field name="minutes_after" invisible="source == 'daily'"/>
-                            <field name="daily_start_hour" widget="float_time" invisible="source != 'daily'"/>
-                            <field name="daily_end_hour" widget="float_time" invisible="source != 'daily'"/>
+
+                            <label for="minutes_before" string="Einschalten vor Beginn (Min.)" invisible="source == 'daily'"/>
+                            <field name="minutes_before" nolabel="1" invisible="source == 'daily'"/>
+
+                            <label for="minutes_after" string="Ausschalten nach Ende (Min.)" invisible="source == 'daily'"/>
+                            <field name="minutes_after" nolabel="1" invisible="source == 'daily'"/>
+
+                            <label for="daily_start_hour" string="Einschalten um" invisible="source != 'daily'"/>
+                            <field name="daily_start_hour" nolabel="1" widget="float_time" invisible="source != 'daily'"/>
+
+                            <label for="daily_end_hour" string="Ausschalten um" invisible="source != 'daily'"/>
+                            <field name="daily_end_hour" nolabel="1" widget="float_time" invisible="source != 'daily'"/>
                             <group string="Wochentage" invisible="source != 'daily'" col="7">
                                 <field name="daily_monday"/>
                                 <field name="daily_tuesday"/>
