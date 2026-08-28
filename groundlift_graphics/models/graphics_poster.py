@@ -2,6 +2,7 @@ import base64
 import io
 import html as html_tools
 import re
+from datetime import timedelta
 from pathlib import Path
 from urllib.parse import quote, urlsplit, urlunsplit
 
@@ -120,6 +121,8 @@ class GraphicsPoster(models.Model):
     photo_credit = fields.Char(string="Fotocredit")
     ticket_url = fields.Char(string="Event-/Ticketseite")
     ticket_link_text = fields.Char(string="Ticketlink-Zeile")
+    foyer_admission_text = fields.Char(string="Einlass (Foyer Eingang)")
+    foyer_ticket_price_text = fields.Char(string="Tickets ab (Foyer Eingang)")
     qr_url = fields.Char(string="QR-Code-Ziel")
 
     color_contrast = fields.Boolean(string="Farbkontrast", default=False)
@@ -325,9 +328,11 @@ class GraphicsPoster(models.Model):
         local_dt = self._event_datetime_local(event)
         date_text = ""
         time_text = ""
+        foyer_admission_text = ""
         if local_dt:
             date_text = f"{WEEKDAYS_DE[local_dt.weekday()]} {local_dt:%d.%m.}"
             time_text = f"{local_dt:%H.%M} UHR"
+            foyer_admission_text = f"{(local_dt - timedelta(hours=1)):%H:%M} UHR"
 
         event_type = self._get_groundlift_category_label(event)
         if not event_type:
@@ -363,12 +368,42 @@ class GraphicsPoster(models.Model):
             "ticket_url": ticket_url,
             "qr_url": ticket_url,
             "ticket_link_text": (f"TICKETS & INFOS UNTER: {display_url.upper()}" if display_url else ""),
+            "foyer_admission_text": foyer_admission_text,
+            "foyer_ticket_price_text": self._lowest_event_ticket_price_text(event),
             "color_1": template.default_color_1 or "#000033",
             "color_2": template.default_color_2 or "#002E59",
             "sticker_text": template.default_sticker_text or "LIVE\nON\nSTAGE",
             "sticker_color": template.default_sticker_color or "#D6331F",
             "output_filename": output_filename,
         }
+
+    @api.model
+    def _lowest_event_ticket_price_text(self, event):
+        """Return the lowest configured event-ticket price for the foyer graphic."""
+        event.ensure_one()
+        tickets = getattr(event, "event_ticket_ids", False)
+        if not tickets or "price" not in tickets._fields:
+            return ""
+
+        prices = [ticket.price for ticket in tickets if ticket.price is not False]
+        if not prices:
+            return ""
+
+        price = min(prices)
+        currency = event.company_id.currency_id or self.env.company.currency_id
+        rounded = currency.round(price) if currency else price
+        text = f"{rounded:.2f}".replace(".", ",")
+        if text.endswith(",00"):
+            text = text[:-3]
+        currency_label = (currency.name if currency else "EUR") or "EUR"
+        return f"{text} {currency_label}"
+
+    @api.model
+    def _default_foyer_admission_text(self, event):
+        local_dt = self._event_datetime_local(event)
+        if not local_dt:
+            return ""
+        return f"{(local_dt - timedelta(hours=1)):%H:%M} UHR"
 
     @api.model
     def _split_event_name(self, name):
@@ -595,6 +630,8 @@ class GraphicsPoster(models.Model):
                 "photo_credit": self.photo_credit or "",
                 "ticket_url": self.ticket_url or "",
                 "ticket_link_text": self.ticket_link_text or "",
+                "foyer_admission_text": self.foyer_admission_text or self._default_foyer_admission_text(self.event_id),
+                "foyer_ticket_price_text": self.foyer_ticket_price_text or self._lowest_event_ticket_price_text(self.event_id),
                 "qr_url": self.qr_url or "",
                 "color_contrast": bool(self.color_contrast),
                 "color_1": self.color_1 or "#000033",
@@ -633,7 +670,8 @@ class GraphicsPoster(models.Model):
         self.check_access_rule("write")
         allowed = {
             "source_image", "source_image_filename", "external_logo_image", "external_logo_filename", "claim", "event_title", "event_subtitle",
-            "date_text", "time_text", "event_type_text", "summary_text", "photo_credit", "ticket_url", "ticket_link_text", "qr_url",
+            "date_text", "time_text", "event_type_text", "summary_text", "photo_credit", "ticket_url", "ticket_link_text",
+            "foyer_admission_text", "foyer_ticket_price_text", "qr_url",
             "color_contrast", "color_1", "color_2", "sticker_mode", "sticker_text", "sticker_color", "drink_card_profile_id", "editor_state", "output_filename",
         }
         write_values = {key: value for key, value in (values or {}).items() if key in allowed}
