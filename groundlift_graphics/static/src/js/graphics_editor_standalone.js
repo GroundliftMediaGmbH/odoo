@@ -3,7 +3,7 @@
 
     const root = document.getElementById("gl-editor-root");
     const posterId = parseInt(root?.dataset?.posterId || "0", 10);
-    const APP_VERSION = "19.0.1.7.1";
+    const APP_VERSION = "19.0.1.7.2";
 
     const state = {
         loading: true,
@@ -82,6 +82,8 @@
         ["summary_text", "Kurzzusammenfassung"],
         ["photo_credit", "Fotocredit"],
         ["ticket_link_text", "Ticketlink"],
+        ["admission_time_text", "Einlasszeit (Foyer Eingang)"],
+        ["ticket_price_text", "Preis (Foyer Eingang)"],
     ];
 
     const TEXT_FIELD_LABELS = Object.fromEntries(TEXT_FIELDS);
@@ -1232,7 +1234,10 @@
         const contentShift = resolveTemplateContentShift(template, box);
 
         for (const overlay of info.staticOverlays || []) {
-            if (["static_admission_price", "static_begin"].includes(overlay.role)) continue;
+            // Diese drei Ebenen werden gezielt später gezeichnet:
+            // - Einlass/Preis werden dynamisch als editierbare Texte gerendert.
+            // - Der Foyer-Eingang-Störer muss als oberste Design-Ebene vor Bild und Rahmen liegen.
+            if (["static_admission_price", "static_begin", "static_admission_sticker"].includes(overlay.role)) continue;
             safeDrawImage(ctx, overlay.image, 0, 0, template.canvas_width, template.canvas_height, overlay.role || "Static Overlay");
         }
 
@@ -1314,6 +1319,21 @@
             } else {
                 await safeLayer("Störer", () => drawCroppedLayer(ctx, img.sticker, box.sticker, applyBoxVariant(box.sticker, variant.sticker)));
             }
+        }
+
+        // Im Foyer-Eingang ist „Live on Stage“ ein separates statisches Overlay.
+        // Es wird bewusst als letzte sichtbare Design-Ebene gezeichnet, damit weder
+        // Veranstaltungsbild noch Rahmen oder andere Overlays darüber liegen können.
+        if (templateKey === "foyer_eingang" && img.static_admission_sticker) {
+            safeDrawImage(
+                ctx,
+                img.static_admission_sticker,
+                0,
+                0,
+                template.canvas_width,
+                template.canvas_height,
+                "Foyer Eingang – Live on Stage",
+            );
         }
 
         if (showGuides) {
@@ -1605,19 +1625,64 @@
         if (!bbox) return;
         const admission = normalizeAdmissionTime(state.fields.admission_time_text);
         const price = normalizeTicketPrice(state.fields.ticket_price_text);
-        const parts = [];
-        if (admission) parts.push(`EINLASS AB ${admission}`);
-        if (price) parts.push(`TICKETS AB: ${price}`);
-        if (!parts.length) return;
-        drawSingleLine(
-            ctx,
-            parts.join(" | "),
-            expandedTextBox(bbox, template, 0.055, 10),
-            "600 42px GroundliftCondensed, Arial Narrow, Arial, sans-serif",
-            "center",
-            template,
-            null,
-        );
+        if (!admission && !price) return;
+
+        const target = expandedTextBox(bbox, template, 0.055, 10);
+        const baseFont = "600 42px GroundliftCondensed, Arial Narrow, Arial, sans-serif";
+
+        // Die Originalvorlage trennt Einlass und Preis ungefähr bei 57,6 % der
+        // Referenzzeile. Beide Texte bekommen eigene Zielboxen und damit eigene
+        // Text-Styles (Position X/Y, Schriftgröße, Schriftart und Ausrichtung).
+        // So bleibt die bisherige Standardoptik erhalten, während beide Angaben
+        // unabhängig voneinander justiert werden können.
+        const separatorX = bbox.x + bbox.width * 0.576;
+        const separatorGap = Math.max(18, Math.round((template?.canvas_width || 1920) * 0.012));
+        const leftBox = {
+            x: target.x,
+            y: target.y,
+            width: Math.max(1, separatorX - separatorGap - target.x),
+            height: target.height,
+        };
+        const rightBox = {
+            x: separatorX + separatorGap,
+            y: target.y,
+            width: Math.max(1, target.x + target.width - separatorX - separatorGap),
+            height: target.height,
+        };
+
+        if (admission) {
+            drawSingleLine(
+                ctx,
+                `EINLASS AB ${admission}`,
+                leftBox,
+                baseFont,
+                price ? "right" : "center",
+                template,
+                "admission_time_text",
+            );
+        }
+        if (price) {
+            drawSingleLine(
+                ctx,
+                `TICKETS AB: ${price}`,
+                rightBox,
+                baseFont,
+                admission ? "left" : "center",
+                template,
+                "ticket_price_text",
+            );
+        }
+        if (admission && price) {
+            drawSingleLine(
+                ctx,
+                "|",
+                { x: separatorX - separatorGap, y: target.y, width: separatorGap * 2, height: target.height },
+                baseFont,
+                "center",
+                template,
+                null,
+            );
+        }
     }
 
     function drawTheaterBegin(ctx, bbox, template) {
