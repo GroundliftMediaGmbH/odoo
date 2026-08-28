@@ -731,8 +731,8 @@
                             ${textarea("summary_text", "Kurzzusammenfassung", 4)}
                             ${input("photo_credit", "Fotocredit")}
                             ${input("ticket_link_text", "Ticketlink-Zeile")}
-                            ${input("foyer_admission_text", "Einlass – Foyer Eingang")}
-                            ${input("foyer_ticket_price_text", "Tickets ab – Foyer Eingang")}
+                            ${input("admission_time_text", "Foyer Eingang – Einlass (Uhrzeit)")}
+                            ${input("ticket_price_text", "Foyer Eingang – Tickets ab")}
                             ${input("qr_url", "QR-Code-Ziel")}
                         </div>
                         <div class="gl-section">
@@ -1232,9 +1232,7 @@
         const contentShift = resolveTemplateContentShift(template, box);
 
         for (const overlay of info.staticOverlays || []) {
-            const dynamicFoyerLine = templateKey === "foyer_eingang" && overlay.role === "static_admission_price";
-            const dynamicTheaterBegin = templateKey === "theater_konzert" && overlay.role === "static_begin";
-            if (dynamicFoyerLine || dynamicTheaterBegin) continue;
+            if (["static_admission_price", "static_begin"].includes(overlay.role)) continue;
             safeDrawImage(ctx, overlay.image, 0, 0, template.canvas_width, template.canvas_height, overlay.role || "Static Overlay");
         }
 
@@ -1274,12 +1272,6 @@
             safeLayer("Untertitel", () => drawSubtitleOnly(ctx, textBox("subtitle"), textRegions("subtitle"), template));
             safeLayer("Kurzzusammenfassung", () => drawParagraphBox(ctx, state.fields.summary_text, textBox("summary"), template));
             safeLayer("Fotocredit", () => drawPhotoCredit(ctx, state.fields.photo_credit, photoCreditBox, photoCreditFont, template));
-            if (templateKey === "foyer_eingang") {
-                safeLayer("Einlass/Tickets ab", () => drawFoyerAdmissionPrice(ctx, box.static_admission_price, template));
-            }
-            if (templateKey === "theater_konzert") {
-                safeLayer("Beginn", () => drawTheaterBegin(ctx, box.static_begin, template));
-            }
             if (ticketLinkBox) {
                 safeLayer("Ticketlink", () => drawSingleLine(ctx, state.fields.ticket_link_text, ticketLinkBox, "600 28px GroundliftCondensed, Arial Narrow, Arial, sans-serif", "center", template, "ticket_link_text"));
             }
@@ -1294,6 +1286,13 @@
             ctx.restore();
         } else {
             await drawShiftedContent();
+        }
+
+        if (templateKey === "foyer_eingang") {
+            safeLayer("Einlass / Ticketpreis", () => drawFoyerAdmissionPrice(ctx, box.static_admission_price, template));
+        }
+        if (templateKey === "theater_konzert") {
+            safeLayer("Beginn", () => drawTheaterBegin(ctx, box.static_begin, template));
         }
 
         if (img.logo) {
@@ -1552,6 +1551,79 @@
             };
         }
         return box.external_logo || null;
+    }
+
+    function cleanGraphicValue(value) {
+        return String(value || "").trim().replace(/\s+/g, " ");
+    }
+
+    function normalizeAdmissionTime(value) {
+        let result = cleanGraphicValue(value).toUpperCase();
+        result = result.replace(/^EINLASS\s+(?:AB\s+)?/, "").trim();
+        if (!result) return "";
+        if (!/\bUHR\b/.test(result)) result += " UHR";
+        return result;
+    }
+
+    function normalizeTicketPrice(value) {
+        return cleanGraphicValue(value)
+            .replace(/^TICKETS?\s*(?:AB)?\s*:?\s*/i, "")
+            .trim();
+    }
+
+    function normalizeBeginTime(value) {
+        let result = cleanGraphicValue(value).toUpperCase();
+        result = result.replace(/^BEGINN\s+/, "").trim();
+        result = result.replace(/\bUHR\b/g, "").trim();
+        const match = result.match(/^(\d{1,2})[.:](\d{2})$/);
+        if (match) {
+            return match[2] === "00" ? `${parseInt(match[1], 10)} UHR` : `${parseInt(match[1], 10)}:${match[2]} UHR`;
+        }
+        return result ? `${result} UHR` : "";
+    }
+
+    function expandedTextBox(bbox, template, xPaddingRatio = 0.035, yPadding = 8) {
+        if (!bbox) return null;
+        const padX = Math.round((template?.canvas_width || 1920) * xPaddingRatio);
+        return {
+            x: Math.max(0, bbox.x - padX),
+            y: Math.max(0, bbox.y - yPadding),
+            width: Math.min((template?.canvas_width || 1920) - Math.max(0, bbox.x - padX), bbox.width + padX * 2),
+            height: bbox.height + yPadding * 2,
+        };
+    }
+
+    function drawFoyerAdmissionPrice(ctx, bbox, template) {
+        if (!bbox) return;
+        const admission = normalizeAdmissionTime(state.fields.admission_time_text);
+        const price = normalizeTicketPrice(state.fields.ticket_price_text);
+        const parts = [];
+        if (admission) parts.push(`EINLASS AB ${admission}`);
+        if (price) parts.push(`TICKETS AB: ${price}`);
+        if (!parts.length) return;
+        drawSingleLine(
+            ctx,
+            parts.join(" | "),
+            expandedTextBox(bbox, template, 0.055, 10),
+            "600 42px GroundliftCondensed, Arial Narrow, Arial, sans-serif",
+            "center",
+            template,
+            null,
+        );
+    }
+
+    function drawTheaterBegin(ctx, bbox, template) {
+        const beginTime = normalizeBeginTime(state.fields.time_text);
+        if (!bbox || !beginTime) return;
+        drawSingleLine(
+            ctx,
+            `BEGINN ${beginTime}`,
+            expandedTextBox(bbox, template, 0.035, 10),
+            "600 42px GroundliftCondensed, Arial Narrow, Arial, sans-serif",
+            "center",
+            template,
+            "time_text",
+        );
     }
 
     function drawTitleSubtitleStack(ctx, bbox, title, subtitle, options = {}) {
@@ -1952,44 +2024,6 @@
         drawParagraph(ctx, String(text), applyTextBoxStyle(bbox, style), overrideFont("400 34px GroundliftRegular, Arial, sans-serif", style));
     }
 
-    function normalizedClockText(value, compactFullHour = false) {
-        let text = String(value || "").trim().toUpperCase().replace(/\s*UHR\s*$/i, "");
-        text = text.replace(/^(?:BEGINN|KONZERTBEGINN|EINLASS(?:\s+AB)?)\s*/i, "").trim();
-        text = text.replace(/(\d{1,2})[.](\d{2})$/, "$1:$2");
-        if (compactFullHour) text = text.replace(/:00$/, "");
-        return text ? `${text} UHR` : "";
-    }
-
-    function drawFoyerAdmissionPrice(ctx, bbox, template) {
-        if (!bbox) return;
-        const admission = normalizedClockText(state.fields.foyer_admission_text, false);
-        const price = String(state.fields.foyer_ticket_price_text || "").trim().toUpperCase();
-        const parts = [];
-        if (admission) parts.push(`EINLASS AB ${admission}`);
-        if (price) parts.push(`TICKETS AB: ${price}`);
-        if (!parts.length) return;
-        drawFitText(ctx, parts.join("  |  "), bbox, "400 36px GroundliftRegular, Arial, sans-serif", "center", {
-            allowWrap: false,
-            valign: "middle",
-            lineHeight: 1.0,
-            minSize: 16,
-            maxSize: 36,
-        });
-    }
-
-    function drawTheaterBegin(ctx, bbox, template) {
-        if (!bbox) return;
-        const begin = normalizedClockText(state.fields.time_text, true);
-        if (!begin) return;
-        drawFitText(ctx, `BEGINN ${begin}`, bbox, "400 36px GroundliftRegular, Arial, sans-serif", "left", {
-            allowWrap: false,
-            valign: "middle",
-            lineHeight: 1.0,
-            minSize: 16,
-            maxSize: 36,
-        });
-    }
-
     function drawSingleLine(ctx, text, bbox, font, align = "left", template = null, field = null) {
         if (!bbox || !text) return;
         const style = field ? getTextStyle(template?.key, field) : defaultTextStyle();
@@ -2336,8 +2370,8 @@
                 photo_credit: p.photo_credit || "",
                 ticket_url: p.ticket_url || "",
                 ticket_link_text: p.ticket_link_text || "",
-                foyer_admission_text: p.foyer_admission_text || "",
-                foyer_ticket_price_text: p.foyer_ticket_price_text || "",
+                admission_time_text: p.admission_time_text || "",
+                ticket_price_text: p.ticket_price_text || "",
                 qr_url: p.qr_url || "",
                 color_1: p.color_1 || "#000033",
                 color_2: p.color_2 || "#002E59",
