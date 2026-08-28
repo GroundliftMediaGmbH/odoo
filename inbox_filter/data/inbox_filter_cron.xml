@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="ir_cron_inbox_filter_process_batches" model="ir.cron">
+        <field name="name">Inbox Filter: Batch-Verarbeitung fortsetzen</field>
+        <field name="model_id" ref="model_inbox_filter_batch"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_process_batches()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">minutes</field>
+        <field name="active">True</field>
+    </record>
+    <record id="ir_cron_inbox_filter_retry_errors" model="ir.cron">
+        <field name="name">Inbox Filter: Fehler regelmäßig neu prüfen</field>
+        <field name="model_id" ref="model_inbox_filter_batch"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_create_retry_batch()</field>
+        <field name="interval_number">15</field>
+        <field name="interval_type">minutes</field>
+        <field name="active">True</field>
+    </record>
+</odoo>

@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_ha_rule_list" model="ir.ui.view">
+        <field name="name">gl.ha.automation.rule.list</field>
+        <field name="model">gl.ha.automation.rule</field>
+        <field name="arch" type="xml">
+            <list string="Automatikregeln">
+                <field name="sequence" widget="handle"/>
+                <field name="active"/>
+                <field name="name"/>
+                <field name="source"/>
+                <field name="project_id" optional="show" invisible="source != 'project'"/>
+                <field name="project_template_id" optional="show" invisible="source != 'project'"/>
+                <field name="target_entity_ids" widget="many2many_tags"/>
+                <field name="minutes_before" invisible="source == 'daily'"/>
+                <field name="minutes_after" invisible="source == 'daily'"/>
+                <field name="project_start_at" optional="show" invisible="source != 'project'"/>
+                <field name="project_end_at" optional="show" invisible="source != 'project'"/>
+                <field name="daily_start_hour" widget="float_time" invisible="source != 'daily'"/>
+                <field name="daily_end_hour" widget="float_time" invisible="source != 'daily'"/>
+                <field name="condition_entity_ids" widget="many2many_tags" optional="show"/>
+                <field name="condition_match_mode" optional="hide"/>
+                <field name="condition_threshold" optional="show"/>
+                <field name="solar_clear_before_minutes" optional="hide"/>
+                <field name="solar_cloudy_before_minutes" optional="hide"/>
+                <field name="solar_cloud_threshold" optional="hide"/>
+                <field name="last_desired_state"/>
+                <field name="last_evaluated_at"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_ha_rule_form" model="ir.ui.view">
+        <field name="name">gl.ha.automation.rule.form</field>
+        <field name="model">gl.ha.automation.rule</field>
+        <field name="arch" type="xml">
+            <form string="Automatikregel">
+                <sheet>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <group>
+                        <group string="Zeitquelle und Ziele" col="2">
+                            <!--
+                                Die Labels werden absichtlich explizit ausgegeben.
+                                In Odoo 19 kann die automatische Label-Erzeugung in
+                                dieser gemischten Gruppe (dynamisch unsichtbare Felder,
+                                M2M-Tags und Hilfetexte) je nach View-Rendering entfallen.
+                                Mit label + nolabel bleibt die Beschriftung stabil.
+                            -->
+                            <label for="active" string="Aktiv"/>
+                            <field name="active" nolabel="1"/>
+
+                            <label for="sequence" string="Reihenfolge"/>
+                            <field name="sequence" nolabel="1"/>
+
+                            <label for="source" string="Zeitquelle"/>
+                            <field name="source" nolabel="1"/>
+
+                            <label for="project_id" string="Odoo-Projekt" invisible="source != 'project'"/>
+                            <field name="project_id" nolabel="1" invisible="source != 'project'" options="{'no_create': True}"/>
+
+                            <label for="project_template_id" string="Projekt-Vorlage" invisible="source != 'project'"/>
+                            <field name="project_template_id" nolabel="1" invisible="source != 'project'" options="{'no_create': True, 'no_create_edit': True}"/>
+
+                            <label for="project_start_at" string="Projektbeginn" invisible="source != 'project'"/>
+                            <field name="project_start_at" nolabel="1" invisible="source != 'project'"/>
+
+                            <label for="project_end_at" string="Projektende" invisible="source != 'project'"/>
+                            <field name="project_end_at" nolabel="1" invisible="source != 'project'"/>
+
+                            <label for="target_entity_ids" string="Zu schaltende Entitäten"/>
+                            <field name="target_entity_ids"
+                                   nolabel="1"
+                                   widget="many2many_tags"
+                                   options="{'no_create': True, 'no_create_edit': True}"/>
+
+                            <label for="minutes_before" string="Einschalten vor Beginn (Min.)" invisible="source == 'daily'"/>
+                            <field name="minutes_before" nolabel="1" invisible="source == 'daily'"/>
+
+                            <label for="minutes_after" string="Ausschalten nach Ende (Min.)" invisible="source == 'daily'"/>
+                            <field name="minutes_after" nolabel="1" invisible="source == 'daily'"/>
+
+                            <label for="daily_start_hour" string="Einschalten um" invisible="source != 'daily'"/>
+                            <field name="daily_start_hour" nolabel="1" widget="float_time" invisible="source != 'daily'"/>
+
+                            <label for="daily_end_hour" string="Ausschalten um" invisible="source != 'daily'"/>
+                            <field name="daily_end_hour" nolabel="1" widget="float_time" invisible="source != 'daily'"/>
+                            <group string="Wochentage" invisible="source != 'daily'" col="7">
+                                <field name="daily_monday"/>
+                                <field name="daily_tuesday"/>
+                                <field name="daily_wednesday"/>
+                                <field name="daily_thursday"/>
+                                <field name="daily_friday"/>
+                                <field name="daily_saturday"/>
+                                <field name="daily_sunday"/>
+                            </group>
+                            <p class="text-muted">Eine Regel kann mehrere Schalter/Lichter gleichzeitig steuern. Alle ausgewählten Entitäten erhalten dieselbe Automatikentscheidung.</p>
+                            <p class="text-muted" invisible="source != 'cinema'">Bei Kino wird pro Kalendertag ein gemeinsames Betriebsfenster gebildet: Vorlauf vor der ersten Vorstellung, Nachlauf nach dem Ende der letzten Vorstellung. Zwischen den Vorstellungen bleibt das Zeitfenster aktiv.</p>
+                            <p class="text-muted" invisible="source != 'daily'">Das tägliche Zeitprogramm schaltet die ausgewählten Geräte an den gewählten Wochentagen zur eingestellten Uhrzeit ein und wieder aus. Beispiel: Lüftung täglich AN 08:00, AUS 08:30. Für mehrere Zeitblöcke am selben Tag einfach mehrere Regeln für dieselbe Entität anlegen.</p>
+                            <p class="text-muted" invisible="source != 'daily'">Liegt die Ausschaltzeit vor der Einschaltzeit, läuft das Zeitfenster automatisch über Mitternacht, z. B. 23:00–01:00.</p>
+                            <p class="text-muted" invisible="source != 'project'">Bei einer Projekt-Automatik wählst du das Odoo-Projekt aus und trägst den für die Gebäudesteuerung relevanten Beginn und das Ende manuell ein. Bei Ende nach Mitternacht bitte das Folgedatum verwenden, z. B. 12.02.2027 14:00 bis 13.02.2027 03:00.</p>
+                            <p class="text-muted" invisible="source != 'project'">Eine Projekt-Vorlage übernimmt Geräte, Vor-/Nachlauf und optionale Sensorbedingungen. Die übernommenen Werte bleiben in der konkreten Projektregel frei anpassbar.</p>
+                            <p class="text-muted" invisible="source != 'project'">Wenn sich Projekt-, Kino-, Veranstaltungs- oder Zeitregeln für dasselbe Gerät überschneiden, bleibt das Gerät eingeschaltet, solange mindestens eine dieser Regeln noch aktiv ist.</p>
+                        </group>
+                        <group string="Optionale Sensorbedingungen" col="2">
+                            <field name="has_solar_condition" invisible="1"/>
+                            <field name="has_cloud_condition" invisible="1"/>
+                            <field name="has_generic_condition" invisible="1"/>
+
+                            <label for="condition_entity_ids" string="Optionale Messsensoren"/>
+                            <field name="condition_entity_ids"
+                                   nolabel="1"
+                                   widget="many2many_tags"
+                                   options="{'no_create': True, 'no_create_edit': True}"/>
+
+                            <label for="condition_match_mode" string="Verknüpfung der Sensoren" invisible="not has_generic_condition"/>
+                            <field name="condition_match_mode" nolabel="1" invisible="not has_generic_condition"/>
+
+                            <label for="condition_operator" string="Operator" invisible="not has_generic_condition"/>
+                            <field name="condition_operator" nolabel="1" invisible="not has_generic_condition"/>
+
+                            <label for="condition_threshold" string="Grenzwert" invisible="not has_generic_condition"/>
+                            <field name="condition_threshold" nolabel="1" invisible="not has_generic_condition"/>
+
+                            <label for="solar_clear_before_minutes" string="Bei wenig Bewölkung: Minuten vor Sonnenzeit" invisible="not has_solar_condition"/>
+                            <field name="solar_clear_before_minutes" nolabel="1" invisible="not has_solar_condition"/>
+
+                            <label for="solar_cloudy_before_minutes" string="Bei Bewölkung: Minuten vor Sonnenzeit" invisible="not has_solar_condition or not has_cloud_condition"/>
+                            <field name="solar_cloudy_before_minutes" nolabel="1" invisible="not has_solar_condition or not has_cloud_condition"/>
+
+                            <label for="solar_cloud_threshold" string="Ab Bewölkung (%)" invisible="not has_solar_condition or not has_cloud_condition"/>
+                            <field name="solar_cloud_threshold" nolabel="1" invisible="not has_solar_condition or not has_cloud_condition"/>
+
+                            <p class="text-muted" invisible="not has_solar_condition">Sonnenaufgang oder Sonnenuntergang wird als dynamischer Zeitanker verwendet. Die tatsächliche Einschaltzeit ist die spätere Zeit aus dem normalen Vorlauf der Regel und dem Sonnen-Trigger. Das Ausschalten bleibt unverändert am Ende der Veranstaltung/des Projekts/Zeitprogramms plus Nachlauf.</p>
+                            <p class="text-muted" invisible="not has_solar_condition or not has_cloud_condition">Beispiel: Sonnenuntergang + Bewölkung auswählen, 60 Minuten bei wenig Bewölkung, 90 Minuten bei Bewölkung und z. B. 60 % Grenzwert. Für die Entscheidung wird die Bewölkungsprognose zur Sonnenzeit verwendet, damit das Licht nicht bei wechselnder Bewölkung wieder aus- und eingeschaltet wird.</p>
+                            <p class="text-muted" invisible="has_solar_condition">Normale Messsensoren werden mit Operator und Grenzwert ausgewertet. Beispiel Außenlicht: Lux-Sensor, „kleiner als“ und 50 Lux.</p>
+                        </group>
+                    </group>
+                    <!-- Legacy-Felder nur für verlustfreie Updates älterer Regeln. -->
+                    <field name="target_entity_id" invisible="1"/>
+                    <field name="condition_entity_id" invisible="1"/>
+                    <group string="Letzte Auswertung">
+                        <field name="last_evaluated_at" readonly="1"/>
+                        <field name="last_desired_state" readonly="1"/>
+                        <field name="last_action_at" readonly="1"/>
+                        <field name="last_message" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_ha_rule" model="ir.actions.act_window">
+        <field name="name">Automatikregeln</field>
+        <field name="res_model">gl.ha.automation.rule</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

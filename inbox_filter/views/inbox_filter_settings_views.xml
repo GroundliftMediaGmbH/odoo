@@ -21,6 +21,17 @@
                         <field name="limit"/>
                         <field name="auto_sort_enabled"/>
                     </group>
+                    <group string="OpenAI Rate-Limit Schutz">
+                        <field name="rate_limit_tpm"/>
+                        <field name="rate_safety_percent"/>
+                        <field name="min_request_interval"/>
+                        <field name="classification_max_completion_tokens"/>
+                        <field name="error_retry_enabled"/>
+                        <field name="rate_observed_limit_tokens" readonly="1"/>
+                        <field name="rate_remaining_tokens" readonly="1"/>
+                        <field name="rate_blocked_until" readonly="1"/>
+                        <field name="rate_reset_at" readonly="1"/>
+                    </group>
                     <group string="Kundensupport">
                         <field name="customer_care_email"/>
                     </group>

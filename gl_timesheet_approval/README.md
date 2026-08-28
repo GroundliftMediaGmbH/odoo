@@ -1,0 +1,202 @@
+# Groundlift Stundenzettel-Prüfung – Odoo 19 SH
+
+Eigenständige Odoo-App für die geschützte, zweistufige Prüfung der monatlichen
+Stundenzettel von Minijobbern und geringfügig Beschäftigten.
+
+## Modulordner
+
+`gl_timesheet_approval`
+
+## Funktionsumfang
+
+- Geschütztes Prüfportal unter `/stundenzettel/pruefung`
+- Zwei Anmeldearten je Prüfer:
+  - bestehender Odoo-Benutzer mit dessen Odoo-Zugangsdaten
+  - frei vergebener Benutzername und frei vergebenes Passwort
+- Prüfer-Kategorien:
+  - `1. Prüfer`
+  - `2. Prüfer`
+- Automatische Erstellung des Vormonats am 1. des Folgemonats
+- Automatische E-Mail an alle aktiven 1. Prüfer:
+  - „Die Stundenzettel von Groundlift von [Monat] sind online“
+- Manueller Button zum Einlesen/Aktualisieren und zum erneuten E-Mail-Versand
+- Datenquelle: abgeschlossene Einträge aus Odoo Anwesenheiten (`hr.attendance`)
+- Es werden ausschließlich Mitarbeitende übernommen, deren technisches Feld **`structure_type_id`** auf `Minijob` oder `Geringfügige Beschäftigung` verweist
+- Andere Beschäftigungsarten, Mitarbeiter-Tags, Jobtitel und frühere manuelle Einschlusswerte werden nicht berücksichtigt
+- Stundenlohn als Mitarbeiter-Override oder automatische Übernahme eines als stündlich erkannten Vertrags-/Beschäftigungslohns
+- Pro Mitarbeiter und Monat:
+  - Bruttozeit
+  - automatische Pausenzeit
+  - abrechenbare Arbeitszeit
+  - Stundenlohn
+  - Gesamtlohn
+  - Status `Nicht freigegeben`, `Abgelehnt` oder `Freigegeben`
+  - monatlicher Status `Überwiesen`, ausschließlich durch Prüfer 2
+  - zusätzlicher Gesamtmonat-Schalter, der alle vollständig freigegebenen Monatslöhne gemeinsam markiert
+- Ausklappbare Mitarbeitenden-Karten mit allen Arbeitstagen
+- Mehrere Anwesenheiten eines Tages werden sekundengenau zu einer Tageszeile zusammengefasst
+- Bei mehr als sechs Stunden Bruttozeit werden automatisch 30 Minuten Pause angezeigt und abgezogen
+- Beide Prüfstufen speichern pro Tag unabhängig:
+  - `Geprüft und freigegeben`
+  - `Nicht freigegeben`
+  - optionale Bemerkung
+- Ein Mitarbeiter ist erst grün freigegeben, wenn **alle Tage von Prüfer 1 und Prüfer 2 freigegeben** wurden
+- Änderungen an Anwesenheitsdaten oder Stundenlohn setzen betroffene Freigaben und eine vorhandene Überwiesen-Markierung zurück
+- Historie aller Vormonate sowie separate Prüfhistorie mit Zeitstempel und Prüfer
+- Monatsweiser Excel-Download mit Übersicht, Arbeitstagen, Quell-Anwesenheiten und Prüfhistorie
+- Portal ist von Suchmaschinen ausgeschlossen und sendet `no-store`-Header
+- Freie Passwörter werden nur als sicherer Hash gespeichert
+- Nach fünf fehlerhaften freien Anmeldungen wird der Zugang 15 Minuten gesperrt
+
+## Installation auf Odoo.sh
+
+1. ZIP-Datei entpacken.
+2. Den Ordner `gl_timesheet_approval` vollständig in das GitHub-/Odoo.sh-Repository kopieren.
+3. Committen und auf den gewünschten Odoo.sh-Branch pushen.
+4. Den Odoo.sh-Build abwarten.
+5. In Odoo die Apps-Liste aktualisieren.
+6. Nach **Groundlift Stundenzettel-Prüfung** suchen und die App installieren.
+7. Geeigneten internen Benutzern unter Einstellungen die Gruppe
+   **Stundenzettel-Prüfung: Verwaltung** zuweisen.
+
+## Ersteinrichtung
+
+### 1. Prüfer anlegen
+
+Menü: `Stundenzettel-Prüfung → Prüfer`
+
+Für jeden Prüfer:
+
+1. Kategorie `1. Prüfer` oder `2. Prüfer` wählen.
+2. Anmeldeart wählen:
+   - **Bestehenden Odoo-Benutzer verwenden**: Benutzer auswählen.
+   - **Freie Zugangsdaten**: Benutzername, neues Passwort und E-Mail eintragen.
+3. Speichern.
+4. Über `Prüfportal öffnen` testen.
+
+Bei bestehendem Odoo-Benutzer erfolgt die Anmeldung über die normale Odoo-Loginseite.
+Bei freien Zugangsdaten erfolgt die Anmeldung direkt auf der Portal-Loginseite.
+
+### 2. Mitarbeitende konfigurieren
+
+In der am Arbeitstag gültigen Odoo-Mitarbeiterversion muss das technische Feld
+**`structure_type_id`** auf einen der folgenden beiden Strukturtypen gesetzt sein:
+
+- `Minijob`
+- `Geringfügige Beschäftigung`
+
+Nur diese beiden Werte werden beim Einlesen akzeptiert. Das Modul wertet keine Tags,
+Jobtitel, allgemeinen Vertragsarten oder früheren manuellen Auswahlfelder mehr als Ersatz aus.
+
+Im Reiter `Stundenzettel-Prüfung` werden der erkannte Strukturtyp aus `structure_type_id`
+und der daraus resultierende Einschlussstatus nur zur Kontrolle angezeigt. Der Stundenlohn kann dort
+weiterhin eindeutig überschrieben werden.
+
+### 3. Ersten Monat testen
+
+1. `Stundenzettel-Prüfung → Prüfmonate` öffnen.
+2. Einen neuen Datensatz mit dem ersten Tag des gewünschten Monats anlegen.
+3. `Anwesenheiten einlesen / aktualisieren` klicken.
+4. Ergebnis im Reiter `Mitarbeiter` kontrollieren.
+5. `Prüfportal öffnen` testen.
+6. Bei Bedarf `E-Mail an 1. Prüfer senden` klicken.
+
+## Berechnungslogik
+
+Für jede abgeschlossene Anwesenheit wird die exakte Differenz zwischen `check_in` und
+`check_out` in ganzen Sekunden berechnet. Alle Anwesenheiten desselben Mitarbeiters am
+selben lokalen Odoo-Anwesenheitsdatum werden summiert.
+
+- Erfasste Arbeitszeit bis einschließlich `06:00:00`: keine automatische Pause
+- Erfasste Arbeitszeit größer als `06:00:00`: `00:30:00` automatische Pause
+- Arbeitszeit = Summe der tatsächlichen Odoo-Anwesenheiten; sie wird durch die automatische Pause **nicht gekürzt**
+- Bruttozeit = Arbeitszeit + automatische Pause
+- Gesamtlohn = Arbeitszeit in Sekunden / 3600 × Stundenlohn
+
+Die Werte werden als Monatssnapshot gespeichert. Dadurch bleiben vergangene Monate
+auch dann nachvollziehbar, wenn sich spätere Anwesenheiten ändern.
+
+## Automatik
+
+Der Cronjob läuft täglich. Nur wenn im Firmen-Zeitraum der 1. eines Monats ist, wird:
+
+1. der Vormonat angelegt oder aktualisiert,
+2. die Anwesenheitsliste eingelesen,
+3. die Benachrichtigung einmalig an alle aktiven 1. Prüfer versendet.
+
+Der Firmen-/Kontakt-Zeitraum wird verwendet; ohne konfigurierte Zeitzone gilt
+`Europe/Berlin`.
+
+## Datenschutz und Sicherheit
+
+Das Portal enthält personenbezogene Arbeitszeit- und Lohndaten. Daher:
+
+- Prüferzugänge nur individuell vergeben.
+- Keine gemeinsamen Passwörter verwenden.
+- Odoo ausschließlich über HTTPS betreiben.
+- Ausgeschiedene Prüfer sofort deaktivieren.
+- Odoo-Benutzer und freie Prüfer regelmäßig kontrollieren.
+- Keine öffentliche Weiterleitung oder Freigabe der Portal-URL einrichten.
+
+## Technische Dateien
+
+- `models/hr_employee.py`: Minijob-Auswahl und Stundenlohn
+- `models/reviewer.py`: Prüfer, Anmeldearten und Passwort-Hash
+- `models/timesheet_month.py`: Monats-, Mitarbeiter-, Tages- und Historienmodelle
+- `controllers/portal.py`: Login, Portal, Freigabe, Überwiesen-Aktion und Excel-Download
+- `views/portal_templates.xml`: geschützte Website
+- `views/timesheet_month_views.xml`: Backend-Prüfmonate
+- `views/reviewer_views.xml`: Backend-Prüferverwaltung
+- `data/ir_cron.xml`: automatische Monatsverarbeitung
+
+## Version
+
+`19.0.1.0.8`
+
+
+## Sichtbarkeit auf dem Odoo-Desktop
+
+Die App erscheint als **Stundenzettel-Prüfung** im App-Umschalter. Odoo-Systemadministratoren erhalten die erforderliche Verwaltungsgruppe automatisch. Weitere interne Benutzer können über die Odoo-Benutzerverwaltung der Gruppe **Stundenzettel-Prüfung: Verwaltung** zugeordnet werden.
+
+
+## Strikter Strukturtyp-Filter ab Version 1.0.5
+
+Beim Einlesen wird direkt das technische Many2one-Feld `structure_type_id` ausgewertet.
+Die am Anwesenheitstag gültige Odoo-19-Mitarbeiterversion (`hr.version`) ist maßgeblich.
+Es erfolgt keine Suche mehr über Feldbeschriftungen oder ähnlich benannte Felder.
+
+Akzeptierte Strukturtyp-Namen:
+
+- `Minijob`
+- `Geringfügige Beschäftigung`
+
+Ein leeres, fehlendes oder anders befülltes `structure_type_id` führt zum Ausschluss des
+Mitarbeiters. Der tatsächlich gefundene Wert wird in der Importdiagnose angezeigt.
+
+
+## Portal-Design
+
+Seit Version 19.0.1.0.6 besitzt das Prüfportal ein vollständig im Modul enthaltenes, dunkel gestaltetes Groundlift-Frontend. Die Styles werden zusätzlich direkt im QWeb-Template eingebunden, sodass Website-Themes, Darkmode-Einstellungen oder gecachte Frontend-Assets die Lesbarkeit nicht mehr verändern.
+
+
+## Mitarbeiterstatus ab Version 1.0.7
+
+Die Statusplakette in der Monatsübersicht verwendet folgende Priorität:
+
+1. **Überwiesen**, sobald der Mitarbeiter-Monat als überwiesen markiert wurde.
+2. **Freigegeben**, wenn beide Prüfstufen vollständig freigegeben haben.
+3. **Nicht freigegeben** in allen übrigen Fällen.
+
+Der Überweisungsstatus verändert die zugrunde liegenden Freigaben nicht, sondern erweitert nur die sichtbare Abschlussstufe.
+
+
+## Excel-Export ab Version 1.0.8
+
+Für jeden Prüfmonat steht im Prüfportal und im Backend der Button **Excel herunterladen** zur Verfügung. Die erzeugte `.xlsx`-Datei enthält:
+
+- **Übersicht**: Monatssummen und Status je Mitarbeiter
+- **Arbeitstage**: sekundengenaue Tagesdaten, Pausen, Tageslohn und beide Prüfstufen
+- **Anwesenheiten**: sämtliche zugrunde liegenden Odoo-Anwesenheitsbuchungen
+- **Prüfhistorie**: Freigaben, Ablehnungen, Änderungen und Überweisungsmarkierungen
+
+Zeiten werden als echte Excel-Zeitwerte mit dem Format `[h]:mm:ss` geschrieben. Dadurch bleiben auch Monatssummen über 24 Stunden korrekt und können in Excel weiterverarbeitet werden.

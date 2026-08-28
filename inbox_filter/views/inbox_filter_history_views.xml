@@ -26,6 +26,7 @@
                     <button name="action_open_record" type="object" string="Datensatz öffnen"/>
                     <button name="action_reclassify" type="object" string="Neu erkennen" class="btn-primary" confirm="Diesen Datensatz erneut prüfen und neu einsortieren?"/>
                     <button name="action_reclassify_all" type="object" string="Alle neu einsortieren" class="btn-secondary" confirm="Alle Historien-Datensätze, die nicht auf 'Perfekt erkannt' stehen, werden neu geprüft und erneut verschoben. Fortfahren?"/>
+                    <button name="action_reclassify_errors" type="object" string="Alle mit Fehler neu einsortieren" class="btn-secondary" confirm="Alle fehlerhaften Historien-Datensätze, die nicht auf 'Perfekt erkannt' stehen, werden erneut geprüft. Fortfahren?"/>
                     <button name="action_undo" type="object" string="Rückgängig" class="btn-secondary"/>
                     <button name="action_confirm_spam" type="object" string="SPAM bestätigt / löschen" class="btn-secondary"/>
                     <button name="action_mark_qualified" type="object" string="Qualifiziert" class="btn-primary"/>

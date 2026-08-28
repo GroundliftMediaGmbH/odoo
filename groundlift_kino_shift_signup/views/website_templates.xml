@@ -4,8 +4,103 @@
         <t t-call="website.layout">
             <t t-set="head">
                 <meta name="robots" content="noindex,nofollow"/>
+                <style type="text/css">
+                    .gl-kino-shift-page .card {
+                        background: #11161d !important;
+                        color: #f3f6fa !important;
+                        border: 1px solid rgba(255,255,255,.08) !important;
+                    }
+                    .gl-kino-shift-page h1,
+                    .gl-kino-shift-page h2,
+                    .gl-kino-shift-page h3,
+                    .gl-kino-shift-page h4,
+                    .gl-kino-shift-page h5,
+                    .gl-kino-shift-page h6,
+                    .gl-kino-shift-page .fw-semibold,
+                    .gl-kino-shift-page strong,
+                    .gl-kino-shift-page th,
+                    .gl-kino-shift-page td,
+                    .gl-kino-shift-page p,
+                    .gl-kino-shift-page div,
+                    .gl-kino-shift-page span,
+                    .gl-kino-shift-page label,
+                    .gl-kino-shift-page li {
+                        color: inherit;
+                    }
+                    .gl-kino-shift-page .text-muted,
+                    .gl-kino-shift-page .small,
+                    .gl-kino-shift-page small {
+                        color: #b8c1cc !important;
+                    }
+                    .gl-kino-shift-page .bg-light,
+                    .gl-kino-shift-page .rounded,
+                    .gl-kino-shift-page .rounded-3 {
+                        background-color: transparent;
+                    }
+                    .gl-kino-shift-page .gl-dark-panel,
+                    .gl-kino-shift-page .alert {
+                        background: #1a212b !important;
+                        color: #eef2f7 !important;
+                        border: 1px solid rgba(255,255,255,.10) !important;
+                        box-shadow: none !important;
+                    }
+                    .gl-kino-shift-page .alert-success {
+                        background: #16251c !important;
+                        border-color: rgba(114, 220, 144, .35) !important;
+                    }
+                    .gl-kino-shift-page .alert-secondary,
+                    .gl-kino-shift-page .alert-info {
+                        background: #18202a !important;
+                        border-color: rgba(255,255,255,.12) !important;
+                    }
+                    .gl-kino-shift-page .alert-warning {
+                        background: #2a2115 !important;
+                        border-color: rgba(255, 193, 7, .35) !important;
+                    }
+                    .gl-kino-shift-page .table {
+                        color: #f3f6fa !important;
+                        --bs-table-bg: transparent;
+                        --bs-table-striped-bg: rgba(255,255,255,.02);
+                        --bs-table-hover-bg: rgba(255,255,255,.03);
+                        --bs-table-border-color: rgba(255,255,255,.08);
+                    }
+                    .gl-kino-shift-page .table thead th {
+                        color: #eef2f7 !important;
+                        border-bottom-color: rgba(255,255,255,.12) !important;
+                    }
+                    .gl-kino-shift-page .table > :not(caption) > * > * {
+                        background-color: transparent !important;
+                        color: inherit !important;
+                        box-shadow: none !important;
+                    }
+                    .gl-kino-shift-page .table tbody tr:hover td {
+                        background: rgba(255,255,255,.015) !important;
+                    }
+                    .gl-kino-shift-page .btn-outline-dark {
+                        color: #f3f6fa !important;
+                        border-color: rgba(255,255,255,.20) !important;
+                    }
+                    .gl-kino-shift-page .btn-outline-dark:hover,
+                    .gl-kino-shift-page .btn-outline-dark:focus,
+                    .gl-kino-shift-page .btn-outline-dark.active,
+                    .gl-kino-shift-page .btn-outline-dark:active {
+                        background: #f3f6fa !important;
+                        color: #10151b !important;
+                        border-color: #f3f6fa !important;
+                    }
+                    .gl-kino-shift-page .btn-outline-secondary {
+                        color: #b8c1cc !important;
+                        border-color: rgba(255,255,255,.14) !important;
+                    }
+                    .gl-kino-shift-page .badge {
+                        border: 1px solid rgba(255,255,255,.10);
+                    }
+                    .gl-kino-shift-page .border-top {
+                        border-top-color: rgba(255,255,255,.10) !important;
+                    }
+                </style>
             </t>
-            <div id="wrap" class="oe_structure">
+            <div id="wrap" class="oe_structure gl-kino-shift-page">
                 <section class="container py-5">
                     <div class="row justify-content-center">
                         <div class="col-lg-11">
@@ -16,6 +111,24 @@
                                         <p>Aktuell ist kein offener Kino-Dienstplan vorhanden.</p>
                                     </t>
                                     <t t-if="campaign">
+                                        <t t-if="employee_portal">
+                                            <div class="mb-4 p-3 p-md-4 gl-dark-panel rounded-3">
+                                                <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+                                                    <div>
+                                                        <div class="fw-semibold">Meine Kino-Dienstpläne</div>
+                                                        <div class="small text-muted">Deine persönliche Seite bleibt immer unter demselben Link erreichbar. Wähle hier den gewünschten Monat.</div>
+                                                    </div>
+                                                    <div class="d-flex flex-wrap gap-2">
+                                                        <t t-foreach="portal_month_entries" t-as="month_entry">
+                                                            <a t-att-href="month_entry['url']"
+                                                               t-att-class="'btn btn-sm ' + ('btn-dark' if month_entry['active'] else 'btn-outline-dark')">
+                                                                <t t-out="month_entry['campaign'].month_label"/>
+                                                            </a>
+                                                        </t>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </t>
                                         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-start gap-3 mb-4">
                                             <div>
                                                 <p class="text-uppercase text-muted mb-1" style="letter-spacing:.08em;font-size:12px;">Kino Alte Brauerei Stegen</p>
@@ -68,6 +181,7 @@
                                                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                                 <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
                                                                 <input type="hidden" name="employee_token" t-att-value="invite.token"/>
+                                                                <t t-if="employee_portal"><input type="hidden" name="return_access_token" t-att-value="employee_portal.token"/></t>
                                                                 <input type="hidden" name="slot_id" t-att-value="takeover_slot.id"/>
                                                                 <input type="hidden" name="answer" value="yes"/>
                                                                 <button type="submit" class="btn btn-dark btn-sm">Ja, Termin abgeben</button>
@@ -76,6 +190,7 @@
                                                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                                 <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
                                                                 <input type="hidden" name="employee_token" t-att-value="invite.token"/>
+                                                                <t t-if="employee_portal"><input type="hidden" name="return_access_token" t-att-value="employee_portal.token"/></t>
                                                                 <input type="hidden" name="slot_id" t-att-value="takeover_slot.id"/>
                                                                 <input type="hidden" name="answer" value="no"/>
                                                                 <button type="submit" class="btn btn-outline-dark btn-sm">Nein, Termin behalten</button>
@@ -100,6 +215,8 @@
                                                     <t t-foreach="week_rows" t-as="week">
                                                         <t t-foreach="week" t-as="slot">
                                                             <tr>
+                                                                <t t-set="swap_is_active" t-value="slot.swap_requested and swap_available_by_slot_id.get(slot.id)"/>
+                                                                <t t-set="swap_is_available" t-value="swap_available_by_slot_id.get(slot.id)"/>
                                                                 <td>
                                                                     <strong><t t-out="slot.weekday_label"/>:</strong>
                                                                     <t t-out="slot.date_label"/>
@@ -116,13 +233,13 @@
                                                                     </t>
                                                                 </td>
                                                                 <td>
-                                                                    <t t-if="slot.swap_requested">
+                                                                    <t t-if="swap_is_active">
                                                                         <span class="badge text-bg-danger">Tauschanfrage</span>
                                                                         <t t-if="slot.employee_id">
                                                                             <div class="small text-muted mt-1">aktuell: <t t-out="slot.employee_id.name"/></div>
                                                                         </t>
                                                                     </t>
-                                                                    <t t-if="not slot.swap_requested and slot.employee_id">
+                                                                    <t t-if="not swap_is_active and slot.employee_id">
                                                                         <span class="badge text-bg-success">fix besetzt</span>
                                                                         <span class="ms-2"><t t-out="slot.employee_id.name"/></span>
                                                                         <t t-if="slot.takeover_requested_by_id">
@@ -131,7 +248,7 @@
                                                                             </div>
                                                                         </t>
                                                                     </t>
-                                                                    <t t-if="not slot.swap_requested and not slot.employee_id">
+                                                                    <t t-if="not swap_is_active and not slot.employee_id">
                                                                         <t t-if="slot.fill_request_state == 'waiting' and slot.fill_request_current_employee_id">
                                                                             <span class="badge text-bg-info">Einzelanfrage läuft</span>
                                                                             <div class="small text-muted mt-1">aktuell angefragt: <t t-out="slot.fill_request_current_employee_id.name"/></div>
@@ -150,7 +267,7 @@
                                                                     <t t-set="can_take_more_shifts" t-value="monthly_shift_remaining &gt; 0 or is_own_slot"/>
                                                                     <t t-if="is_own_slot">
                                                                         <div class="text-success fw-semibold mb-2">Von dir übernommen</div>
-                                                                        <t t-if="not slot.swap_requested">
+                                                                        <t t-if="not swap_is_active">
                                                                             <t t-if="slot.takeover_requested_by_id">
                                                                                 <div class="alert alert-warning py-2 px-3 mb-2 small">
                                                                                     <strong><t t-out="slot.takeover_requested_by_id.name"/></strong>
@@ -160,6 +277,7 @@
                                                                                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                                                             <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
                                                                                             <input type="hidden" name="employee_token" t-att-value="invite.token"/>
+                                                                                            <t t-if="employee_portal"><input type="hidden" name="return_access_token" t-att-value="employee_portal.token"/></t>
                                                                                             <input type="hidden" name="slot_id" t-att-value="slot.id"/>
                                                                                             <input type="hidden" name="answer" value="yes"/>
                                                                                             <button type="submit" class="btn btn-dark btn-sm">Ja, Termin abgeben</button>
@@ -168,6 +286,7 @@
                                                                                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                                                             <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
                                                                                             <input type="hidden" name="employee_token" t-att-value="invite.token"/>
+                                                                                            <t t-if="employee_portal"><input type="hidden" name="return_access_token" t-att-value="employee_portal.token"/></t>
                                                                                             <input type="hidden" name="slot_id" t-att-value="slot.id"/>
                                                                                             <input type="hidden" name="answer" value="no"/>
                                                                                             <button type="submit" class="btn btn-outline-dark btn-sm">Nein, Termin behalten</button>
@@ -181,30 +300,38 @@
                                                                                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                                                         <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
                                                                                         <input type="hidden" name="employee_token" t-att-value="invite.token"/>
+                                                                                        <t t-if="employee_portal"><input type="hidden" name="return_access_token" t-att-value="employee_portal.token"/></t>
                                                                                         <input type="hidden" name="slot_id" t-att-value="slot.id"/>
                                                                                         <button type="submit" class="btn btn-outline-dark btn-sm">Korrigieren</button>
                                                                                     </form>
                                                                                 </t>
-                                                                                <form method="post" action="/kino-dienstplan/swap/request" class="m-0" onsubmit="return confirm('Kannst du an diesem Tag wirklich nicht?');">
-                                                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                                                    <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
-                                                                                    <input type="hidden" name="employee_token" t-att-value="invite.token"/>
-                                                                                    <input type="hidden" name="slot_id" t-att-value="slot.id"/>
-                                                                                    <button type="submit" class="btn btn-outline-danger btn-sm">Tauschen</button>
-                                                                                </form>
+                                                                                <t t-if="swap_is_available">
+                                                                                    <form method="post" action="/kino-dienstplan/swap/request" class="m-0" onsubmit="return confirm('Kannst du an diesem Tag wirklich nicht?');">
+                                                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                                                        <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
+                                                                                        <input type="hidden" name="employee_token" t-att-value="invite.token"/>
+                                                                                        <t t-if="employee_portal"><input type="hidden" name="return_access_token" t-att-value="employee_portal.token"/></t>
+                                                                                        <input type="hidden" name="slot_id" t-att-value="slot.id"/>
+                                                                                        <button type="submit" class="btn btn-outline-danger btn-sm">Tauschen</button>
+                                                                                    </form>
+                                                                                </t>
+                                                                                <t t-if="not swap_is_available">
+                                                                                    <span class="text-muted small">Tauschfrist abgelaufen</span>
+                                                                                </t>
                                                                             </div>
                                                                         </t>
-                                                                        <t t-if="slot.swap_requested">
+                                                                        <t t-if="swap_is_active">
                                                                             <span class="text-muted small">Tauschanfrage läuft</span>
                                                                         </t>
                                                                     </t>
 
-                                                                    <t t-if="not is_own_slot and slot.swap_requested">
+                                                                    <t t-if="not is_own_slot and swap_is_active">
                                                                         <t t-if="monthly_shift_remaining &gt; 0">
                                                                             <form method="post" action="/kino-dienstplan/swap/accept" class="m-0">
                                                                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                                                 <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
                                                                                 <input type="hidden" name="employee_token" t-att-value="invite.token"/>
+                                                                                <t t-if="employee_portal"><input type="hidden" name="return_access_token" t-att-value="employee_portal.token"/></t>
                                                                                 <input type="hidden" name="slot_id" t-att-value="slot.id"/>
                                                                                 <button type="submit" class="btn btn-dark btn-sm">Tausch übernehmen</button>
                                                                             </form>
@@ -214,7 +341,7 @@
                                                                         </t>
                                                                     </t>
 
-                                                                    <t t-if="not is_own_slot and not slot.swap_requested">
+                                                                    <t t-if="not is_own_slot and not swap_is_active">
                                                                         <t t-if="current_pref">
                                                                             <div class="small text-muted mb-2">
                                                                                 Deine Auswahl: <strong><t t-out="current_pref.priority_label"/></strong>
@@ -230,6 +357,7 @@
                                                                                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                                                         <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
                                                                                         <input type="hidden" name="employee_token" t-att-value="invite.token"/>
+                                                                                        <t t-if="employee_portal"><input type="hidden" name="return_access_token" t-att-value="employee_portal.token"/></t>
                                                                                         <input type="hidden" name="slot_id" t-att-value="slot.id"/>
                                                                                         <input type="hidden" name="priority" value="normal"/>
                                                                                         <button type="submit" class="btn btn-dark btn-sm w-100">Freien Termin übernehmen</button>
@@ -246,6 +374,7 @@
                                                                                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                                                         <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
                                                                                         <input type="hidden" name="employee_token" t-att-value="invite.token"/>
+                                                                                        <t t-if="employee_portal"><input type="hidden" name="return_access_token" t-att-value="employee_portal.token"/></t>
                                                                                         <input type="hidden" name="slot_id" t-att-value="slot.id"/>
                                                                                         <input type="hidden" name="priority" value="strong"/>
                                                                                         <t t-if="can_use_strong">
@@ -259,6 +388,7 @@
                                                                                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                                                         <input type="hidden" name="campaign_token" t-att-value="campaign.token"/>
                                                                                         <input type="hidden" name="employee_token" t-att-value="invite.token"/>
+                                                                                        <t t-if="employee_portal"><input type="hidden" name="return_access_token" t-att-value="employee_portal.token"/></t>
                                                                                         <input type="hidden" name="slot_id" t-att-value="slot.id"/>
                                                                                         <input type="hidden" name="priority" value="normal"/>
                                                                                         <button type="submit" class="btn btn-outline-dark btn-sm w-100">Kann ich übernehmen</button>
@@ -275,13 +405,13 @@
                                             </table>
                                         </div>
 
-                                        <div class="mt-4 p-3 bg-light rounded">
+                                        <div class="mt-4 p-3 gl-dark-panel rounded">
                                             <p class="mb-1"><strong>Hinweis:</strong></p>
                                             <p class="mb-0">
                                                 Prioritäten können bis zwei Wochen vor der ersten Schicht gesetzt werden. Danach können nur noch freie Termine direkt übernommen oder bestehende Termine per Tauschanfrage geändert werden.
                                                 Eine eigene Eintragung kann innerhalb von 24 Stunden über „Korrigieren“ zurückgenommen werden, solange die Eintragungsfrist noch läuft.
                                                 Pro Person können maximal <t t-out="max_monthly_shift_count"/> Schichten im Monat übernommen werden.
-                                                Eine laufende Tauschanfrage wird als „Tauschanfrage“ angezeigt, bis jemand den Termin übernimmt.
+                                                Eine laufende Tauschanfrage wird als „Tauschanfrage“ angezeigt, bis jemand den Termin übernimmt. Tauschen und Übernehmen einer Tauschanfrage ist nur bis einschließlich zum Tag vor der jeweiligen Schicht möglich.
                                             </p>
                                         </div>
                                     </t>

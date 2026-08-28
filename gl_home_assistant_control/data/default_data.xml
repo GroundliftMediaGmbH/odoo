@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="default_ha_config" model="gl.ha.config">
+        <field name="name">GROUNDLIFT Home Assistant</field>
+        <field name="timezone_name">Europe/Berlin</field>
+    </record>
+    <record id="default_ha_dashboard" model="gl.ha.dashboard">
+        <field name="name">GROUNDLIFT Gebäudesteuerung</field>
+        <field name="slug">hauptansicht</field>
+        <field name="refresh_seconds">15</field>
+        <field name="allow_control">True</field>
+        <field name="main_page_label">Übersicht</field>
+        <field name="include_default_entities">True</field>
+        <field name="show_status">True</field>
+        <field name="show_alerts">True</field>
+        <field name="show_windows">True</field>
+        <field name="separate_controls_sensors">True</field>
+        <field name="sensor_layout">compact</field>
+        <field name="group_mode">custom</field>
+        <field name="show_history_charts">False</field>
+        <field name="show_entity_ids">False</field>
+        <field name="show_last_seen">False</field>
+        <field name="grid_columns">4</field>
+    </record>
+    <record id="weather_sensor_sunrise" model="gl.ha.entity">
+        <field name="name">Wetter: Sonnenaufgang</field>
+        <field name="ha_name">Wetter: Sonnenaufgang</field>
+        <field name="entity_id">weather.sunrise</field>
+        <field name="source_type">weather</field>
+        <field name="weather_metric">sunrise</field>
+        <field name="domain">weather</field>
+        <field name="room">Wetter &amp; Sonne</field>
+        <field name="unit">Uhrzeit</field>
+        <field name="active">True</field>
+        <field name="show_dashboard">False</field>
+        <field name="dashboard_role">sensor</field>
+        <field name="controllable">False</field>
+        <field name="history_enabled">False</field>
+        <field name="alert_enabled">False</field>
+        <field name="control_type">none</field>
+        <field name="state">–</field>
+        <field name="numeric_value">0</field>
+        <field name="has_numeric_value">True</field>
+        <field name="is_available">False</field>
+    </record>
+    <record id="weather_sensor_sunset" model="gl.ha.entity">
+        <field name="name">Wetter: Sonnenuntergang</field>
+        <field name="ha_name">Wetter: Sonnenuntergang</field>
+        <field name="entity_id">weather.sunset</field>
+        <field name="source_type">weather</field>
+        <field name="weather_metric">sunset</field>
+        <field name="domain">weather</field>
+        <field name="room">Wetter &amp; Sonne</field>
+        <field name="unit">Uhrzeit</field>
+        <field name="active">True</field>
+        <field name="show_dashboard">False</field>
+        <field name="dashboard_role">sensor</field>
+        <field name="controllable">False</field>
+        <field name="history_enabled">False</field>
+        <field name="alert_enabled">False</field>
+        <field name="control_type">none</field>
+        <field name="state">–</field>
+        <field name="numeric_value">0</field>
+        <field name="has_numeric_value">True</field>
+        <field name="is_available">False</field>
+    </record>
+    <record id="weather_sensor_cloud_cover" model="gl.ha.entity">
+        <field name="name">Wetter: Bewölkung</field>
+        <field name="ha_name">Wetter: Bewölkung</field>
+        <field name="entity_id">weather.cloud_cover</field>
+        <field name="source_type">weather</field>
+        <field name="weather_metric">cloud_cover</field>
+        <field name="domain">weather</field>
+        <field name="room">Wetter &amp; Sonne</field>
+        <field name="unit">%</field>
+        <field name="active">True</field>
+        <field name="show_dashboard">False</field>
+        <field name="dashboard_role">sensor</field>
+        <field name="controllable">False</field>
+        <field name="history_enabled">False</field>
+        <field name="alert_enabled">False</field>
+        <field name="control_type">none</field>
+        <field name="state">–</field>
+        <field name="numeric_value">0</field>
+        <field name="has_numeric_value">True</field>
+        <field name="is_available">False</field>
+    </record>
+</odoo>

@@ -58,6 +58,47 @@ def _new_token(recordset=None):
     return secrets.token_urlsafe(32)
 
 
+class GroundliftKinoShiftEmployeePortal(models.Model):
+    _name = "gl.kino.shift.employee.portal"
+    _description = "Kino Dienstplan Mitarbeiter-Zugang"
+    _order = "employee_id"
+
+    employee_id = fields.Many2one(
+        "hr.employee",
+        string="Filmvorführer:in",
+        required=True,
+        ondelete="cascade",
+        index=True,
+    )
+    token = fields.Char(
+        string="Dauerhafter persönlicher Token",
+        default=_new_token,
+        required=True,
+        copy=False,
+        index=True,
+    )
+
+    _sql_constraints = [
+        ("employee_unique", "unique(employee_id)", "Für diese Person existiert bereits ein Mitarbeiter-Zugang."),
+        ("token_unique", "unique(token)", "Der persönliche Mitarbeiter-Token muss eindeutig sein."),
+    ]
+
+    @api.model
+    def get_or_create_for_employee(self, employee):
+        employee = employee.sudo() if employee else employee
+        if not employee:
+            return self.sudo().browse()
+        portal = self.sudo().search([("employee_id", "=", employee.id)], limit=1)
+        if not portal:
+            portal = self.sudo().create({"employee_id": employee.id})
+        return portal
+
+    def get_landing_url(self):
+        self.ensure_one()
+        base_url = self.env["gl.kino.shift.campaign"]._get_base_url()
+        return "%s/kino-dienstplan/mitarbeiter/%s" % (base_url, self.token)
+
+
 class GroundliftKinoShiftCampaign(models.Model):
     _name = "gl.kino.shift.campaign"
     _description = "Kino Dienstplan Abfrage"
@@ -295,6 +336,10 @@ class GroundliftKinoShiftCampaign(models.Model):
             return self._notification("Kinotage wurden erzeugt/aktualisiert.")
         return True
 
+    def _get_employee_portal(self, employee):
+        self.ensure_one()
+        return self.env["gl.kino.shift.employee.portal"].sudo().get_or_create_for_employee(employee)
+
     def _ensure_invites(self):
         self.ensure_one()
         Invite = self.env["gl.kino.shift.invite"].sudo()
@@ -302,6 +347,7 @@ class GroundliftKinoShiftCampaign(models.Model):
         employees = self._get_kino_employees()
         invites = self.env["gl.kino.shift.invite"].sudo()
         for employee in employees:
+            self._get_employee_portal(employee)
             invite = existing_by_employee.get(employee.id)
             if not invite:
                 invite = Invite.create({"campaign_id": self.id, "employee_id": employee.id})
@@ -873,6 +919,47 @@ class GroundliftKinoShiftCampaign(models.Model):
         self._refresh_state_from_slots()
         return "Danke, du hast %s an %s abgegeben." % (slot.display_line_short, requester.name)
 
+    def is_swap_allowed_for_slot(self, slot):
+        """A shift may only be swapped up to and including the day before it takes place."""
+        self.ensure_one()
+        if not slot or slot.campaign_id.id != self.id or not slot.date or slot.is_blocked:
+            return False
+        today = fields.Date.context_today(self)
+        return fields.Date.to_date(slot.date) > today
+
+    def _expire_due_swap_requests(self):
+        """Close swap requests once the shift date itself has been reached."""
+        today = fields.Date.context_today(self)
+        slots = self.env["gl.kino.shift.slot"].sudo().search(
+            [
+                ("campaign_id", "in", self.ids),
+                ("swap_requested", "=", True),
+                ("date", "<=", today),
+            ]
+        ) if self.ids else self.env["gl.kino.shift.slot"].sudo()
+        if not slots:
+            return True
+        campaigns = slots.mapped("campaign_id")
+        slots.write(
+            {
+                "swap_requested": False,
+                "swap_requested_by_id": False,
+                "swap_requested_date": False,
+            }
+        )
+        for campaign in campaigns:
+            campaign._refresh_state_from_slots()
+        return True
+
+    @api.model
+    def cron_expire_due_swap_requests(self):
+        today = fields.Date.context_today(self)
+        campaigns = self.sudo().search(
+            [("slot_ids.swap_requested", "=", True), ("slot_ids.date", "<=", today)]
+        )
+        campaigns._expire_due_swap_requests()
+        return True
+
     def action_request_swap_from_invite(self, invite, slot):
         self.ensure_one()
         if not invite or invite.campaign_id.id != self.id:
@@ -886,6 +973,17 @@ class GroundliftKinoShiftCampaign(models.Model):
         slot.invalidate_recordset(["employee_id", "swap_requested", "is_blocked"])
         if slot.is_blocked:
             return "Dieser Kinotag ist gesperrt und kann nicht mehr getauscht werden."
+        if not self.is_swap_allowed_for_slot(slot):
+            if slot.swap_requested:
+                slot.write(
+                    {
+                        "swap_requested": False,
+                        "swap_requested_by_id": False,
+                        "swap_requested_date": False,
+                    }
+                )
+                self._refresh_state_from_slots()
+            return "Die Tauschfrist für %s ist abgelaufen. Tauschen ist nur bis zum Tag vor der Schicht möglich." % slot.display_line_short
         if not slot.employee_id or slot.employee_id.id != invite.employee_id.id:
             return "Du bist für diesen Termin nicht eingetragen und kannst daher keine Tauschanfrage stellen."
         if slot.swap_requested:
@@ -968,6 +1066,17 @@ class GroundliftKinoShiftCampaign(models.Model):
         slot.invalidate_recordset(["employee_id", "swap_requested", "swap_requested_by_id", "takeover_requested_by_id", "is_blocked"])
         if slot.is_blocked:
             return "Dieser Kinotag ist inzwischen gesperrt. Es findet an diesem Tag leider doch kein Kino statt."
+        if not self.is_swap_allowed_for_slot(slot):
+            if slot.swap_requested:
+                slot.write(
+                    {
+                        "swap_requested": False,
+                        "swap_requested_by_id": False,
+                        "swap_requested_date": False,
+                    }
+                )
+                self._refresh_state_from_slots()
+            return "Die Tauschfrist für %s ist abgelaufen. Eine Übernahme ist nur bis zum Tag vor der Schicht möglich." % slot.display_line_short
         if not slot.swap_requested:
             return "Diese Tauschanfrage ist nicht mehr offen."
         if slot.employee_id and slot.employee_id.id == invite.employee_id.id:
@@ -1115,6 +1224,58 @@ class GroundliftKinoShiftCampaign(models.Model):
         self._send_mail(email_to=email_to, subject=subject, body_html=body_html)
         return True
 
+    def _build_signup_deadline_confirmation_email_body(self, invite):
+        self.ensure_one()
+        assigned_slots = self.slot_ids.filtered(
+            lambda slot: not slot.is_blocked and slot.employee_id.id == invite.employee_id.id
+        ).sorted("date")
+        if assigned_slots:
+            shift_lines = []
+            for slot in assigned_slots:
+                note_html = ""
+                if slot.note:
+                    note_html = " <span style=\"color:#666;\">– %s</span>" % escape(slot.note)
+                shift_lines.append("<li><strong>%s</strong>%s</li>" % (escape(slot.display_line_short), note_html))
+            shifts_html = "<ul>%s</ul>" % "".join(shift_lines)
+        else:
+            shifts_html = "<p><strong>Aktuell bist du für keine Schicht fest eingetragen.</strong></p>"
+
+        portal = self._get_employee_portal(invite.employee_id)
+        landing_url = portal.get_landing_url()
+        return """
+            <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#111;">
+                <p>Hallo %s,</p>
+                <h2 style="margin:0 0 12px 0;">Deine Kino-Schichten für %s</h2>
+                <p>die Eintragungsfrist für den Kino-Dienstplan %s ist beendet. Hier ist deine aktuelle Einteilung:</p>
+                %s
+                <p>Über deine persönliche Kino-Dienstplan-Seite kannst du jederzeit alle Monate aufrufen und bei Bedarf freie Termine oder Tauschanfragen bearbeiten.</p>
+                <p><a href="%s" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:12px 18px;border-radius:6px;">Meine Kino-Dienstpläne öffnen</a></p>
+                <p style="color:#666;font-size:13px;">Dieser persönliche Link bleibt für dich dauerhaft gleich.</p>
+                <p>Vielen Dank!</p>
+            </div>
+        """ % (
+            escape(invite.employee_id.name),
+            escape(self.month_label),
+            escape(self.month_label),
+            shifts_html,
+            escape(landing_url),
+        )
+
+    def _send_signup_deadline_confirmations(self):
+        self.ensure_one()
+        today = fields.Date.context_today(self)
+        sent = 0
+        self._ensure_invites()
+        for invite in self.invite_ids.sorted(lambda item: item.employee_id.name or ""):
+            if invite.confirmation_sent_date or not invite.email_to:
+                continue
+            subject = "Deine Kino-Schichten für %s" % self.month_label
+            body_html = self._build_signup_deadline_confirmation_email_body(invite)
+            self._send_mail(email_to=invite.email_to, subject=subject, body_html=body_html)
+            invite.write({"confirmation_sent_date": today})
+            sent += 1
+        return sent
+
     def _send_mail(self, email_to, subject, body_html):
         email_from = self.env.company.partner_id.email_formatted or self.env.user.partner_id.email_formatted or self.env.user.email
         mail = self.env["mail.mail"].sudo().create(
@@ -1140,6 +1301,16 @@ class GroundliftKinoShiftCampaign(models.Model):
             campaign = self.sudo().create({"target_month": target_month})
         if not campaign.request_sent_date:
             campaign.action_send_request()
+        return True
+
+    @api.model
+    def cron_send_signup_deadline_confirmations(self):
+        today = fields.Date.context_today(self)
+        campaigns = self.sudo().search([("request_sent_date", "!=", False)])
+        for campaign in campaigns:
+            deadline = fields.Date.to_date(campaign.signup_deadline_date) if campaign.signup_deadline_date else False
+            if deadline and today == deadline + timedelta(days=1):
+                campaign._send_signup_deadline_confirmations()
         return True
 
     @api.model
@@ -1836,6 +2007,7 @@ class GroundliftKinoShiftInvite(models.Model):
     signup_url = fields.Char(string="Eintragelink", compute="_compute_signup_url")
     send_count = fields.Integer(string="Anzahl Sendungen", default=0, readonly=True)
     last_sent_date = fields.Date(string="Zuletzt gesendet am", readonly=True)
+    confirmation_sent_date = fields.Date(string="Schichtbestätigung gesendet am", readonly=True, copy=False)
 
     _sql_constraints = [
         ("campaign_employee_unique", "unique(campaign_id, employee_id)", "Diese Person wurde für diese Abfrage bereits eingeladen."),
@@ -1853,9 +2025,10 @@ class GroundliftKinoShiftInvite(models.Model):
             invite.email_to = invite.employee_id.work_email
 
     def _compute_signup_url(self):
-        base_url = self.env["gl.kino.shift.campaign"]._get_base_url()
+        Portal = self.env["gl.kino.shift.employee.portal"].sudo()
         for invite in self:
-            if invite.campaign_id.token and invite.token:
-                invite.signup_url = "%s/kino-dienstplan/%s/%s" % (base_url, invite.campaign_id.token, invite.token)
+            if invite.employee_id:
+                portal = Portal.get_or_create_for_employee(invite.employee_id)
+                invite.signup_url = portal.get_landing_url() if portal else False
             else:
                 invite.signup_url = False
