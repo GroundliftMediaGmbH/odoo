@@ -21,6 +21,9 @@
                 <field name="condition_entity_ids" widget="many2many_tags" optional="show"/>
                 <field name="condition_match_mode" optional="hide"/>
                 <field name="condition_threshold" optional="show"/>
+                <field name="solar_clear_before_minutes" optional="hide"/>
+                <field name="solar_cloudy_before_minutes" optional="hide"/>
+                <field name="solar_cloud_threshold" optional="hide"/>
                 <field name="last_desired_state"/>
                 <field name="last_evaluated_at"/>
             </list>
@@ -98,15 +101,38 @@
                             <p class="text-muted" invisible="source != 'project'">Eine Projekt-Vorlage übernimmt Geräte, Vor-/Nachlauf und optionale Sensorbedingungen. Die übernommenen Werte bleiben in der konkreten Projektregel frei anpassbar.</p>
                             <p class="text-muted" invisible="source != 'project'">Wenn sich Projekt-, Kino-, Veranstaltungs- oder Zeitregeln für dasselbe Gerät überschneiden, bleibt das Gerät eingeschaltet, solange mindestens eine dieser Regeln noch aktiv ist.</p>
                         </group>
-                        <group string="Optionale Sensorbedingungen">
+                        <group string="Optionale Sensorbedingungen" col="2">
+                            <field name="has_solar_condition" invisible="1"/>
+                            <field name="has_cloud_condition" invisible="1"/>
+                            <field name="has_generic_condition" invisible="1"/>
+
+                            <label for="condition_entity_ids" string="Optionale Messsensoren"/>
                             <field name="condition_entity_ids"
+                                   nolabel="1"
                                    widget="many2many_tags"
                                    options="{'no_create': True, 'no_create_edit': True}"/>
-                            <field name="condition_match_mode" invisible="not condition_entity_ids"/>
-                            <field name="condition_operator" invisible="not condition_entity_ids"/>
-                            <field name="condition_threshold" invisible="not condition_entity_ids"/>
-                            <p class="text-muted">Mehrere Sensoren können gemeinsam ausgewählt werden. Über „Verknüpfung der Sensoren“ legst du fest, ob alle Sensoren oder mindestens einer den Grenzwert erfüllen müssen. Operator und Grenzwert gelten für alle ausgewählten Sensoren.</p>
-                            <p class="text-muted">Beispiel Außenlicht: mehrere Lux-Sensoren auswählen, „kleiner als“ und z. B. 50 Lux. Bei „Alle Sensoren“ wird nur eingeschaltet, wenn jeder ausgewählte Sensor unter 50 Lux liegt.</p>
+
+                            <label for="condition_match_mode" string="Verknüpfung der Sensoren" invisible="not has_generic_condition"/>
+                            <field name="condition_match_mode" nolabel="1" invisible="not has_generic_condition"/>
+
+                            <label for="condition_operator" string="Operator" invisible="not has_generic_condition"/>
+                            <field name="condition_operator" nolabel="1" invisible="not has_generic_condition"/>
+
+                            <label for="condition_threshold" string="Grenzwert" invisible="not has_generic_condition"/>
+                            <field name="condition_threshold" nolabel="1" invisible="not has_generic_condition"/>
+
+                            <label for="solar_clear_before_minutes" string="Bei wenig Bewölkung: Minuten vor Sonnenzeit" invisible="not has_solar_condition"/>
+                            <field name="solar_clear_before_minutes" nolabel="1" invisible="not has_solar_condition"/>
+
+                            <label for="solar_cloudy_before_minutes" string="Bei Bewölkung: Minuten vor Sonnenzeit" invisible="not has_solar_condition or not has_cloud_condition"/>
+                            <field name="solar_cloudy_before_minutes" nolabel="1" invisible="not has_solar_condition or not has_cloud_condition"/>
+
+                            <label for="solar_cloud_threshold" string="Ab Bewölkung (%)" invisible="not has_solar_condition or not has_cloud_condition"/>
+                            <field name="solar_cloud_threshold" nolabel="1" invisible="not has_solar_condition or not has_cloud_condition"/>
+
+                            <p class="text-muted" invisible="not has_solar_condition">Sonnenaufgang oder Sonnenuntergang wird als dynamischer Zeitanker verwendet. Die tatsächliche Einschaltzeit ist die spätere Zeit aus dem normalen Vorlauf der Regel und dem Sonnen-Trigger. Das Ausschalten bleibt unverändert am Ende der Veranstaltung/des Projekts/Zeitprogramms plus Nachlauf.</p>
+                            <p class="text-muted" invisible="not has_solar_condition or not has_cloud_condition">Beispiel: Sonnenuntergang + Bewölkung auswählen, 60 Minuten bei wenig Bewölkung, 90 Minuten bei Bewölkung und z. B. 60 % Grenzwert. Für die Entscheidung wird die Bewölkungsprognose zur Sonnenzeit verwendet, damit das Licht nicht bei wechselnder Bewölkung wieder aus- und eingeschaltet wird.</p>
+                            <p class="text-muted" invisible="has_solar_condition">Normale Messsensoren werden mit Operator und Grenzwert ausgewertet. Beispiel Außenlicht: Lux-Sensor, „kleiner als“ und 50 Lux.</p>
                         </group>
                     </group>
                     <!-- Legacy-Felder nur für verlustfreie Updates älterer Regeln. -->

@@ -9,6 +9,7 @@
                     <button name="action_test_connection" type="object" string="Verbindung testen" class="oe_highlight"/>
                     <button name="action_sync_entities" type="object" string="Entitäten synchronisieren"/>
                     <button name="action_refresh_schedules" type="object" string="Zeitfenster aktualisieren"/>
+                    <button name="action_refresh_weather" type="object" string="Wetterdaten aktualisieren"/>
                     <button name="action_run_automation" type="object" string="Automatik jetzt prüfen"/>
                     <button name="action_import_history_24h" type="object" string="24h Verlauf importieren"/>
                     <button name="action_open_dashboard" type="object" string="Dashboard öffnen"/>
@@ -33,6 +34,24 @@
                                     <field name="last_state_sync_at" readonly="1"/>
                                     <field name="last_schedule_sync_at" readonly="1"/>
                                     <field name="last_automation_at" readonly="1"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Wetter &amp; Sonne">
+                            <group>
+                                <group string="Wetter-Ort">
+                                    <field name="weather_enabled"/>
+                                    <field name="weather_location" placeholder="z. B. 82266 Inning am Ammersee, Deutschland"/>
+                                    <field name="weather_latitude" readonly="1"/>
+                                    <field name="weather_longitude" readonly="1"/>
+                                    <field name="weather_resolved_location" readonly="1"/>
+                                    <p class="text-muted">Standard ist 82266 Inning am Ammersee. Wenn du den Ort änderst und oben „Wetterdaten aktualisieren“ klickst, werden die Koordinaten automatisch neu bestimmt.</p>
+                                </group>
+                                <group string="Status">
+                                    <field name="last_weather_sync_at" readonly="1"/>
+                                    <field name="last_weather_message" readonly="1"/>
+                                    <p class="text-muted">Die App lädt Sonnenaufgang, Sonnenuntergang und Bewölkung als virtuelle Messsensoren. Die Daten werden automatisch aktualisiert und können in Automatikregeln unter „Optionale Messsensoren“ ausgewählt werden.</p>
+                                    <p class="text-muted">Wetterquelle: Open-Meteo. Sonnenzeiten werden für den eingestellten Ort berechnet; die Bewölkung stammt aus der stündlichen Wetterprognose.</p>
                                 </group>
                             </group>
                         </page>

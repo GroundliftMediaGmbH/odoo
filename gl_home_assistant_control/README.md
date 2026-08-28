@@ -167,3 +167,17 @@ Automatikregeln können jetzt direkt an ein Odoo-Projekt gebunden werden. In der
 Unter **Gebäudesteuerung → Projekt-Vorlagen** lassen sich wiederverwendbare Vorlagen anlegen. Eine Vorlage speichert die zu schaltenden Entitäten, Vor-/Nachlauf sowie optionale Sensorbedingungen. Beim Auswählen der Vorlage in einer Projektregel werden diese Werte kopiert und können anschließend projektspezifisch verändert werden. Bestehende Regeln werden durch spätere Änderungen an der Vorlage nicht rückwirkend verändert.
 
 Alle Automatikquellen werden pro Zielentität logisch ODER-verknüpft. Endet eine Projektregel, während für dieselbe Entität noch Kino-, Veranstaltungs- oder Zeitautomatik aktiv ist, bleibt das Gerät eingeschaltet und wird erst ausgeschaltet, wenn keine Regel mehr EIN verlangt.
+
+
+## Wetter- und Sonnenautomation (v1.2.0)
+
+- Drei virtuelle optionale Messsensoren: **Wetter: Sonnenaufgang**, **Wetter: Sonnenuntergang** und **Wetter: Bewölkung**.
+- Wetter-Ort in den Einstellungen frei änderbar; Standard: **82266 Inning am Ammersee, Deutschland**.
+- Der Ort wird automatisch geokodiert, die ermittelten Koordinaten werden in Odoo gespeichert.
+- Sonnenaufgang/-untergang und stündliche Bewölkung werden über Open-Meteo geladen und lokal gecacht.
+- Bei Auswahl von Sonnenaufgang oder Sonnenuntergang wird die Sonnenzeit zu einem dynamischen Einschalt-Anker. Die tatsächliche Einschaltzeit ist die spätere Zeit aus normalem Regel-Vorlauf und Sonnen-Trigger.
+- Wird zusätzlich **Wetter: Bewölkung** ausgewählt, können getrennte Vorläufe für wenig Bewölkung und Bewölkung konfiguriert werden, z. B. 60 bzw. 90 Minuten vor Sonnenuntergang. Der Bewölkungsgrenzwert ist je Regel frei einstellbar.
+- Die Bewölkungsentscheidung verwendet die Prognose zur Sonnenzeit. Sobald der Sonnen-Trigger für ein konkretes Betriebsfenster erreicht wurde, wird er bis zum Ende dieses Fensters eingerastet; spätere Prognoseänderungen können das Licht dadurch nicht wieder ausschalten.
+- Bei fehlenden Wetterdaten wird innerhalb eines grundsätzlich aktiven Zeitfensters der aktuelle Schaltzustand gehalten, statt blind zu schalten.
+
+Hinweis: Die Wetterdaten stammen standardmäßig von Open-Meteo. Für den konkreten betrieblichen Einsatz sind deren jeweils aktuelle Nutzungsbedingungen zu beachten.

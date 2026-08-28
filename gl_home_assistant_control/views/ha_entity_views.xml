@@ -9,6 +9,8 @@
                 <field name="room"/>
                 <field name="dashboard_group" optional="show"/>
                 <field name="entity_id"/>
+                <field name="source_type" optional="show"/>
+                <field name="weather_metric" optional="hide"/>
                 <field name="domain"/>
                 <field name="state"/>
                 <field name="numeric_value" optional="show"/>
@@ -37,6 +39,8 @@
                         <group string="Zuordnung">
                             <field name="active"/>
                             <field name="entity_id" readonly="1"/>
+                            <field name="source_type" readonly="1"/>
+                            <field name="weather_metric" readonly="1" invisible="source_type != 'weather'"/>
                             <field name="ha_name" readonly="1"/>
                             <field name="domain" readonly="1"/>
                             <field name="room"/>

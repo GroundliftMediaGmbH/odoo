@@ -18,6 +18,15 @@
         <field name="interval_type">minutes</field>
         <field name="active">True</field>
     </record>
+    <record id="ir_cron_gl_ha_sync_weather" model="ir.cron">
+        <field name="name">GROUNDLIFT Home Assistant: Wetter &amp; Sonne</field>
+        <field name="model_id" ref="model_gl_ha_config"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_sync_weather()</field>
+        <field name="interval_number">15</field>
+        <field name="interval_type">minutes</field>
+        <field name="active">True</field>
+    </record>
     <record id="ir_cron_gl_ha_automation" model="ir.cron">
         <field name="name">GROUNDLIFT Home Assistant: Automatik auswerten</field>
         <field name="model_id" ref="model_gl_ha_config"/>
