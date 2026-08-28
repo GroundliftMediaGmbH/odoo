@@ -3,7 +3,7 @@
 
     const root = document.getElementById("gl-editor-root");
     const posterId = parseInt(root?.dataset?.posterId || "0", 10);
-    const APP_VERSION = "19.0.1.7.0";
+    const APP_VERSION = "19.0.1.7.1";
 
     const state = {
         loading: true,
@@ -1557,6 +1557,14 @@
         return String(value || "").trim().replace(/\s+/g, " ");
     }
 
+    function admissionTimeFromBeginText(value) {
+        const result = cleanGraphicValue(value).toUpperCase();
+        const match = result.match(/(?:^|\D)([01]?\d|2[0-3])(?:[.:]([0-5]\d))?(?:\s*UHR)?(?!\d)/);
+        if (!match) return "";
+        const minutes = (parseInt(match[1], 10) * 60 + parseInt(match[2] || "0", 10) - 60 + 24 * 60) % (24 * 60);
+        return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+    }
+
     function normalizeAdmissionTime(value) {
         let result = cleanGraphicValue(value).toUpperCase();
         result = result.replace(/^EINLASS\s+(?:AB\s+)?/, "").trim();
@@ -2370,7 +2378,7 @@
                 photo_credit: p.photo_credit || "",
                 ticket_url: p.ticket_url || "",
                 ticket_link_text: p.ticket_link_text || "",
-                admission_time_text: p.admission_time_text || "",
+                admission_time_text: p.admission_time_text || admissionTimeFromBeginText(p.time_text || ""),
                 ticket_price_text: p.ticket_price_text || "",
                 qr_url: p.qr_url || "",
                 color_1: p.color_1 || "#000033",
