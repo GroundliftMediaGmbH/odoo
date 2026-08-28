@@ -82,8 +82,8 @@
         ["summary_text", "Kurzzusammenfassung"],
         ["photo_credit", "Fotocredit"],
         ["ticket_link_text", "Ticketlink"],
-        ["admission_time_text", "Einlasszeit (Foyer Eingang)"],
-        ["ticket_price_text", "Preis (Foyer Eingang)"],
+        ["admission_time_text", "Foyer Eingang – Einlass"],
+        ["ticket_price_text", "Foyer Eingang – Ticketpreis"],
     ];
 
     const TEXT_FIELD_LABELS = Object.fromEntries(TEXT_FIELDS);
@@ -96,6 +96,7 @@
             externalLogo: { dx: 0, dy: 0, scale: 1 },
             sticker: { dx: 0, dy: 0, scale: 1 },
             divider: { dx: 0, dy: 0, width: 0, height: 0 },
+            admissionDivider: { dx: 0, dy: 0, width: 0, height: 0 },
             textStyles: {},
             overlayOverrides: {},
         };
@@ -424,6 +425,7 @@
         variant.externalLogo = variant.externalLogo || { dx: 0, dy: 0, scale: 1 };
         variant.sticker = variant.sticker || { dx: 0, dy: 0, scale: 1 };
         variant.divider = variant.divider || { dx: 0, dy: 0, width: 0, height: 0 };
+        variant.admissionDivider = variant.admissionDivider || { dx: 0, dy: 0, width: 0, height: 0 };
         variant.textStyles = variant.textStyles || {};
         variant.overlayOverrides = variant.overlayOverrides || {};
         return variant;
@@ -573,12 +575,13 @@
         const hasTransform = (obj = {}, keys = []) => keys.some((key) => Math.abs(Number(obj[key] || 0)) > 0.0001) || Math.abs(Number(obj.scale || 1) - 1) > 0.0001;
         const hasTextStyle = Object.values(variant.textStyles || {}).some((style) => style && (Math.abs(Number(style.dx || 0)) > 0.0001 || Math.abs(Number(style.dy || 0)) > 0.0001 || Number(style.size || 0) > 0 || (style.font && style.font !== "auto") || (style.align && style.align !== "auto")));
         const hasDivider = hasTransform(variant.divider || {}, ["dx", "dy", "width", "height"]);
+        const hasAdmissionDivider = hasTransform(variant.admissionDivider || {}, ["dx", "dy", "width", "height"]);
         const hasQr = hasTransform(variant.qr || {}, ["dx", "dy"]);
         const hasLogo = hasTransform(variant.externalLogo || {}, ["dx", "dy"]);
         const hasSticker = hasTransform(variant.sticker || {}, ["dx", "dy"]);
         const hasImage = Boolean(variant.imageCustom) || hasTransform(variant.image || {}, ["offsetX", "offsetY", "rotation"]);
         const hasOverlay = Object.keys(variant.overlayOverrides || {}).length > 0;
-        return hasTextStyle || hasDivider || hasQr || hasLogo || hasSticker || hasImage || hasOverlay;
+        return hasTextStyle || hasDivider || hasAdmissionDivider || hasQr || hasLogo || hasSticker || hasImage || hasOverlay;
     }
 
     async function prefillVariantsFromOdooDefaults() {
@@ -656,7 +659,7 @@
                 const geometry = alphaGeometry(image);
                 geometries[asset.role] = geometry;
                 bboxes[asset.role] = geometry ? geometry.bbox : null;
-                if (["date_title", "time_subtitle", "time_ticketlink", "title", "subtitle"].includes(asset.role)) {
+                if (["date_title", "time_subtitle", "time_ticketlink", "title", "subtitle", "static_admission_price"].includes(asset.role)) {
                     regions[asset.role] = groupedAlphaRegions(image);
                 }
             } catch (error) {
@@ -778,6 +781,16 @@
                                 ${numberInput("divider.width", "Breite px")}
                                 ${numberInput("divider.height", "Länge px")}
                             </div>
+                        </div>
+                        <div class="gl-section">
+                            <label class="gl-label gl-label-strong">Foyer Eingang – Trennstrich Einlass / Preis</label>
+                            <div class="gl-grid-2">
+                                ${numberInput("admissionDivider.dx", "Trennstrich X")}
+                                ${numberInput("admissionDivider.dy", "Trennstrich Y")}
+                                ${numberInput("admissionDivider.width", "Breite px")}
+                                ${numberInput("admissionDivider.height", "Länge px")}
+                            </div>
+                            <div class="gl-small mt-2">Einlass und Ticketpreis selbst lassen sich oben unter „Text-Einstellungen je Element“ getrennt verschieben und skalieren.</div>
                         </div>
                         <div class="gl-section">
                             <label class="gl-label gl-label-strong">Externes Logo</label>
@@ -1234,9 +1247,6 @@
         const contentShift = resolveTemplateContentShift(template, box);
 
         for (const overlay of info.staticOverlays || []) {
-            // Diese drei Ebenen werden gezielt später gezeichnet:
-            // - Einlass/Preis werden dynamisch als editierbare Texte gerendert.
-            // - Der Foyer-Eingang-Störer muss als oberste Design-Ebene vor Bild und Rahmen liegen.
             if (["static_admission_price", "static_begin", "static_admission_sticker"].includes(overlay.role)) continue;
             safeDrawImage(ctx, overlay.image, 0, 0, template.canvas_width, template.canvas_height, overlay.role || "Static Overlay");
         }
@@ -1294,7 +1304,13 @@
         }
 
         if (templateKey === "foyer_eingang") {
-            safeLayer("Einlass / Ticketpreis", () => drawFoyerAdmissionPrice(ctx, box.static_admission_price, template));
+            safeLayer("Einlass / Ticketpreis", () => drawFoyerAdmissionPrice(
+                ctx,
+                box.static_admission_price,
+                regions.static_admission_price || [],
+                template,
+                variant.admissionDivider || {},
+            ));
         }
         if (templateKey === "theater_konzert") {
             safeLayer("Beginn", () => drawTheaterBegin(ctx, box.static_begin, template));
@@ -1321,19 +1337,11 @@
             }
         }
 
-        // Im Foyer-Eingang ist „Live on Stage“ ein separates statisches Overlay.
-        // Es wird bewusst als letzte sichtbare Design-Ebene gezeichnet, damit weder
-        // Veranstaltungsbild noch Rahmen oder andere Overlays darüber liegen können.
+        // Der runde „LIVE ON STAGE“-Störer von Foyer Eingang ist ein eigenes
+        // static_* Asset. Er wird absichtlich als allerletzte sichtbare Ebene
+        // gezeichnet, damit weder Veranstaltungsbild noch Rahmen ihn überdecken.
         if (templateKey === "foyer_eingang" && img.static_admission_sticker) {
-            safeDrawImage(
-                ctx,
-                img.static_admission_sticker,
-                0,
-                0,
-                template.canvas_width,
-                template.canvas_height,
-                "Foyer Eingang – Live on Stage",
-            );
+            safeDrawImage(ctx, img.static_admission_sticker, 0, 0, template.canvas_width, template.canvas_height, "Foyer Eingang – Live On Stage");
         }
 
         if (showGuides) {
@@ -1621,67 +1629,80 @@
         };
     }
 
-    function drawFoyerAdmissionPrice(ctx, bbox, template) {
+    function resolveFoyerAdmissionLayout(bbox, regions = [], template = null) {
+        if (!bbox) return null;
+        const useful = usefulTextRegions(regions);
+        const detectedDivider = findDividerBox(bbox, useful, 0.576);
+        const dividerCenter = detectedDivider.x + detectedDivider.width / 2;
+        const dividerWidth = Math.max(3, Math.round(bbox.width * 0.005));
+        const divider = {
+            x: dividerCenter - dividerWidth / 2,
+            y: bbox.y,
+            width: dividerWidth,
+            height: bbox.height,
+        };
+
+        // Nutzt links/rechts bewusst mehr Platz als die Alpha-Bounds des Referenztextes.
+        // So kann die Schriftgröße wie bei den übrigen Textelementen auch vergrößert werden,
+        // ohne sofort durch die ursprüngliche Musterbreite begrenzt zu sein.
+        const outerPad = Math.max(24, Math.round((template?.canvas_width || 1920) * 0.055));
+        const gap = Math.max(14, Math.round(bbox.width * 0.022));
+        const top = Math.max(0, bbox.y - 10);
+        const height = bbox.height + 20;
+        const leftX = Math.max(0, bbox.x - outerPad);
+        const leftRight = divider.x - gap;
+        const rightX = divider.x + divider.width + gap;
+        const rightRight = Math.min((template?.canvas_width || 1920), bbox.x + bbox.width + outerPad);
+        const left = { x: leftX, y: top, width: Math.max(1, leftRight - leftX), height };
+        const right = { x: rightX, y: top, width: Math.max(1, rightRight - rightX), height };
+        return { divider, left, right };
+    }
+
+    function drawFoyerAdmissionPrice(ctx, bbox, regions, template, dividerVariant = {}) {
         if (!bbox) return;
         const admission = normalizeAdmissionTime(state.fields.admission_time_text);
         const price = normalizeTicketPrice(state.fields.ticket_price_text);
         if (!admission && !price) return;
 
-        const target = expandedTextBox(bbox, template, 0.055, 10);
+        const layout = resolveFoyerAdmissionLayout(bbox, regions || [], template);
+        if (!layout) return;
+        const admissionStyle = getTextStyle(template?.key, "admission_time_text");
+        const priceStyle = getTextStyle(template?.key, "ticket_price_text");
         const baseFont = "600 42px GroundliftCondensed, Arial Narrow, Arial, sans-serif";
 
-        // Die Originalvorlage trennt Einlass und Preis ungefähr bei 57,6 % der
-        // Referenzzeile. Beide Texte bekommen eigene Zielboxen und damit eigene
-        // Text-Styles (Position X/Y, Schriftgröße, Schriftart und Ausrichtung).
-        // So bleibt die bisherige Standardoptik erhalten, während beide Angaben
-        // unabhängig voneinander justiert werden können.
-        const separatorX = bbox.x + bbox.width * 0.576;
-        const separatorGap = Math.max(18, Math.round((template?.canvas_width || 1920) * 0.012));
-        const leftBox = {
-            x: target.x,
-            y: target.y,
-            width: Math.max(1, separatorX - separatorGap - target.x),
-            height: target.height,
-        };
-        const rightBox = {
-            x: separatorX + separatorGap,
-            y: target.y,
-            width: Math.max(1, target.x + target.width - separatorX - separatorGap),
-            height: target.height,
-        };
-
         if (admission) {
-            drawSingleLine(
+            drawFitText(
                 ctx,
-                `EINLASS AB ${admission}`,
-                leftBox,
-                baseFont,
-                price ? "right" : "center",
-                template,
-                "admission_time_text",
+                [`EINLASS AB ${admission}`],
+                applyTextBoxStyle(layout.left, admissionStyle),
+                overrideFont(baseFont, admissionStyle),
+                textAlign(admissionStyle, "right"),
+                {
+                    allowWrap: false,
+                    valign: "middle",
+                    lineHeight: 1.0,
+                    maxSize: maxFontSize(42, admissionStyle),
+                },
             );
         }
         if (price) {
-            drawSingleLine(
+            drawFitText(
                 ctx,
-                `TICKETS AB: ${price}`,
-                rightBox,
-                baseFont,
-                admission ? "left" : "center",
-                template,
-                "ticket_price_text",
+                [`TICKETS AB: ${price}`],
+                applyTextBoxStyle(layout.right, priceStyle),
+                overrideFont(baseFont, priceStyle),
+                textAlign(priceStyle, "left"),
+                {
+                    allowWrap: false,
+                    valign: "middle",
+                    lineHeight: 1.0,
+                    maxSize: maxFontSize(42, priceStyle),
+                },
             );
         }
+
         if (admission && price) {
-            drawSingleLine(
-                ctx,
-                "|",
-                { x: separatorX - separatorGap, y: target.y, width: separatorGap * 2, height: target.height },
-                baseFont,
-                "center",
-                template,
-                null,
-            );
+            drawDivider(ctx, applyDividerVariant(layout.divider, dividerVariant));
         }
     }
 
