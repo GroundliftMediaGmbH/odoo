@@ -73,6 +73,63 @@ class GlHaConfig(models.Model):
     last_weather_sync_at = fields.Datetime(string="Letzte Wetter-Aktualisierung", readonly=True)
     last_weather_message = fields.Text(string="Letzte Wettermeldung", readonly=True)
 
+    # Stromkosten / Refoss-Zähler
+    power_cost_enabled = fields.Boolean(
+        string="Stromkosten-Ermittlung aktiv",
+        default=False,
+        help="Ermittelt aus ausgewählten Home-Assistant-Energie-/Leistungssensoren die Stromkosten je Veranstaltungstag.",
+    )
+    power_entity_ids = fields.Many2many(
+        "gl.ha.entity",
+        "gl_ha_config_power_entity_rel",
+        "config_id",
+        "entity_id",
+        string="Stromzähler-Entitäten",
+        domain=[("source_type", "=", "home_assistant"), ("domain", "=", "sensor"), ("active", "=", True)],
+        help="Mehrere Zähler werden addiert. Unterstützt werden Wh/kWh/MWh sowie W/kW/MW (Leistung wird integriert). Energiezähler in kWh werden empfohlen.",
+    )
+    power_price_kwh = fields.Float(
+        string="Strompreis je kWh",
+        digits=(16, 6),
+        default=0.0,
+        help="Brutto- oder Nettopreis nach eurer Kalkulationslogik. Der Betrag wird direkt mit den gemessenen kWh multipliziert.",
+    )
+    power_day_start_hour = fields.Float(
+        string="Messbeginn am Veranstaltungstag",
+        default=7.0,
+        help="Standard 07:00 Uhr am Kalendertag, an dem die Veranstaltung beginnt.",
+    )
+    power_day_end_hour = fields.Float(
+        string="Messende am Folgetag",
+        default=5.0,
+        help="Standard 05:00 Uhr am Folgetag. Der Messzeitraum läuft damit standardmäßig von 07:00 bis 05:00 Uhr des Folgetags.",
+    )
+    power_refresh_minutes = fields.Integer(
+        string="Stromkosten-Aktualisierung (Min.)",
+        default=15,
+        help="Wie oft laufende Veranstaltungstage neu ausgewertet werden. Der technische Cron läuft alle 5 Minuten und beachtet dieses Intervall.",
+    )
+    power_average_event_count = fields.Integer(
+        string="SOLL-Mittelwert aus Veranstaltungen",
+        default=20,
+        help="Anzahl der letzten abgeschlossenen Veranstaltungen, aus deren Stromkosten der SOLL-Wert gebildet wird.",
+    )
+    power_actual_field_name = fields.Char(
+        string="Technisches Feld für IST-Stromkosten",
+        default="x_studio_event_kalk_ist_sonstige_kosten",
+        help="Technischer Feldname auf event.event. Muss ein numerisches Feld (Float/Monetary/Integer) sein.",
+    )
+    power_budget_field_name = fields.Char(
+        string="Technisches Feld für SOLL-Stromkosten",
+        default="x_studio_event_kalk_soll_sonstige_kosten",
+        help="Technischer Feldname auf event.event. Kann später z. B. auf x_studio_event_kalk_soll_stromkosten geändert werden.",
+    )
+    power_current_average_cost = fields.Float(
+        string="Aktueller SOLL-Mittelwert", digits=(16, 6), readonly=True
+    )
+    last_power_cost_sync_at = fields.Datetime(string="Letzte Stromkosten-Aktualisierung", readonly=True)
+    last_power_cost_message = fields.Text(string="Letzte Stromkostenmeldung", readonly=True)
+
     alert_email_enabled = fields.Boolean(string="Warnungen per E-Mail", default=False)
     alert_email_to = fields.Char(string="Warn-E-Mail an")
 
@@ -91,6 +148,11 @@ class GlHaConfig(models.Model):
         "schedule_horizon_days",
         "cinema_default_duration_minutes",
         "weather_refresh_minutes",
+        "power_refresh_minutes",
+        "power_average_event_count",
+        "power_price_kwh",
+        "power_day_start_hour",
+        "power_day_end_hour",
     )
     def _check_positive_values(self):
         for rec in self:
@@ -106,6 +168,25 @@ class GlHaConfig(models.Model):
                 raise ValidationError(_("Zeitfenster und Kinodauer müssen größer als 0 sein."))
             if rec.weather_refresh_minutes < 5:
                 raise ValidationError(_("Das Wetter-Aktualisierungsintervall muss mindestens 5 Minuten betragen."))
+            if rec.power_refresh_minutes < 5:
+                raise ValidationError(_("Das Stromkosten-Aktualisierungsintervall muss mindestens 5 Minuten betragen."))
+            if rec.power_average_event_count < 1:
+                raise ValidationError(_("Der SOLL-Mittelwert muss aus mindestens einer Veranstaltung gebildet werden."))
+            if rec.power_price_kwh < 0:
+                raise ValidationError(_("Der Strompreis darf nicht negativ sein."))
+            if not (0.0 <= rec.power_day_start_hour < 24.0) or not (0.0 <= rec.power_day_end_hour < 24.0):
+                raise ValidationError(_("Messbeginn und Messende müssen zwischen 00:00 und 23:59 Uhr liegen."))
+
+    @api.constrains("power_actual_field_name", "power_budget_field_name")
+    def _check_power_field_names(self):
+        pattern = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+        for rec in self:
+            for value, label in (
+                (rec.power_actual_field_name, _("IST-Stromkosten")),
+                (rec.power_budget_field_name, _("SOLL-Stromkosten")),
+            ):
+                if not value or not pattern.match(value.strip()):
+                    raise ValidationError(_("Ungültiger technischer Feldname für %s.") % label)
 
     def init(self):
         """Bestandsinstallationen mit sinnvollen Wetter-Standardwerten ergänzen."""
@@ -133,6 +214,46 @@ class GlHaConfig(models.Model):
              WHERE (weather_latitude IS NULL OR weather_latitude = 0)
                AND (weather_longitude IS NULL OR weather_longitude = 0)
                AND weather_location = '82266 Inning am Ammersee, Deutschland'
+        """)
+        self.env.cr.execute("""
+            UPDATE gl_ha_config
+               SET power_cost_enabled = FALSE
+             WHERE power_cost_enabled IS NULL
+        """)
+        self.env.cr.execute("""
+            UPDATE gl_ha_config
+               SET power_day_start_hour = 7.0
+             WHERE power_day_start_hour IS NULL
+        """)
+        self.env.cr.execute("""
+            UPDATE gl_ha_config
+               SET power_day_end_hour = 5.0
+             WHERE power_day_end_hour IS NULL
+        """)
+        self.env.cr.execute("""
+            UPDATE gl_ha_config
+               SET power_refresh_minutes = 15
+             WHERE power_refresh_minutes IS NULL OR power_refresh_minutes < 5
+        """)
+        self.env.cr.execute("""
+            UPDATE gl_ha_config
+               SET power_average_event_count = 20
+             WHERE power_average_event_count IS NULL OR power_average_event_count < 1
+        """)
+        self.env.cr.execute("""
+            UPDATE gl_ha_config
+               SET power_price_kwh = 0.0
+             WHERE power_price_kwh IS NULL
+        """)
+        self.env.cr.execute("""
+            UPDATE gl_ha_config
+               SET power_actual_field_name = 'x_studio_event_kalk_ist_sonstige_kosten'
+             WHERE power_actual_field_name IS NULL OR power_actual_field_name = ''
+        """)
+        self.env.cr.execute("""
+            UPDATE gl_ha_config
+               SET power_budget_field_name = 'x_studio_event_kalk_soll_sonstige_kosten'
+             WHERE power_budget_field_name IS NULL OR power_budget_field_name = ''
         """)
 
     def write(self, vals):
@@ -499,6 +620,50 @@ class GlHaConfig(models.Model):
             "params": {"title": _("Historie"), "message": _("%(count)s Verlaufswerte importiert.") % {"count": count}, "type": "success"},
         }
 
+    def action_update_power_costs(self):
+        self.ensure_one()
+        if not self.power_cost_enabled:
+            raise UserError(_("Bitte zuerst die Stromkosten-Ermittlung aktivieren."))
+        try:
+            calculated, average, sample_count = self.env["gl.ha.power.day"].sudo().run_regular_update(self, force=False)
+            message = _(
+                "Stromkosten aktualisiert: %(days)s Veranstaltungstag(e) berechnet · SOLL-Mittel %(avg).2f aus %(samples)s Veranstaltung(en)."
+            ) % {"days": len(calculated), "avg": average, "samples": sample_count}
+            self.sudo().write({
+                "last_power_cost_sync_at": fields.Datetime.now(),
+                "last_power_cost_message": message,
+            })
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {"title": _("Stromkosten"), "message": message, "type": "success", "sticky": False},
+            }
+        except Exception as exc:
+            self.sudo().write({"last_power_cost_message": str(exc)})
+            raise UserError(_("Stromkosten konnten nicht aktualisiert werden: %s") % exc) from exc
+
+    def action_backfill_power_costs(self):
+        self.ensure_one()
+        if not self.power_cost_enabled:
+            raise UserError(_("Bitte zuerst die Stromkosten-Ermittlung aktivieren."))
+        try:
+            calculated, average, sample_count = self.env["gl.ha.power.day"].sudo().backfill_recent(self)
+            message = _(
+                "Historische Stromkosten neu berechnet: %(days)s Tag(e) · SOLL-Mittel %(avg).2f aus %(samples)s Veranstaltung(en)."
+            ) % {"days": calculated, "avg": average, "samples": sample_count}
+            self.sudo().write({
+                "last_power_cost_sync_at": fields.Datetime.now(),
+                "last_power_cost_message": message,
+            })
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {"title": _("Stromkosten"), "message": message, "type": "success", "sticky": False},
+            }
+        except Exception as exc:
+            self.sudo().write({"last_power_cost_message": str(exc)})
+            raise UserError(_("Historische Stromkosten konnten nicht berechnet werden: %s") % exc) from exc
+
     def action_open_dashboard(self):
         self.ensure_one()
         dashboard = self.env["gl.ha.dashboard"].search([("active", "=", True)], limit=1)
@@ -568,6 +733,39 @@ class GlHaConfig(models.Model):
             self.env["gl.ha.alert"].sudo().open_system_alert(
                 "weather_sync",
                 _("Wetter-/Sonnendaten konnten nicht aktualisiert werden: %s") % exc,
+                severity="warning",
+                config=config,
+            )
+        return True
+
+    @api.model
+    def cron_update_power_costs(self):
+        config = self.get_config().sudo()
+        if not config.power_cost_enabled:
+            return True
+        if config.last_power_cost_sync_at:
+            due_at = config.last_power_cost_sync_at + timedelta(minutes=max(5, int(config.power_refresh_minutes or 15)))
+            if fields.Datetime.now() < due_at:
+                return True
+        try:
+            calculated, average, sample_count = self.env["gl.ha.power.day"].sudo().run_regular_update(config)
+            message = _(
+                "Automatische Stromkosten-Aktualisierung: %(days)s Tag(e) berechnet · SOLL-Mittel %(avg).2f aus %(samples)s Veranstaltung(en)."
+            ) % {"days": len(calculated), "avg": average, "samples": sample_count}
+            config.sudo().write({
+                "last_power_cost_sync_at": fields.Datetime.now(),
+                "last_power_cost_message": message,
+            })
+            self.env["gl.ha.alert"].sudo().resolve_system_alert("power_cost_sync")
+        except Exception as exc:
+            _logger.exception("Power cost sync failed")
+            config.sudo().write({
+                "last_power_cost_sync_at": fields.Datetime.now(),
+                "last_power_cost_message": str(exc),
+            })
+            self.env["gl.ha.alert"].sudo().open_system_alert(
+                "power_cost_sync",
+                _("Stromkosten konnten nicht aktualisiert werden: %s") % exc,
                 severity="warning",
                 config=config,
             )

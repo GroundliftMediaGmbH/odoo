@@ -131,6 +131,7 @@ Odoo.sh läuft in der Cloud. Eine lokale Adresse wie `http://homeassistant.local
 - Home-Assistant-Zustände: jede Minute
 - Event-/Kino-Zeitfenster: alle 15 Minuten
 - Automatik-Auswertung: jede Minute
+- Stromkosten-Prüfung: alle 5 Minuten (fachliches Intervall einstellbar)
 - Historienbereinigung: täglich
 
 ## Sicherheit
@@ -181,3 +182,42 @@ Alle Automatikquellen werden pro Zielentität logisch ODER-verknüpft. Endet ein
 - Bei fehlenden Wetterdaten wird innerhalb eines grundsätzlich aktiven Zeitfensters der aktuelle Schaltzustand gehalten, statt blind zu schalten.
 
 Hinweis: Die Wetterdaten stammen standardmäßig von Open-Meteo. Für den konkreten betrieblichen Einsatz sind deren jeweils aktuelle Nutzungsbedingungen zu beachten.
+
+## Stromkosten je Veranstaltung (v1.3.0)
+
+Die App kann mehrere Home-Assistant-Stromzähler gemeinsam auswerten und die daraus entstehenden Stromkosten direkt in Odoo-Veranstaltungsfelder schreiben.
+
+### Einrichtung
+
+Unter **Gebäudesteuerung → Einstellungen → Stromkosten**:
+
+1. **Stromkosten-Ermittlung aktiv** einschalten.
+2. Einen oder mehrere Home-Assistant-Sensoren als **Stromzähler-Entitäten** auswählen. Mehrere Sensoren werden addiert.
+3. Den **Strompreis je kWh** eintragen.
+4. Messfenster festlegen. Standard ist **07:00 Uhr am Veranstaltungstag bis 05:00 Uhr am Folgetag**.
+5. Anzahl der Veranstaltungen für den SOLL-Mittelwert einstellen; Standard: **20**.
+6. Technische Odoo-Felder festlegen. Standard:
+   - IST: `x_studio_event_kalk_ist_sonstige_kosten`
+   - SOLL: `x_studio_event_kalk_soll_sonstige_kosten`
+
+Die Feldnamen können später z. B. auf eigene Stromkostenfelder umgestellt werden. Die App prüft vor dem Schreiben, ob das konfigurierte Feld auf `event.event` existiert und numerisch ist.
+
+### Verbrauchslogik
+
+- Unterstützte Energieeinheiten: **Wh, kWh, MWh**.
+- Unterstützte Leistungseinheiten: **W, kW, MW**. Bei Leistungssensoren wird der Verbrauch über die Zeit integriert; echte Energiezähler werden für die Abrechnung empfohlen.
+- Mehrere ausgewählte Zähler werden zu einem Gesamtverbrauch addiert.
+- Gibt es an einem Kalendertag genau eine Veranstaltung, erhält sie die gesamten Kosten des Messfensters.
+- Gibt es mehrere Veranstaltungen mit Beginn am selben Kalendertag, werden die Gesamtkosten gleichmäßig durch die Zahl dieser Veranstaltungen geteilt.
+- Während das Messfenster läuft, wird der IST-Wert regelmäßig aktualisiert. Nach dem konfigurierten Messende am Folgetag wird der Tageswert als abgeschlossen gespeichert.
+- Ist ein ausgewählter Zähler während einer laufenden Berechnung nicht erreichbar oder fehlt ausreichende Home-Assistant-Historie, wird kein unvollständiger Null-/Teilwert in das Event geschrieben; stattdessen entsteht eine Warnung.
+
+### SOLL-Wert
+
+Der SOLL-Wert wird aus den Stromkosten der letzten abgeschlossenen Veranstaltungen gebildet. Bei mehreren Veranstaltungen an einem Tag zählt jede Veranstaltung mit ihrem anteiligen Tageswert als eigene Stichprobe. Solange weniger als die konfigurierte Zahl historischer Veranstaltungen vorliegt, wird aus den verfügbaren abgeschlossenen Veranstaltungen gemittelt.
+
+Mit **„Stromkosten-Historie neu berechnen“** können nach der Ersteinrichtung die Tage hinter den letzten N Veranstaltungen aus der Home-Assistant-Historie nachberechnet werden. Das ist insbesondere sinnvoll, damit der SOLL-Mittelwert sofort mit historischen Daten gefüllt werden kann.
+
+### Cronjob
+
+Der technische Stromkosten-Cron läuft alle 5 Minuten. Das in den Einstellungen gewählte Aktualisierungsintervall (Standard 15 Minuten) bestimmt, wann tatsächlich neu gerechnet wird. Abgeschlossene Tage werden im Regelbetrieb nicht erneut von Home Assistant geladen; fehlende Abschlusswerte der letzten Tage werden automatisch nachgeholt.

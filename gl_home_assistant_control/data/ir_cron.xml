@@ -36,6 +36,15 @@
         <field name="interval_type">minutes</field>
         <field name="active">True</field>
     </record>
+    <record id="ir_cron_gl_ha_power_costs" model="ir.cron">
+        <field name="name">GROUNDLIFT Home Assistant: Stromkosten</field>
+        <field name="model_id" ref="model_gl_ha_config"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_update_power_costs()</field>
+        <field name="interval_number">5</field>
+        <field name="interval_type">minutes</field>
+        <field name="active">True</field>
+    </record>
     <record id="ir_cron_gl_ha_cleanup_history" model="ir.cron">
         <field name="name">GROUNDLIFT Home Assistant: Historie bereinigen</field>
         <field name="model_id" ref="model_gl_ha_config"/>
