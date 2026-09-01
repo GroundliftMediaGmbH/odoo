@@ -5,7 +5,7 @@ from datetime import timedelta
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 
-from .scorsese_models import clean_scorsese_path
+from .scorsese_models import clean_scorsese_path, get_configured_event_folder_stage
 
 
 FORBIDDEN_WINDOWS_CHARS = r'<>:"/\\|?*'
@@ -315,20 +315,35 @@ class EventEvent(models.Model):
     gl_todo_ids = fields.One2many('project.task', 'gl_event_id', string='GROUNDLIFT ToDos')
     gl_scorsese_project_id = fields.Many2one('project.project', string='Verknüpftes SCORSESE Projekt', copy=False)
 
+    def _gl_maybe_create_automatic_event_folder(self):
+        target_stage = get_configured_event_folder_stage(self.env)
+        if not target_stage:
+            return
+        for rec in self:
+            if rec.stage_id.id != target_stage.id or rec.gl_folder_path:
+                continue
+            try:
+                storage = rec._gl_public_event_storage()
+                template = rec._gl_default_template('event.event')
+                rec._gl_queue_create_folder(storage, template, parent_path=storage.root_path, check_connection=False)
+            except Exception as exc:
+                rec.message_post(body=_('SCORSESE konnte keinen automatischen Veranstaltungsordner anlegen: %s') % exc)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        # Deckt auch den Fall ab, dass eine Veranstaltung direkt in der
+        # konfigurierten Phase angelegt wird.
+        records._gl_maybe_create_automatic_event_folder()
+        return records
+
     def write(self, vals):
         res = super().write(vals)
         if 'stage_id' in vals:
-            configured = self.env['ir.config_parameter'].sudo().get_param(
-                'gl_scorsese.event_announced_stage_names', 'Angekündigt,Announced'
-            )
+            target_stage = get_configured_event_folder_stage(self.env)
             for rec in self:
-                if rec.stage_id and stage_name_matches(rec.stage_id.name, configured) and not rec.gl_folder_path:
-                    try:
-                        storage = rec._gl_public_event_storage()
-                        template = rec._gl_default_template('event.event')
-                        rec._gl_queue_create_folder(storage, template, parent_path=storage.root_path, check_connection=False)
-                    except Exception as exc:
-                        rec.message_post(body=_('SCORSESE konnte keinen automatischen Veranstaltungsordner anlegen: %s') % exc)
+                if target_stage and rec.stage_id.id == target_stage.id and not rec.gl_folder_path:
+                    rec._gl_maybe_create_automatic_event_folder()
                 elif rec.gl_folder_path:
                     try:
                         rec._gl_queue_current_stage_icon(check_connection=False)

@@ -8,6 +8,53 @@ from odoo.exceptions import UserError, AccessError
 
 _logger = logging.getLogger(__name__)
 
+EVENT_FOLDER_STAGE_PARAM = 'gl_scorsese.event_folder_stage_id'
+
+
+def _normalize_stage_name(value):
+    value = (value or '').strip().casefold()
+    value = value.replace('ä', 'ae').replace('ö', 'oe').replace('ü', 'ue').replace('ß', 'ss')
+    return ' '.join(value.split())
+
+
+def get_configured_event_folder_stage(env):
+    """Return the event.stage that triggers automatic SCORSESE folder creation.
+
+    The saved setting uses the stable database ID. If no setting has been saved
+    yet, "Gebucht" (or its English equivalent "Booked") is used as the
+    default. The textual fallback is intentionally only used to establish the
+    initial default; once saved in SCORSESE settings, the stage ID is authoritative.
+    """
+    Stage = env['event.stage'].sudo()
+    raw_value = env['ir.config_parameter'].sudo().get_param(EVENT_FOLDER_STAGE_PARAM)
+
+    if raw_value:
+        try:
+            stage_id = int(raw_value)
+        except (TypeError, ValueError):
+            stage_id = 0
+        if stage_id:
+            stage = Stage.browse(stage_id).exists()
+            if stage:
+                return stage
+
+        # Compatibility for any manually entered textual value.
+        wanted = _normalize_stage_name(raw_value)
+        if wanted:
+            for stage in Stage.search([]):
+                if _normalize_stage_name(stage.name) == wanted:
+                    return stage
+
+    default_names = {'gebucht', 'booked'}
+    for stage in Stage.search([]):
+        if _normalize_stage_name(stage.name) in default_names:
+            # Persist the resolved default ID so later stage renames do not
+            # change the configured trigger implicitly.
+            env['ir.config_parameter'].sudo().set_param(EVENT_FOLDER_STAGE_PARAM, str(stage.id))
+            return stage
+    return Stage.browse()
+
+
 
 def _json_dumps(value):
     return json.dumps(value or {}, ensure_ascii=False, indent=2, default=str)
@@ -34,6 +81,40 @@ def _sanitize_path_vals(vals, fields_to_clean):
         if field in vals and vals.get(field):
             vals[field] = clean_scorsese_path(vals[field])
     return vals
+
+
+class GlScorseseSettings(models.TransientModel):
+    _name = 'gl.scorsese.settings'
+    _description = 'SCORSESE Einstellungen'
+
+    event_folder_stage_id = fields.Many2one(
+        'event.stage',
+        string='Veranstaltungsphase für automatische Ordnererstellung',
+        required=True,
+        default=lambda self: get_configured_event_folder_stage(self.env),
+        help=(
+            'Sobald eine Veranstaltung diese Phase erreicht, wird automatisch der '
+            'SCORSESE Veranstaltungsordner angelegt, sofern noch kein Ordner verknüpft ist.'
+        ),
+    )
+
+    def action_save(self):
+        self.ensure_one()
+        self.env['ir.config_parameter'].sudo().set_param(
+            EVENT_FOLDER_STAGE_PARAM,
+            str(self.event_folder_stage_id.id),
+        )
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('SCORSESE Einstellungen'),
+                'message': _('Gespeichert. Veranstaltungsordner werden automatisch in der Phase „%s“ erstellt.') % self.event_folder_stage_id.display_name,
+                'type': 'success',
+                'sticky': False,
+                'next': {'type': 'ir.actions.act_window_close'},
+            },
+        }
 
 
 class GlScorseseDashboard(models.Model):
@@ -81,6 +162,10 @@ class GlScorseseDashboard(models.Model):
     def action_open_templates(self):
         self.ensure_one()
         return self.env.ref('groundlift_scorsese_bridge.action_gl_scorsese_template').read()[0]
+
+    def action_open_settings(self):
+        self.ensure_one()
+        return self.env.ref('groundlift_scorsese_bridge.action_gl_scorsese_settings').read()[0]
 
 
 class GlScorseseStorage(models.Model):

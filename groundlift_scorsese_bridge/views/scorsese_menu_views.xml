@@ -21,6 +21,7 @@
                             <button name="action_open_import_wizard" type="object" string="Veranstaltung/Projekt importieren" class="btn-primary"/>
                             <button name="action_open_connection" type="object" string="Verbindung anzeigen"/>
                             <button name="action_open_jobs" type="object" string="Aufträge anzeigen"/>
+                            <button name="action_open_settings" type="object" string="Einstellungen" groups="groundlift_scorsese_bridge.group_scorsese_manager"/>
                             <button name="action_open_storage" type="object" string="Speicherpfade" groups="groundlift_scorsese_bridge.group_scorsese_manager"/>
                             <button name="action_open_templates" type="object" string="Ordnervorlagen" groups="groundlift_scorsese_bridge.group_scorsese_manager"/>
                         </group>
