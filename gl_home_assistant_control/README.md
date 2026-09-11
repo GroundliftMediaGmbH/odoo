@@ -237,3 +237,26 @@ Der technische Stromkosten-Cron läuft alle 5 Minuten. Das in den Einstellungen 
 - Der Spiegelmodus bleibt dynamisch: Änderungen an „Im Dashboard anzeigen“ bzw. am Aktiv-Status einer Entität werden nachgeführt.
 - Sobald die Entitätsauswahl im Dashboard manuell geändert wird, wird sie wie bisher zu einer expliziten Auswahl. Wird bei aktivem globalem Fallback alles entfernt, wird wieder die globale Auswahl verwendet.
 - Das Live-Dashboard-Verhalten bleibt damit unverändert; behoben wird ausschließlich die leere/nicht bedienbare Auswahl im Odoo-Backend.
+
+## Externer, gerätegebundener Dashboard-Zugriff (ab 19.0.1.4.0)
+
+Unter **Gebäudesteuerung → Gerätezugänge** kann ein externer Zugriff ohne Odoo-Benutzerkonto angelegt werden.
+
+- Pro Gerätezugang wird ein Dashboard festgelegt.
+- Hauptseite und erlaubte Unterseiten sind separat freigebbar.
+- Der Gerätezugang kann nur lesend oder mit Steuerungsrecht konfiguriert werden.
+- Odoo erzeugt einen 24 Stunden gültigen Einrichtungslink.
+- Dieser Link wird **einmalig direkt auf dem Zielrechner** geöffnet.
+- Der Browser erzeugt dort einen P-256-ECDSA-Schlüssel. Der private Schlüssel wird als nicht exportierbarer WebCrypto-Key im lokalen Browserprofil gespeichert; Odoo speichert nur den öffentlichen Schlüssel.
+- Zusätzlich wird ein HttpOnly-/Secure-Gerätecookie gesetzt. Cookie oder URL allein reichen nicht aus: Datenabrufe und Steuerbefehle müssen mit dem lokalen privaten Geräteschlüssel signiert sein.
+- Mit **Gerät neu binden** wird die bisherige Bindung sofort ungültig und ein neuer Einrichtungslink erzeugt.
+- Wird das Browserprofil gelöscht/gewechselt, muss das Gerät erneut gebunden werden.
+
+Hinweis: Dies ist eine starke Browserprofil-/Gerätebindung ohne übertragbares Passwort. Für eine explizite TPM-/Secure-Enclave-Hardwareattestierung wäre zusätzlich WebAuthn/Windows Hello/Touch ID erforderlich.
+
+
+## Version 19.0.1.4.1
+
+- Geräte-Einrichtungslinks verwenden im Odoo-Webclient nun bevorzugt den Host der aktuellen HTTP-Anfrage.
+- Dadurch funktionieren Einrichtungslinks auch auf Odoo.sh-Staging-Datenbanken zuverlässig, selbst wenn `web.base.url` noch auf Produktion zeigt oder eingefroren ist.
+- Außerhalb einer HTTP-Anfrage bleibt `web.base.url` der sichere Fallback.

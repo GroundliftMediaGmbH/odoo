@@ -7,3 +7,5 @@ from . import ha_schedule
 from . import ha_project_template
 from . import ha_rule
 from . import ha_dashboard
+
+from . import ha_device_access

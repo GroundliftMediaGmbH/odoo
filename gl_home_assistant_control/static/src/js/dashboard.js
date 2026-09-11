@@ -6,6 +6,9 @@
 
     const slug = app.dataset.slug || "";
     const pageSlug = app.dataset.pageSlug || "";
+    const deviceMode = app.dataset.deviceMode === "1";
+    const devicePublicId = app.dataset.devicePublicId || "";
+    const apiBase = deviceMode ? "/groundlift/ha/device" : "/groundlift/ha";
     const roomsEl = document.getElementById("gl-ha-rooms");
     const alertsEl = document.getElementById("gl-ha-alerts");
     const statusEl = document.getElementById("gl-ha-status");
@@ -29,12 +32,100 @@
             .replaceAll("'", "&#039;");
     }
 
+    const encoder = new TextEncoder();
+    let deviceKeyPromise = null;
+
+    function b64url(bytes) {
+        let binary = "";
+        const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+        data.forEach(byte => { binary += String.fromCharCode(byte); });
+        return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/g, "");
+    }
+
+    function hex(bytes) {
+        return [...new Uint8Array(bytes)].map(v => v.toString(16).padStart(2, "0")).join("");
+    }
+
+    function canonicalize(value) {
+        if (Array.isArray(value)) return value.map(canonicalize);
+        if (value && typeof value === "object") {
+            const out = {};
+            Object.keys(value).sort().forEach(key => { out[key] = canonicalize(value[key]); });
+            return out;
+        }
+        return value;
+    }
+
+    function canonicalJson(value) {
+        return JSON.stringify(canonicalize(value));
+    }
+
+    function openDeviceKeyDb() {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open("gl_ha_device_keys", 1);
+            req.onupgradeneeded = () => {
+                const db = req.result;
+                if (!db.objectStoreNames.contains("keys")) db.createObjectStore("keys");
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error || new Error("Geräteschlüsselspeicher konnte nicht geöffnet werden."));
+        });
+    }
+
+    async function getDevicePrivateKey() {
+        if (!deviceMode) return null;
+        if (!deviceKeyPromise) {
+            deviceKeyPromise = (async () => {
+                const db = await openDeviceKeyDb();
+                try {
+                    return await new Promise((resolve, reject) => {
+                        const tx = db.transaction("keys", "readonly");
+                        const req = tx.objectStore("keys").get(devicePublicId);
+                        req.onsuccess = () => resolve(req.result || null);
+                        req.onerror = () => reject(req.error || new Error("Geräteschlüssel konnte nicht gelesen werden."));
+                    });
+                } finally {
+                    db.close();
+                }
+            })();
+        }
+        const key = await deviceKeyPromise;
+        if (!key) {
+            throw new Error("Der lokale Geräteschlüssel fehlt. Bitte diesen Rechner in Odoo unter Gebäudesteuerung → Gerätezugänge neu binden.");
+        }
+        return key;
+    }
+
+    async function signedHeaders(url, params) {
+        const key = await getDevicePrivateKey();
+        const timestamp = String(Date.now());
+        const nonceBytes = crypto.getRandomValues(new Uint8Array(18));
+        const nonce = b64url(nonceBytes);
+        const digest = await crypto.subtle.digest("SHA-256", encoder.encode(canonicalJson(params || {})));
+        const message = `${timestamp}\n${nonce}\n${url}\n${hex(digest)}`;
+        const signature = await crypto.subtle.sign(
+            {name: "ECDSA", hash: "SHA-256"},
+            key,
+            encoder.encode(message)
+        );
+        return {
+            "X-GL-HA-Device": devicePublicId,
+            "X-GL-HA-Timestamp": timestamp,
+            "X-GL-HA-Nonce": nonce,
+            "X-GL-HA-Signature": b64url(signature),
+        };
+    }
+
     async function rpc(url, params) {
+        const rpcParams = params || {};
+        const body = JSON.stringify({jsonrpc: "2.0", method: "call", params: rpcParams, id: Date.now()});
+        const headers = {"Content-Type": "application/json"};
+        if (deviceMode) Object.assign(headers, await signedHeaders(url, rpcParams));
         const response = await fetch(url, {
             method: "POST",
             credentials: "same-origin",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({jsonrpc: "2.0", method: "call", params: params || {}, id: Date.now()}),
+            headers,
+            body,
         });
         const payload = await response.json();
         if (payload.error) {
@@ -407,7 +498,7 @@
             .map(e => e.id);
         if (!ids.length) return;
         try {
-            history = await rpc("/groundlift/ha/history", {
+            history = await rpc(`${apiBase}/history`, {
                 slug,
                 page_slug: pageSlug,
                 entity_ids: ids,
@@ -423,7 +514,7 @@
     async function loadData(forceHistory) {
         refreshBtn.disabled = true;
         try {
-            state = await rpc("/groundlift/ha/data", {slug, page_slug: pageSlug});
+            state = await rpc(`${apiBase}/data`, {slug, page_slug: pageSlug});
             if (state?.dashboard?.history_hours && !periodEl.dataset.initialized) {
                 periodEl.value = String(state.dashboard.history_hours);
                 periodEl.dataset.initialized = "1";
@@ -461,12 +552,13 @@
         const card = document.querySelector(`[data-entity-id="${entity.id}"]`);
         if (card) card.classList.add("busy");
         try {
-            const updated = await rpc("/groundlift/ha/command", {
+            const updated = await rpc(`${apiBase}/command`, {
                 slug,
                 page_slug: pageSlug,
                 entity_id: entity.id,
                 command,
                 value,
+                override_minutes: null,
             });
             const index = state.entities.findIndex(e => e.id === entity.id);
             if (index >= 0) state.entities[index] = updated;
