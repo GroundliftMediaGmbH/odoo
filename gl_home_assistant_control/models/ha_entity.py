@@ -273,6 +273,34 @@ class GlHaEntity(models.Model):
             return "control"
         return "sensor"
 
+    def _sync_global_dashboard_mirrors(self):
+        dashboards = self.env["gl.ha.dashboard"].sudo().search([
+            ("entity_ids_follow_global", "=", True),
+            ("include_default_entities", "=", True),
+        ])
+        dashboards._sync_follow_global_entities()
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        if any(vals.get("active", True) and vals.get("show_dashboard", True) for vals in vals_list):
+            records._sync_global_dashboard_mirrors()
+        return records
+
+    def write(self, vals):
+        result = super().write(vals)
+        if {"active", "show_dashboard"}.intersection(vals):
+            self._sync_global_dashboard_mirrors()
+        return result
+
+    def unlink(self):
+        result = super().unlink()
+        self.env["gl.ha.dashboard"].sudo().search([
+            ("entity_ids_follow_global", "=", True),
+            ("include_default_entities", "=", True),
+        ])._sync_follow_global_entities()
+        return result
+
     def action_clear_override(self):
         self.write({"manual_override_until": False, "manual_override_value": False})
         return True

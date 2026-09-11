@@ -105,8 +105,8 @@
                         <page string="Hauptseite">
                             <group>
                                 <group string="Angezeigte Entitäten">
-                                    <field name="entity_ids" invisible="1"/>
-                                    <field name="display_entity_ids" widget="many2many_tags" context="{'active_test': False}" options="{'no_create': True}"/>
+                                    <field name="entity_ids" widget="many2many_tags" context="{'active_test': False}" options="{'no_create': True, 'no_create_edit': True}"/>
+                                    <field name="entity_ids_follow_global" invisible="1"/>
                                     <field name="include_default_entities"/>
                                     <p class="text-muted">Empfohlen: Entitäten explizit auswählen. Solange keine Auswahl gesetzt ist, kann „Globale Dashboard-Entitäten verwenden“ das bisherige Verhalten beibehalten. Wird diese Option ausgeschaltet, bleibt eine leere Hauptseite bewusst leer.</p>
                                 </group>

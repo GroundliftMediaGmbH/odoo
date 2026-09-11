@@ -228,3 +228,12 @@ Der technische Stromkosten-Cron läuft alle 5 Minuten. Das in den Einstellungen 
 - Der Reparaturschritt wird über einen eigenen Migrationsmarker nur einmal ausgeführt und überschreibt spätere bewusste Einstellungen nicht erneut.
 - Im Dashboard-Formular zeigt das Feld **„Entitäten auf der Hauptseite“** jetzt die tatsächlich wirksamen Entitäten: entweder die explizit gewählte Liste oder – bei leerer Auswahl und aktivem globalen Fallback – die global freigegebenen Dashboard-Entitäten.
 - Die eigentliche Auswahl- und Dashboard-Logik bleibt unverändert: eine explizite Auswahl hat weiterhin Vorrang; der globale Fallback greift nur bei leerer expliziter Auswahl.
+
+
+## Fix in 19.0.1.3.2 – Entitätsauswahl im Dashboard-Formular sichtbar und bearbeitbar
+
+- Das Backend verwendet für „Entitäten auf der Hauptseite“ wieder direkt das Standard-Odoo-Many2many-Feld `entity_ids`. Dadurch ist die Auswahl zuverlässig anklickbar und bearbeitbar.
+- Dashboards, die bislang den globalen Fallback verwendet haben, spiegeln die tatsächlich im Live-Dashboard angezeigten Entitäten automatisch in dieses Feld. Dadurch sind die vorhandenen Entitäten sofort als Tags sichtbar.
+- Der Spiegelmodus bleibt dynamisch: Änderungen an „Im Dashboard anzeigen“ bzw. am Aktiv-Status einer Entität werden nachgeführt.
+- Sobald die Entitätsauswahl im Dashboard manuell geändert wird, wird sie wie bisher zu einer expliziten Auswahl. Wird bei aktivem globalem Fallback alles entfernt, wird wieder die globale Auswahl verwendet.
+- Das Live-Dashboard-Verhalten bleibt damit unverändert; behoben wird ausschließlich die leere/nicht bedienbare Auswahl im Odoo-Backend.

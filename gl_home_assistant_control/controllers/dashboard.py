@@ -33,6 +33,8 @@ class GlHaDashboardController(http.Controller):
         Entity = request.env["gl.ha.entity"].sudo()
         if page:
             return page.entity_ids.filtered(lambda e: e.active)
+        if dashboard.entity_ids_follow_global and dashboard.include_default_entities:
+            return Entity.search([("active", "=", True), ("show_dashboard", "=", True)])
         if dashboard.entity_ids:
             return dashboard.entity_ids.filtered(lambda e: e.active)
         if dashboard.include_default_entities:

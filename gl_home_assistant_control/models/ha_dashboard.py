@@ -37,16 +37,11 @@ class GlHaDashboard(models.Model):
         string="Entitäten auf der Hauptseite",
         help="Wenn hier Entitäten ausgewählt sind, werden nur diese angezeigt. Bei leerer Auswahl entscheidet die Option 'Globale Dashboard-Entitäten verwenden'.",
     )
-    display_entity_ids = fields.Many2many(
-        "gl.ha.entity",
-        relation="gl_ha_dashboard_display_entity_rel",
-        column1="dashboard_id",
-        column2="entity_id",
-        string="Entitäten auf der Hauptseite",
-        compute="_compute_display_entity_ids",
-        inverse="_inverse_display_entity_ids",
-        readonly=False,
-        help="Zeigt die tatsächlich wirksame Auswahl. Ist keine explizite Auswahl gespeichert und der globale Fallback aktiv, werden hier die global für das Dashboard freigegebenen Entitäten angezeigt.",
+    entity_ids_follow_global = fields.Boolean(
+        string="Entitätsauswahl folgt globaler Auswahl",
+        default=False,
+        copy=False,
+        help="Technisches Feld: Solange aktiv, spiegelt entity_ids die global für das Dashboard freigegebenen Entitäten. Sobald die Auswahl manuell geändert wird, wird daraus eine explizite Auswahl.",
     )
     include_default_entities = fields.Boolean(
         string="Globale Dashboard-Entitäten verwenden",
@@ -118,15 +113,13 @@ class GlHaDashboard(models.Model):
             """
         )
 
-        # Fix für bestehende Installationen: Boolean-Spalten werden von Odoo beim
-        # erstmaligen Anlegen auf vorhandenen Datensätzen technisch mit FALSE
-        # initialisiert. Wurde die explizite Dashboard-Auswahl erst nach den
-        # Layout-Feldern ergänzt, war layout_initialized bereits TRUE und der
-        # globale Fallback konnte deshalb ungewollt FALSE bleiben. Das führte bei
-        # leerer entity_ids-Auswahl zu einem scheinbar "verschwundenen" Dashboard.
-        # Der separate Marker sorgt dafür, dass dieser Reparaturschritt exakt
-        # einmal ausgeführt wird und spätere bewusste Benutzereinstellungen nicht
-        # wieder überschrieben werden.
+        # UI-Fix für bestehende Installationen:
+        # Das Live-Dashboard konnte über den globalen Fallback korrekt Entitäten
+        # anzeigen, während das Many2many-Feld im Backend leer blieb. Damit die
+        # tatsächlich angezeigten Entitäten im Formular sichtbar UND mit dem
+        # Standard-Odoo-Many2many-Widget bearbeitbar sind, spiegeln wir bei
+        # Fallback-Dashboards die globale Auswahl in entity_ids. Ein technischer
+        # Marker unterscheidet diesen Spiegel von einer expliziten Benutzerauswahl.
         self.env.cr.execute(
             """
             UPDATE gl_ha_dashboard d
@@ -147,24 +140,110 @@ class GlHaDashboard(models.Model):
             """
         )
 
-    @api.depends("entity_ids", "include_default_entities")
-    def _compute_display_entity_ids(self):
-        Entity = self.env["gl.ha.entity"]
-        fallback_entities = Entity.search([
+        # Vorhandene Dashboards, die weiterhin den globalen Fallback verwenden
+        # und noch keine explizite Auswahl besitzen, werden auf den sichtbaren
+        # Spiegelmodus migriert. Bestehende explizite Auswahlen bleiben unangetastet.
+        self.env.cr.execute(
+            """
+            UPDATE gl_ha_dashboard d
+               SET entity_ids_follow_global = TRUE
+             WHERE d.include_default_entities IS TRUE
+               AND d.entity_ids_follow_global IS NOT TRUE
+               AND NOT EXISTS (
+                    SELECT 1
+                      FROM gl_ha_dashboard_gl_ha_entity_rel rel
+                     WHERE rel.gl_ha_dashboard_id = d.id
+               )
+            """
+        )
+        self.env.cr.execute(
+            """
+            INSERT INTO gl_ha_dashboard_gl_ha_entity_rel
+                        (gl_ha_dashboard_id, gl_ha_entity_id)
+            SELECT d.id, e.id
+              FROM gl_ha_dashboard d
+              JOIN gl_ha_entity e
+                ON e.active IS TRUE
+               AND e.show_dashboard IS TRUE
+             WHERE d.entity_ids_follow_global IS TRUE
+               AND d.include_default_entities IS TRUE
+               AND NOT EXISTS (
+                    SELECT 1
+                      FROM gl_ha_dashboard_gl_ha_entity_rel rel
+                     WHERE rel.gl_ha_dashboard_id = d.id
+                       AND rel.gl_ha_entity_id = e.id
+               )
+            """
+        )
+
+    @api.model
+    def _global_dashboard_entity_ids(self):
+        return self.env["gl.ha.entity"].search([
             ("active", "=", True),
             ("show_dashboard", "=", True),
-        ])
-        for rec in self:
-            if rec.entity_ids:
-                rec.display_entity_ids = rec.entity_ids
-            elif rec.include_default_entities:
-                rec.display_entity_ids = fallback_entities
-            else:
-                rec.display_entity_ids = Entity.browse([])
+        ]).ids
 
-    def _inverse_display_entity_ids(self):
+    def _sync_follow_global_entities(self):
+        """Keep the editable backend field in sync with the effective fallback list."""
+        followers = self.filtered(
+            lambda rec: rec.entity_ids_follow_global and rec.include_default_entities
+        )
+        if not followers:
+            return
+        global_ids = self._global_dashboard_entity_ids()
+        super(GlHaDashboard, followers.with_context(gl_ha_global_entity_sync=True)).write({
+            "entity_ids": [(6, 0, global_ids)],
+        })
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        for rec, vals in zip(records, vals_list):
+            # Leere Auswahl + aktiver Fallback entspricht dem bisherigen Verhalten.
+            # Wir markieren sie als Spiegelmodus und füllen die sichtbare Auswahl.
+            if rec.include_default_entities and not rec.entity_ids:
+                super(GlHaDashboard, rec.with_context(gl_ha_global_entity_sync=True)).write({
+                    "entity_ids_follow_global": True,
+                })
+                rec._sync_follow_global_entities()
+        return records
+
+    def write(self, vals):
+        if self.env.context.get("gl_ha_global_entity_sync"):
+            return super().write(vals)
+
+        vals = dict(vals)
+        manual_entity_change = "entity_ids" in vals
+        if manual_entity_change:
+            # Jede manuelle Änderung macht aus dem globalen Spiegel zunächst
+            # eine explizite Auswahl. Wird alles entfernt und der Fallback ist
+            # weiterhin aktiv, schalten wir danach wieder in den Spiegelmodus.
+            vals["entity_ids_follow_global"] = False
+
+        was_following = {rec.id: rec.entity_ids_follow_global for rec in self}
+        result = super().write(vals)
+
         for rec in self:
-            rec.entity_ids = [(6, 0, rec.display_entity_ids.ids)]
+            if vals.get("include_default_entities") is False and was_following.get(rec.id):
+                super(GlHaDashboard, rec.with_context(gl_ha_global_entity_sync=True)).write({
+                    "entity_ids": [(5, 0, 0)],
+                    "entity_ids_follow_global": False,
+                })
+                continue
+
+            if rec.include_default_entities and not rec.entity_ids:
+                super(GlHaDashboard, rec.with_context(gl_ha_global_entity_sync=True)).write({
+                    "entity_ids_follow_global": True,
+                })
+                rec._sync_follow_global_entities()
+            elif manual_entity_change:
+                # Explizite, nicht leere Auswahl: globalen Spiegel nicht mehr
+                # automatisch nachführen.
+                super(GlHaDashboard, rec.with_context(gl_ha_global_entity_sync=True)).write({
+                    "entity_ids_follow_global": False,
+                })
+
+        return result
 
     @api.constrains("slug", "refresh_seconds")
     def _check_dashboard(self):
