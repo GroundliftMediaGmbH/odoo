@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 {
     "name": "GROUNDLIFT Home Assistant Steuerung",
-    "summary": "Home-Assistant-Dashboard, Sensorverlauf sowie Event-, Kino-, Zeit- und Projekt-Automationen",
-    "version": "19.0.1.1.4",
+    "summary": "Home-Assistant-Dashboard, Sensorverlauf, Automationen sowie Stromkosten je Veranstaltung",
+    "version": "19.0.1.4.0",
     "category": "Operations/IoT",
     "author": "GROUNDLIFT / ChatGPT",
     "license": "LGPL-3",
@@ -25,12 +25,17 @@
         "views/ha_project_template_views.xml",
         "views/ha_rule_views.xml",
         "views/ha_dashboard_views.xml",
+        "views/ha_device_access_views.xml",
         "views/ha_alert_views.xml",
         "views/ha_schedule_views.xml",
         "views/menu_views.xml",
         "views/dashboard_templates.xml",
     ],
-    "assets": {},
+    "assets": {
+        "web.assets_backend": [
+            "gl_home_assistant_control/static/src/css/backend_dashboard_form.css",
+        ],
+    },
     "installable": True,
     "application": True,
 }

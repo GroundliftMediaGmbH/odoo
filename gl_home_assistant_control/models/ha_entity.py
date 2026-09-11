@@ -44,6 +44,15 @@ class GlHaEntity(models.Model):
     name = fields.Char(required=True)
     ha_name = fields.Char(string="Home Assistant Name", readonly=True)
     entity_id = fields.Char(string="Home Assistant Entity ID", required=True, index=True)
+    source_type = fields.Selection([
+        ("home_assistant", "Home Assistant"),
+        ("weather", "Wetter & Sonne"),
+    ], string="Quelle", default="home_assistant", required=True, readonly=True, index=True)
+    weather_metric = fields.Selection([
+        ("sunrise", "Sonnenaufgang"),
+        ("sunset", "Sonnenuntergang"),
+        ("cloud_cover", "Bewölkung"),
+    ], string="Wetter-Messgröße", readonly=True, index=True)
     domain = fields.Char(index=True, readonly=True)
     room = fields.Char(string="Raum/Gruppe")
     dashboard_group = fields.Char(
@@ -103,6 +112,9 @@ class GlHaEntity(models.Model):
         # manuelle Dashboard-Rolle gesetzt wurde.
         self.env.cr.execute(
             "UPDATE gl_ha_entity SET dashboard_role = 'auto' WHERE dashboard_role IS NULL"
+        )
+        self.env.cr.execute(
+            "UPDATE gl_ha_entity SET source_type = 'home_assistant' WHERE source_type IS NULL OR source_type = ''"
         )
 
     @api.constrains("step")
@@ -203,6 +215,8 @@ class GlHaEntity(models.Model):
                 vals.update({
                     "name": vals.get("ha_name") or entity_id,
                     "entity_id": entity_id,
+                    "source_type": "home_assistant",
+                    "weather_metric": False,
                     "room": attrs.get("area_name") or attrs.get("area") or attrs.get("room") or False,
                     "active": supported,
                     "show_dashboard": supported,
@@ -219,6 +233,8 @@ class GlHaEntity(models.Model):
                 self.env["gl.ha.history"].sudo().record_entity_if_due(rec, config)
 
         for entity_id, rec in existing.items():
+            if rec.source_type != "home_assistant":
+                continue
             if not rec.active or entity_id in seen_ids:
                 continue
             vals = {"is_available": False}
@@ -256,6 +272,34 @@ class GlHaEntity(models.Model):
         if self.controllable and self.control_type != "none":
             return "control"
         return "sensor"
+
+    def _sync_global_dashboard_mirrors(self):
+        dashboards = self.env["gl.ha.dashboard"].sudo().search([
+            ("entity_ids_follow_global", "=", True),
+            ("include_default_entities", "=", True),
+        ])
+        dashboards._sync_follow_global_entities()
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        if any(vals.get("active", True) and vals.get("show_dashboard", True) for vals in vals_list):
+            records._sync_global_dashboard_mirrors()
+        return records
+
+    def write(self, vals):
+        result = super().write(vals)
+        if {"active", "show_dashboard"}.intersection(vals):
+            self._sync_global_dashboard_mirrors()
+        return result
+
+    def unlink(self):
+        result = super().unlink()
+        self.env["gl.ha.dashboard"].sudo().search([
+            ("entity_ids_follow_global", "=", True),
+            ("include_default_entities", "=", True),
+        ])._sync_follow_global_entities()
+        return result
 
     def action_clear_override(self):
         self.write({"manual_override_until": False, "manual_override_value": False})

@@ -3,14 +3,21 @@
     <template id="ha_dashboard_page" name="GROUNDLIFT Home Assistant Dashboard">
         <t t-call="web.frontend_layout">
             <t t-set="title"><t t-esc="current_page.name if current_page else dashboard.name"/></t>
-            <link rel="stylesheet" href="/gl_home_assistant_control/static/src/css/dashboard.css?v=112"/>
+            <link rel="stylesheet" href="/gl_home_assistant_control/static/src/css/dashboard.css?v=140"/>
+            <t t-set="dashboard_base_url"
+               t-value="('/groundlift/ha/device/%s' % device_access.public_id) if device_mode else ('/groundlift/ha/%s' % dashboard.slug)"/>
             <main id="gl-ha-app"
                   t-att-data-slug="dashboard.slug"
-                  t-att-data-page-slug="current_page.slug if current_page else ''">
+                  t-att-data-page-slug="current_page.slug if current_page else ''"
+                  t-att-data-device-mode="'1' if device_mode else '0'"
+                  t-att-data-device-public-id="device_access.public_id if device_mode else ''">
                 <div class="gl-ha-shell">
                     <header class="gl-ha-header">
                         <div>
-                            <div class="gl-ha-eyebrow">GROUNDLIFT · HOME ASSISTANT</div>
+                            <div class="gl-ha-eyebrow">
+                                <t t-if="device_mode">GROUNDLIFT · GERÄTEZUGANG</t>
+                                <t t-else="">GROUNDLIFT · HOME ASSISTANT</t>
+                            </div>
                             <h1><t t-esc="current_page.name if current_page else dashboard.name"/></h1>
                         </div>
                         <div class="gl-ha-header-actions">
@@ -25,12 +32,13 @@
                     </header>
 
                     <nav class="gl-ha-nav" aria-label="Dashboard-Seiten">
-                        <a t-att-href="'/groundlift/ha/%s' % dashboard.slug"
+                        <a t-if="not device_mode or device_access.allow_main_page"
+                           t-att-href="dashboard_base_url"
                            t-att-class="'active' if not current_page else ''">
                             <t t-esc="dashboard.main_page_label or 'Übersicht'"/>
                         </a>
                         <t t-foreach="pages" t-as="page">
-                            <a t-att-href="'/groundlift/ha/%s/%s' % (dashboard.slug, page.slug)"
+                            <a t-att-href="'%s/%s' % (dashboard_base_url, page.slug)"
                                t-att-class="'active' if current_page and current_page.id == page.id else ''">
                                 <t t-esc="page.name"/>
                             </a>
@@ -43,10 +51,76 @@
                     <section id="gl-ha-rooms" class="gl-ha-rooms">
                         <div class="gl-ha-loading">Lade Home-Assistant-Daten …</div>
                     </section>
-                    <footer class="gl-ha-footer">Steuerbefehle werden serverseitig über Odoo an Home Assistant gesendet.</footer>
+                    <footer class="gl-ha-footer">
+                        <t t-if="device_mode">Gerätegebundener Zugriff · Steuerbefehle werden kryptografisch signiert und serverseitig über Odoo an Home Assistant gesendet.</t>
+                        <t t-else="">Steuerbefehle werden serverseitig über Odoo an Home Assistant gesendet.</t>
+                    </footer>
                 </div>
             </main>
-            <script src="/gl_home_assistant_control/static/src/js/dashboard.js?v=112" defer="defer"></script>
+            <script src="/gl_home_assistant_control/static/src/js/dashboard.js?v=140" defer="defer"></script>
+        </t>
+    </template>
+
+    <template id="ha_device_setup_page" name="GROUNDLIFT Gerätezugang einrichten">
+        <t t-call="web.frontend_layout">
+            <t t-set="title">Gerätezugang einrichten</t>
+            <link rel="stylesheet" href="/gl_home_assistant_control/static/src/css/dashboard.css?v=140"/>
+            <main id="gl-ha-device-setup"
+                  class="gl-ha-device-setup"
+                  t-att-data-public-id="device.public_id"
+                  t-att-data-setup-token="setup_token">
+                <div class="gl-ha-setup-card">
+                    <div class="gl-ha-eyebrow">GROUNDLIFT · GERÄTEBINDUNG</div>
+                    <h1>Dieses Gerät freischalten</h1>
+                    <p>
+                        Dieser Einrichtungslink bindet <strong><t t-esc="device.name"/></strong> an genau dieses Browserprofil.
+                        Es wird kein Benutzername und kein Passwort gespeichert.
+                    </p>
+                    <div class="gl-ha-setup-scope">
+                        <span>Dashboard</span>
+                        <strong><t t-esc="device.dashboard_id.name"/></strong>
+                    </div>
+                    <div class="gl-ha-setup-scope">
+                        <span>Zugriff</span>
+                        <strong><t t-esc="'Anzeigen &amp; Steuern' if device.allow_control else 'Nur anzeigen'"/></strong>
+                    </div>
+                    <button id="gl-ha-device-enroll" type="button">Diesen Rechner jetzt binden</button>
+                    <div id="gl-ha-device-setup-status" class="gl-ha-setup-status">
+                        Beim Binden wird lokal ein nicht exportierbarer kryptografischer Schlüssel erzeugt.
+                    </div>
+                </div>
+            </main>
+            <script src="/gl_home_assistant_control/static/src/js/device_setup.js?v=140" defer="defer"></script>
+        </t>
+    </template>
+
+    <template id="ha_device_setup_invalid" name="GROUNDLIFT Gerätezugang ungültig">
+        <t t-call="web.frontend_layout">
+            <t t-set="title">Einrichtungslink ungültig</t>
+            <link rel="stylesheet" href="/gl_home_assistant_control/static/src/css/dashboard.css?v=140"/>
+            <main class="gl-ha-device-setup">
+                <div class="gl-ha-setup-card">
+                    <div class="gl-ha-eyebrow">GROUNDLIFT · GERÄTEBINDUNG</div>
+                    <h1>Einrichtungslink nicht mehr gültig</h1>
+                    <p>Der Link wurde bereits verwendet, ist abgelaufen oder der Gerätezugang wurde deaktiviert.</p>
+                    <p>In Odoo unter <strong>Gebäudesteuerung → Gerätezugänge</strong> kann ein neuer Einrichtungslink erzeugt werden.</p>
+                </div>
+            </main>
+        </t>
+    </template>
+
+    <template id="ha_device_access_denied" name="GROUNDLIFT Gerätezugang nicht freigeschaltet">
+        <t t-call="web.frontend_layout">
+            <t t-set="title">Gerät nicht freigeschaltet</t>
+            <link rel="stylesheet" href="/gl_home_assistant_control/static/src/css/dashboard.css?v=140"/>
+            <main class="gl-ha-device-setup">
+                <div class="gl-ha-setup-card">
+                    <div class="gl-ha-eyebrow">GROUNDLIFT · GERÄTEZUGANG</div>
+                    <h1>Dieser Rechner ist nicht freigeschaltet</h1>
+                    <p>Der externe Dashboard-Zugriff funktioniert nur auf einem zuvor gebundenen Rechner und Browserprofil.</p>
+                    <p>Bitte den Einrichtungslink aus Odoo direkt auf diesem Rechner öffnen.</p>
+                </div>
+            </main>
         </t>
     </template>
 </odoo>

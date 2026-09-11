@@ -133,6 +133,27 @@ class GlHaAutomationRule(models.Model):
     ], default="lt")
     condition_threshold = fields.Float(string="Grenzwert", default=50.0)
 
+    solar_clear_before_minutes = fields.Integer(
+        string="Sonnenzeit: Vorlauf bei wenig Bewölkung (Min.)",
+        default=60,
+        help="Wenn Sonnenauf- oder -untergang gewählt ist, wird frühestens ab diesem Abstand vor der Sonnenzeit eingeschaltet.",
+    )
+    solar_cloudy_before_minutes = fields.Integer(
+        string="Sonnenzeit: Vorlauf bei Bewölkung (Min.)",
+        default=90,
+        help="Wird zusätzlich 'Wetter: Bewölkung' gewählt und der Bewölkungsgrenzwert erreicht, gilt dieser frühere Vorlauf.",
+    )
+    solar_cloud_threshold = fields.Float(
+        string="Ab Bewölkung (%)",
+        default=60.0,
+        help="Ab diesem prognostizierten Bewölkungsgrad an der Sonnenzeit gilt der Bewölkungs-Vorlauf.",
+    )
+    has_solar_condition = fields.Boolean(compute="_compute_weather_condition_flags")
+    has_cloud_condition = fields.Boolean(compute="_compute_weather_condition_flags")
+    has_generic_condition = fields.Boolean(compute="_compute_weather_condition_flags")
+    solar_latched_anchor = fields.Datetime(string="Sonnen-Trigger Anker", readonly=True)
+    solar_latched_until = fields.Datetime(string="Sonnen-Trigger aktiv bis", readonly=True)
+
     last_evaluated_at = fields.Datetime(readonly=True)
     last_desired_state = fields.Selection([
         ("on", "Ein"),
@@ -164,12 +185,42 @@ class GlHaAutomationRule(models.Model):
              WHERE r.condition_entity_id IS NOT NULL
             ON CONFLICT DO NOTHING
         """)
+        self.env.cr.execute("""
+            UPDATE gl_ha_automation_rule
+               SET solar_clear_before_minutes = 60
+             WHERE solar_clear_before_minutes IS NULL
+        """)
+        self.env.cr.execute("""
+            UPDATE gl_ha_automation_rule
+               SET solar_cloudy_before_minutes = 90
+             WHERE solar_cloudy_before_minutes IS NULL
+        """)
+        self.env.cr.execute("""
+            UPDATE gl_ha_automation_rule
+               SET solar_cloud_threshold = 60.0
+             WHERE solar_cloud_threshold IS NULL
+        """)
 
     @api.constrains("minutes_before", "minutes_after")
     def _check_offsets(self):
         for rec in self:
             if rec.minutes_before < 0 or rec.minutes_after < 0:
                 raise ValidationError(_("Vor- und Nachlauf dürfen nicht negativ sein."))
+
+    @api.constrains("solar_clear_before_minutes", "solar_cloudy_before_minutes", "solar_cloud_threshold")
+    def _check_solar_values(self):
+        for rec in self:
+            if rec.solar_clear_before_minutes < 0 or rec.solar_cloudy_before_minutes < 0:
+                raise ValidationError(_("Sonnenzeit-Vorläufe dürfen nicht negativ sein."))
+            if not (0.0 <= rec.solar_cloud_threshold <= 100.0):
+                raise ValidationError(_("Der Bewölkungsgrenzwert muss zwischen 0 und 100 Prozent liegen."))
+
+    @api.constrains("condition_entity_ids", "condition_entity_id")
+    def _check_solar_sensor_selection(self):
+        for rec in self:
+            solar = rec._weather_condition_entities().filtered(lambda e: e.weather_metric in ("sunrise", "sunset"))
+            if len(solar) > 1:
+                raise ValidationError(_("Bitte pro Automatikregel nur Sonnenaufgang oder Sonnenuntergang auswählen, nicht beides gleichzeitig."))
 
     @api.constrains(
         "source", "daily_start_hour", "daily_end_hour",
@@ -218,6 +269,9 @@ class GlHaAutomationRule(models.Model):
             rec.condition_match_mode = template.condition_match_mode
             rec.condition_operator = template.condition_operator
             rec.condition_threshold = template.condition_threshold
+            rec.solar_clear_before_minutes = template.solar_clear_before_minutes
+            rec.solar_cloudy_before_minutes = template.solar_cloudy_before_minutes
+            rec.solar_cloud_threshold = template.solar_cloud_threshold
 
     @api.onchange("project_id")
     def _onchange_project_id(self):
@@ -304,6 +358,51 @@ class GlHaAutomationRule(models.Model):
             entities |= self.condition_entity_id
         return entities
 
+    def _weather_condition_entities(self):
+        self.ensure_one()
+        return self._condition_entities().filtered(lambda entity: entity.source_type == "weather")
+
+    def _solar_condition_entities(self):
+        self.ensure_one()
+        return self._weather_condition_entities().filtered(
+            lambda entity: entity.weather_metric in ("sunrise", "sunset")
+        )
+
+    def _solar_metric(self):
+        self.ensure_one()
+        solar = self._solar_condition_entities()
+        return solar[:1].weather_metric if solar else False
+
+    def _has_cloud_weather_sensor(self):
+        self.ensure_one()
+        return bool(self._weather_condition_entities().filtered(lambda entity: entity.weather_metric == "cloud_cover"))
+
+    def _generic_condition_entities(self):
+        """Sensoren, die mit Operator/Grenzwert ausgewertet werden.
+
+        Sonnenauf/-untergang sind Zeitanker und keine normalen Grenzwert-Sensoren.
+        Bewölkung wird bei aktivem Sonnenanker zur Wahl des Sonnen-Vorlaufs
+        verwendet; ohne Sonnenanker bleibt sie ein normaler %-Messsensor.
+        """
+        self.ensure_one()
+        solar_active = bool(self._solar_condition_entities())
+        return self._condition_entities().filtered(
+            lambda entity: not (
+                entity.source_type == "weather"
+                and (
+                    entity.weather_metric in ("sunrise", "sunset")
+                    or (solar_active and entity.weather_metric == "cloud_cover")
+                )
+            )
+        )
+
+    @api.depends("condition_entity_ids", "condition_entity_id")
+    def _compute_weather_condition_flags(self):
+        for rec in self:
+            rec.has_solar_condition = bool(rec._solar_condition_entities())
+            rec.has_cloud_condition = rec._has_cloud_weather_sensor()
+            rec.has_generic_condition = bool(rec._generic_condition_entities())
+
     def _compare_sensor(self, sensor):
         self.ensure_one()
         value = sensor.numeric_value
@@ -316,18 +415,14 @@ class GlHaAutomationRule(models.Model):
         }.get(self.condition_operator, False)
 
     def _condition_result(self):
-        """Dreiwertige Auswertung für mehrere optionale Sensoren.
+        """Dreiwertige Auswertung für normale optionale Messsensoren.
 
-        Rückgabe: (condition_ok, condition_unknown)
-
-        - ALL: Ein bekannter False-Wert entscheidet sofort False. Sind sonst nur
-          True + unbekannte Sensoren vorhanden, wird der Zustand als unbekannt
-          behandelt und die aktuelle Schaltstellung gehalten.
-        - ANY: Ein bekannter True-Wert entscheidet sofort True. Sind sonst nur
-          False + unbekannte Sensoren vorhanden, wird ebenfalls gehalten.
+        Sonnenzeit-Sensoren werden separat in der Zeitfensterlogik ausgewertet.
+        Ist Bewölkung zusammen mit Sonnenauf/-untergang gewählt, dient sie nur
+        zur Auswahl des klaren/bewölkten Sonnen-Vorlaufs.
         """
         self.ensure_one()
-        sensors = self._condition_entities()
+        sensors = self._generic_condition_entities()
         if not sensors:
             return True, False
 
@@ -345,7 +440,6 @@ class GlHaAutomationRule(models.Model):
                 return False, True
             return False, False
 
-        # Standard: alle Bedingungen müssen zutreffen.
         if False in results:
             return False, False
         if None in results:
@@ -358,35 +452,204 @@ class GlHaAutomationRule(models.Model):
         ok, unknown = self._condition_result()
         return ok and not unknown
 
-    def _window_active(self, now, config=None):
+    def _nearest_cloud_cover(self, weather_data, local_dt):
         self.ensure_one()
+        cloud_map = (weather_data or {}).get("hourly_cloud_cover") or {}
+        if not cloud_map:
+            return None
+        # Open-Meteo liefert stündliche lokale Zeitstempel. Auf die nächstgelegene
+        # volle Stunde runden, damit z. B. Sonnenuntergang 20:13 die 20-Uhr-
+        # Prognose nutzt.
+        rounded = local_dt.replace(minute=0, second=0, microsecond=0)
+        if local_dt.minute >= 30:
+            rounded += timedelta(hours=1)
+        key = rounded.strftime("%Y-%m-%dT%H:00")
+        value = cloud_map.get(key)
+        if value is not None:
+            return float(value)
+
+        # Robuster Fallback bei abweichendem Zeitformat im API-Response.
+        best = None
+        best_delta = None
+        for time_value, cloud in cloud_map.items():
+            try:
+                candidate = datetime.fromisoformat(str(time_value))
+                if candidate.tzinfo is None:
+                    candidate = local_dt.tzinfo.localize(candidate) if hasattr(local_dt.tzinfo, "localize") else candidate.replace(tzinfo=local_dt.tzinfo)
+                delta = abs((candidate - local_dt).total_seconds())
+                if best_delta is None or delta < best_delta:
+                    best_delta = delta
+                    best = float(cloud)
+            except Exception:
+                continue
+        return best
+
+    def _solar_trigger_for_anchor(self, anchor_start, config, weather_data=None):
+        """UTC-naiven Sonnen-Trigger für den lokalen Tag des Quellbeginns liefern.
+
+        Rückgabe: (trigger, unknown, detail)
+        """
+        self.ensure_one()
+        metric = self._solar_metric()
+        if not metric:
+            return False, False, ""
+        if not config.weather_enabled:
+            return False, True, _("Wetter-/Sonnendaten sind in den Einstellungen deaktiviert")
+
+        weather_data = weather_data or config.weather_snapshot(refresh_if_stale=True)
+        if not weather_data:
+            return False, True, _("keine Wetter-/Sonnendaten verfügbar")
+
+        tz = self._timezone(config)
+        anchor = fields.Datetime.to_datetime(anchor_start)
+        aware_anchor = pytz.UTC.localize(anchor) if anchor.tzinfo is None else anchor.astimezone(pytz.UTC)
+        local_date = aware_anchor.astimezone(tz).date().isoformat()
+        day = (weather_data.get("days") or {}).get(local_date) or {}
+        solar_value = day.get(metric)
+        solar_local = config._parse_local_iso(solar_value, weather_data.get("timezone") or config.timezone_name)
+        if not solar_local:
+            return False, True, _("%(metric)s für %(date)s nicht verfügbar") % {
+                "metric": _("Sonnenaufgang") if metric == "sunrise" else _("Sonnenuntergang"),
+                "date": local_date,
+            }
+        solar_local = solar_local.astimezone(tz)
+
+        cloud_cover = None
+        cloudy = False
+        offset = self.solar_clear_before_minutes
+        if self._has_cloud_weather_sensor():
+            cloud_cover = self._nearest_cloud_cover(weather_data, solar_local)
+            if cloud_cover is None:
+                return False, True, _("Bewölkungsprognose an der Sonnenzeit ist nicht verfügbar")
+            cloudy = cloud_cover >= self.solar_cloud_threshold
+            offset = self.solar_cloudy_before_minutes if cloudy else self.solar_clear_before_minutes
+
+        trigger_local = solar_local - timedelta(minutes=offset)
+        trigger_utc = trigger_local.astimezone(pytz.UTC).replace(tzinfo=None)
+        metric_label = _("Sonnenaufgang") if metric == "sunrise" else _("Sonnenuntergang")
+        if cloud_cover is None:
+            detail = _("%(metric)s %(solar)s → %(offset)s Min. vorher (%(trigger)s)") % {
+                "metric": metric_label,
+                "solar": solar_local.strftime("%H:%M"),
+                "offset": offset,
+                "trigger": trigger_local.strftime("%H:%M"),
+            }
+        else:
+            detail = _("%(metric)s %(solar)s · Bewölkung %(cloud).0f%% (%(kind)s) → %(offset)s Min. vorher (%(trigger)s)") % {
+                "metric": metric_label,
+                "solar": solar_local.strftime("%H:%M"),
+                "cloud": cloud_cover,
+                "kind": _("bewölkt") if cloudy else _("wenig bewölkt"),
+                "offset": offset,
+                "trigger": trigger_local.strftime("%H:%M"),
+            }
+        return trigger_utc, False, detail
+
+    def _solar_adjusted_start(self, anchor_start, effective_start, config, weather_data=None):
+        self.ensure_one()
+        trigger, unknown, detail = self._solar_trigger_for_anchor(anchor_start, config, weather_data)
+        if unknown:
+            return effective_start, True, detail
+        if trigger:
+            return max(fields.Datetime.to_datetime(effective_start), trigger), False, detail
+        return fields.Datetime.to_datetime(effective_start), False, detail
+
+    def _window_result(self, now, config=None, weather_data=None, persist_solar_latch=False):
+        """Zeitfenster mit optionalem Sonnenanker auswerten.
+
+        Rückgabe: (aktiv, unbekannt, Detailtext). 'Unbekannt' wird nur gemeldet,
+        wenn das normale Quell-Zeitfenster gerade aktiv wäre, aber die gewählte
+        Sonnen-/Wetterinformation fehlt. Dann hält die Automatik den Ist-Zustand.
+        """
+        self.ensure_one()
+        config = config or self.env["gl.ha.config"].sudo().get_config()
         now = fields.Datetime.to_datetime(now)
+
+        def evaluate_period(anchor_start, effective_start, effective_end):
+            anchor_start = fields.Datetime.to_datetime(anchor_start)
+            effective_start = fields.Datetime.to_datetime(effective_start)
+            effective_end = fields.Datetime.to_datetime(effective_end)
+            if not (effective_start <= now <= effective_end):
+                return False, False, ""
+
+            # Sobald ein Sonnen-Trigger innerhalb dieses konkreten Quellfensters
+            # einmal erreicht wurde, bleibt er bis zum Ende eingerastet. Dadurch
+            # kann eine spätere Änderung der Bewölkungsprognose das Licht nicht
+            # wieder ausschalten und anschließend erneut einschalten.
+            if self._solar_metric() and self.solar_latched_anchor and self.solar_latched_until:
+                latched_anchor = fields.Datetime.to_datetime(self.solar_latched_anchor)
+                latched_until = fields.Datetime.to_datetime(self.solar_latched_until)
+                if latched_anchor == anchor_start and now <= latched_until:
+                    return True, False, _("Sonnen-Trigger bereits erreicht; bis Betriebsende eingerastet")
+
+            adjusted_start, unknown, detail = self._solar_adjusted_start(
+                anchor_start, effective_start, config, weather_data
+            )
+            if unknown:
+                return False, True, detail
+            if adjusted_start >= effective_end:
+                return False, False, detail + " · " + _("Sonnen-Trigger liegt nach dem Betriebsende")
+            active = adjusted_start <= now <= effective_end
+            if active and persist_solar_latch and self._solar_metric():
+                self.sudo().write({
+                    "solar_latched_anchor": anchor_start,
+                    "solar_latched_until": effective_end,
+                })
+                detail = (detail + " · " if detail else "") + _("Sonnen-Trigger erreicht und bis Betriebsende eingerastet")
+            return active, False, detail
+
         if self.source == "daily":
             tz = self._timezone(config)
             aware_utc = pytz.UTC.localize(now) if now.tzinfo is None else now.astimezone(pytz.UTC)
             local_today = aware_utc.astimezone(tz).date()
-            # Vortag mitprüfen, damit Zeitprogramme über Mitternacht (z. B.
-            # 23:00–01:00) nach 00:00 weiterhin korrekt aktiv bleiben.
+            had_unknown = False
+            unknown_detail = ""
             for start_day in (local_today - timedelta(days=1), local_today):
                 period = self._daily_period_for_date(start_day, config)
-                if period and period[0] <= now <= period[1]:
-                    return True
-            return False
+                if not period:
+                    continue
+                active, unknown, detail = evaluate_period(period[0], period[0], period[1])
+                if active:
+                    return True, False, detail
+                if unknown:
+                    had_unknown = True
+                    unknown_detail = detail
+            return False, had_unknown, unknown_detail
 
         if self.source == "project":
             if not self.project_id or not self.project_start_at or not self.project_end_at:
-                return False
+                return False, False, ""
             if "active" in self.project_id._fields and not self.project_id.active:
-                return False
-            effective_start = fields.Datetime.to_datetime(self.project_start_at) - timedelta(minutes=self.minutes_before)
+                return False, False, ""
+            anchor_start = fields.Datetime.to_datetime(self.project_start_at)
+            effective_start = anchor_start - timedelta(minutes=self.minutes_before)
             effective_end = fields.Datetime.to_datetime(self.project_end_at) + timedelta(minutes=self.minutes_after)
-            return effective_start <= now <= effective_end
+            return evaluate_period(anchor_start, effective_start, effective_end)
 
-        return bool(self.env["gl.ha.schedule.window"].sudo().search_count([
+        windows = self.env["gl.ha.schedule.window"].sudo().search([
             ("source", "=", self.source),
             ("start_at", "<=", now + timedelta(minutes=self.minutes_before)),
             ("end_at", ">=", now - timedelta(minutes=self.minutes_after)),
-        ]))
+        ])
+        had_unknown = False
+        unknown_detail = ""
+        for window in windows:
+            anchor_start = fields.Datetime.to_datetime(window.start_at)
+            effective_start = anchor_start - timedelta(minutes=self.minutes_before)
+            effective_end = fields.Datetime.to_datetime(window.end_at) + timedelta(minutes=self.minutes_after)
+            active, unknown, detail = evaluate_period(anchor_start, effective_start, effective_end)
+            if active:
+                return True, False, detail
+            if unknown:
+                had_unknown = True
+                unknown_detail = detail
+        return False, had_unknown, unknown_detail
+
+    def _window_active(self, now, config=None, weather_data=None):
+        self.ensure_one()
+        active, unknown, _detail = self._window_result(now, config, weather_data)
+        return active and not unknown
+
 
     @api.model
     def dashboard_plan(self, config=None, now=None, hours=24):
@@ -407,6 +670,9 @@ class GlHaAutomationRule(models.Model):
         rules = self.sudo().search([("active", "=", True)], order="sequence, id")
         if not rules:
             return []
+
+        weather_needed = any(bool(rule._weather_condition_entities()) for rule in rules)
+        weather_data = config.weather_snapshot(refresh_if_stale=True) if weather_needed else {}
 
         schedule_rules = rules.filtered(lambda r: r.source in ("event", "cinema"))
         max_before = max([r.minutes_before for r in schedule_rules] or [0])
@@ -466,10 +732,21 @@ class GlHaAutomationRule(models.Model):
                 while day_cursor <= last_local_day:
                     period = rule._daily_period_for_date(day_cursor, config)
                     if period:
-                        start_at, end_at = period
+                        base_start, end_at = period
+                        start_at, solar_unknown, solar_detail = rule._solar_adjusted_start(
+                            base_start, base_start, config, weather_data
+                        )
+                        if start_at >= end_at:
+                            day_cursor += timedelta(days=1)
+                            continue
+                        details_text = rule._daily_days_label()
+                        if solar_detail:
+                            details_text += " · " + solar_detail
+                        if solar_unknown:
+                            details_text += " · " + _("Wetterdaten derzeit nicht verfügbar")
                         add_detail(
                             rule, targets, day_cursor.isoformat(), start_at, end_at,
-                            "daily", _("Zeitprogramm"), rule._daily_days_label(),
+                            "daily", _("Zeitprogramm"), details_text,
                         )
                     day_cursor += timedelta(days=1)
                 continue
@@ -479,11 +756,21 @@ class GlHaAutomationRule(models.Model):
                     continue
                 if "active" in rule.project_id._fields and not rule.project_id.active:
                     continue
-                effective_start = fields.Datetime.to_datetime(rule.project_start_at) - timedelta(minutes=rule.minutes_before)
+                anchor_start = fields.Datetime.to_datetime(rule.project_start_at)
+                effective_start = anchor_start - timedelta(minutes=rule.minutes_before)
                 effective_end = fields.Datetime.to_datetime(rule.project_end_at) + timedelta(minutes=rule.minutes_after)
+                effective_start, solar_unknown, solar_detail = rule._solar_adjusted_start(
+                    anchor_start, effective_start, config, weather_data
+                )
+                if effective_start >= effective_end:
+                    continue
                 template_detail = _("Odoo-Projekt")
                 if rule.project_template_id:
                     template_detail += _(" · Vorlage: %s") % rule.project_template_id.name
+                if solar_detail:
+                    template_detail += " · " + solar_detail
+                if solar_unknown:
+                    template_detail += " · " + _("Wetterdaten derzeit nicht verfügbar")
                 add_detail(
                     rule, targets, local_day(effective_start), effective_start, effective_end,
                     "project", rule.project_id.display_name or _("Projekt"), template_detail,
@@ -491,11 +778,22 @@ class GlHaAutomationRule(models.Model):
                 continue
 
             for window in windows_by_source.get(rule.source, []):
-                effective_start = fields.Datetime.to_datetime(window.start_at) - timedelta(minutes=rule.minutes_before)
+                anchor_start = fields.Datetime.to_datetime(window.start_at)
+                effective_start = anchor_start - timedelta(minutes=rule.minutes_before)
                 effective_end = fields.Datetime.to_datetime(window.end_at) + timedelta(minutes=rule.minutes_after)
+                effective_start, solar_unknown, solar_detail = rule._solar_adjusted_start(
+                    anchor_start, effective_start, config, weather_data
+                )
+                if effective_start >= effective_end:
+                    continue
+                source_details = window.details or ""
+                if solar_detail:
+                    source_details = (source_details + " · " if source_details else "") + solar_detail
+                if solar_unknown:
+                    source_details = (source_details + " · " if source_details else "") + _("Wetterdaten derzeit nicht verfügbar")
                 add_detail(
                     rule, targets, local_day(effective_start), effective_start, effective_end,
-                    window.source, window.name or "", window.details or "",
+                    window.source, window.name or "", source_details,
                 )
 
         result = []
@@ -547,6 +845,9 @@ class GlHaAutomationRule(models.Model):
             for target in rule._target_entities():
                 by_target[target.id].append(rule)
 
+        weather_needed = any(bool(rule._weather_condition_entities()) for rule in rules)
+        weather_data = config.weather_snapshot(refresh_if_stale=True) if weather_needed else {}
+
         # Die Zustände werden minütlich synchronisiert. Bei deutlich älteren Daten
         # wird keine Automatikentscheidung auf Basis eines veralteten Lux-/Schaltwerts getroffen.
         if config.last_state_sync_at and now - config.last_state_sync_at > timedelta(minutes=3):
@@ -573,29 +874,39 @@ class GlHaAutomationRule(models.Model):
             wants_on = False
             hold_current = False
             for rule in target_rules:
-                window = rule._window_active(now, config)
+                window, window_unknown, window_detail = rule._window_result(
+                    now, config, weather_data, persist_solar_latch=True
+                )
                 condition, condition_unknown = rule._condition_result()
                 desired = window and condition
                 wants_on = wants_on or desired
-                # Wenn ein relevantes Zeitfenster aktiv ist, aber eine noch nicht
-                # entscheidbare Sensorbedingung vorliegt, wird der aktuelle
-                # Schaltzustand gehalten statt blind AUS zu schalten.
-                hold_current = hold_current or bool(window and condition_unknown)
+                # Bei fehlenden Sonnen-/Wetterdaten innerhalb eines grundsätzlich
+                # aktiven Quellfensters oder bei unklarer normaler Sensorbedingung
+                # wird der aktuelle Schaltzustand gehalten.
+                hold_current = hold_current or bool(window_unknown or (window and condition_unknown))
                 sensor_count = len(rule._condition_entities())
-                if not sensor_count:
-                    condition_text = _("keine Sensorbedingung")
+                generic_count = len(rule._generic_condition_entities())
+                if not generic_count:
+                    condition_text = _("keine zusätzliche Grenzwertbedingung") if sensor_count else _("keine Sensorbedingung")
                 elif condition_unknown:
                     condition_text = _("nicht vollständig verfügbar")
                 else:
                     condition_text = _("ja") if condition else _("nein")
+                if window_unknown:
+                    window_text = _("unbekannt")
+                else:
+                    window_text = _("ja") if window else _("nein")
+                message = _("Zeitfenster: %(window)s / Sensorbedingung (%(count)s): %(condition)s") % {
+                    "window": window_text,
+                    "count": sensor_count,
+                    "condition": condition_text,
+                }
+                if window_detail:
+                    message += " · " + window_detail
                 rule.write({
                     "last_evaluated_at": now,
-                    "last_desired_state": "hold" if (window and condition_unknown) else ("on" if desired else "off"),
-                    "last_message": _("Zeitfenster: %(window)s / Sensorbedingung (%(count)s): %(condition)s") % {
-                        "window": _("ja") if window else _("nein"),
-                        "count": sensor_count,
-                        "condition": condition_text,
-                    },
+                    "last_desired_state": "hold" if (window_unknown or (window and condition_unknown)) else ("on" if desired else "off"),
+                    "last_message": message,
                 })
 
             if not target.is_available:

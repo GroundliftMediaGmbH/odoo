@@ -131,6 +131,7 @@ Odoo.sh läuft in der Cloud. Eine lokale Adresse wie `http://homeassistant.local
 - Home-Assistant-Zustände: jede Minute
 - Event-/Kino-Zeitfenster: alle 15 Minuten
 - Automatik-Auswertung: jede Minute
+- Stromkosten-Prüfung: alle 5 Minuten (fachliches Intervall einstellbar)
 - Historienbereinigung: täglich
 
 ## Sicherheit
@@ -167,3 +168,88 @@ Automatikregeln können jetzt direkt an ein Odoo-Projekt gebunden werden. In der
 Unter **Gebäudesteuerung → Projekt-Vorlagen** lassen sich wiederverwendbare Vorlagen anlegen. Eine Vorlage speichert die zu schaltenden Entitäten, Vor-/Nachlauf sowie optionale Sensorbedingungen. Beim Auswählen der Vorlage in einer Projektregel werden diese Werte kopiert und können anschließend projektspezifisch verändert werden. Bestehende Regeln werden durch spätere Änderungen an der Vorlage nicht rückwirkend verändert.
 
 Alle Automatikquellen werden pro Zielentität logisch ODER-verknüpft. Endet eine Projektregel, während für dieselbe Entität noch Kino-, Veranstaltungs- oder Zeitautomatik aktiv ist, bleibt das Gerät eingeschaltet und wird erst ausgeschaltet, wenn keine Regel mehr EIN verlangt.
+
+
+## Wetter- und Sonnenautomation (v1.2.0)
+
+- Drei virtuelle optionale Messsensoren: **Wetter: Sonnenaufgang**, **Wetter: Sonnenuntergang** und **Wetter: Bewölkung**.
+- Wetter-Ort in den Einstellungen frei änderbar; Standard: **82266 Inning am Ammersee, Deutschland**.
+- Der Ort wird automatisch geokodiert, die ermittelten Koordinaten werden in Odoo gespeichert.
+- Sonnenaufgang/-untergang und stündliche Bewölkung werden über Open-Meteo geladen und lokal gecacht.
+- Bei Auswahl von Sonnenaufgang oder Sonnenuntergang wird die Sonnenzeit zu einem dynamischen Einschalt-Anker. Die tatsächliche Einschaltzeit ist die spätere Zeit aus normalem Regel-Vorlauf und Sonnen-Trigger.
+- Wird zusätzlich **Wetter: Bewölkung** ausgewählt, können getrennte Vorläufe für wenig Bewölkung und Bewölkung konfiguriert werden, z. B. 60 bzw. 90 Minuten vor Sonnenuntergang. Der Bewölkungsgrenzwert ist je Regel frei einstellbar.
+- Die Bewölkungsentscheidung verwendet die Prognose zur Sonnenzeit. Sobald der Sonnen-Trigger für ein konkretes Betriebsfenster erreicht wurde, wird er bis zum Ende dieses Fensters eingerastet; spätere Prognoseänderungen können das Licht dadurch nicht wieder ausschalten.
+- Bei fehlenden Wetterdaten wird innerhalb eines grundsätzlich aktiven Zeitfensters der aktuelle Schaltzustand gehalten, statt blind zu schalten.
+
+Hinweis: Die Wetterdaten stammen standardmäßig von Open-Meteo. Für den konkreten betrieblichen Einsatz sind deren jeweils aktuelle Nutzungsbedingungen zu beachten.
+
+## Stromkosten je Veranstaltung (v1.3.0)
+
+Die App kann mehrere Home-Assistant-Stromzähler gemeinsam auswerten und die daraus entstehenden Stromkosten direkt in Odoo-Veranstaltungsfelder schreiben.
+
+### Einrichtung
+
+Unter **Gebäudesteuerung → Einstellungen → Stromkosten**:
+
+1. **Stromkosten-Ermittlung aktiv** einschalten.
+2. Einen oder mehrere Home-Assistant-Sensoren als **Stromzähler-Entitäten** auswählen. Mehrere Sensoren werden addiert.
+3. Den **Strompreis je kWh** eintragen.
+4. Messfenster festlegen. Standard ist **07:00 Uhr am Veranstaltungstag bis 05:00 Uhr am Folgetag**.
+5. Anzahl der Veranstaltungen für den SOLL-Mittelwert einstellen; Standard: **20**.
+6. Technische Odoo-Felder festlegen. Standard:
+   - IST: `x_studio_event_kalk_ist_sonstige_kosten`
+   - SOLL: `x_studio_event_kalk_soll_sonstige_kosten`
+
+Die Feldnamen können später z. B. auf eigene Stromkostenfelder umgestellt werden. Die App prüft vor dem Schreiben, ob das konfigurierte Feld auf `event.event` existiert und numerisch ist.
+
+### Verbrauchslogik
+
+- Unterstützte Energieeinheiten: **Wh, kWh, MWh**.
+- Unterstützte Leistungseinheiten: **W, kW, MW**. Bei Leistungssensoren wird der Verbrauch über die Zeit integriert; echte Energiezähler werden für die Abrechnung empfohlen.
+- Mehrere ausgewählte Zähler werden zu einem Gesamtverbrauch addiert.
+- Gibt es an einem Kalendertag genau eine Veranstaltung, erhält sie die gesamten Kosten des Messfensters.
+- Gibt es mehrere Veranstaltungen mit Beginn am selben Kalendertag, werden die Gesamtkosten gleichmäßig durch die Zahl dieser Veranstaltungen geteilt.
+- Während das Messfenster läuft, wird der IST-Wert regelmäßig aktualisiert. Nach dem konfigurierten Messende am Folgetag wird der Tageswert als abgeschlossen gespeichert.
+- Ist ein ausgewählter Zähler während einer laufenden Berechnung nicht erreichbar oder fehlt ausreichende Home-Assistant-Historie, wird kein unvollständiger Null-/Teilwert in das Event geschrieben; stattdessen entsteht eine Warnung.
+
+### SOLL-Wert
+
+Der SOLL-Wert wird aus den Stromkosten der letzten abgeschlossenen Veranstaltungen gebildet. Bei mehreren Veranstaltungen an einem Tag zählt jede Veranstaltung mit ihrem anteiligen Tageswert als eigene Stichprobe. Solange weniger als die konfigurierte Zahl historischer Veranstaltungen vorliegt, wird aus den verfügbaren abgeschlossenen Veranstaltungen gemittelt.
+
+Mit **„Stromkosten-Historie neu berechnen“** können nach der Ersteinrichtung die Tage hinter den letzten N Veranstaltungen aus der Home-Assistant-Historie nachberechnet werden. Das ist insbesondere sinnvoll, damit der SOLL-Mittelwert sofort mit historischen Daten gefüllt werden kann.
+
+### Cronjob
+
+Der technische Stromkosten-Cron läuft alle 5 Minuten. Das in den Einstellungen gewählte Aktualisierungsintervall (Standard 15 Minuten) bestimmt, wann tatsächlich neu gerechnet wird. Abgeschlossene Tage werden im Regelbetrieb nicht erneut von Home Assistant geladen; fehlende Abschlusswerte der letzten Tage werden automatisch nachgeholt.
+
+## Fix in 19.0.1.3.1 – Dashboard-Entitäten bei bestehenden Installationen
+
+- Repariert bestehende Dashboards, bei denen nach einem Modul-Update eine leere explizite Entitätsauswahl zusammen mit einem unbeabsichtigt deaktivierten globalen Fallback dazu führte, dass keine Entitäten mehr angezeigt wurden.
+- Der Reparaturschritt wird über einen eigenen Migrationsmarker nur einmal ausgeführt und überschreibt spätere bewusste Einstellungen nicht erneut.
+- Im Dashboard-Formular zeigt das Feld **„Entitäten auf der Hauptseite“** jetzt die tatsächlich wirksamen Entitäten: entweder die explizit gewählte Liste oder – bei leerer Auswahl und aktivem globalen Fallback – die global freigegebenen Dashboard-Entitäten.
+- Die eigentliche Auswahl- und Dashboard-Logik bleibt unverändert: eine explizite Auswahl hat weiterhin Vorrang; der globale Fallback greift nur bei leerer expliziter Auswahl.
+
+
+## Fix in 19.0.1.3.2 – Entitätsauswahl im Dashboard-Formular sichtbar und bearbeitbar
+
+- Das Backend verwendet für „Entitäten auf der Hauptseite“ wieder direkt das Standard-Odoo-Many2many-Feld `entity_ids`. Dadurch ist die Auswahl zuverlässig anklickbar und bearbeitbar.
+- Dashboards, die bislang den globalen Fallback verwendet haben, spiegeln die tatsächlich im Live-Dashboard angezeigten Entitäten automatisch in dieses Feld. Dadurch sind die vorhandenen Entitäten sofort als Tags sichtbar.
+- Der Spiegelmodus bleibt dynamisch: Änderungen an „Im Dashboard anzeigen“ bzw. am Aktiv-Status einer Entität werden nachgeführt.
+- Sobald die Entitätsauswahl im Dashboard manuell geändert wird, wird sie wie bisher zu einer expliziten Auswahl. Wird bei aktivem globalem Fallback alles entfernt, wird wieder die globale Auswahl verwendet.
+- Das Live-Dashboard-Verhalten bleibt damit unverändert; behoben wird ausschließlich die leere/nicht bedienbare Auswahl im Odoo-Backend.
+
+## Externer, gerätegebundener Dashboard-Zugriff (ab 19.0.1.4.0)
+
+Unter **Gebäudesteuerung → Gerätezugänge** kann ein externer Zugriff ohne Odoo-Benutzerkonto angelegt werden.
+
+- Pro Gerätezugang wird ein Dashboard festgelegt.
+- Hauptseite und erlaubte Unterseiten sind separat freigebbar.
+- Der Gerätezugang kann nur lesend oder mit Steuerungsrecht konfiguriert werden.
+- Odoo erzeugt einen 24 Stunden gültigen Einrichtungslink.
+- Dieser Link wird **einmalig direkt auf dem Zielrechner** geöffnet.
+- Der Browser erzeugt dort einen P-256-ECDSA-Schlüssel. Der private Schlüssel wird als nicht exportierbarer WebCrypto-Key im lokalen Browserprofil gespeichert; Odoo speichert nur den öffentlichen Schlüssel.
+- Zusätzlich wird ein HttpOnly-/Secure-Gerätecookie gesetzt. Cookie oder URL allein reichen nicht aus: Datenabrufe und Steuerbefehle müssen mit dem lokalen privaten Geräteschlüssel signiert sein.
+- Mit **Gerät neu binden** wird die bisherige Bindung sofort ungültig und ein neuer Einrichtungslink erzeugt.
+- Wird das Browserprofil gelöscht/gewechselt, muss das Gerät erneut gebunden werden.
+
+Hinweis: Dies ist eine starke Browserprofil-/Gerätebindung ohne übertragbares Passwort. Für eine explizite TPM-/Secure-Enclave-Hardwareattestierung wäre zusätzlich WebAuthn/Windows Hello/Touch ID erforderlich.

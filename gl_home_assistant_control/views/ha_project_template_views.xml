@@ -12,6 +12,9 @@
                 <field name="minutes_before"/>
                 <field name="minutes_after"/>
                 <field name="condition_entity_ids" widget="many2many_tags" optional="show"/>
+                <field name="solar_clear_before_minutes" optional="hide"/>
+                <field name="solar_cloudy_before_minutes" optional="hide"/>
+                <field name="solar_cloud_threshold" optional="hide"/>
             </list>
         </field>
     </record>
@@ -36,12 +39,19 @@
                             <p class="text-muted">Beispiel „Private Kinobuchung“: Licht und Lüftung auswählen, 60 Minuten Vorlauf und 60 Minuten Nachlauf. Beim Projekt wird diese Vorlage ausgewählt; die kopierten Werte können dort anschließend individuell angepasst werden.</p>
                         </group>
                         <group string="Optionale Sensorbedingungen">
+                            <field name="has_solar_condition" invisible="1"/>
+                            <field name="has_cloud_condition" invisible="1"/>
+                            <field name="has_generic_condition" invisible="1"/>
                             <field name="condition_entity_ids"
                                    widget="many2many_tags"
                                    options="{'no_create': True, 'no_create_edit': True}"/>
-                            <field name="condition_match_mode" invisible="not condition_entity_ids"/>
-                            <field name="condition_operator" invisible="not condition_entity_ids"/>
-                            <field name="condition_threshold" invisible="not condition_entity_ids"/>
+                            <field name="condition_match_mode" invisible="not has_generic_condition"/>
+                            <field name="condition_operator" invisible="not has_generic_condition"/>
+                            <field name="condition_threshold" invisible="not has_generic_condition"/>
+                            <field name="solar_clear_before_minutes" invisible="not has_solar_condition"/>
+                            <field name="solar_cloudy_before_minutes" invisible="not has_solar_condition or not has_cloud_condition"/>
+                            <field name="solar_cloud_threshold" invisible="not has_solar_condition or not has_cloud_condition"/>
+                            <p class="text-muted" invisible="not has_solar_condition">Sonnenzeit- und Bewölkungswerte werden beim Anwenden der Vorlage vollständig in die Projektregel übernommen.</p>
                         </group>
                     </group>
                 </sheet>
