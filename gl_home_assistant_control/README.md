@@ -221,3 +221,10 @@ Mit **„Stromkosten-Historie neu berechnen“** können nach der Ersteinrichtun
 ### Cronjob
 
 Der technische Stromkosten-Cron läuft alle 5 Minuten. Das in den Einstellungen gewählte Aktualisierungsintervall (Standard 15 Minuten) bestimmt, wann tatsächlich neu gerechnet wird. Abgeschlossene Tage werden im Regelbetrieb nicht erneut von Home Assistant geladen; fehlende Abschlusswerte der letzten Tage werden automatisch nachgeholt.
+
+## Fix in 19.0.1.3.1 – Dashboard-Entitäten bei bestehenden Installationen
+
+- Repariert bestehende Dashboards, bei denen nach einem Modul-Update eine leere explizite Entitätsauswahl zusammen mit einem unbeabsichtigt deaktivierten globalen Fallback dazu führte, dass keine Entitäten mehr angezeigt wurden.
+- Der Reparaturschritt wird über einen eigenen Migrationsmarker nur einmal ausgeführt und überschreibt spätere bewusste Einstellungen nicht erneut.
+- Im Dashboard-Formular zeigt das Feld **„Entitäten auf der Hauptseite“** jetzt die tatsächlich wirksamen Entitäten: entweder die explizit gewählte Liste oder – bei leerer Auswahl und aktivem globalen Fallback – die global freigegebenen Dashboard-Entitäten.
+- Die eigentliche Auswahl- und Dashboard-Logik bleibt unverändert: eine explizite Auswahl hat weiterhin Vorrang; der globale Fallback greift nur bei leerer expliziter Auswahl.

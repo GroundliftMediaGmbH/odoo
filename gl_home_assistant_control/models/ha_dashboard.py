@@ -31,8 +31,22 @@ class GlHaDashboard(models.Model):
 
     entity_ids = fields.Many2many(
         "gl.ha.entity",
+        relation="gl_ha_dashboard_gl_ha_entity_rel",
+        column1="gl_ha_dashboard_id",
+        column2="gl_ha_entity_id",
         string="Entitäten auf der Hauptseite",
         help="Wenn hier Entitäten ausgewählt sind, werden nur diese angezeigt. Bei leerer Auswahl entscheidet die Option 'Globale Dashboard-Entitäten verwenden'.",
+    )
+    display_entity_ids = fields.Many2many(
+        "gl.ha.entity",
+        relation="gl_ha_dashboard_display_entity_rel",
+        column1="dashboard_id",
+        column2="entity_id",
+        string="Entitäten auf der Hauptseite",
+        compute="_compute_display_entity_ids",
+        inverse="_inverse_display_entity_ids",
+        readonly=False,
+        help="Zeigt die tatsächlich wirksame Auswahl. Ist keine explizite Auswahl gespeichert und der globale Fallback aktiv, werden hier die global für das Dashboard freigegebenen Entitäten angezeigt.",
     )
     include_default_entities = fields.Boolean(
         string="Globale Dashboard-Entitäten verwenden",
@@ -41,6 +55,7 @@ class GlHaDashboard(models.Model):
     )
     page_ids = fields.One2many("gl.ha.dashboard.page", "dashboard_id", string="Unterseiten")
     layout_initialized = fields.Boolean(default=True, copy=False)
+    entity_selection_initialized = fields.Boolean(default=True, copy=False)
 
     refresh_seconds = fields.Integer(string="Aktualisierung (Sek.)", default=15)
     default_history_hours = fields.Selection([
@@ -102,6 +117,54 @@ class GlHaDashboard(models.Model):
              WHERE layout_initialized IS NOT TRUE
             """
         )
+
+        # Fix für bestehende Installationen: Boolean-Spalten werden von Odoo beim
+        # erstmaligen Anlegen auf vorhandenen Datensätzen technisch mit FALSE
+        # initialisiert. Wurde die explizite Dashboard-Auswahl erst nach den
+        # Layout-Feldern ergänzt, war layout_initialized bereits TRUE und der
+        # globale Fallback konnte deshalb ungewollt FALSE bleiben. Das führte bei
+        # leerer entity_ids-Auswahl zu einem scheinbar "verschwundenen" Dashboard.
+        # Der separate Marker sorgt dafür, dass dieser Reparaturschritt exakt
+        # einmal ausgeführt wird und spätere bewusste Benutzereinstellungen nicht
+        # wieder überschrieben werden.
+        self.env.cr.execute(
+            """
+            UPDATE gl_ha_dashboard d
+               SET include_default_entities = TRUE
+             WHERE d.entity_selection_initialized IS NOT TRUE
+               AND NOT EXISTS (
+                    SELECT 1
+                      FROM gl_ha_dashboard_gl_ha_entity_rel rel
+                     WHERE rel.gl_ha_dashboard_id = d.id
+               )
+            """
+        )
+        self.env.cr.execute(
+            """
+            UPDATE gl_ha_dashboard
+               SET entity_selection_initialized = TRUE
+             WHERE entity_selection_initialized IS NOT TRUE
+            """
+        )
+
+    @api.depends("entity_ids", "include_default_entities")
+    def _compute_display_entity_ids(self):
+        Entity = self.env["gl.ha.entity"]
+        fallback_entities = Entity.search([
+            ("active", "=", True),
+            ("show_dashboard", "=", True),
+        ])
+        for rec in self:
+            if rec.entity_ids:
+                rec.display_entity_ids = rec.entity_ids
+            elif rec.include_default_entities:
+                rec.display_entity_ids = fallback_entities
+            else:
+                rec.display_entity_ids = Entity.browse([])
+
+    def _inverse_display_entity_ids(self):
+        for rec in self:
+            rec.entity_ids = [(6, 0, rec.display_entity_ids.ids)]
 
     @api.constrains("slug", "refresh_seconds")
     def _check_dashboard(self):
