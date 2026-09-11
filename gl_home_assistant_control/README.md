@@ -260,3 +260,11 @@ Hinweis: Dies ist eine starke Browserprofil-/Gerätebindung ohne übertragbares 
 - Geräte-Einrichtungslinks verwenden im Odoo-Webclient nun bevorzugt den Host der aktuellen HTTP-Anfrage.
 - Dadurch funktionieren Einrichtungslinks auch auf Odoo.sh-Staging-Datenbanken zuverlässig, selbst wenn `web.base.url` noch auf Produktion zeigt oder eingefroren ist.
 - Außerhalb einer HTTP-Anfrage bleibt `web.base.url` der sichere Fallback.
+
+## Version 19.0.1.4.2
+
+- Verlaufsdiagramme mit beschrifteter Y-Achse (Messwerte inklusive Einheit)
+- X-Achse zeigt Beginn, Mitte und Ende des tatsächlichen Zeitverlaufs
+- Bei 6/24 Stunden werden Uhrzeiten, bei 7/30 Tagen Datumswerte angezeigt
+- Diagrammlinie wird jetzt anhand der tatsächlichen Zeitstempel positioniert
+- Responsive Reduktion der X-Beschriftung bei sehr schmalen Karten

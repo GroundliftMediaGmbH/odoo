@@ -433,48 +433,138 @@
         drawAllCharts();
     }
 
-    function drawChart(canvas, points) {
+    function chartValueLabel(value, unit, range) {
+        if (!Number.isFinite(value)) return "–";
+        const absRange = Math.abs(Number(range || 0));
+        let digits = 1;
+        if (absRange >= 100) digits = 0;
+        else if (absRange > 0 && absRange < 2) digits = 2;
+        const formatted = new Intl.NumberFormat("de-DE", {
+            minimumFractionDigits: digits,
+            maximumFractionDigits: digits,
+        }).format(value);
+        return `${formatted}${unit ? " " + unit : ""}`;
+    }
+
+    function chartTimeLabel(timestamp, hours) {
+        const date = parseUtc(timestamp);
+        if (!date || Number.isNaN(date.getTime())) return "";
+        const longPeriod = Number(hours || 24) > 48;
+        return new Intl.DateTimeFormat("de-DE", longPeriod
+            ? {day: "2-digit", month: "2-digit"}
+            : {hour: "2-digit", minute: "2-digit"}
+        ).format(date);
+    }
+
+    function drawChart(canvas, points, entity) {
         if (!points || points.length < 2) return;
         const rect = canvas.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
         const width = Math.max(180, Math.floor(rect.width));
-        const height = Math.max(56, Math.floor(rect.height));
+        const height = Math.max(82, Math.floor(rect.height));
         canvas.width = width * dpr;
         canvas.height = height * dpr;
         const ctx = canvas.getContext("2d");
         ctx.scale(dpr, dpr);
         ctx.clearRect(0, 0, width, height);
 
-        const values = points.map(p => Number(p.v)).filter(Number.isFinite);
-        if (!values.length) return;
+        const validPoints = points
+            .map((p, index) => ({...p, _index: index, _value: Number(p.v), _time: parseUtc(p.t)?.getTime()}))
+            .filter(p => Number.isFinite(p._value));
+        if (validPoints.length < 2) return;
+
+        const values = validPoints.map(p => p._value);
         let min = Math.min(...values);
         let max = Math.max(...values);
         if (min === max) { min -= 1; max += 1; }
-        const pad = 6;
-        const innerW = width - pad * 2;
-        const innerH = height - pad * 2;
+        const range = max - min;
+        // Kleine Reserve, damit Min/Max-Werte nicht direkt auf dem Rahmen kleben.
+        const yReserve = range * 0.06;
+        const chartMin = min - yReserve;
+        const chartMax = max + yReserve;
+        const chartRange = chartMax - chartMin;
 
-        ctx.strokeStyle = "rgba(255,255,255,.10)";
-        ctx.lineWidth = 1;
-        for (let i = 1; i < 4; i++) {
-            const y = pad + (innerH * i / 4);
-            ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(width - pad, y); ctx.stroke();
+        const compact = canvas.closest(".gl-ha-chart-wrap")?.classList.contains("compact");
+        const left = compact ? 49 : 54;
+        const right = 7;
+        const top = 8;
+        const bottom = compact ? 21 : 23;
+        const plotW = Math.max(1, width - left - right);
+        const plotH = Math.max(1, height - top - bottom);
+        const unit = entity?.unit || "";
+        const hours = Number(periodEl?.value || state?.dashboard?.history_hours || 24);
+
+        const timed = validPoints.filter(p => Number.isFinite(p._time));
+        const minTime = timed.length ? Math.min(...timed.map(p => p._time)) : null;
+        const maxTime = timed.length ? Math.max(...timed.map(p => p._time)) : null;
+        const timeRange = minTime != null && maxTime != null && maxTime > minTime ? maxTime - minTime : null;
+        const xFor = (p, i) => {
+            if (timeRange && Number.isFinite(p._time)) return left + plotW * ((p._time - minTime) / timeRange);
+            return left + plotW * (i / Math.max(1, validPoints.length - 1));
+        };
+        const yFor = value => top + plotH * (1 - ((value - chartMin) / chartRange));
+
+        // Raster und Y-Achsenwerte: oben, Mitte, unten.
+        ctx.font = `${compact ? 9 : 10}px Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+        ctx.textBaseline = "middle";
+        const yTicks = [max, (max + min) / 2, min];
+        yTicks.forEach((value, index) => {
+            const y = top + plotH * (index / 2);
+            ctx.strokeStyle = "rgba(255,255,255,.10)";
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(width - right, y); ctx.stroke();
+            ctx.fillStyle = "rgba(210,210,218,.72)";
+            ctx.textAlign = "right";
+            ctx.fillText(chartValueLabel(value, unit, range), left - 6, y);
+        });
+
+        // X-Achse: tatsächlicher Beginn, Mitte und Ende des gelieferten Verlaufs.
+        const first = validPoints[0];
+        const last = validPoints[validPoints.length - 1];
+        let middle = validPoints[Math.floor((validPoints.length - 1) / 2)];
+        if (timeRange) {
+            const midTime = minTime + timeRange / 2;
+            middle = validPoints.reduce((best, p) => {
+                if (!Number.isFinite(p._time)) return best;
+                if (!best || Math.abs(p._time - midTime) < Math.abs(best._time - midTime)) return p;
+                return best;
+            }, null) || middle;
         }
+        const xTicks = width < 320 ? [first, last] : [first, middle, last];
+        ctx.textBaseline = "bottom";
+        xTicks.forEach((point, index) => {
+            const x = xFor(point, validPoints.indexOf(point));
+            ctx.strokeStyle = "rgba(255,255,255,.07)";
+            ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, top + plotH); ctx.stroke();
+            ctx.fillStyle = "rgba(210,210,218,.68)";
+            ctx.textAlign = index === 0 ? "left" : (index === xTicks.length - 1 ? "right" : "center");
+            ctx.fillText(chartTimeLabel(point.t, hours), x, height - 2);
+        });
 
+        // Verlaufslinie.
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(left, top, plotW, plotH);
+        ctx.clip();
         ctx.strokeStyle = "#ff3b3f";
         ctx.lineWidth = 2;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
         ctx.beginPath();
-        points.forEach((p, i) => {
-            const x = pad + innerW * (i / Math.max(1, points.length - 1));
-            const y = pad + innerH * (1 - ((Number(p.v) - min) / (max - min)));
+        validPoints.forEach((p, i) => {
+            const x = xFor(p, i);
+            const y = yFor(p._value);
             if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
         ctx.stroke();
+        ctx.restore();
     }
 
     function drawAllCharts() {
         document.querySelectorAll("canvas.gl-ha-chart").forEach(canvas => {
-            drawChart(canvas, history[String(canvas.dataset.entityId)] || []);
+            const entityId = Number(canvas.dataset.entityId);
+            const entity = (state?.entities || []).find(item => item.id === entityId);
+            drawChart(canvas, history[String(entityId)] || [], entity);
         });
     }
 
