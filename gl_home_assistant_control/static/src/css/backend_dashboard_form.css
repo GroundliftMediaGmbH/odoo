@@ -1,0 +1,32 @@
+/* Backend-only fix for the dashboard entity selector.
+ *
+ * Odoo 19 renders nested form groups as a two-column CSS grid. With the long
+ * German labels in the left dashboard column, the label track can consume the
+ * complete available width on desktop layouts. The value/widget track then
+ * collapses to ~0px: labels remain visible while the Many2many tags and the
+ * checkbox appear to be missing. Odoo's narrow responsive layout does not hit
+ * this condition, which is why shrinking the browser makes the values reappear.
+ *
+ * Scope the fix to this one group only and leave the rest of the app untouched.
+ */
+@media (min-width: 992px) {
+    .o_form_view .gl_ha_dashboard_entity_group.o_inner_group {
+        grid-template-columns: minmax(210px, 42%) minmax(0, 58%) !important;
+    }
+
+    .o_form_view .gl_ha_dashboard_entity_group .o_wrap_label,
+    .o_form_view .gl_ha_dashboard_entity_group .o_cell,
+    .o_form_view .gl_ha_dashboard_entity_group .o_field_widget,
+    .o_form_view .gl_ha_dashboard_entity_group .o_field_many2many_tags {
+        min-width: 0 !important;
+        max-width: 100%;
+    }
+
+    .o_form_view .gl_ha_dashboard_entity_group .o_field_many2many_tags {
+        width: 100% !important;
+    }
+
+    .o_form_view .gl_ha_dashboard_entity_group .o_form_label {
+        white-space: normal;
+    }
+}

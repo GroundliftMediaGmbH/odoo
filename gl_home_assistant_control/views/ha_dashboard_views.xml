@@ -104,7 +104,7 @@
                     <notebook>
                         <page string="Hauptseite">
                             <group>
-                                <group string="Angezeigte Entitäten">
+                                <group string="Angezeigte Entitäten" class="gl_ha_dashboard_entity_group">
                                     <field name="entity_ids" widget="many2many_tags" context="{'active_test': False}" options="{'no_create': True, 'no_create_edit': True}"/>
                                     <field name="entity_ids_follow_global" invisible="1"/>
                                     <field name="include_default_entities"/>
