@@ -130,6 +130,16 @@ class GlHaConfig(models.Model):
     last_power_cost_sync_at = fields.Datetime(string="Letzte Stromkosten-Aktualisierung", readonly=True)
     last_power_cost_message = fields.Text(string="Letzte Stromkostenmeldung", readonly=True)
 
+    mould_warning_entity_ids = fields.Many2many(
+        "gl.ha.entity",
+        "gl_ha_config_mould_entity_rel",
+        "config_id",
+        "entity_id",
+        string="Schimmelgefahrmeldung für Sensoren",
+        domain=[("source_type", "=", "home_assistant"), ("domain", "=", "sensor"), ("active", "=", True)],
+        help="Für die ausgewählten Temperatur-/Luftfeuchtesensoren wird bei kritisch feuchten Kombinationen die Kachel lila markiert. Die Auswahl eines Sensors aktiviert die Prüfung für sein automatisch erkanntes Temperatur-/Feuchte-Paar.",
+    )
+
     alert_email_enabled = fields.Boolean(string="Warnungen per E-Mail", default=False)
     alert_email_to = fields.Char(string="Warn-E-Mail an")
 

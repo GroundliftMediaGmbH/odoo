@@ -4,6 +4,8 @@ import hashlib
 import json
 import secrets
 import time
+import re
+import unicodedata
 from datetime import timedelta
 
 from cryptography.exceptions import InvalidSignature
@@ -82,6 +84,87 @@ class GlHaDashboardController(http.Controller):
             "grid_columns": int(source.grid_columns or 4),
         }
 
+    def _comfort_base_name(self, entity):
+        """Build a stable key for temperature/humidity sensor pairing."""
+        raw = " ".join(filter(None, [entity.dashboard_group, entity.room, entity.name, entity.ha_name]))
+        text = unicodedata.normalize("NFKD", raw or "").encode("ascii", "ignore").decode("ascii").lower()
+        tokens = [
+            "relative humidity", "humidity", "luftfeuchtigkeit", "feuchtigkeit", "rel. feuchte", "rel feuchte",
+            "temperature", "temperatur", "temp", "sensor", "messwert",
+        ]
+        for token in tokens:
+            text = text.replace(token, " ")
+        text = re.sub(r"[^a-z0-9]+", " ", text)
+        return " ".join(text.split())
+
+    def _comfort_kind(self, entity):
+        dc = (entity.device_class or "").lower()
+        unit = (entity.unit or "").lower()
+        name = (entity.name or "").lower()
+        if dc == "temperature" or "°c" in unit or unit in {"c", "°f", "f"} or "temperatur" in name:
+            return "temperature"
+        if dc == "humidity" or unit == "%" and ("feucht" in name or "humidity" in name):
+            return "humidity"
+        return None
+
+    @staticmethod
+    def _point_in_polygon(x, y, polygon):
+        inside = False
+        j = len(polygon) - 1
+        for i in range(len(polygon)):
+            xi, yi = polygon[i]
+            xj, yj = polygon[j]
+            if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / ((yj - yi) or 1e-9) + xi):
+                inside = not inside
+            j = i
+        return inside
+
+    def _comfort_state(self, temp, rh, mould_enabled=False):
+        """Classify according to the supplied comfort chart, with conservative mould override."""
+        try:
+            temp, rh = float(temp), float(rh)
+        except (TypeError, ValueError):
+            return None
+        # Purple is deliberately conservative: persistent room RH >60% is undesirable;
+        # >=70% or >60% together with a cool room materially raises condensation/mould risk.
+        if mould_enabled and (rh >= 70.0 or (rh > 60.0 and temp < 18.0)):
+            return {"code": "mould", "label": "Schimmelrisiko erhöht"}
+        # Inner and outer envelopes digitised conservatively from the user-supplied comfort chart.
+        comfortable = [(17.5, 74), (19.0, 37), (24.0, 35), (22.4, 65), (17.8, 73)]
+        still_comfortable = [(16.0, 75), (17.0, 40), (19.5, 20), (25.0, 18), (27.0, 30), (25.0, 58), (22.0, 79), (17.5, 85)]
+        if self._point_in_polygon(temp, rh, comfortable):
+            return {"code": "comfortable", "label": "Behaglich"}
+        if self._point_in_polygon(temp, rh, still_comfortable):
+            return {"code": "acceptable", "label": "Noch behaglich"}
+        return {"code": "uncomfortable", "label": "Außerhalb Behaglichkeitsbereich"}
+
+    def _comfort_map(self, entities, config):
+        buckets = {}
+        for e in entities:
+            kind = self._comfort_kind(e)
+            if not kind or not e.is_available or not e.has_numeric_value:
+                continue
+            key = self._comfort_base_name(e)
+            # Prefer explicit room/group as an additional stable pairing hint.
+            room = (e.dashboard_group or e.room or "").strip().lower()
+            bucket_key = (room, key)
+            buckets.setdefault(bucket_key, {})[kind] = e
+        selected = set(config.mould_warning_entity_ids.ids)
+        result = {}
+        for pair in buckets.values():
+            t, h = pair.get("temperature"), pair.get("humidity")
+            if not t or not h:
+                continue
+            mould_enabled = bool(selected.intersection({t.id, h.id}))
+            status = self._comfort_state(t.numeric_value, h.numeric_value, mould_enabled=mould_enabled)
+            if not status:
+                continue
+            for e, counterpart in ((t, h), (h, t)):
+                result[e.id] = dict(status, paired=True, pair_id=counterpart.id, pair_name=counterpart.name,
+                                    temperature=float(t.numeric_value), humidity=float(h.numeric_value),
+                                    mould_enabled=mould_enabled)
+        return result
+
     def _dashboard_payload(self, dashboard, page=None, can_control=False):
         entities = self._selected_entities(dashboard, page)
         view = self._view_settings(dashboard, page)
@@ -122,7 +205,7 @@ class GlHaDashboardController(http.Controller):
                 "last_schedule_sync_at": fields.Datetime.to_string(config.last_schedule_sync_at) if config.last_schedule_sync_at else None,
                 "last_automation_at": fields.Datetime.to_string(config.last_automation_at) if config.last_automation_at else None,
             },
-            "entities": [self._entity_json(e, can_control) for e in entities],
+            "entities": [self._entity_json(e, can_control, comfort=self._comfort_map(entities, config).get(e.id)) for e in entities],
             "alerts": [{
                 "id": a.id,
                 "severity": a.severity,
@@ -140,7 +223,7 @@ class GlHaDashboardController(http.Controller):
             "automation_plan": automation_plan,
         }
 
-    def _entity_json(self, e, can_control):
+    def _entity_json(self, e, can_control, comfort=None):
         now = fields.Datetime.now()
         override_active = bool(e.manual_override_until and e.manual_override_until > now)
         display_role = e.dashboard_display_role()
@@ -172,6 +255,7 @@ class GlHaDashboardController(http.Controller):
             "override_until": fields.Datetime.to_string(e.manual_override_until) if override_active else None,
             "override_value": e.manual_override_value or "",
             "last_seen_at": fields.Datetime.to_string(e.last_seen_at) if e.last_seen_at else None,
+            "comfort": comfort or False,
         }
 
     def _history_payload(self, dashboard, page, entity_ids, hours=24):

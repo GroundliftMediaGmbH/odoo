@@ -94,7 +94,9 @@
                                     <field name="history_retention_days"/>
                                     <field name="unavailable_grace_minutes"/>
                                 </group>
-                                <group string="Warn-E-Mail">
+                                <group string="Warnungen">
+                                    <field name="mould_warning_entity_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                                    <p class="text-muted">Temperatur und relative Luftfeuchtigkeit werden automatisch nach gleichem Sensornamen/Raum gepaart. Bei ausgewählten Sensorpaaren erhält eine kritisch feuchte Kombination Vorrang und wird lila dargestellt.</p>
                                     <field name="alert_email_enabled"/>
                                     <field name="alert_email_to" invisible="not alert_email_enabled"/>
                                 </group>

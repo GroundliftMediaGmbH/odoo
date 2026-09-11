@@ -363,14 +363,27 @@
         </article>`;
     }
 
+    function comfortClass(entity) {
+        const code = entity?.comfort?.code || "";
+        return code ? ` comfort-${code}` : "";
+    }
+
+    function comfortBadge(entity) {
+        const c = entity?.comfort;
+        if (!c?.paired) return "";
+        const title = `${c.label}: ${Number(c.temperature).toFixed(1)} °C / ${Number(c.humidity).toFixed(1)} %${c.mould_enabled ? " · Schimmelprüfung aktiv" : ""}`;
+        return `<div class="gl-ha-comfort-badge" title="${esc(title)}">${esc(c.label)}</div>`;
+    }
+
     function sensorHtml(entity) {
-        return `<article class="${statusClass(entity, "gl-ha-sensor gl-ha-item")}" data-entity-id="${entity.id}">
+        return `<article class="${statusClass(entity, "gl-ha-sensor gl-ha-item")}${comfortClass(entity)}" data-entity-id="${entity.id}">
             <div class="gl-ha-sensor-head">
                 <div class="gl-ha-sensor-name">${esc(entity.name)}</div>
                 <span class="gl-ha-dot" title="${entity.is_available ? "Erreichbar" : "Nicht erreichbar"}"></span>
             </div>
             ${technicalHtml(entity)}
             <div class="gl-ha-sensor-value">${esc(formatValue(entity))}</div>
+            ${comfortBadge(entity)}
             ${entity.domain === "climate" && entity.has_control_value ? `<div class="gl-ha-subvalue">Soll: ${Number(entity.control_value).toFixed(1)} °C</div>` : ""}
             ${chartHtml(entity, true)}
             ${lastSeenHtml(entity)}
