@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_meta_pixel_config_list" model="ir.ui.view">
+        <field name="name">meta.pixel.config.list</field>
+        <field name="model">meta.pixel.config</field>
+        <field name="arch" type="xml">
+            <list string="Pixel-Konfigurationen">
+                <field name="name"/>
+                <field name="pixel_id"/>
+                <field name="capi_enabled"/>
+                <field name="api_version"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_meta_pixel_config_form" model="ir.ui.view">
+        <field name="name">meta.pixel.config.form</field>
+        <field name="model">meta.pixel.config</field>
+        <field name="arch" type="xml">
+            <form string="Meta Pixel">
+                <header>
+                    <button name="action_test_connection" type="object" string="CAPI testen" class="btn-primary" invisible="not capi_enabled"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Archiviert" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title"><h1><field name="name" placeholder="z. B. Groundlift Standard"/></h1></div>
+                    <group>
+                        <group>
+                            <field name="active"/>
+                            <field name="pixel_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                        <group string="Conversions API">
+                            <field name="capi_enabled"/>
+                            <field name="api_version" invisible="not capi_enabled"/>
+                            <field name="access_token" password="True" invisible="not capi_enabled" groups="base.group_system"/>
+                            <field name="test_event_code" invisible="not capi_enabled" groups="base.group_system"/>
+                        </group>
+                    </group>
+                    <group><field name="notes" placeholder="Interne Notizen, Ansprechpartner, Kampagnenhinweise …"/></group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_meta_pixel_config" model="ir.actions.act_window">
+        <field name="name">Pixel-Konfigurationen</field>
+        <field name="res_model">meta.pixel.config</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

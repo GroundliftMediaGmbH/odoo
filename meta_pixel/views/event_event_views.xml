@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_event_form_meta_pixel" model="ir.ui.view">
+        <field name="name">event.event.form.meta.pixel</field>
+        <field name="model">event.event</field>
+        <field name="inherit_id" ref="event.view_event_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Meta Pixel" name="meta_pixel">
+                    <group>
+                        <group string="Tracking">
+                            <field name="meta_tracking_mode"/>
+                            <field name="meta_pixel_config_id" invisible="meta_tracking_mode != 'custom'" required="meta_tracking_mode == 'custom'"/>
+                            <field name="meta_test_mode" invisible="meta_tracking_mode == 'disabled'"/>
+                        </group>
+                        <group string="Reporting" invisible="meta_tracking_mode == 'disabled'">
+                            <field name="meta_log_count" readonly="1"/>
+                            <field name="meta_purchase_count" readonly="1"/>
+                            <field name="meta_purchase_value" readonly="1"/>
+                            <button name="action_open_meta_logs" type="object" string="Ereignisse öffnen" class="btn-secondary"/>
+                        </group>
+                    </group>
+                    <group string="Zu erfassende Ereignisse" invisible="meta_tracking_mode == 'disabled'" col="5">
+                        <field name="meta_track_view_content"/>
+                        <field name="meta_track_add_to_cart"/>
+                        <field name="meta_track_checkout"/>
+                        <field name="meta_track_payment_info"/>
+                        <field name="meta_track_purchase"/>
+                    </group>
+                    <div class="alert alert-info" role="alert" invisible="meta_tracking_mode == 'disabled'">
+                        Browser-Tracking wird nur nach Zustimmung zu optionalen Cookies aktiviert. Purchase wird zusätzlich über die Meta Conversions API gesendet, wenn diese in der gewählten Pixel-Konfiguration aktiviert ist.
+                    </div>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
