@@ -11,7 +11,7 @@
                 <filter string="Käufe" name="purchases" domain="[('event_name','=','Purchase')]"/>
                 <filter string="Fehler" name="errors" domain="[('status','=','error')]"/>
                 <filter string="Tests" name="tests" domain="[('is_test','=',True)]"/>
-                <group expand="0" string="Gruppieren">
+                <group name="group_by">
                     <filter string="Veranstaltung" name="group_event" context="{'group_by':'event_id'}"/>
                     <filter string="Eventtyp" name="group_event_name" context="{'group_by':'event_name'}"/>
                     <filter string="Quelle" name="group_source" context="{'group_by':'source'}"/>
