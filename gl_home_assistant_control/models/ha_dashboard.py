@@ -77,6 +77,20 @@ class GlHaDashboard(models.Model):
     show_history_charts = fields.Boolean(string="Verlaufsdiagramme anzeigen", default=False)
     show_entity_ids = fields.Boolean(string="Technische Entity IDs anzeigen", default=False)
     show_last_seen = fields.Boolean(string="'Zuletzt gesehen' anzeigen", default=False)
+    show_comfort_chart = fields.Boolean(
+        string="Behaglichkeitsdiagramm anzeigen",
+        default=False,
+        help="Zeigt ein Temperatur-/Luftfeuchte-Diagramm mit den ausgewählten Klima-Gruppen als beschriftete Punkte.",
+    )
+    comfort_group_ids = fields.Many2many(
+        "gl.ha.comfort.group",
+        "gl_ha_dashboard_comfort_group_rel",
+        "dashboard_id",
+        "comfort_group_id",
+        string="Klima-Gruppen im Diagramm",
+        domain="[('active','=',True)]",
+        help="Leer = alle auf dieser Dashboard-Seite vollständig vorhandenen Klima-Gruppen. Bei Auswahl werden nur diese Gruppen im Behaglichkeitsdiagramm dargestellt.",
+    )
     grid_columns = fields.Selection([
         ("2", "2 Spalten"),
         ("3", "3 Spalten"),
@@ -293,6 +307,20 @@ class GlHaDashboardPage(models.Model):
     show_history_charts = fields.Boolean(string="Verlaufsdiagramme anzeigen", default=False)
     show_entity_ids = fields.Boolean(string="Technische Entity IDs anzeigen", default=False)
     show_last_seen = fields.Boolean(string="'Zuletzt gesehen' anzeigen", default=False)
+    show_comfort_chart = fields.Boolean(
+        string="Behaglichkeitsdiagramm anzeigen",
+        default=False,
+        help="Zeigt ein Temperatur-/Luftfeuchte-Diagramm mit den ausgewählten Klima-Gruppen als beschriftete Punkte.",
+    )
+    comfort_group_ids = fields.Many2many(
+        "gl.ha.comfort.group",
+        "gl_ha_dashboard_page_comfort_group_rel",
+        "page_id",
+        "comfort_group_id",
+        string="Klima-Gruppen im Diagramm",
+        domain="[('active','=',True)]",
+        help="Leer = alle auf dieser Unterseite vollständig vorhandenen Klima-Gruppen. Bei Auswahl werden nur diese Gruppen im Behaglichkeitsdiagramm dargestellt.",
+    )
     grid_columns = fields.Selection([
         ("2", "2 Spalten"),
         ("3", "3 Spalten"),

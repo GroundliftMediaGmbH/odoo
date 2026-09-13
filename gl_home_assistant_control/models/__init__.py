@@ -1,4 +1,5 @@
 from . import ha_config
+from . import ha_comfort
 from . import ha_entity
 from . import ha_history
 from . import ha_power

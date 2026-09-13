@@ -131,7 +131,33 @@ class GlHaAutomationRule(models.Model):
         ("gt", "größer als"),
         ("ge", "größer/gleich"),
     ], default="lt")
-    condition_threshold = fields.Float(string="Grenzwert", default=50.0)
+    condition_threshold = fields.Float(
+        string="Grenzwert",
+        default=50.0,
+        help="Grenzwert für die einfache Ein/Aus-Bedingung ohne Hysterese.",
+    )
+    condition_threshold_mode = fields.Selection([
+        ("simple", "Einfacher Grenzwert"),
+        ("hysteresis", "Einschaltschwelle + Hysterese"),
+    ], string="Grenzwert-Logik", default="simple", required=True)
+    condition_on_threshold = fields.Float(
+        string="Einschaltschwelle",
+        default=50.0,
+        help="Schwellwert, der zunächst erreicht/unterschritten werden muss, damit die Regel einschaltet.",
+    )
+    condition_hysteresis = fields.Float(
+        string="Hysterese",
+        default=0.0,
+        help="Abstand zwischen Ein- und Ausschaltschwelle. Beispiel: Operator 'kleiner als', Einschaltschwelle 250 Lux, Hysterese 50 Lux => EIN unter 250 Lux, AUS erst ab 300 Lux.",
+    )
+    condition_hysteresis_latched = fields.Boolean(
+        string="Hysterese eingerastet",
+        default=False,
+        readonly=True,
+        copy=False,
+        help="Technischer Zustand: Die Einschaltschwelle wurde innerhalb des aktuellen Zeitfensters bereits erreicht.",
+    )
+    condition_logic_initialized = fields.Boolean(default=True, copy=False)
 
     solar_clear_before_minutes = fields.Integer(
         string="Sonnenzeit: Vorlauf bei wenig Bewölkung (Min.)",
@@ -200,6 +226,15 @@ class GlHaAutomationRule(models.Model):
                SET solar_cloud_threshold = 60.0
              WHERE solar_cloud_threshold IS NULL
         """)
+        self.env.cr.execute("""
+            UPDATE gl_ha_automation_rule
+               SET condition_threshold_mode = 'simple',
+                   condition_on_threshold = condition_threshold,
+                   condition_hysteresis = 0.0,
+                   condition_hysteresis_latched = FALSE,
+                   condition_logic_initialized = TRUE
+             WHERE condition_logic_initialized IS NOT TRUE
+        """)
 
     @api.constrains("minutes_before", "minutes_after")
     def _check_offsets(self):
@@ -214,6 +249,12 @@ class GlHaAutomationRule(models.Model):
                 raise ValidationError(_("Sonnenzeit-Vorläufe dürfen nicht negativ sein."))
             if not (0.0 <= rec.solar_cloud_threshold <= 100.0):
                 raise ValidationError(_("Der Bewölkungsgrenzwert muss zwischen 0 und 100 Prozent liegen."))
+
+    @api.constrains("condition_hysteresis")
+    def _check_condition_hysteresis(self):
+        for rec in self:
+            if rec.condition_hysteresis < 0:
+                raise ValidationError(_("Die Hysterese darf nicht negativ sein."))
 
     @api.constrains("condition_entity_ids", "condition_entity_id")
     def _check_solar_sensor_selection(self):
@@ -269,6 +310,10 @@ class GlHaAutomationRule(models.Model):
             rec.condition_match_mode = template.condition_match_mode
             rec.condition_operator = template.condition_operator
             rec.condition_threshold = template.condition_threshold
+            rec.condition_threshold_mode = template.condition_threshold_mode
+            rec.condition_on_threshold = template.condition_on_threshold
+            rec.condition_hysteresis = template.condition_hysteresis
+            rec.condition_hysteresis_latched = False
             rec.solar_clear_before_minutes = template.solar_clear_before_minutes
             rec.solar_cloudy_before_minutes = template.solar_cloudy_before_minutes
             rec.solar_cloud_threshold = template.solar_cloud_threshold
@@ -278,6 +323,23 @@ class GlHaAutomationRule(models.Model):
         for rec in self:
             if rec.project_id and not rec.name:
                 rec.name = _("Projekt – %s") % rec.project_id.display_name
+
+    def write(self, vals):
+        vals = dict(vals)
+        hysteresis_config_fields = {
+            "condition_threshold_mode",
+            "condition_operator",
+            "condition_on_threshold",
+            "condition_hysteresis",
+            "condition_entity_ids",
+            "condition_entity_id",
+            "condition_match_mode",
+            "active",
+            "source",
+        }
+        if hysteresis_config_fields.intersection(vals) and "condition_hysteresis_latched" not in vals:
+            vals["condition_hysteresis_latched"] = False
+        return super().write(vals)
 
     @api.model
     def _timezone(self, config=None):
@@ -403,10 +465,10 @@ class GlHaAutomationRule(models.Model):
             rec.has_cloud_condition = rec._has_cloud_weather_sensor()
             rec.has_generic_condition = bool(rec._generic_condition_entities())
 
-    def _compare_sensor(self, sensor):
+    def _compare_sensor(self, sensor, threshold=None):
         self.ensure_one()
         value = sensor.numeric_value
-        threshold = self.condition_threshold
+        threshold = self.condition_threshold if threshold is None else float(threshold)
         return {
             "lt": value < threshold,
             "le": value <= threshold,
@@ -414,24 +476,15 @@ class GlHaAutomationRule(models.Model):
             "ge": value >= threshold,
         }.get(self.condition_operator, False)
 
-    def _condition_result(self):
-        """Dreiwertige Auswertung für normale optionale Messsensoren.
-
-        Sonnenzeit-Sensoren werden separat in der Zeitfensterlogik ausgewertet.
-        Ist Bewölkung zusammen mit Sonnenauf/-untergang gewählt, dient sie nur
-        zur Auswahl des klaren/bewölkten Sonnen-Vorlaufs.
-        """
+    def _combine_condition_results(self, sensors, threshold):
+        """Dreiwertige Auswertung aller normalen Messsensoren an einem Grenzwert."""
         self.ensure_one()
-        sensors = self._generic_condition_entities()
-        if not sensors:
-            return True, False
-
         results = []
         for sensor in sensors:
             if not sensor.is_available or not sensor.has_numeric_value:
                 results.append(None)
             else:
-                results.append(self._compare_sensor(sensor))
+                results.append(self._compare_sensor(sensor, threshold=threshold))
 
         if self.condition_match_mode == "any":
             if True in results:
@@ -445,6 +498,58 @@ class GlHaAutomationRule(models.Model):
         if None in results:
             return False, True
         return True, False
+
+    def _condition_hysteresis_off_threshold(self):
+        """Ausschaltschwelle aus Einschaltschwelle + Richtung des Operators."""
+        self.ensure_one()
+        on_threshold = float(self.condition_on_threshold)
+        hysteresis = max(0.0, float(self.condition_hysteresis or 0.0))
+        if self.condition_operator in ("lt", "le"):
+            return on_threshold + hysteresis
+        return on_threshold - hysteresis
+
+    def _condition_result(self, persist_hysteresis=False, reset_hysteresis=False):
+        """Dreiwertige Auswertung für normale optionale Messsensoren.
+
+        Bei aktivierter Hysterese wird innerhalb eines aktiven Zeitfensters erst
+        an der Einschaltschwelle eingerastet. Danach bleibt die Bedingung bis zur
+        in Gegenrichtung verschobenen Ausschaltschwelle wahr. Außerhalb eines
+        sicheren, inaktiven Zeitfensters wird der Latch zurückgesetzt, damit ein
+        späteres Ereignis die Einschaltschwelle erneut erreichen muss.
+
+        Sonnenzeit-Sensoren werden separat in der Zeitfensterlogik ausgewertet.
+        Ist Bewölkung zusammen mit Sonnenauf/-untergang gewählt, dient sie nur
+        zur Auswahl des klaren/bewölkten Sonnen-Vorlaufs.
+        """
+        self.ensure_one()
+        sensors = self._generic_condition_entities()
+        if not sensors:
+            if reset_hysteresis and self.condition_hysteresis_latched:
+                self.sudo().write({"condition_hysteresis_latched": False})
+            return True, False
+
+        if self.condition_threshold_mode != "hysteresis":
+            if reset_hysteresis and self.condition_hysteresis_latched:
+                self.sudo().write({"condition_hysteresis_latched": False})
+            return self._combine_condition_results(sensors, self.condition_threshold)
+
+        if reset_hysteresis:
+            if self.condition_hysteresis_latched:
+                self.sudo().write({"condition_hysteresis_latched": False})
+            # Für die Statusmeldung trotzdem den aktuellen Wert gegen die
+            # Einschaltschwelle auswerten; die Regel bleibt wegen Zeitfenster AUS.
+            return self._combine_condition_results(sensors, self.condition_on_threshold)
+
+        latched = bool(self.condition_hysteresis_latched)
+        threshold = self._condition_hysteresis_off_threshold() if latched else self.condition_on_threshold
+        result, unknown = self._combine_condition_results(sensors, threshold)
+        if unknown:
+            return result, True
+
+        new_latched = bool(result)
+        if persist_hysteresis and new_latched != latched:
+            self.sudo().write({"condition_hysteresis_latched": new_latched})
+        return result, False
 
     def _condition_ok(self):
         """Kompatibilitätshelfer für evtl. externe Aufrufer."""
@@ -877,7 +982,10 @@ class GlHaAutomationRule(models.Model):
                 window, window_unknown, window_detail = rule._window_result(
                     now, config, weather_data, persist_solar_latch=True
                 )
-                condition, condition_unknown = rule._condition_result()
+                condition, condition_unknown = rule._condition_result(
+                    persist_hysteresis=bool(window and not window_unknown),
+                    reset_hysteresis=bool(not window and not window_unknown),
+                )
                 desired = window and condition
                 wants_on = wants_on or desired
                 # Bei fehlenden Sonnen-/Wetterdaten innerhalb eines grundsätzlich
@@ -901,6 +1009,12 @@ class GlHaAutomationRule(models.Model):
                     "count": sensor_count,
                     "condition": condition_text,
                 }
+                if rule.condition_threshold_mode == "hysteresis" and generic_count:
+                    off_threshold = rule._condition_hysteresis_off_threshold()
+                    message += _(" · Hysterese: EIN %(on)s / AUS %(off)s") % {
+                        "on": rule.condition_on_threshold,
+                        "off": off_threshold,
+                    }
                 if window_detail:
                     message += " · " + window_detail
                 rule.write({

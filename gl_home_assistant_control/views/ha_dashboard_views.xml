@@ -13,6 +13,7 @@
                 <field name="sensor_layout"/>
                 <field name="separate_controls_sensors" optional="show"/>
                 <field name="show_history_charts" optional="show"/>
+                <field name="show_comfort_chart" optional="show"/>
                 <field name="allow_control" optional="show"/>
             </list>
         </field>
@@ -42,6 +43,8 @@
                             <field name="group_mode"/>
                             <field name="grid_columns"/>
                             <field name="show_history_charts"/>
+                            <field name="show_comfort_chart"/>
+                            <field name="comfort_group_ids" widget="many2many_tags" options="{'no_create': True, 'no_create_edit': True}" invisible="not show_comfort_chart"/>
                             <field name="show_entity_ids"/>
                             <field name="show_last_seen"/>
                         </group>
@@ -116,6 +119,8 @@
                                     <field name="group_mode"/>
                                     <field name="grid_columns"/>
                                     <field name="show_history_charts"/>
+                                    <field name="show_comfort_chart"/>
+                                    <field name="comfort_group_ids" widget="many2many_tags" options="{'no_create': True, 'no_create_edit': True}" invisible="not show_comfort_chart"/>
                                     <field name="show_entity_ids"/>
                                     <field name="show_last_seen"/>
                                 </group>

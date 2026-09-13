@@ -20,7 +20,10 @@
                 <field name="daily_end_hour" widget="float_time" invisible="source != 'daily'"/>
                 <field name="condition_entity_ids" widget="many2many_tags" optional="show"/>
                 <field name="condition_match_mode" optional="hide"/>
-                <field name="condition_threshold" optional="show"/>
+                <field name="condition_threshold_mode" optional="show"/>
+                <field name="condition_threshold" optional="show" invisible="condition_threshold_mode == 'hysteresis'"/>
+                <field name="condition_on_threshold" optional="show" invisible="condition_threshold_mode != 'hysteresis'"/>
+                <field name="condition_hysteresis" optional="show" invisible="condition_threshold_mode != 'hysteresis'"/>
                 <field name="solar_clear_before_minutes" optional="hide"/>
                 <field name="solar_cloudy_before_minutes" optional="hide"/>
                 <field name="solar_cloud_threshold" optional="hide"/>
@@ -118,8 +121,18 @@
                             <label for="condition_operator" string="Operator" invisible="not has_generic_condition"/>
                             <field name="condition_operator" nolabel="1" invisible="not has_generic_condition"/>
 
-                            <label for="condition_threshold" string="Grenzwert" invisible="not has_generic_condition"/>
-                            <field name="condition_threshold" nolabel="1" invisible="not has_generic_condition"/>
+                            <label for="condition_threshold_mode" string="Grenzwert-Logik" invisible="not has_generic_condition"/>
+                            <field name="condition_threshold_mode" nolabel="1" invisible="not has_generic_condition"/>
+
+                            <label for="condition_threshold" string="Grenzwert" invisible="not has_generic_condition or condition_threshold_mode != 'simple'"/>
+                            <field name="condition_threshold" nolabel="1" invisible="not has_generic_condition or condition_threshold_mode != 'simple'"/>
+
+                            <label for="condition_on_threshold" string="Einschaltschwelle" invisible="not has_generic_condition or condition_threshold_mode != 'hysteresis'"/>
+                            <field name="condition_on_threshold" nolabel="1" invisible="not has_generic_condition or condition_threshold_mode != 'hysteresis'"/>
+
+                            <label for="condition_hysteresis" string="Hysterese" invisible="not has_generic_condition or condition_threshold_mode != 'hysteresis'"/>
+                            <field name="condition_hysteresis" nolabel="1" invisible="not has_generic_condition or condition_threshold_mode != 'hysteresis'"/>
+                            <field name="condition_hysteresis_latched" invisible="1"/>
 
                             <label for="solar_clear_before_minutes" string="Bei wenig Bewölkung: Minuten vor Sonnenzeit" invisible="not has_solar_condition"/>
                             <field name="solar_clear_before_minutes" nolabel="1" invisible="not has_solar_condition"/>
@@ -132,7 +145,8 @@
 
                             <p class="text-muted" invisible="not has_solar_condition">Sonnenaufgang oder Sonnenuntergang wird als dynamischer Zeitanker verwendet. Die tatsächliche Einschaltzeit ist die spätere Zeit aus dem normalen Vorlauf der Regel und dem Sonnen-Trigger. Das Ausschalten bleibt unverändert am Ende der Veranstaltung/des Projekts/Zeitprogramms plus Nachlauf.</p>
                             <p class="text-muted" invisible="not has_solar_condition or not has_cloud_condition">Beispiel: Sonnenuntergang + Bewölkung auswählen, 60 Minuten bei wenig Bewölkung, 90 Minuten bei Bewölkung und z. B. 60 % Grenzwert. Für die Entscheidung wird die Bewölkungsprognose zur Sonnenzeit verwendet, damit das Licht nicht bei wechselnder Bewölkung wieder aus- und eingeschaltet wird.</p>
-                            <p class="text-muted" invisible="has_solar_condition">Normale Messsensoren werden mit Operator und Grenzwert ausgewertet. Beispiel Außenlicht: Lux-Sensor, „kleiner als“ und 50 Lux.</p>
+                            <p class="text-muted" invisible="not has_generic_condition or condition_threshold_mode != 'simple'">Einfacher Grenzwert: Die Bedingung wird bei jedem Lauf direkt mit Operator und Grenzwert ausgewertet.</p>
+                            <p class="text-muted" invisible="not has_generic_condition or condition_threshold_mode != 'hysteresis'">Hysterese verhindert Flattern an der Schwelle. Beispiel Licht: „kleiner als“, Einschaltschwelle 250 Lux und Hysterese 50 Lux bedeutet EIN unter 250 Lux; nach dem Einschalten erst wieder AUS ab 300 Lux. Bei „größer als“ wird die Ausschaltschwelle entsprechend unter die Einschaltschwelle gelegt. Nach Ende des Zeitfensters wird die Hysterese zurückgesetzt.</p>
                         </group>
                     </group>
                     <!-- Legacy-Felder nur für verlustfreie Updates älterer Regeln. -->

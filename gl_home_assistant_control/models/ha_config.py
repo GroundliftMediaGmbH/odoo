@@ -130,6 +130,13 @@ class GlHaConfig(models.Model):
     last_power_cost_sync_at = fields.Datetime(string="Letzte Stromkosten-Aktualisierung", readonly=True)
     last_power_cost_message = fields.Text(string="Letzte Stromkostenmeldung", readonly=True)
 
+    comfort_group_ids = fields.One2many(
+        "gl.ha.comfort.group",
+        "config_id",
+        string="Temperatur-/Feuchtegruppen",
+        help="Manuelle Zuordnung je Raum/Messpunkt. Ein Temperatur- und ein Luftfeuchtewert derselben physischen Messeinheit werden im Live-Dashboard zu einer gemeinsamen Kachel zusammengefasst.",
+    )
+
     mould_warning_entity_ids = fields.Many2many(
         "gl.ha.entity",
         "gl_ha_config_mould_entity_rel",
@@ -137,7 +144,7 @@ class GlHaConfig(models.Model):
         "entity_id",
         string="Schimmelgefahrmeldung für Sensoren",
         domain=[("source_type", "=", "home_assistant"), ("domain", "=", "sensor"), ("active", "=", True)],
-        help="Für die ausgewählten Temperatur-/Luftfeuchtesensoren wird bei kritisch feuchten Kombinationen die Kachel lila markiert. Die Auswahl eines Sensors aktiviert die Prüfung für sein automatisch erkanntes Temperatur-/Feuchte-Paar.",
+        help="Abwärtskompatible Zusatz-Auswahl. Empfohlen ist die Aktivierung direkt an der jeweiligen Temperatur-/Feuchtegruppe. Wird hier eine Entität ausgewählt, gilt die Schimmelprüfung ebenfalls für die zugehörige Gruppe bzw. das automatisch erkannte Paar.",
     )
 
     alert_email_enabled = fields.Boolean(string="Warnungen per E-Mail", default=False)

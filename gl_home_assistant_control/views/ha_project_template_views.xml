@@ -12,6 +12,9 @@
                 <field name="minutes_before"/>
                 <field name="minutes_after"/>
                 <field name="condition_entity_ids" widget="many2many_tags" optional="show"/>
+                <field name="condition_threshold_mode" optional="hide"/>
+                <field name="condition_on_threshold" optional="hide" invisible="condition_threshold_mode != 'hysteresis'"/>
+                <field name="condition_hysteresis" optional="hide" invisible="condition_threshold_mode != 'hysteresis'"/>
                 <field name="solar_clear_before_minutes" optional="hide"/>
                 <field name="solar_cloudy_before_minutes" optional="hide"/>
                 <field name="solar_cloud_threshold" optional="hide"/>
@@ -47,7 +50,10 @@
                                    options="{'no_create': True, 'no_create_edit': True}"/>
                             <field name="condition_match_mode" invisible="not has_generic_condition"/>
                             <field name="condition_operator" invisible="not has_generic_condition"/>
-                            <field name="condition_threshold" invisible="not has_generic_condition"/>
+                            <field name="condition_threshold_mode" invisible="not has_generic_condition"/>
+                            <field name="condition_threshold" invisible="not has_generic_condition or condition_threshold_mode != 'simple'"/>
+                            <field name="condition_on_threshold" invisible="not has_generic_condition or condition_threshold_mode != 'hysteresis'"/>
+                            <field name="condition_hysteresis" invisible="not has_generic_condition or condition_threshold_mode != 'hysteresis'"/>
                             <field name="solar_clear_before_minutes" invisible="not has_solar_condition"/>
                             <field name="solar_cloudy_before_minutes" invisible="not has_solar_condition or not has_cloud_condition"/>
                             <field name="solar_cloud_threshold" invisible="not has_solar_condition or not has_cloud_condition"/>

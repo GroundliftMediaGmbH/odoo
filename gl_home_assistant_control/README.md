@@ -268,3 +268,12 @@ Hinweis: Dies ist eine starke Browserprofil-/Gerätebindung ohne übertragbares 
 - Bei 6/24 Stunden werden Uhrzeiten, bei 7/30 Tagen Datumswerte angezeigt
 - Diagrammlinie wird jetzt anhand der tatsächlichen Zeitstempel positioniert
 - Responsive Reduktion der X-Beschriftung bei sehr schmalen Karten
+
+## Version 19.0.1.6.0 – Hysterese, Klima-Gruppen und Behaglichkeitsdiagramm
+
+- Automatikregeln unterstützen neben dem einfachen Grenzwert jetzt **Einschaltschwelle + Hysterese**. Bei „kleiner als“, 250 Lux Einschaltschwelle und 50 Lux Hysterese wird unter 250 Lux eingeschaltet und erst ab 300 Lux wieder ausgeschaltet. Nach Ende des Zeitfensters wird der Hysterese-Zustand zurückgesetzt.
+- Projekt-Vorlagen übernehmen die neue Grenzwert-Logik vollständig.
+- Unter **Einstellungen → Klima & Behaglichkeit** können Temperatur- und Luftfeuchte-Entitäten manuell zu einem Raum/Messpunkt gruppiert werden. Sind beide Entitäten auf einer Dashboard-Seite sichtbar, werden sie als **eine gemeinsame Klima-Kachel** dargestellt.
+- Die Schimmelrisiko-Prüfung kann pro Klima-Gruppe aktiviert werden; die bisherige Sensor-Auswahl bleibt aus Kompatibilitätsgründen zusätzlich erhalten.
+- Hauptseiten und Unterseiten können ein responsives **Behaglichkeitsdiagramm** aktivieren. Ausgewählte Klima-Gruppen erscheinen darin als beschriftete Punkte im Temperatur-/Feuchte-Koordinatensystem; die Punktfarben entsprechen den Kachelfarben Behaglich / noch behaglich / außerhalb / Schimmelrisiko.
+- Das Diagramm verwendet getrennte Layout-Geometrien für Hoch- und Querformat, damit Achsen, Beschriftungen und Punkte korrekt skalieren.

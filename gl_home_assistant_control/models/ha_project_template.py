@@ -51,6 +51,13 @@ class GlHaProjectTemplate(models.Model):
         ("ge", "größer/gleich"),
     ], default="lt")
     condition_threshold = fields.Float(string="Grenzwert", default=50.0)
+    condition_threshold_mode = fields.Selection([
+        ("simple", "Einfacher Grenzwert"),
+        ("hysteresis", "Einschaltschwelle + Hysterese"),
+    ], string="Grenzwert-Logik", default="simple", required=True)
+    condition_on_threshold = fields.Float(string="Einschaltschwelle", default=50.0)
+    condition_hysteresis = fields.Float(string="Hysterese", default=0.0)
+    condition_logic_initialized = fields.Boolean(default=True, copy=False)
     solar_clear_before_minutes = fields.Integer(
         string="Sonnenzeit: Vorlauf bei wenig Bewölkung (Min.)",
         default=60,
@@ -82,6 +89,14 @@ class GlHaProjectTemplate(models.Model):
                SET solar_cloud_threshold = 60.0
              WHERE solar_cloud_threshold IS NULL
         """)
+        self.env.cr.execute("""
+            UPDATE gl_ha_project_template
+               SET condition_threshold_mode = 'simple',
+                   condition_on_threshold = condition_threshold,
+                   condition_hysteresis = 0.0,
+                   condition_logic_initialized = TRUE
+             WHERE condition_logic_initialized IS NOT TRUE
+        """)
 
     @api.constrains("minutes_before", "minutes_after")
     def _check_offsets(self):
@@ -96,6 +111,12 @@ class GlHaProjectTemplate(models.Model):
                 raise ValidationError(_("Sonnenzeit-Vorläufe dürfen nicht negativ sein."))
             if not (0.0 <= rec.solar_cloud_threshold <= 100.0):
                 raise ValidationError(_("Der Bewölkungsgrenzwert muss zwischen 0 und 100 Prozent liegen."))
+
+    @api.constrains("condition_hysteresis")
+    def _check_condition_hysteresis(self):
+        for rec in self:
+            if rec.condition_hysteresis < 0:
+                raise ValidationError(_("Die Hysterese darf nicht negativ sein."))
 
     @api.constrains("condition_entity_ids")
     def _check_solar_sensor_selection(self):
@@ -140,6 +161,9 @@ class GlHaProjectTemplate(models.Model):
             "condition_match_mode": self.condition_match_mode,
             "condition_operator": self.condition_operator,
             "condition_threshold": self.condition_threshold,
+            "condition_threshold_mode": self.condition_threshold_mode,
+            "condition_on_threshold": self.condition_on_threshold,
+            "condition_hysteresis": self.condition_hysteresis,
             "solar_clear_before_minutes": self.solar_clear_before_minutes,
             "solar_cloudy_before_minutes": self.solar_cloudy_before_minutes,
             "solar_cloud_threshold": self.solar_cloud_threshold,

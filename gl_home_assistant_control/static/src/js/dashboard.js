@@ -10,6 +10,7 @@
     const devicePublicId = app.dataset.devicePublicId || "";
     const apiBase = deviceMode ? "/groundlift/ha/device" : "/groundlift/ha";
     const roomsEl = document.getElementById("gl-ha-rooms");
+    const comfortChartEl = document.getElementById("gl-ha-comfort-chart");
     const alertsEl = document.getElementById("gl-ha-alerts");
     const statusEl = document.getElementById("gl-ha-status");
     const windowsEl = document.getElementById("gl-ha-windows");
@@ -175,6 +176,10 @@
         if (lower === "on") return "EIN";
         if (lower === "off") return "AUS";
         return entity.state || "–";
+    }
+
+    function hasFiniteNumber(value) {
+        return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
     }
 
     function statusClass(entity, baseClass) {
@@ -375,6 +380,80 @@
         return `<div class="gl-ha-comfort-badge" title="${esc(title)}">${esc(c.label)}</div>`;
     }
 
+    function comfortGroupClass(group) {
+        const code = group?.comfort?.code || "";
+        return code ? ` comfort-${code}` : "";
+    }
+
+    function entityById(id) {
+        return (state?.entities || []).find(entity => entity.id === Number(id));
+    }
+
+    function comfortGroupHistoryHtml(group, compact) {
+        if (!state?.view?.show_history_charts) return "";
+        const temp = entityById(group.temperature_entity_id);
+        const humidity = entityById(group.humidity_entity_id);
+        const parts = [];
+        if (temp?.history_enabled && temp?.has_numeric_value) {
+            parts.push(`<div class="gl-ha-climate-history"><span>Temperatur</span>${chartHtml(temp, compact)}</div>`);
+        }
+        if (humidity?.history_enabled && humidity?.has_numeric_value) {
+            parts.push(`<div class="gl-ha-climate-history"><span>Luftfeuchte</span>${chartHtml(humidity, compact)}</div>`);
+        }
+        return parts.length ? `<div class="gl-ha-climate-history-grid">${parts.join("")}</div>` : "";
+    }
+
+    function comfortGroupHtml(group, compact) {
+        const status = group?.comfort?.label || (group.is_available ? "Keine Bewertung" : "Nicht erreichbar");
+        const temp = hasFiniteNumber(group.temperature) ? `${Number(group.temperature).toFixed(1)} ${esc(group.temperature_unit || "°C")}` : "–";
+        const humidity = hasFiniteNumber(group.humidity) ? `${Number(group.humidity).toFixed(1)} ${esc(group.humidity_unit || "%")}` : "–";
+        const tempEntity = entityById(group.temperature_entity_id);
+        const humidityEntity = entityById(group.humidity_entity_id);
+        const technical = state?.view?.show_entity_ids
+            ? `<small>${esc(tempEntity?.entity_id || "")} · ${esc(humidityEntity?.entity_id || "")}</small>`
+            : "";
+        const base = compact ? "gl-ha-sensor gl-ha-item gl-ha-climate-card" : "gl-ha-entity gl-ha-item gl-ha-climate-card";
+        return `<article class="${base}${comfortGroupClass(group)}${group.is_available ? "" : " offline"}" data-comfort-group-id="${group.id}">
+            <div class="${compact ? "gl-ha-sensor-head" : "gl-ha-entity-head"}">
+                <div>
+                    <div class="${compact ? "gl-ha-sensor-name" : "gl-ha-climate-title"}">${esc(group.name)}</div>
+                    ${technical}
+                </div>
+                <span class="gl-ha-dot" title="${group.is_available ? "Erreichbar" : "Nicht erreichbar"}"></span>
+            </div>
+            <div class="gl-ha-climate-values">
+                <div><span>Temperatur</span><strong>${temp}</strong></div>
+                <div><span>Luftfeuchtigkeit</span><strong>${humidity}</strong></div>
+            </div>
+            <div class="gl-ha-comfort-badge" title="${esc(status)}${group.mould_enabled ? " · Schimmelprüfung aktiv" : ""}">${esc(status)}</div>
+            ${comfortGroupHistoryHtml(group, compact)}
+        </article>`;
+    }
+
+    function combinedDisplayItems(entities) {
+        const entityIds = new Set(entities.map(entity => entity.id));
+        const used = new Set();
+        const groups = (state?.comfort_groups || [])
+            .filter(group => {
+                if (!entityIds.has(group.temperature_entity_id) || !entityIds.has(group.humidity_entity_id)) return false;
+                const temp = entityById(group.temperature_entity_id);
+                const humidity = entityById(group.humidity_entity_id);
+                return temp?.display_role !== "control" && humidity?.display_role !== "control";
+            })
+            .map(group => ({
+                ...group,
+                is_comfort_group: true,
+                display_role: "sensor",
+                room: group.room || group.name || "Allgemein",
+                dashboard_group: group.dashboard_group || "",
+            }));
+        groups.forEach(group => {
+            used.add(group.temperature_entity_id);
+            used.add(group.humidity_entity_id);
+        });
+        return [...entities.filter(entity => !used.has(entity.id)), ...groups];
+    }
+
     function sensorHtml(entity) {
         return `<article class="${statusClass(entity, "gl-ha-sensor gl-ha-item")}${comfortClass(entity)}" data-entity-id="${entity.id}">
             <div class="gl-ha-sensor-head">
@@ -409,7 +488,7 @@
             <section class="gl-ha-room">
                 ${room ? `<div class="gl-ha-section-head gl-ha-room-head"><h3>${esc(room)}</h3><span>${items.length}</span></div>` : ""}
                 <div class="${compactSensors ? "gl-ha-sensor-grid" : "gl-ha-grid"}">
-                    ${items.map(compactSensors ? sensorHtml : entityHtml).join("")}
+                    ${items.map(item => item.is_comfort_group ? comfortGroupHtml(item, compactSensors) : (compactSensors ? sensorHtml(item) : entityHtml(item))).join("")}
                 </div>
             </section>`).join("");
     }
@@ -424,7 +503,8 @@
 
     function renderRooms() {
         if (!state) return;
-        const entities = state.entities || [];
+        const rawEntities = state.entities || [];
+        const entities = combinedDisplayItems(rawEntities);
         if (!entities.length) {
             roomsEl.innerHTML = `<div class="gl-ha-empty"><strong>Auf dieser Seite sind noch keine Entitäten ausgewählt.</strong><br/>Die Auswahl erfolgt in Odoo unter Gebäudesteuerung → Dashboards bzw. Dashboard-Unterseiten.</div>`;
             return;
@@ -444,6 +524,106 @@
             roomsEl.innerHTML = roomBlocks(entities, false);
         }
         drawAllCharts();
+    }
+
+    function comfortColor(code) {
+        return {
+            comfortable: "#4bd18b",
+            acceptable: "#f2a744",
+            uncomfortable: "#ff5055",
+            mould: "#be69ff",
+        }[code] || "#d7d7dc";
+    }
+
+    function renderComfortChart() {
+        if (!comfortChartEl) return;
+        if (!state?.view?.show_comfort_chart) {
+            comfortChartEl.innerHTML = "";
+            comfortChartEl.style.display = "none";
+            return;
+        }
+
+        const requested = new Set((state?.view?.comfort_group_ids || []).map(Number));
+        const groups = (state?.comfort_groups || []).filter(group =>
+            (!requested.size || requested.has(Number(group.id)))
+            && group.is_available
+            && hasFiniteNumber(group.temperature)
+            && hasFiniteNumber(group.humidity)
+        );
+        comfortChartEl.style.display = "block";
+        if (!groups.length) {
+            comfortChartEl.innerHTML = `<div class="gl-ha-section-head"><h2>Behaglichkeit</h2><span>Temperatur / Luftfeuchte</span></div>
+                <div class="gl-ha-empty">Für dieses Diagramm sind noch keine vollständig verfügbaren Temperatur-/Feuchtegruppen ausgewählt.</div>`;
+            return;
+        }
+
+        const model = state?.comfort_chart || {};
+        const xMin = Number(model.x_min ?? 12), xMax = Number(model.x_max ?? 28);
+        const yMin = Number(model.y_min ?? 0), yMax = Number(model.y_max ?? 100);
+        const portrait = window.innerWidth < 700;
+        const W = portrait ? 700 : 1100;
+        const H = portrait ? 820 : 650;
+        const margin = portrait
+            ? {left: 88, right: 34, top: 70, bottom: 92}
+            : {left: 92, right: 42, top: 52, bottom: 82};
+        const plotW = W - margin.left - margin.right;
+        const plotH = H - margin.top - margin.bottom;
+        const x = value => margin.left + ((Number(value) - xMin) / (xMax - xMin)) * plotW;
+        const y = value => margin.top + (1 - ((Number(value) - yMin) / (yMax - yMin))) * plotH;
+        const polygonPoints = polygon => (polygon || []).map(([px, py]) => `${x(px).toFixed(1)},${y(py).toFixed(1)}`).join(" ");
+        const acceptable = polygonPoints(model.acceptable_polygon || []);
+        const comfortable = polygonPoints(model.comfortable_polygon || []);
+
+        const xTicks = [];
+        for (let t = 12; t <= 28; t += 2) xTicks.push(t);
+        const yTicks = [];
+        for (let h = 0; h <= 100; h += 10) yTicks.push(h);
+
+        const grid = [
+            ...xTicks.map(t => `<line x1="${x(t)}" y1="${margin.top}" x2="${x(t)}" y2="${margin.top + plotH}" class="gl-ha-comfort-grid-line"/><text x="${x(t)}" y="${margin.top + plotH + 30}" text-anchor="middle" class="gl-ha-comfort-axis-tick">${t}</text>`),
+            ...yTicks.map(h => `<line x1="${margin.left}" y1="${y(h)}" x2="${margin.left + plotW}" y2="${y(h)}" class="gl-ha-comfort-grid-line"/><text x="${margin.left - 14}" y="${y(h) + 5}" text-anchor="end" class="gl-ha-comfort-axis-tick">${h}</text>`),
+        ].join("");
+
+        const plotted = groups.filter(group => Number(group.temperature) >= xMin && Number(group.temperature) <= xMax && Number(group.humidity) >= yMin && Number(group.humidity) <= yMax);
+        const points = plotted.map((group, index) => {
+            const px = x(group.temperature), py = y(group.humidity);
+            const color = comfortColor(group?.comfort?.code);
+            const dx = index % 2 === 0 ? 13 : -13;
+            const anchor = dx > 0 ? "start" : "end";
+            const dy = index % 3 === 0 ? -13 : 22;
+            const label = `${group.name} · ${Number(group.temperature).toFixed(1)} °C / ${Number(group.humidity).toFixed(0)} %`;
+            return `<g class="gl-ha-comfort-point">
+                <circle cx="${px}" cy="${py}" r="9" fill="${color}" stroke="rgba(255,255,255,.95)" stroke-width="3"><title>${esc(label)} · ${esc(group?.comfort?.label || "")}</title></circle>
+                <text x="${px + dx}" y="${py + dy}" text-anchor="${anchor}" class="gl-ha-comfort-point-label" style="paint-order:stroke;stroke:#0a0a0b;stroke-width:5px;stroke-linejoin:round;">${esc(group.name)}</text>
+            </g>`;
+        }).join("");
+
+        const unplotted = groups.length - plotted.length;
+        const note = unplotted ? ` · ${unplotted} Punkt${unplotted === 1 ? "" : "e"} außerhalb 12–28 °C / 0–100 %` : "";
+        comfortChartEl.innerHTML = `
+            <div class="gl-ha-section-head"><h2>Behaglichkeit</h2><span>${groups.length} Räume${esc(note)}</span></div>
+            <div class="gl-ha-comfort-diagram">
+                <svg class="gl-ha-comfort-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Behaglichkeitsdiagramm für Raumlufttemperatur und relative Luftfeuchtigkeit">
+                    <rect x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}" rx="4" class="gl-ha-comfort-zone-uncomfortable"/>
+                    ${grid}
+                    <polygon points="${acceptable}" class="gl-ha-comfort-zone-acceptable"/>
+                    <polygon points="${comfortable}" class="gl-ha-comfort-zone-comfortable"/>
+                    <rect x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}" fill="none" class="gl-ha-comfort-frame"/>
+                    <text x="${margin.left + plotW / 2}" y="${H - 22}" text-anchor="middle" class="gl-ha-comfort-axis-title">Raumlufttemperatur [°C]</text>
+                    <text transform="translate(26 ${margin.top + plotH / 2}) rotate(-90)" text-anchor="middle" class="gl-ha-comfort-axis-title">Relative Raumluftfeuchte [%]</text>
+                    <text x="${x(20.6)}" y="${y(55)}" text-anchor="middle" class="gl-ha-comfort-zone-label">behaglich</text>
+                    <text x="${x(22.2)}" y="${y(24)}" text-anchor="middle" class="gl-ha-comfort-zone-label muted">noch behaglich</text>
+                    <text x="${x(14.2)}" y="${y(12)}" text-anchor="middle" class="gl-ha-comfort-zone-label muted">unbehaglich trocken</text>
+                    <text x="${x(25.0)}" y="${y(88)}" text-anchor="middle" class="gl-ha-comfort-zone-label muted">unbehaglich feucht</text>
+                    ${points}
+                </svg>
+                <div class="gl-ha-comfort-legend">
+                    <span><i class="comfortable"></i>Behaglich</span>
+                    <span><i class="acceptable"></i>Noch behaglich</span>
+                    <span><i class="uncomfortable"></i>Außerhalb Bereich</span>
+                    <span><i class="mould"></i>Schimmelrisiko erhöht</span>
+                </div>
+            </div>`;
     }
 
     function chartValueLabel(value, unit, range) {
@@ -586,6 +766,7 @@
         renderStatus();
         renderAlerts();
         renderWindows();
+        renderComfortChart();
         renderRooms();
     }
 
@@ -713,7 +894,10 @@
 
     refreshBtn.addEventListener("click", () => loadData(true));
     periodEl.addEventListener("change", () => loadHistory(true));
-    window.addEventListener("resize", drawAllCharts);
+    window.addEventListener("resize", () => {
+        renderComfortChart();
+        drawAllCharts();
+    });
 
     loadData(true);
 })();

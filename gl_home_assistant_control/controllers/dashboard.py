@@ -20,6 +20,16 @@ from odoo.http import request
 DEVICE_COOKIE = "gl_ha_device_token"
 DEVICE_SIGNATURE_MAX_AGE_MS = 120000
 
+# Behaglichkeitsbereiche nach der vom Nutzer vorgegebenen Temperatur-/Feuchte-Grafik.
+# Die Punkte liegen im Koordinatensystem Temperatur [°C] / relative Feuchte [%].
+COMFORTABLE_POLYGON = [
+    (17.55, 75.5), (19.0, 37.0), (24.45, 32.5), (22.45, 65.5),
+]
+ACCEPTABLE_POLYGON = [
+    (16.1, 75.0), (17.0, 37.0), (19.4, 19.0), (25.4, 17.0),
+    (27.0, 32.0), (25.0, 59.0), (22.2, 80.5), (17.2, 87.5),
+]
+
 
 def _b64url_decode(value):
     value = (value or "").encode("ascii")
@@ -79,13 +89,15 @@ class GlHaDashboardController(http.Controller):
             "sensor_layout": source.sensor_layout or "compact",
             "group_mode": source.group_mode or "custom",
             "show_history_charts": bool(source.show_history_charts),
+            "show_comfort_chart": bool(source.show_comfort_chart),
+            "comfort_group_ids": source.comfort_group_ids.ids,
             "show_entity_ids": bool(source.show_entity_ids),
             "show_last_seen": bool(source.show_last_seen),
             "grid_columns": int(source.grid_columns or 4),
         }
 
     def _comfort_base_name(self, entity):
-        """Build a stable key for temperature/humidity sensor pairing."""
+        """Build a stable key for the legacy automatic temperature/humidity fallback."""
         raw = " ".join(filter(None, [entity.dashboard_group, entity.room, entity.name, entity.ha_name]))
         text = unicodedata.normalize("NFKD", raw or "").encode("ascii", "ignore").decode("ascii").lower()
         tokens = [
@@ -120,49 +132,161 @@ class GlHaDashboardController(http.Controller):
         return inside
 
     def _comfort_state(self, temp, rh, mould_enabled=False):
-        """Classify according to the supplied comfort chart, with conservative mould override."""
+        """Bewertet Temperatur + r. F. nach der hinterlegten Behaglichkeitsgrafik."""
         try:
             temp, rh = float(temp), float(rh)
         except (TypeError, ValueError):
             return None
-        # Purple is deliberately conservative: persistent room RH >60% is undesirable;
-        # >=70% or >60% together with a cool room materially raises condensation/mould risk.
+        # Schimmelwarnung ist bewusst eine zusätzliche Risikoanzeige, keine Diagnose.
+        # Sie hat nur für explizit aktivierte Gruppen/Sensoren Vorrang.
         if mould_enabled and (rh >= 70.0 or (rh > 60.0 and temp < 18.0)):
             return {"code": "mould", "label": "Schimmelrisiko erhöht"}
-        # Inner and outer envelopes digitised conservatively from the user-supplied comfort chart.
-        comfortable = [(17.5, 74), (19.0, 37), (24.0, 35), (22.4, 65), (17.8, 73)]
-        still_comfortable = [(16.0, 75), (17.0, 40), (19.5, 20), (25.0, 18), (27.0, 30), (25.0, 58), (22.0, 79), (17.5, 85)]
-        if self._point_in_polygon(temp, rh, comfortable):
+        if self._point_in_polygon(temp, rh, COMFORTABLE_POLYGON):
             return {"code": "comfortable", "label": "Behaglich"}
-        if self._point_in_polygon(temp, rh, still_comfortable):
+        if self._point_in_polygon(temp, rh, ACCEPTABLE_POLYGON):
             return {"code": "acceptable", "label": "Noch behaglich"}
         return {"code": "uncomfortable", "label": "Außerhalb Behaglichkeitsbereich"}
 
+    def _manual_comfort_groups(self, entities, config):
+        """Nur vollständig auf der aktuellen Dashboard-Seite vorhandene manuelle Gruppen."""
+        entity_ids = set(entities.ids)
+        return config.comfort_group_ids.filtered(
+            lambda group: group.active
+            and group.temperature_entity_id.id in entity_ids
+            and group.humidity_entity_id.id in entity_ids
+        ).sorted(key=lambda group: (group.sequence, group.name or "", group.id))
+
+    def _comfort_group_payload(self, entities, config, chart_group_ids=None):
+        selected_mould = set(config.mould_warning_entity_ids.ids)
+        entity_ids = set(entities.ids)
+        requested_chart_ids = set(chart_group_ids or [])
+        groups = config.comfort_group_ids.filtered(
+            lambda group: group.active and (
+                (group.temperature_entity_id.id in entity_ids and group.humidity_entity_id.id in entity_ids)
+                or group.id in requested_chart_ids
+            )
+        ).sorted(key=lambda group: (group.sequence, group.name or "", group.id))
+        result = []
+        for group in groups:
+            temp = group.temperature_entity_id
+            humidity = group.humidity_entity_id
+            mould_enabled = bool(
+                group.mould_warning_enabled
+                or selected_mould.intersection({temp.id, humidity.id})
+            )
+            comfort = None
+            if (
+                temp.is_available and humidity.is_available
+                and temp.has_numeric_value and humidity.has_numeric_value
+            ):
+                comfort = self._comfort_state(
+                    temp.numeric_value,
+                    humidity.numeric_value,
+                    mould_enabled=mould_enabled,
+                )
+            result.append({
+                "id": group.id,
+                "name": group.name,
+                "sequence": group.sequence,
+                "temperature_entity_id": temp.id,
+                "humidity_entity_id": humidity.id,
+                "temperature": float(temp.numeric_value) if temp.has_numeric_value else None,
+                "humidity": float(humidity.numeric_value) if humidity.has_numeric_value else None,
+                "temperature_unit": temp.unit or "°C",
+                "humidity_unit": humidity.unit or "%",
+                "is_available": bool(temp.is_available and humidity.is_available),
+                "room": temp.room or humidity.room or group.name or "Allgemein",
+                "dashboard_group": temp.dashboard_group or humidity.dashboard_group or "",
+                "mould_enabled": mould_enabled,
+                "comfort": comfort or False,
+            })
+        return result
+
     def _comfort_map(self, entities, config):
-        buckets = {}
-        for e in entities:
-            kind = self._comfort_kind(e)
-            if not kind or not e.is_available or not e.has_numeric_value:
-                continue
-            key = self._comfort_base_name(e)
-            # Prefer explicit room/group as an additional stable pairing hint.
-            room = (e.dashboard_group or e.room or "").strip().lower()
-            bucket_key = (room, key)
-            buckets.setdefault(bucket_key, {})[kind] = e
+        """Komfortstatus je Entität; manuelle Gruppen haben Vorrang.
+
+        Für bestehende Installationen bleibt die frühere automatische Paarung als
+        Fallback erhalten, solange eine Entität noch keiner manuellen Gruppe
+        zugeordnet wurde. Sobald eine Gruppe definiert ist, ist deren Zuordnung
+        maßgeblich und deterministisch.
+        """
         selected = set(config.mould_warning_entity_ids.ids)
         result = {}
-        for pair in buckets.values():
-            t, h = pair.get("temperature"), pair.get("humidity")
-            if not t or not h:
+        selected_entity_ids = set(entities.ids)
+        manually_assigned = set()
+        for configured_group in config.comfort_group_ids.filtered(lambda group: group.active):
+            manually_assigned.update(
+                {entity_id for entity_id in (configured_group.temperature_entity_id.id, configured_group.humidity_entity_id.id)
+                 if entity_id in selected_entity_ids}
+            )
+
+        for group in self._manual_comfort_groups(entities, config):
+            temp, humidity = group.temperature_entity_id, group.humidity_entity_id
+            mould_enabled = bool(
+                group.mould_warning_enabled
+                or selected.intersection({temp.id, humidity.id})
+            )
+            if not (
+                temp.is_available and humidity.is_available
+                and temp.has_numeric_value and humidity.has_numeric_value
+            ):
                 continue
-            mould_enabled = bool(selected.intersection({t.id, h.id}))
-            status = self._comfort_state(t.numeric_value, h.numeric_value, mould_enabled=mould_enabled)
+            status = self._comfort_state(
+                temp.numeric_value,
+                humidity.numeric_value,
+                mould_enabled=mould_enabled,
+            )
             if not status:
                 continue
-            for e, counterpart in ((t, h), (h, t)):
-                result[e.id] = dict(status, paired=True, pair_id=counterpart.id, pair_name=counterpart.name,
-                                    temperature=float(t.numeric_value), humidity=float(h.numeric_value),
-                                    mould_enabled=mould_enabled)
+            for entity, counterpart in ((temp, humidity), (humidity, temp)):
+                result[entity.id] = dict(
+                    status,
+                    paired=True,
+                    manual_group=True,
+                    group_id=group.id,
+                    group_name=group.name,
+                    pair_id=counterpart.id,
+                    pair_name=counterpart.name,
+                    temperature=float(temp.numeric_value),
+                    humidity=float(humidity.numeric_value),
+                    mould_enabled=mould_enabled,
+                )
+
+        # Legacy fallback for ungrouped sensors.
+        buckets = {}
+        for entity in entities:
+            if entity.id in manually_assigned:
+                continue
+            kind = self._comfort_kind(entity)
+            if not kind or not entity.is_available or not entity.has_numeric_value:
+                continue
+            key = self._comfort_base_name(entity)
+            room = (entity.dashboard_group or entity.room or "").strip().lower()
+            buckets.setdefault((room, key), {})[kind] = entity
+
+        for pair in buckets.values():
+            temp, humidity = pair.get("temperature"), pair.get("humidity")
+            if not temp or not humidity:
+                continue
+            mould_enabled = bool(selected.intersection({temp.id, humidity.id}))
+            status = self._comfort_state(
+                temp.numeric_value,
+                humidity.numeric_value,
+                mould_enabled=mould_enabled,
+            )
+            if not status:
+                continue
+            for entity, counterpart in ((temp, humidity), (humidity, temp)):
+                result[entity.id] = dict(
+                    status,
+                    paired=True,
+                    manual_group=False,
+                    pair_id=counterpart.id,
+                    pair_name=counterpart.name,
+                    temperature=float(temp.numeric_value),
+                    humidity=float(humidity.numeric_value),
+                    mould_enabled=mould_enabled,
+                )
         return result
 
     def _dashboard_payload(self, dashboard, page=None, can_control=False):
@@ -188,6 +312,13 @@ class GlHaDashboardController(http.Controller):
                 config=config, now=now, hours=24
             )
 
+        comfort_map = self._comfort_map(entities, config)
+        comfort_groups = self._comfort_group_payload(
+            entities,
+            config,
+            chart_group_ids=view.get("comfort_group_ids") if view.get("show_comfort_chart") else [],
+        )
+
         return {
             "dashboard": {
                 "name": dashboard.name,
@@ -205,7 +336,16 @@ class GlHaDashboardController(http.Controller):
                 "last_schedule_sync_at": fields.Datetime.to_string(config.last_schedule_sync_at) if config.last_schedule_sync_at else None,
                 "last_automation_at": fields.Datetime.to_string(config.last_automation_at) if config.last_automation_at else None,
             },
-            "entities": [self._entity_json(e, can_control, comfort=self._comfort_map(entities, config).get(e.id)) for e in entities],
+            "entities": [self._entity_json(e, can_control, comfort=comfort_map.get(e.id)) for e in entities],
+            "comfort_groups": comfort_groups,
+            "comfort_chart": {
+                "x_min": 12,
+                "x_max": 28,
+                "y_min": 0,
+                "y_max": 100,
+                "comfortable_polygon": COMFORTABLE_POLYGON,
+                "acceptable_polygon": ACCEPTABLE_POLYGON,
+            },
             "alerts": [{
                 "id": a.id,
                 "severity": a.severity,
