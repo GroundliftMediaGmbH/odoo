@@ -27,7 +27,7 @@ class GlHaComfortGroup(models.Model):
         string="Temperatur",
         required=True,
         ondelete="restrict",
-        domain="[('active','=',True),('has_numeric_value','=',True)]",
+        domain="[('active','=',True),('domain','=','sensor')]",
         help="Home-Assistant-Entität für die Raumlufttemperatur dieser Gruppe.",
     )
     humidity_entity_id = fields.Many2one(
@@ -35,7 +35,7 @@ class GlHaComfortGroup(models.Model):
         string="Luftfeuchtigkeit",
         required=True,
         ondelete="restrict",
-        domain="[('active','=',True),('has_numeric_value','=',True)]",
+        domain="[('active','=',True),('domain','=','sensor')]",
         help="Home-Assistant-Entität für die relative Luftfeuchtigkeit dieser Gruppe.",
     )
     mould_warning_enabled = fields.Boolean(

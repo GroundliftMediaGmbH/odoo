@@ -681,6 +681,16 @@ class GlHaConfig(models.Model):
             self.sudo().write({"last_power_cost_message": str(exc)})
             raise UserError(_("Historische Stromkosten konnten nicht berechnet werden: %s") % exc) from exc
 
+    def action_open_comfort_groups(self):
+        self.ensure_one()
+        action = self.env.ref("gl_home_assistant_control.action_gl_ha_comfort_group").read()[0]
+        action["domain"] = [("config_id", "=", self.id)]
+        action["context"] = {
+            "default_config_id": self.id,
+            "search_default_active": 1,
+        }
+        return action
+
     def action_open_dashboard(self):
         self.ensure_one()
         dashboard = self.env["gl.ha.dashboard"].search([("active", "=", True)], limit=1)
