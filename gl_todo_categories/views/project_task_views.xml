@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Extend the native To-Do Kanban: categories become the default columns. -->
+    <!-- Native To-Do-Kanbanansicht: Kategorien als Standardspalten. -->
     <record id="project_task_view_todo_kanban_category" model="ir.ui.view">
         <field name="name">project.task.todo.kanban.category</field>
         <field name="model">project.task</field>
@@ -16,7 +16,7 @@
         </field>
     </record>
 
-    <!-- Extend the native To-Do list: category grouping + explicit drag handle. -->
+    <!-- Native To-Do-Listenansicht: Kategorie + Sortiergriff. -->
     <record id="project_task_view_todo_tree_category" model="ir.ui.view">
         <field name="name">project.task.todo.list.category</field>
         <field name="model">project.task</field>
@@ -30,59 +30,60 @@
                 <field name="sequence" widget="handle" width="20px"/>
             </xpath>
             <xpath expr="//list/field[@name='name']" position="after">
-                <field name="gl_todo_category_id" string="Category" optional="show"/>
+                <field name="gl_todo_category_id" string="Kategorie" optional="show"/>
             </xpath>
         </field>
     </record>
 
-    <!-- Category on the standard To-Do form. -->
+    <!-- Kategorie im nativen To-Do-Formular. -->
     <record id="project_task_view_todo_form_category" model="ir.ui.view">
         <field name="name">project.task.todo.form.category</field>
         <field name="model">project.task</field>
         <field name="inherit_id" ref="project_todo.project_task_view_todo_form"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='user_ids']" position="after">
-                <field name="gl_todo_category_id" string="Category" options="{'no_create_edit': False}"/>
+                <field name="gl_todo_category_id" string="Kategorie"/>
             </xpath>
         </field>
     </record>
 
-    <!-- Category can also be set during native quick-create. -->
+    <!-- Kategorie auch in der nativen Schnellanlage. -->
     <record id="project_task_view_todo_quick_create_category" model="ir.ui.view">
         <field name="name">project.task.todo.quick.create.category</field>
         <field name="model">project.task</field>
         <field name="inherit_id" ref="project_todo.project_task_view_todo_quick_create_form"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='display_name']" position="after">
-                <field name="gl_todo_category_id" string="Category"/>
+                <field name="gl_todo_category_id" string="Kategorie"/>
             </xpath>
         </field>
     </record>
 
-    <!-- Search: visible My/All switch, category search and group-by. -->
+    <!-- Suche: Umschalter Meine/Alle, Kategoriesuche und Gruppierung. -->
     <record id="project_task_view_todo_search_category" model="ir.ui.view">
         <field name="name">project.task.todo.search.category</field>
         <field name="model">project.task</field>
         <field name="inherit_id" ref="project_todo.project_task_view_todo_search"/>
         <field name="arch" type="xml">
             <xpath expr="//search/field[@name='tag_ids']" position="after">
-                <field name="gl_todo_category_id" string="Category"/>
+                <field name="gl_todo_category_id" string="Kategorie"/>
             </xpath>
             <xpath expr="//filter[@name='open_tasks']" position="before">
-                <filter name="gl_my_todos" string="My To-Dos" domain="[('user_ids', 'in', [uid])]"/>
-                <filter name="gl_all_todos" string="All To-Dos" domain="[]"/>
+                <filter name="gl_my_todos" string="Meine To-Dos" domain="[('user_ids', 'in', [uid])]"/>
+                <filter name="gl_all_todos" string="Alle To-Dos" domain="[]"/>
                 <separator/>
             </xpath>
             <xpath expr="//filter[@name='tags']" position="after">
-                <filter name="gl_category" string="Category" context="{'group_by': 'gl_todo_category_id'}"/>
+                <filter name="gl_category" string="Kategorie" context="{'group_by': 'gl_todo_category_id'}"/>
             </xpath>
         </field>
     </record>
 
     <!--
-        The native action hard-codes "current user" in its domain.  Widen the
-        action to all private top-level To-Dos, then default the search view back
-        to "My To-Dos" so existing user behaviour remains the default.
+        Die native Action filtert bereits im Action-Domain auf den aktuellen
+        Benutzer. Damit "Alle To-Dos" überhaupt möglich ist, wird nur dieser
+        Domain-Teil erweitert. Der Default-Suchfilter stellt weiterhin sicher,
+        dass beim Öffnen zunächst "Meine To-Dos" sichtbar sind.
     -->
     <record id="project_todo.project_task_action_todo" model="ir.actions.act_window">
         <field name="domain">[('project_id', '=', False), ('parent_id', '=', False)]</field>
@@ -96,9 +97,9 @@
         }</field>
     </record>
 
-    <!-- Dedicated All To-Dos action for a permanent menu entry. -->
+    <!-- Separate Action für einen direkten Menüeintrag "Alle To-Dos". -->
     <record id="action_gl_todo_all" model="ir.actions.act_window">
-        <field name="name">All To-Dos</field>
+        <field name="name">Alle To-Dos</field>
         <field name="res_model">project.task</field>
         <field name="path">all-to-dos</field>
         <field name="domain">[('project_id', '=', False), ('parent_id', '=', False)]</field>
@@ -112,8 +113,8 @@
             'show_task_options': False,
         }</field>
         <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">No To-Dos found</p>
-            <p>This view shows the top-level To-Dos of all internal users.</p>
+            <p class="o_view_nocontent_smiling_face">Keine To-Dos gefunden</p>
+            <p>Diese Ansicht zeigt die obersten To-Dos aller internen Benutzer.</p>
         </field>
     </record>
 

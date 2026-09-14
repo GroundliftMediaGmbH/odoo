@@ -4,7 +4,7 @@
         <field name="name">gl.todo.category.list</field>
         <field name="model">gl.todo.category</field>
         <field name="arch" type="xml">
-            <list string="To-Do Categories" editable="bottom" default_order="sequence, name">
+            <list string="To-Do-Kategorien" editable="bottom" default_order="sequence, name">
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
                 <field name="color" widget="color_picker" optional="show"/>
@@ -18,7 +18,7 @@
         <field name="name">gl.todo.category.form</field>
         <field name="model">gl.todo.category</field>
         <field name="arch" type="xml">
-            <form string="To-Do Category">
+            <form string="To-Do-Kategorie">
                 <sheet>
                     <group>
                         <field name="name"/>
@@ -33,12 +33,12 @@
     </record>
 
     <record id="action_gl_todo_categories" model="ir.actions.act_window">
-        <field name="name">Categories</field>
+        <field name="name">Kategorien</field>
         <field name="res_model">gl.todo.category</field>
         <field name="view_mode">list,form</field>
         <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">Create your first To-Do category</p>
-            <p>Categories are shared by all internal users and can be reordered with drag-and-drop.</p>
+            <p class="o_view_nocontent_smiling_face">Erste To-Do-Kategorie anlegen</p>
+            <p>Kategorien werden von allen internen Benutzern gemeinsam verwendet und können per Drag-and-drop sortiert werden.</p>
         </field>
     </record>
 </odoo>

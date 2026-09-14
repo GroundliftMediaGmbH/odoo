@@ -1,27 +1,26 @@
-# Groundlift To-Do Categories (Odoo 19)
+# Groundlift To-Do Categories – Odoo 19 SH
 
-Extends the native Odoo 19 `project_todo` app without replacing it.
+Erweiterung der nativen Odoo-App **To-Do** (`project_todo`).
 
-## Features
+## Funktionen
 
-- Shared, sortable To-Do categories.
-- Category field in native To-Do form and quick-create.
-- Kanban/List default grouping by category.
-- Drag-and-drop ordering using the native `project.task.sequence`.
-- Visible **My To-Dos** / **All To-Dos** search filters.
-- Dedicated **My To-Dos**, **All To-Dos**, and **Categories** menu entries inside To-Do.
-- All internal users can **read** top-level To-Dos from other employees.
-- Native Odoo security continues to control writing: another employee's To-Do is not made writable merely by this module.
-- Native personal stages are retained and remain selectable as a Group By option.
+- Gemeinsame, frei definierbare To-Do-Kategorien
+- Kategorien per Reihenfolge sortierbar
+- To-Dos standardmäßig nach Kategorie gruppiert
+- To-Dos per Odoo-Kanban/Listensortierung innerhalb der Kategorien ordnen
+- Filter **Meine To-Dos** und **Alle To-Dos**
+- Direkte Menüeinträge für **Meine To-Dos**, **Alle To-Dos** und **Kategorien**
+- Alle internen Benutzer dürfen alle obersten privaten To-Dos lesen
+- Fremde To-Dos bleiben durch die native Odoo-Schreibregel vor Bearbeitung geschützt
+- Die persönlichen Odoo-Phasen bleiben unverändert vorhanden und weiterhin als Gruppierung nutzbar
 
-## Installation on Odoo.sh
+## Installation
 
-1. Copy `gl_todo_categories` into your custom addons repository.
-2. Commit and push to your Odoo.sh branch.
-3. Update the Apps list if necessary.
-4. Install **Groundlift To-Do Categories**.
-5. Open **To-Do → Categories** and create/order your categories.
+1. Ordner `gl_todo_categories` in das Custom-Addons-Repository übernehmen.
+2. Auf Odoo.sh pushen.
+3. Apps-Liste aktualisieren.
+4. **Groundlift To-Do Categories** installieren.
 
-## Technical dependency
+## Version
 
-- Odoo 19 `project_todo`
+`19.0.1.0.1`
