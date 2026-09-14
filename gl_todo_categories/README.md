@@ -1,42 +1,14 @@
-# Groundlift To-Do Categories 
-
-Technisch neu benannte, saubere Odoo-19-SH-Version ohne i18n/PO-Dateien.
-
 # Groundlift To-Do Categories – Odoo 19 SH
 
-Erweiterung der nativen Odoo-App **To-Do** (`project_todo`).
+Version 19.0.1.2.0
 
-## Funktionen
+Erweitert die native Odoo-19-App **To-Do** um gemeinsame Kategorien, eine linke Kategorienauswahl und Team-/Meine-To-Dos-Ansichten.
 
-- Gemeinsame, frei definierbare To-Do-Kategorien
-- Kategorien per Reihenfolge sortierbar
-- To-Dos standardmäßig nach Kategorie gruppiert
-- To-Dos per Odoo-Kanban/Listensortierung innerhalb der Kategorien ordnen
-- Filter **Meine To-Dos** und **Alle To-Dos**
-- Direkte Menüeinträge für **Meine To-Dos**, **Alle To-Dos** und **Kategorien**
-- Alle internen Benutzer dürfen alle obersten privaten To-Dos lesen
-- Fremde To-Dos bleiben durch die native Odoo-Schreibregel vor Bearbeitung geschützt
-- Die persönlichen Odoo-Phasen bleiben unverändert vorhanden und weiterhin als Gruppierung nutzbar
+## Unkategorisiert
 
-## Installation
-
-1. Ordner `gl_todo_categories` in das Custom-Addons-Repository übernehmen.
-2. Auf Odoo.sh pushen.
-3. Apps-Liste aktualisieren.
-4. **Groundlift To-Do Categories** installieren.
-
-## Version
-
-`19.0.1.0.1`
-
-
-Recovery build: technical module name gl_todo_categories, version 19.0.1.0.3. No i18n/PO files included.
-
-
-## Version 19.0.1.1.0
-
-- Kategorien werden als unabhängiges Odoo-Search-Panel links angezeigt.
-- Rechts bleibt das native To-Do-Kanban nach persönlichen Phasen gruppiert.
-- Klick auf eine Kategorie filtert die To-Dos, ohne die Phasenspalten zu verändern.
-- Kategorien zeigen Zähler; "Alle" hebt die Kategorieauswahl auf.
-- Listenansicht wird ebenfalls wieder nach Phase gruppiert; Kategorie bleibt als Spalte sichtbar.
+- Die Systemkategorie **Unkategorisiert** wird automatisch angelegt.
+- Beim Installieren oder Upgrade werden alle vorhandenen obersten privaten To-Dos ohne Kategorie automatisch dieser Kategorie zugeordnet.
+- Neue To-Dos ohne gewählte Kategorie landen automatisch in **Unkategorisiert**.
+- Wird die Kategorie eines To-Dos geleert, wird automatisch wieder **Unkategorisiert** gesetzt.
+- Die Systemkategorie kann nicht gelöscht, umbenannt oder archiviert werden.
+- Wird eine andere Kategorie gelöscht, fallen die darin enthaltenen To-Dos automatisch auf **Unkategorisiert** zurück.
