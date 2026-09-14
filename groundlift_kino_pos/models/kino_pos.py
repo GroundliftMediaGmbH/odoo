@@ -95,6 +95,11 @@ class GlKinoPosConfig(models.Model):
             return "/groundlift/ha/%s" % self.ha_dashboard_id.slug
         return False
 
+    def action_open_dashboard(self):
+        """Öffnet das Kino-POS-Dashboard für den aktuell angemeldeten Odoo-Benutzer."""
+        self.ensure_one()
+        return {"type": "ir.actions.act_url", "url": "/kino-pos", "target": "new"}
+
     def action_open_ha_dashboard(self):
         self.ensure_one()
         url = self.get_ha_url()

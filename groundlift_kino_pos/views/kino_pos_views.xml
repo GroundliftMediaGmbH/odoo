@@ -125,7 +125,8 @@
         <field name="arch" type="xml">
             <form string="Kino POS Einstellungen" create="0" delete="0">
                 <header>
-                    <button name="action_open_ha_dashboard" type="object" string="Home Assistant öffnen" class="oe_highlight" invisible="not ha_dashboard_id"/>
+                    <button name="action_open_dashboard" type="object" string="Dashboard öffnen" class="oe_highlight"/>
+                    <button name="action_open_ha_dashboard" type="object" string="Home Assistant öffnen" invisible="not ha_dashboard_id"/>
                 </header>
                 <sheet>
                     <div class="oe_title"><h1><field name="name"/></h1></div>
@@ -165,10 +166,10 @@
         <field name="target">new</field>
     </record>
 
-    <menuitem id="menu_gl_kino_pos_root" name="Kino POS" sequence="45" web_icon="groundlift_kino_pos,static/description/icon.png" groups="base.group_user"/>
-    <menuitem id="menu_gl_kino_pos_live_dashboard" name="Live Dashboard" parent="menu_gl_kino_pos_root" action="action_gl_kino_pos_live_dashboard" sequence="1" groups="base.group_user"/>
+    <menuitem id="menu_gl_kino_pos_root" name="Kino POS" action="action_gl_kino_pos_config" sequence="45" web_icon="groundlift_kino_pos,static/description/icon.png" groups="base.group_user"/>
+    <menuitem id="menu_gl_kino_pos_config" name="Backend / Einstellungen" parent="menu_gl_kino_pos_root" action="action_gl_kino_pos_config" sequence="1" groups="base.group_user"/>
+    <menuitem id="menu_gl_kino_pos_live_dashboard" name="Dashboard" parent="menu_gl_kino_pos_root" action="action_gl_kino_pos_live_dashboard" sequence="5" groups="base.group_user"/>
     <menuitem id="menu_gl_kino_pos_todo" name="Was gibt's zu tun" parent="menu_gl_kino_pos_root" action="action_gl_kino_pos_todo_item" sequence="10"/>
     <menuitem id="menu_gl_kino_pos_device" name="Gerätezugänge" parent="menu_gl_kino_pos_root" action="action_gl_kino_pos_device_access" sequence="20"/>
     <menuitem id="menu_gl_kino_pos_completion" name="Erledigungen" parent="menu_gl_kino_pos_root" action="action_gl_kino_pos_completion" sequence="30"/>
-    <menuitem id="menu_gl_kino_pos_config" name="Einstellungen" parent="menu_gl_kino_pos_root" action="action_gl_kino_pos_config" sequence="40"/>
 </odoo>

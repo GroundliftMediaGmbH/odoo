@@ -30,3 +30,10 @@
 ## Interner Odoo-Zugang
 
 Zusätzlich zur Computerbindung kann jeder angemeldete interne Odoo-Benutzer das Dashboard direkt über **Kino POS → Live Dashboard** oder `/kino-pos` öffnen. Für diesen Zugang ist keine Gerätebindung nötig. Die gerätegebundene Variante unter `/kino-pos/device/...` bleibt für öffentliche Kassen-PCs unverändert bestehen.
+
+## 19.0.1.2.0 – Backend als App-Einstieg
+
+- Ein Klick auf die App **Kino POS** öffnet wieder das Odoo-Backend (Einstellungen) statt sofort das Live-Dashboard.
+- Im Backend steht oben der Button **Dashboard öffnen** zur Verfügung.
+- Das Dashboard bleibt zusätzlich als eigener Menüpunkt erreichbar.
+- Angemeldete Odoo-Benutzer benötigen weiterhin keine Gerätebindung für das interne Dashboard.
