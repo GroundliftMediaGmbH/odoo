@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="todo_phase_inbox" model="gl.todo.phase">
+        <field name="name">Eingang</field>
+        <field name="sequence">10</field>
+        <field name="system_key">inbox</field>
+    </record>
+    <record id="todo_phase_today" model="gl.todo.phase">
+        <field name="name">Heute</field>
+        <field name="sequence">20</field>
+        <field name="system_key">today</field>
+    </record>
+    <record id="todo_phase_this_week" model="gl.todo.phase">
+        <field name="name">Diese Woche</field>
+        <field name="sequence">30</field>
+        <field name="system_key">this_week</field>
+    </record>
+    <record id="todo_phase_this_month" model="gl.todo.phase">
+        <field name="name">Diesen Monat</field>
+        <field name="sequence">40</field>
+        <field name="system_key">this_month</field>
+    </record>
+    <record id="todo_phase_later" model="gl.todo.phase">
+        <field name="name">Später</field>
+        <field name="sequence">50</field>
+        <field name="system_key">later</field>
+    </record>
+    <record id="todo_phase_done" model="gl.todo.phase">
+        <field name="name">Erledigt</field>
+        <field name="sequence">60</field>
+        <field name="fold" eval="True"/>
+        <field name="system_key">done</field>
+    </record>
+    <record id="todo_phase_cancelled" model="gl.todo.phase">
+        <field name="name">Abgebrochen</field>
+        <field name="sequence">70</field>
+        <field name="fold" eval="True"/>
+        <field name="system_key">cancelled</field>
+    </record>
+</odoo>

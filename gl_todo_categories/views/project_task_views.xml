@@ -7,11 +7,12 @@
         <field name="inherit_id" ref="project_todo.project_task_view_todo_kanban"/>
         <field name="arch" type="xml">
             <xpath expr="//kanban" position="attributes">
-                <attribute name="default_group_by">personal_stage_type_id</attribute>
+                <attribute name="default_group_by">gl_todo_phase_id</attribute>
                 <attribute name="default_order">sequence, id</attribute>
             </xpath>
             <xpath expr="//kanban/field[@name='sequence']" position="after">
                 <field name="gl_todo_category_id"/>
+                <field name="gl_todo_phase_id"/>
             </xpath>
         </field>
     </record>
@@ -23,7 +24,7 @@
         <field name="inherit_id" ref="project_todo.project_task_view_todo_tree"/>
         <field name="arch" type="xml">
             <xpath expr="//list" position="attributes">
-                <attribute name="default_group_by">personal_stage_type_id</attribute>
+                <attribute name="default_group_by">gl_todo_phase_id</attribute>
                 <attribute name="default_order">sequence, id</attribute>
             </xpath>
             <xpath expr="//list/field[@name='state']" position="before">
@@ -107,6 +108,7 @@
             'search_default_open_tasks': 1,
             'list_view_ref': 'project_todo.project_task_view_todo_tree',
             'default_project_id': False,
+            'default_user_ids': [uid],
             'show_todo_mail_helper': True,
             'show_task_options': False,
         }</field>
@@ -163,4 +165,58 @@
         <field name="view_id" ref="project_todo.project_task_view_todo_activity"/>
         <field name="act_window_id" ref="action_gl_todo_all"/>
     </record>
+
+
+    <!-- Gemeinsame Phase im To-Do-Formular statt der benutzerabhängigen persönlichen Phase. -->
+    <record id="project_task_view_todo_form_shared_phase" model="ir.ui.view">
+        <field name="name">project.task.todo.form.shared.phase</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project_todo.project_task_view_todo_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/field[@name='personal_stage_type_id']" position="replace">
+                <field name="gl_todo_phase_id" widget="statusbar" options="{'clickable': '1', 'fold_field': 'fold'}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Native Stage-Spalte/Suche auf die gemeinsame Board-Phase umbiegen. -->
+    <record id="project_task_view_todo_list_shared_phase" model="ir.ui.view">
+        <field name="name">project.task.todo.list.shared.phase</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project_todo.project_task_view_todo_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list/field[@name='personal_stage_type_id']" position="replace">
+                <field name="gl_todo_phase_id" string="Phase" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="project_task_view_todo_search_shared_phase" model="ir.ui.view">
+        <field name="name">project.task.todo.search.shared.phase</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project_todo.project_task_view_todo_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search/field[@name='personal_stage_type_ids']" position="replace">
+                <field name="gl_todo_phase_id" string="Phase"/>
+            </xpath>
+            <xpath expr="//filter[@name='stage']" position="replace">
+                <filter string="Phase" name="gl_shared_stage" context="{'group_by':'gl_todo_phase_id'}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="project_task_view_todo_calendar_shared_phase" model="ir.ui.view">
+        <field name="name">project.task.todo.calendar.shared.phase</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project_todo.project_task_view_todo_calendar"/>
+        <field name="arch" type="xml">
+            <xpath expr="//calendar" position="attributes">
+                <attribute name="color">gl_todo_phase_id</attribute>
+            </xpath>
+            <xpath expr="//calendar/field[@name='personal_stage_id']" position="replace">
+                <field name="gl_todo_phase_id" string="Phase" options="{'no_open': True}"/>
+            </xpath>
+        </field>
+    </record>
+
 </odoo>

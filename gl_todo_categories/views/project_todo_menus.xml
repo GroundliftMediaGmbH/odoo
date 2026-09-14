@@ -23,4 +23,14 @@
         action="action_gl_todo_categories"
         sequence="90"
     />
+
+
+    <menuitem
+        id="menu_gl_todo_phases"
+        name="Phasen"
+        parent="project_todo.menu_todo_todos"
+        action="action_gl_todo_phases"
+        sequence="95"
+    />
+
 </odoo>

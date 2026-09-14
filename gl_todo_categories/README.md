@@ -1,21 +1,17 @@
 # Groundlift To-Do Categories – Odoo 19 SH
 
-Version 19.0.1.2.0
+Version 19.0.1.4.0
 
-Erweitert die native Odoo-19-App **To-Do** um gemeinsame Kategorien, eine linke Kategorienauswahl und Team-/Meine-To-Dos-Ansichten.
+## Neu in 1.4
 
-## Unkategorisiert
+- Die rechte Kanban-Seite verwendet jetzt eine **gemeinsame, gespeicherte To-Do-Phase** statt Odoos benutzerabhängiger `personal_stage_type_id`.
+- Dadurch gibt es in „Alle To-Dos“ und bei unzugewiesenen To-Dos keine technisch leere Spalte **„Keine“** mehr.
+- Unzugewiesene To-Dos bleiben wirklich unzugewiesen und landen zwingend in der Kategorie **„Unkategorisiert“**.
+- Unzugewiesene bzw. phasenlose Altbestände starten rechts in **„Eingang“**.
+- Vorhandene persönliche Odoo-Phasen werden beim Upgrade bestmöglich auf die gemeinsamen Phasen abgebildet.
+- Änderungen der gemeinsamen Phase werden für zugewiesene Mitarbeiter in die nativen persönlichen Odoo-Phasen gespiegelt.
+- Kategorien bleiben links im Search Panel auswählbar.
 
-- Die Systemkategorie **Unkategorisiert** wird automatisch angelegt.
-- Beim Installieren oder Upgrade werden alle vorhandenen obersten privaten To-Dos ohne Kategorie automatisch dieser Kategorie zugeordnet.
-- Neue To-Dos ohne gewählte Kategorie landen automatisch in **Unkategorisiert**.
-- Wird die Kategorie eines To-Dos geleert, wird automatisch wieder **Unkategorisiert** gesetzt.
-- Die Systemkategorie kann nicht gelöscht, umbenannt oder archiviert werden.
-- Wird eine andere Kategorie gelöscht, fallen die darin enthaltenen To-Dos automatisch auf **Unkategorisiert** zurück.
+## Upgrade
 
-
-## Version 19.0.1.3.0
-
-- Repariert bestehende private To-Dos mit Benutzerzuweisung, aber fehlender persönlicher Phase.
-- Solche Datensätze werden beim Upgrade über Odoos native `_populate_missing_personal_stages()`-Logik in die erste persönliche Phase verschoben (standardmäßig „Eingang“).
-- Neu erstellte oder neu zugewiesene private To-Dos werden ebenfalls automatisch auf fehlende Phasen geprüft.
+Bestehenden Ordner `gl_todo_categories` vollständig ersetzen, pushen und anschließend das Modul in Odoo upgraden.
