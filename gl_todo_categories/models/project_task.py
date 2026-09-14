@@ -17,7 +17,6 @@ class ProjectTask(models.Model):
         string="Phase",
         index=True,
         ondelete="restrict",
-        default=lambda self: self.env["gl.todo.phase"]._get_inbox_phase(),
         group_expand="_read_group_gl_todo_phase_id",
         help=(
             "Gemeinsame To-Do-Phase. Anders als Odoos persönliche Phase ist sie "
@@ -177,8 +176,9 @@ class ProjectTask(models.Model):
     def _gl_ensure_uncategorized_category_and_backfill(self):
         """Installations-/Upgrade-Migration für Kategorien und gemeinsame Phasen."""
         fallback = self._gl_uncategorized_category()
-        inbox = self._gl_inbox_phase()
         Phase = self.env["gl.todo.phase"]
+        Phase._ensure_standard_phases()
+        inbox = self._gl_inbox_phase()
         Personal = self.env["project.task.stage.personal"].sudo()
 
         todos = self.sudo().with_context(active_test=False).search([

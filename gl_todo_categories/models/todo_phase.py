@@ -20,10 +20,57 @@ class GroundliftTodoPhase(models.Model):
         help="Technischer Schlüssel der Groundlift-Standardphasen.",
     )
 
-    _system_key_unique = models.Constraint(
-        "UNIQUE(system_key)",
-        "Der Systemschlüssel einer To-Do-Phase muss eindeutig sein.",
-    )
+    @api.model
+    def _standard_phase_specs(self):
+        return [
+            ("inbox", "Eingang", 10, False),
+            ("today", "Heute", 20, False),
+            ("this_week", "Diese Woche", 30, False),
+            ("this_month", "Diesen Monat", 40, False),
+            ("later", "Später", 50, False),
+            ("done", "Erledigt", 60, True),
+            ("cancelled", "Abgebrochen", 70, True),
+        ]
+
+    @api.model
+    def _ensure_standard_phases(self):
+        """Legt Standardphasen idempotent nach dem Registry-Aufbau an.
+
+        Bewusst nicht als Feld-Default: Bei einem neuen gespeicherten Feld kann
+        Odoo Defaults bereits während der Schema-Initialisierung auswerten. Ein
+        Zugriff auf ein gleichzeitig neu angelegtes Modell wäre dort zu früh.
+        """
+        Phase = self.sudo().with_context(active_test=False)
+        result = {}
+        for key, name, sequence, fold in self._standard_phase_specs():
+            phase = Phase.search([("system_key", "=", key)], limit=1)
+            if not phase:
+                # Falls eine Phase aus einer früheren Version ohne system_key
+                # existiert, übernehmen wir sie statt ein Duplikat zu erzeugen.
+                candidates = Phase.search([("system_key", "=", False)])
+                phase = candidates.filtered(
+                    lambda p: self._system_key_from_name(p.name) == key
+                )[:1]
+            if not phase:
+                phase = Phase.create({
+                    "name": name,
+                    "sequence": sequence,
+                    "active": True,
+                    "fold": fold,
+                    "system_key": key,
+                })
+            else:
+                vals = {}
+                if not phase.system_key:
+                    vals["system_key"] = key
+                if not phase.active:
+                    vals["active"] = True
+                # Standardreihenfolge/Fold nur beim erstmaligen Übernehmen setzen;
+                # spätere bewusste Benutzeränderungen bleiben erhalten.
+                if vals:
+                    phase.write(vals)
+            result[key] = phase
+        return result
 
     @api.model
     def _normalize_name(self, value):
@@ -57,46 +104,33 @@ class GroundliftTodoPhase(models.Model):
 
     @api.model
     def _get_inbox_phase(self):
-        phase = self.sudo().with_context(active_test=False).search(
-            [("system_key", "=", "inbox")], limit=1
-        )
-        if not phase:
-            phase = self.sudo().create({
-                "name": "Eingang",
-                "sequence": 10,
-                "active": True,
-                "system_key": "inbox",
-            })
-        elif not phase.active:
-            phase.sudo().write({"active": True})
-        return phase
+        return self._ensure_standard_phases()["inbox"]
 
     @api.model
     def _phase_from_personal_stage(self, stage):
         """Ordnet eine native persönliche Odoo-Phase unserer gemeinsamen Phase zu."""
+        phases_by_key = self._ensure_standard_phases()
         if not stage:
-            return self._get_inbox_phase()
+            return phases_by_key["inbox"]
 
         Phase = self.sudo().with_context(active_test=False)
         system_key = self._system_key_from_name(stage.name)
-        if system_key:
-            phase = Phase.search([("system_key", "=", system_key)], limit=1)
-            if phase:
-                return phase
+        if system_key and system_key in phases_by_key:
+            return phases_by_key[system_key]
 
         # Fallback für individuell umbenannte Standardphasen: Position innerhalb
         # der persönlichen Phasen des Mitarbeiters auf die gemeinsame Reihenfolge abbilden.
-        user_stages = self.env["project.task.type"].sudo().search(
-            [("user_id", "=", stage.user_id.id)], order="sequence, id"
-        ) if stage.user_id else self.env["project.task.type"]
-        if user_stages and stage in user_stages:
-            index = list(user_stages.ids).index(stage.id)
-            shared_phases = Phase.search([], order="sequence, id")
-            if index < len(shared_phases):
-                return shared_phases[index]
+        if stage.user_id:
+            user_stages = self.env["project.task.type"].sudo().search(
+                [("user_id", "=", stage.user_id.id)], order="sequence, id"
+            )
+            if stage.id in user_stages.ids:
+                index = user_stages.ids.index(stage.id)
+                shared_phases = Phase.search([], order="sequence, id")
+                if index < len(shared_phases):
+                    return shared_phases[index]
 
-        # Letzter Fallback: erste Phase (Eingang).
-        return self._get_inbox_phase()
+        return phases_by_key["inbox"]
 
     def _matching_personal_stage(self, user):
         """Findet bzw. erzeugt für einen Benutzer die native persönliche Phase."""
@@ -118,21 +152,17 @@ class GroundliftTodoPhase(models.Model):
                 if self._system_key_from_name(stage.name) == self.system_key:
                     return stage
 
-        # Individuelle Phase: zuerst nach identischem Namen suchen.
         normalized_phase_name = self._normalize_name(self.name)
         for stage in user_stages:
             if self._normalize_name(stage.name) == normalized_phase_name:
                 return stage
 
-        # Danach positionsbasiert abbilden.
         shared_phases = self.sudo().with_context(active_test=False).search([], order="sequence, id")
         if self.id in shared_phases.ids:
-            index = list(shared_phases.ids).index(self.id)
+            index = shared_phases.ids.index(self.id)
             if index < len(user_stages):
                 return user_stages[index]
 
-        # Für eine zusätzliche gemeinsame Phase erzeugen wir bei Bedarf auch eine
-        # entsprechende persönliche Odoo-Phase, damit native Odoo-Funktionen konsistent bleiben.
         return Stage.create({
             "name": self.name,
             "sequence": self.sequence,
