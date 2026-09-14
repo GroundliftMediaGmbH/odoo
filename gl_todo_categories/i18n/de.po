@@ -1,0 +1,56 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+#   * gl_todo_categories
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Category"
+msgstr "Kategorie"
+
+msgid "Categories"
+msgstr "Kategorien"
+
+msgid "My To-Dos"
+msgstr "Meine To-Dos"
+
+msgid "All To-Dos"
+msgstr "Alle To-Dos"
+
+msgid "To-Do Category"
+msgstr "To-Do-Kategorie"
+
+msgid "To-Do Categories"
+msgstr "To-Do-Kategorien"
+
+msgid "Sequence"
+msgstr "Reihenfolge"
+
+msgid "Folded in Kanban"
+msgstr "Im Kanban eingeklappt"
+
+msgid "Color"
+msgstr "Farbe"
+
+msgid "A To-Do category with this name already exists."
+msgstr "Eine To-Do-Kategorie mit diesem Namen existiert bereits."
+
+msgid "Shared category used to organize private To-Dos in the To-Do app."
+msgstr "Gemeinsame Kategorie zur Organisation privater To-Dos in der To-Do-App."
+
+msgid "Create your first To-Do category"
+msgstr "Erstellen Sie Ihre erste To-Do-Kategorie"
+
+msgid "Categories are shared by all internal users and can be reordered with drag-and-drop."
+msgstr "Kategorien werden von allen internen Benutzern gemeinsam verwendet und können per Drag-and-drop sortiert werden."
+
+msgid "No To-Dos found"
+msgstr "Keine To-Dos gefunden"
+
+msgid "This view shows the top-level To-Dos of all internal users."
+msgstr "Diese Ansicht zeigt die obersten To-Dos aller internen Benutzer."

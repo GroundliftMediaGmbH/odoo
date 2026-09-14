@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Keep the native To-Do app and add explicit entries beneath it. -->
+    <menuitem
+        id="menu_gl_todo_my"
+        name="My To-Dos"
+        parent="project_todo.menu_todo_todos"
+        action="project_todo.project_task_action_todo"
+        sequence="10"
+    />
+
+    <menuitem
+        id="menu_gl_todo_all"
+        name="All To-Dos"
+        parent="project_todo.menu_todo_todos"
+        action="action_gl_todo_all"
+        sequence="20"
+    />
+
+    <menuitem
+        id="menu_gl_todo_categories"
+        name="Categories"
+        parent="project_todo.menu_todo_todos"
+        action="action_gl_todo_categories"
+        sequence="90"
+    />
+</odoo>

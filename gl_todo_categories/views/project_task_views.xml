@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Extend the native To-Do Kanban: categories become the default columns. -->
+    <record id="project_task_view_todo_kanban_category" model="ir.ui.view">
+        <field name="name">project.task.todo.kanban.category</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project_todo.project_task_view_todo_kanban"/>
+        <field name="arch" type="xml">
+            <xpath expr="//kanban" position="attributes">
+                <attribute name="default_group_by">gl_todo_category_id</attribute>
+                <attribute name="default_order">sequence, id</attribute>
+            </xpath>
+            <xpath expr="//kanban/field[@name='sequence']" position="after">
+                <field name="gl_todo_category_id"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Extend the native To-Do list: category grouping + explicit drag handle. -->
+    <record id="project_task_view_todo_tree_category" model="ir.ui.view">
+        <field name="name">project.task.todo.list.category</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project_todo.project_task_view_todo_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="attributes">
+                <attribute name="default_group_by">gl_todo_category_id</attribute>
+                <attribute name="default_order">sequence, id</attribute>
+            </xpath>
+            <xpath expr="//list/field[@name='state']" position="before">
+                <field name="sequence" widget="handle" width="20px"/>
+            </xpath>
+            <xpath expr="//list/field[@name='name']" position="after">
+                <field name="gl_todo_category_id" string="Category" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Category on the standard To-Do form. -->
+    <record id="project_task_view_todo_form_category" model="ir.ui.view">
+        <field name="name">project.task.todo.form.category</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project_todo.project_task_view_todo_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='user_ids']" position="after">
+                <field name="gl_todo_category_id" string="Category" options="{'no_create_edit': False}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Category can also be set during native quick-create. -->
+    <record id="project_task_view_todo_quick_create_category" model="ir.ui.view">
+        <field name="name">project.task.todo.quick.create.category</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project_todo.project_task_view_todo_quick_create_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='display_name']" position="after">
+                <field name="gl_todo_category_id" string="Category"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Search: visible My/All switch, category search and group-by. -->
+    <record id="project_task_view_todo_search_category" model="ir.ui.view">
+        <field name="name">project.task.todo.search.category</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project_todo.project_task_view_todo_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search/field[@name='tag_ids']" position="after">
+                <field name="gl_todo_category_id" string="Category"/>
+            </xpath>
+            <xpath expr="//filter[@name='open_tasks']" position="before">
+                <filter name="gl_my_todos" string="My To-Dos" domain="[('user_ids', 'in', [uid])]"/>
+                <filter name="gl_all_todos" string="All To-Dos" domain="[]"/>
+                <separator/>
+            </xpath>
+            <xpath expr="//filter[@name='tags']" position="after">
+                <filter name="gl_category" string="Category" context="{'group_by': 'gl_todo_category_id'}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!--
+        The native action hard-codes "current user" in its domain.  Widen the
+        action to all private top-level To-Dos, then default the search view back
+        to "My To-Dos" so existing user behaviour remains the default.
+    -->
+    <record id="project_todo.project_task_action_todo" model="ir.actions.act_window">
+        <field name="domain">[('project_id', '=', False), ('parent_id', '=', False)]</field>
+        <field name="context">{
+            'search_default_gl_my_todos': 1,
+            'search_default_open_tasks': 1,
+            'list_view_ref': 'project_todo.project_task_view_todo_tree',
+            'default_project_id': False,
+            'show_todo_mail_helper': True,
+            'show_task_options': False,
+        }</field>
+    </record>
+
+    <!-- Dedicated All To-Dos action for a permanent menu entry. -->
+    <record id="action_gl_todo_all" model="ir.actions.act_window">
+        <field name="name">All To-Dos</field>
+        <field name="res_model">project.task</field>
+        <field name="path">all-to-dos</field>
+        <field name="domain">[('project_id', '=', False), ('parent_id', '=', False)]</field>
+        <field name="view_mode">kanban,form,list,calendar,activity</field>
+        <field name="search_view_id" ref="project_todo.project_task_view_todo_search"/>
+        <field name="context">{
+            'search_default_open_tasks': 1,
+            'list_view_ref': 'project_todo.project_task_view_todo_tree',
+            'default_project_id': False,
+            'show_todo_mail_helper': True,
+            'show_task_options': False,
+        }</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No To-Dos found</p>
+            <p>This view shows the top-level To-Dos of all internal users.</p>
+        </field>
+    </record>
+
+    <record id="action_gl_todo_all_kanban_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="10"/>
+        <field name="view_mode">kanban</field>
+        <field name="view_id" ref="project_todo.project_task_view_todo_kanban"/>
+        <field name="act_window_id" ref="action_gl_todo_all"/>
+    </record>
+    <record id="action_gl_todo_all_form_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="20"/>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="project_todo.project_task_view_todo_form"/>
+        <field name="act_window_id" ref="action_gl_todo_all"/>
+    </record>
+    <record id="action_gl_todo_all_list_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="30"/>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="project_todo.project_task_view_todo_tree"/>
+        <field name="act_window_id" ref="action_gl_todo_all"/>
+    </record>
+    <record id="action_gl_todo_all_calendar_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="40"/>
+        <field name="view_mode">calendar</field>
+        <field name="view_id" ref="project_todo.project_task_view_todo_calendar"/>
+        <field name="act_window_id" ref="action_gl_todo_all"/>
+    </record>
+    <record id="action_gl_todo_all_activity_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="50"/>
+        <field name="view_mode">activity</field>
+        <field name="view_id" ref="project_todo.project_task_view_todo_activity"/>
+        <field name="act_window_id" ref="action_gl_todo_all"/>
+    </record>
+</odoo>
