@@ -168,6 +168,16 @@ class GlKinoPosController(http.Controller):
         name = (ticket.stage_id.name or "").strip().lower()
         return name in {"gelöst", "geloest", "solved", "erledigt", "geschlossen", "closed"}
 
+    def _ticket_in_reservation_stage(self, ticket, config=None):
+        """Return whether the ticket belongs to one of the configured source stages.
+
+        An empty stage selection deliberately keeps the legacy behaviour and accepts
+        every non-solved cinema reservation.
+        """
+        config = config or self._config()
+        allowed_stages = config.reservation_stage_ids
+        return not allowed_stages or ticket.stage_id in allowed_stages
+
     def _ticket_json(self, ticket, payload):
         values = []
         for key in DISPLAY_FIELDS:
@@ -190,13 +200,18 @@ class GlKinoPosController(http.Controller):
         config = config or self._config()
         Ticket = request.env["helpdesk.ticket"].sudo()
         search_limit = min(max(int(config.ticket_limit or 50) * 5, 100), 1000)
-        candidates = Ticket.search([
+        domain = [
             ("description", "ilike", "cinema_reservation_request"),
-        ], order="create_date asc, id asc", limit=search_limit)
+        ]
+        if config.reservation_stage_ids:
+            domain.append(("stage_id", "in", config.reservation_stage_ids.ids))
+        candidates = Ticket.search(domain, order="create_date asc, id asc", limit=search_limit)
         result = []
         for ticket in candidates:
             payload = self._parse_ticket_payload(ticket)
             if not self._is_cinema_ticket(ticket, payload=payload):
+                continue
+            if not self._ticket_in_reservation_stage(ticket, config=config):
                 continue
             if self._ticket_is_solved(ticket, config=config):
                 continue
@@ -320,7 +335,10 @@ class GlKinoPosController(http.Controller):
         payload = self._parse_ticket_payload(ticket)
         if not self._is_cinema_ticket(ticket, payload=payload):
             raise AccessError(_("Dieses Ticket ist keine Kinoreservierungsanfrage."))
-        stage = self._find_solved_stage(ticket=ticket)
+        config = self._config()
+        if not self._ticket_in_reservation_stage(ticket, config=config):
+            raise AccessError(_("Dieses Ticket befindet sich nicht in einer für Kino POS freigegebenen Reservierungsphase."))
+        stage = self._find_solved_stage(ticket=ticket, config=config)
         if not stage:
             raise UserError(_("Es wurde keine Ticketphase „Gelöst“ gefunden. Bitte diese in Kino POS → Einstellungen auswählen."))
         ticket.write({"stage_id": stage.id})
@@ -512,7 +530,10 @@ class GlKinoPosController(http.Controller):
         payload = self._parse_ticket_payload(ticket)
         if not self._is_cinema_ticket(ticket, payload=payload):
             raise AccessError(_("Dieses Ticket ist keine Kinoreservierungsanfrage."))
-        stage = self._find_solved_stage(ticket=ticket)
+        config = self._config()
+        if not self._ticket_in_reservation_stage(ticket, config=config):
+            raise AccessError(_("Dieses Ticket befindet sich nicht in einer für Kino POS freigegebenen Reservierungsphase."))
+        stage = self._find_solved_stage(ticket=ticket, config=config)
         if not stage:
             raise UserError(_("Es wurde keine Ticketphase „Gelöst“ gefunden. Bitte diese in Kino POS → Einstellungen auswählen."))
         ticket.write({"stage_id": stage.id})

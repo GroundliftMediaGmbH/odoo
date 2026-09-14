@@ -14,6 +14,18 @@ class GlKinoPosConfig(models.Model):
     _rec_name = "name"
 
     name = fields.Char(default="Kino POS", required=True)
+    reservation_stage_ids = fields.Many2many(
+        "helpdesk.stage",
+        "gl_kino_pos_config_reservation_stage_rel",
+        "config_id",
+        "stage_id",
+        string="Reservierungen aus Phasen",
+        help=(
+            "Nur Kinoreservierungen aus diesen Helpdesk-Phasen werden auf dem Kino-POS-Dashboard angezeigt. "
+            "Mehrere Phasen sind möglich. Wenn keine Phase ausgewählt ist, werden wie bisher alle noch nicht "
+            "gelösten Kinoreservierungen berücksichtigt."
+        ),
+    )
     solved_stage_id = fields.Many2one(
         "helpdesk.stage",
         string="Ticketphase Gelöst",
@@ -58,6 +70,14 @@ class GlKinoPosConfig(models.Model):
                 raise ValidationError(_("Das Aktualisierungsintervall muss mindestens 10 Sekunden betragen."))
             if rec.ticket_limit < 1 or rec.ticket_limit > 500:
                 raise ValidationError(_("Die maximale Zahl der Reservierungen muss zwischen 1 und 500 liegen."))
+
+    @api.constrains("reservation_stage_ids", "solved_stage_id")
+    def _check_reservation_stages(self):
+        for rec in self:
+            if rec.solved_stage_id and rec.solved_stage_id in rec.reservation_stage_ids:
+                raise ValidationError(_(
+                    "Die Ticketphase „Gelöst“ darf nicht gleichzeitig als Quellphase für Reservierungen ausgewählt sein."
+                ))
 
     @api.constrains("ha_dashboard_id", "ha_device_access_id")
     def _check_ha_access(self):

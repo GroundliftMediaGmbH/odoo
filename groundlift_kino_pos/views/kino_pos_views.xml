@@ -132,6 +132,10 @@
                     <div class="oe_title"><h1><field name="name"/></h1></div>
                     <group>
                         <group string="Kundentickets">
+                            <field name="reservation_stage_ids" widget="many2many_tags" options="{'no_create': True, 'no_create_edit': True}"/>
+                            <div class="text-muted">
+                                Nur Tickets aus den ausgewählten Phasen erscheinen im Dashboard. Mehrfachauswahl ist möglich. Bleibt das Feld leer, werden alle noch nicht gelösten Kinoreservierungen angezeigt.
+                            </div>
                             <field name="solved_stage_id" options="{'no_create': True}"/>
                             <field name="ticket_limit"/>
                         </group>

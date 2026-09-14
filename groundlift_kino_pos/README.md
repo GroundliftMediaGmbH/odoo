@@ -37,3 +37,7 @@ Zusätzlich zur Computerbindung kann jeder angemeldete interne Odoo-Benutzer das
 - Im Backend steht oben der Button **Dashboard öffnen** zur Verfügung.
 - Das Dashboard bleibt zusätzlich als eigener Menüpunkt erreichbar.
 - Angemeldete Odoo-Benutzer benötigen weiterhin keine Gerätebindung für das interne Dashboard.
+
+## Reservierungsphasen
+
+Unter **Kino POS → Backend / Einstellungen → Kundentickets** kann über **„Reservierungen aus Phasen“** festgelegt werden, aus welchen Helpdesk-Phasen Kinoreservierungen auf dem Dashboard erscheinen. Mehrere Phasen können gleichzeitig ausgewählt werden. Ist keine Phase ausgewählt, gilt aus Gründen der Rückwärtskompatibilität weiterhin: alle noch nicht gelösten Kinoreservierungen anzeigen.
