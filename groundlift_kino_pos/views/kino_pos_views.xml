@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_kino_pos_todo_item_list" model="ir.ui.view">
+        <field name="name">gl.kino.pos.todo.item.list</field>
+        <field name="model">gl.kino.pos.todo.item</field>
+        <field name="arch" type="xml">
+            <list string="Was gibt's zu tun" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="active"/>
+                <field name="name"/>
+                <field name="frequency"/>
+                <field name="note" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_kino_pos_todo_item_form" model="ir.ui.view">
+        <field name="name">gl.kino.pos.todo.item.form</field>
+        <field name="model">gl.kino.pos.todo.item</field>
+        <field name="arch" type="xml">
+            <form string="Kino POS Aufgabe">
+                <sheet>
+                    <div class="oe_title"><h1><field name="name" placeholder="z. B. Popcornmaschine reinigen"/></h1></div>
+                    <group>
+                        <field name="active"/>
+                        <field name="frequency"/>
+                        <field name="sequence"/>
+                    </group>
+                    <group string="Hinweis auf der Kassenhomepage">
+                        <field name="note" placeholder="Optionaler Zusatzhinweis …"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_kino_pos_todo_item" model="ir.actions.act_window">
+        <field name="name">Was gibt's zu tun</field>
+        <field name="res_model">gl.kino.pos.todo.item</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_gl_kino_pos_completion_list" model="ir.ui.view">
+        <field name="name">gl.kino.pos.todo.completion.list</field>
+        <field name="model">gl.kino.pos.todo.completion</field>
+        <field name="arch" type="xml">
+            <list string="Erledigte Aufgaben" create="0" edit="0">
+                <field name="completed_at"/>
+                <field name="item_id"/>
+                <field name="shift_date"/>
+                <field name="employee_id"/>
+                <field name="device_id"/>
+                <field name="period_key" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_gl_kino_pos_completion" model="ir.actions.act_window">
+        <field name="name">Erledigungen</field>
+        <field name="res_model">gl.kino.pos.todo.completion</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <record id="view_gl_kino_pos_device_access_list" model="ir.ui.view">
+        <field name="name">gl.kino.pos.device.access.list</field>
+        <field name="model">gl.kino.pos.device.access</field>
+        <field name="arch" type="xml">
+            <list string="Kino POS Gerätezugänge">
+                <field name="active"/>
+                <field name="name"/>
+                <field name="access_state"/>
+                <field name="registered_at" optional="show"/>
+                <field name="last_seen_at" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_kino_pos_device_access_form" model="ir.ui.view">
+        <field name="name">gl.kino.pos.device.access.form</field>
+        <field name="model">gl.kino.pos.device.access</field>
+        <field name="arch" type="xml">
+            <form string="Kino POS Gerätezugang">
+                <header>
+                    <button name="action_open_external" type="object" string="Kino POS öffnen" class="oe_highlight" invisible="not public_key_jwk"/>
+                    <button name="action_regenerate_setup" type="object" string="Gerät neu binden" invisible="not public_key_jwk"/>
+                    <button name="action_regenerate_setup" type="object" string="Neuen Einrichtungslink erzeugen" invisible="public_key_jwk"/>
+                    <button name="action_revoke_binding" type="object" string="Bindung aufheben" invisible="not public_key_jwk" confirm="Soll die Gerätebindung wirklich aufgehoben werden? Der Rechner verliert sofort den Zugriff auf Kino POS."/>
+                    <field name="access_state" widget="statusbar" statusbar_visible="waiting,registered,expired,disabled"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name" placeholder="z. B. Kinokasse Foyer"/></h1></div>
+                    <group>
+                        <group string="Gerät">
+                            <field name="active"/>
+                            <field name="public_id" readonly="1"/>
+                            <field name="registered_at" readonly="1"/>
+                            <field name="last_seen_at" readonly="1"/>
+                            <field name="last_user_agent" readonly="1"/>
+                            <field name="key_fingerprint" readonly="1"/>
+                        </group>
+                        <group string="Gerätebindung">
+                            <field name="setup_url" widget="url" readonly="1"/>
+                            <field name="setup_expires_at" readonly="1"/>
+                            <field name="external_url" widget="url" readonly="1"/>
+                        </group>
+                    </group>
+                    <div class="alert alert-info" role="alert">
+                        <strong>Computerbindung:</strong>
+                        Öffnen Sie den Einrichtungslink einmalig direkt auf dem gewünschten Kassenrechner. Wie bei der Home-Assistant-App wird ein nicht exportierbarer kryptografischer Geräteschlüssel im Browserprofil gespeichert. Ein kopierter Link oder Cookie allein reicht auf einem anderen Rechner nicht aus.
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_kino_pos_device_access" model="ir.actions.act_window">
+        <field name="name">Gerätezugänge</field>
+        <field name="res_model">gl.kino.pos.device.access</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_gl_kino_pos_config_form" model="ir.ui.view">
+        <field name="name">gl.kino.pos.config.form</field>
+        <field name="model">gl.kino.pos.config</field>
+        <field name="arch" type="xml">
+            <form string="Kino POS Einstellungen" create="0" delete="0">
+                <header>
+                    <button name="action_open_ha_dashboard" type="object" string="Home Assistant öffnen" class="oe_highlight" invisible="not ha_dashboard_id"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <group>
+                        <group string="Kundentickets">
+                            <field name="solved_stage_id" options="{'no_create': True}"/>
+                            <field name="ticket_limit"/>
+                        </group>
+                        <group string="Kassenhomepage">
+                            <field name="timezone"/>
+                            <field name="refresh_seconds"/>
+                        </group>
+                    </group>
+                    <group string="Home Assistant">
+                        <field name="ha_dashboard_id" options="{'no_create': True}"/>
+                        <field name="ha_device_access_id" options="{'no_create': True}"/>
+                        <div class="text-muted">
+                            Für einen öffentlichen, nicht in Odoo eingeloggten Kassenrechner empfiehlt sich der passende Home-Assistant-Gerätezugang. Dieser muss einmalig im selben Browser gebunden werden. Ohne Gerätezugang öffnet der Button das interne Dashboard und verlangt gegebenenfalls eine Odoo-Anmeldung.
+                        </div>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_kino_pos_config" model="ir.actions.act_window">
+        <field name="name">Einstellungen</field>
+        <field name="res_model">gl.kino.pos.config</field>
+        <field name="view_mode">form</field>
+        <field name="res_id" ref="groundlift_kino_pos.gl_kino_pos_config_default"/>
+    </record>
+
+    <menuitem id="menu_gl_kino_pos_root" name="Kino POS" sequence="45" web_icon="groundlift_kino_pos,static/description/icon.png"/>
+    <menuitem id="menu_gl_kino_pos_todo" name="Was gibt's zu tun" parent="menu_gl_kino_pos_root" action="action_gl_kino_pos_todo_item" sequence="10"/>
+    <menuitem id="menu_gl_kino_pos_device" name="Gerätezugänge" parent="menu_gl_kino_pos_root" action="action_gl_kino_pos_device_access" sequence="20"/>
+    <menuitem id="menu_gl_kino_pos_completion" name="Erledigungen" parent="menu_gl_kino_pos_root" action="action_gl_kino_pos_completion" sequence="30"/>
+    <menuitem id="menu_gl_kino_pos_config" name="Einstellungen" parent="menu_gl_kino_pos_root" action="action_gl_kino_pos_config" sequence="40"/>
+</odoo>

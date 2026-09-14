@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="kino_pos_page" name="Kino POS">
+        <t t-call="web.frontend_layout">
+            <t t-set="title">Kino POS</t>
+            <link rel="stylesheet" href="/groundlift_kino_pos/static/src/css/kino_pos.css?v=100"/>
+            <main id="gl-kino-pos-app"
+                  class="gl-kino-pos"
+                  t-att-data-public-id="device.public_id">
+                <header class="gl-kino-pos-header">
+                    <div>
+                        <div class="gl-kino-pos-eyebrow">GROUNDLIFT · KINO POS</div>
+                        <h1 id="gl-kino-pos-greeting">Kino POS wird geladen …</h1>
+                        <div id="gl-kino-pos-shift" class="gl-kino-pos-shift"></div>
+                    </div>
+                    <a id="gl-kino-pos-ha" class="gl-kino-pos-ha" href="#" target="_blank" rel="noopener" hidden="hidden">
+                        Home Assistant
+                        <span aria-hidden="true">↗</span>
+                    </a>
+                </header>
+
+                <div id="gl-kino-pos-error" class="gl-kino-pos-error" hidden="hidden"></div>
+
+                <section class="gl-kino-pos-layout">
+                    <div class="gl-kino-pos-maincol">
+                        <section class="gl-kino-pos-panel gl-kino-pos-panel-tickets">
+                            <div class="gl-kino-pos-panel-head">
+                                <div>
+                                    <div class="gl-kino-pos-kicker">FONIO</div>
+                                    <h2>Offene Kinoreservierungen</h2>
+                                </div>
+                                <span id="gl-kino-pos-ticket-count" class="gl-kino-pos-count">0</span>
+                            </div>
+                            <div id="gl-kino-pos-tickets" class="gl-kino-pos-tickets">
+                                <div class="gl-kino-pos-loading">Reservierungen werden geladen …</div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <aside class="gl-kino-pos-sidecol">
+                        <section class="gl-kino-pos-panel gl-kino-pos-panel-todos">
+                            <div class="gl-kino-pos-panel-head">
+                                <div>
+                                    <div class="gl-kino-pos-kicker">SCHICHT</div>
+                                    <h2>Was gibt's zu tun?</h2>
+                                </div>
+                            </div>
+                            <div id="gl-kino-pos-todo-thanks" class="gl-kino-pos-thanks" hidden="hidden">
+                                <span class="gl-kino-pos-thanks-icon">✓</span>
+                                <strong>Danke für Deine Mühe!</strong>
+                                <span>Alles für diese Schicht ist erledigt.</span>
+                            </div>
+                            <div id="gl-kino-pos-todos" class="gl-kino-pos-todos">
+                                <div class="gl-kino-pos-loading">Aufgaben werden geladen …</div>
+                            </div>
+                        </section>
+
+                        <section class="gl-kino-pos-panel gl-kino-pos-panel-cash">
+                            <div class="gl-kino-pos-panel-head">
+                                <div>
+                                    <div class="gl-kino-pos-kicker">KASSE</div>
+                                    <h2>Geld zählen</h2>
+                                </div>
+                                <button id="gl-kino-pos-cash-reset" class="gl-kino-pos-reset" type="button">Reset</button>
+                            </div>
+                            <div id="gl-kino-pos-cash" class="gl-kino-pos-cash"></div>
+                            <div class="gl-kino-pos-total-row">
+                                <span>Summe</span>
+                                <strong id="gl-kino-pos-cash-total">0,00 €</strong>
+                            </div>
+                        </section>
+                    </aside>
+                </section>
+
+                <footer class="gl-kino-pos-footer">
+                    Gerätegebundener Zugriff · Daten aktualisieren sich automatisch.
+                </footer>
+            </main>
+            <script src="/groundlift_kino_pos/static/src/js/kino_pos.js?v=100" defer="defer"></script>
+        </t>
+    </template>
+
+    <template id="kino_pos_device_setup_page" name="Kino POS Gerätezugang einrichten">
+        <t t-call="web.frontend_layout">
+            <t t-set="title">Kino POS Gerät einrichten</t>
+            <link rel="stylesheet" href="/groundlift_kino_pos/static/src/css/kino_pos.css?v=100"/>
+            <main id="gl-kino-pos-device-setup"
+                  class="gl-kino-pos-device-setup"
+                  t-att-data-public-id="device.public_id"
+                  t-att-data-setup-token="setup_token">
+                <div class="gl-kino-pos-setup-card">
+                    <div class="gl-kino-pos-eyebrow">GROUNDLIFT · KINO POS · GERÄTEBINDUNG</div>
+                    <h1>Diesen Kassenrechner freischalten</h1>
+                    <p>
+                        Dieser Einrichtungslink bindet <strong><t t-esc="device.name"/></strong> an genau dieses Browserprofil.
+                        Wie bei der Home-Assistant-App wird lokal ein kryptografischer Geräteschlüssel gespeichert.
+                    </p>
+                    <button id="gl-kino-pos-device-enroll" type="button">Diesen Rechner jetzt binden</button>
+                    <div id="gl-kino-pos-device-setup-status" class="gl-kino-pos-setup-status">
+                        Der private Schlüssel wird als nicht exportierbarer Browser-Schlüssel abgelegt.
+                    </div>
+                </div>
+            </main>
+            <script src="/groundlift_kino_pos/static/src/js/device_setup.js?v=100" defer="defer"></script>
+        </t>
+    </template>
+
+    <template id="kino_pos_device_setup_invalid" name="Kino POS Einrichtungslink ungültig">
+        <t t-call="web.frontend_layout">
+            <t t-set="title">Kino POS Einrichtungslink ungültig</t>
+            <link rel="stylesheet" href="/groundlift_kino_pos/static/src/css/kino_pos.css?v=100"/>
+            <main class="gl-kino-pos-device-setup">
+                <div class="gl-kino-pos-setup-card">
+                    <div class="gl-kino-pos-eyebrow">GROUNDLIFT · KINO POS</div>
+                    <h1>Einrichtungslink nicht mehr gültig</h1>
+                    <p>Der Link wurde bereits verwendet, ist abgelaufen oder der Gerätezugang wurde deaktiviert.</p>
+                    <p>In Odoo unter <strong>Kino POS → Gerätezugänge</strong> kann ein neuer Einrichtungslink erzeugt werden.</p>
+                </div>
+            </main>
+        </t>
+    </template>
+
+    <template id="kino_pos_device_access_denied" name="Kino POS Gerät nicht freigeschaltet">
+        <t t-call="web.frontend_layout">
+            <t t-set="title">Kino POS nicht freigeschaltet</t>
+            <link rel="stylesheet" href="/groundlift_kino_pos/static/src/css/kino_pos.css?v=100"/>
+            <main class="gl-kino-pos-device-setup">
+                <div class="gl-kino-pos-setup-card">
+                    <div class="gl-kino-pos-eyebrow">GROUNDLIFT · KINO POS</div>
+                    <h1>Dieser Rechner ist nicht freigeschaltet</h1>
+                    <p>Kino POS funktioniert auf dieser URL nur mit einem zuvor gebundenen Rechner und Browserprofil.</p>
+                    <p>Bitte den Einrichtungslink aus <strong>Kino POS → Gerätezugänge</strong> direkt auf diesem Rechner öffnen.</p>
+                </div>
+            </main>
+        </t>
+    </template>
+</odoo>
