@@ -44,7 +44,20 @@ class ProjectTask(models.Model):
                     fallback = self._gl_uncategorized_category()
                 vals["gl_todo_category_id"] = fallback.id
 
-        return super().create(vals_list)
+        records = super().create(vals_list)
+
+        # Odoo speichert die persönliche To-Do-Phase in project_task_user_rel.
+        # Bei älteren/importierten Datensätzen kann die Benutzerzuweisung
+        # vorhanden sein, während stage_id noch leer ist. Dann erscheint das
+        # To-Do im Kanban unter „Keine“ und lässt sich dort nicht korrekt
+        # nachladen. Die native Odoo-Methode füllt genau diese Lücke.
+        private_todos = records.filtered(
+            lambda task: not task.project_id and not task.parent_id and task.user_ids
+        )
+        if private_todos:
+            private_todos._populate_missing_personal_stages()
+
+        return records
 
     def write(self, vals):
         result = super().write(vals)
@@ -61,6 +74,16 @@ class ProjectTask(models.Model):
             super(ProjectTask, uncategorized_todos).write({
                 "gl_todo_category_id": fallback.id,
             })
+
+        # Falls bei einer Zuweisung / Umwandlung zum privaten To-Do eine
+        # persönliche Phase fehlt, sofort die erste persönliche Phase setzen.
+        # So kann die defekte Gruppe „Keine“ künftig nicht erneut entstehen.
+        if {"user_ids", "project_id", "parent_id"} & set(vals):
+            private_todos = self.filtered(
+                lambda task: not task.project_id and not task.parent_id and task.user_ids
+            )
+            if private_todos:
+                private_todos._populate_missing_personal_stages()
 
         return result
 
@@ -81,4 +104,18 @@ class ProjectTask(models.Model):
         ])
         if todos:
             todos.write({"gl_todo_category_id": fallback.id})
+
+        # Zusätzlich reparieren wir alle bereits vorhandenen privaten To-Dos,
+        # deren Benutzerzuweisung zwar existiert, deren persönliche Phase aber
+        # leer ist. Odoo stellt dafür nativ _populate_missing_personal_stages()
+        # bereit. Die Datensätze wandern dadurch in die jeweils erste Phase
+        # des zugewiesenen Benutzers (standardmäßig „Eingang“).
+        all_private_todos = self.sudo().with_context(active_test=False).search([
+            ("project_id", "=", False),
+            ("parent_id", "=", False),
+            ("user_ids", "!=", False),
+        ])
+        if all_private_todos:
+            all_private_todos._populate_missing_personal_stages()
+
         return True
