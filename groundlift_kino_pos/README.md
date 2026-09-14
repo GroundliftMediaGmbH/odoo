@@ -26,3 +26,7 @@
 - `website`
 - `groundlift_kino_shift_signup`
 - `gl_home_assistant_control`
+
+## Interner Odoo-Zugang
+
+Zusätzlich zur Computerbindung kann jeder angemeldete interne Odoo-Benutzer das Dashboard direkt über **Kino POS → Live Dashboard** oder `/kino-pos` öffnen. Für diesen Zugang ist keine Gerätebindung nötig. Die gerätegebundene Variante unter `/kino-pos/device/...` bleibt für öffentliche Kassen-PCs unverändert bestehen.

@@ -2,7 +2,7 @@
 {
     "name": "Kino POS",
     "summary": "Kino-Kassenhomepage mit Fonio-Reservierungen, Schichtaufgaben, Home Assistant und Geldzähler",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "category": "Operations/Point of Sale",
     "author": "Groundlift Media GmbH",
     "website": "https://www.groundlift.de",

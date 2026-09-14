@@ -5,13 +5,24 @@
     if (!app) return;
 
     const publicId = app.dataset.publicId || "";
+    const accessMode = app.dataset.accessMode || "device";
+    const isInternal = accessMode === "internal";
+    const routes = isInternal ? {
+        data: "/kino-pos/data",
+        todo: "/kino-pos/todo",
+        solve: "/kino-pos/ticket/solve",
+    } : {
+        data: "/kino-pos/device/data",
+        todo: "/kino-pos/device/todo",
+        solve: "/kino-pos/device/ticket/solve",
+    };
     const encoder = new TextEncoder();
     let deviceKeyPromise = null;
     let refreshTimer = null;
     let loading = false;
 
     const denominations = [500, 200, 100, 50, 20, 10, 5, 2, 1, 0.50, 0.20, 0.10, 0.05, 0.02, 0.01];
-    const cashStorageKey = `gl_kino_pos_cash_${publicId}`;
+    const cashStorageKey = `gl_kino_pos_cash_${isInternal ? "internal" : publicId}`;
     let cashState = loadCashState();
 
     function esc(value) {
@@ -105,7 +116,9 @@
     async function rpc(url, params) {
         const rpcParams = params || {};
         const headers = {"Content-Type": "application/json"};
-        Object.assign(headers, await signedHeaders(url, rpcParams));
+        if (!isInternal) {
+            Object.assign(headers, await signedHeaders(url, rpcParams));
+        }
         const response = await fetch(url, {
             method: "POST",
             credentials: "same-origin",
@@ -193,7 +206,7 @@
                 if (!window.confirm("Reservierung wirklich als gelöst markieren? Das Kundenticket wird in die Phase „Gelöst“ verschoben.")) return;
                 button.disabled = true;
                 try {
-                    const result = await rpc("/kino-pos/device/ticket/solve", {ticket_id: ticketId});
+                    const result = await rpc(routes.solve, {ticket_id: ticketId});
                     showError("");
                     renderAll(result);
                 } catch (error) {
@@ -234,7 +247,7 @@
                 const checked = input.checked;
                 input.disabled = true;
                 try {
-                    const result = await rpc("/kino-pos/device/todo", {item_id: itemId, checked});
+                    const result = await rpc(routes.todo, {item_id: itemId, checked});
                     showError("");
                     renderAll(result);
                 } catch (error) {
@@ -332,7 +345,7 @@
         if (loading) return;
         loading = true;
         try {
-            const data = await rpc("/kino-pos/device/data", {});
+            const data = await rpc(routes.data, {});
             showError("");
             renderAll(data);
         } catch (error) {

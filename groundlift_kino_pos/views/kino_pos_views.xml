@@ -158,7 +158,15 @@
         <field name="res_id" ref="groundlift_kino_pos.gl_kino_pos_config_default"/>
     </record>
 
-    <menuitem id="menu_gl_kino_pos_root" name="Kino POS" sequence="45" web_icon="groundlift_kino_pos,static/description/icon.png"/>
+
+    <record id="action_gl_kino_pos_live_dashboard" model="ir.actions.act_url">
+        <field name="name">Live Dashboard</field>
+        <field name="url">/kino-pos</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_gl_kino_pos_root" name="Kino POS" sequence="45" web_icon="groundlift_kino_pos,static/description/icon.png" groups="base.group_user"/>
+    <menuitem id="menu_gl_kino_pos_live_dashboard" name="Live Dashboard" parent="menu_gl_kino_pos_root" action="action_gl_kino_pos_live_dashboard" sequence="1" groups="base.group_user"/>
     <menuitem id="menu_gl_kino_pos_todo" name="Was gibt's zu tun" parent="menu_gl_kino_pos_root" action="action_gl_kino_pos_todo_item" sequence="10"/>
     <menuitem id="menu_gl_kino_pos_device" name="Gerätezugänge" parent="menu_gl_kino_pos_root" action="action_gl_kino_pos_device_access" sequence="20"/>
     <menuitem id="menu_gl_kino_pos_completion" name="Erledigungen" parent="menu_gl_kino_pos_root" action="action_gl_kino_pos_completion" sequence="30"/>

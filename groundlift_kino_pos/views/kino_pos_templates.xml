@@ -3,10 +3,11 @@
     <template id="kino_pos_page" name="Kino POS">
         <t t-call="web.frontend_layout">
             <t t-set="title">Kino POS</t>
-            <link rel="stylesheet" href="/groundlift_kino_pos/static/src/css/kino_pos.css?v=100"/>
+            <link rel="stylesheet" href="/groundlift_kino_pos/static/src/css/kino_pos.css?v=110"/>
             <main id="gl-kino-pos-app"
                   class="gl-kino-pos"
-                  t-att-data-public-id="device.public_id">
+                  t-att-data-public-id="device.public_id if device else ''"
+                  t-att-data-access-mode="'internal' if internal_mode else 'device'">
                 <header class="gl-kino-pos-header">
                     <div>
                         <div class="gl-kino-pos-eyebrow">GROUNDLIFT · KINO POS</div>
@@ -73,17 +74,18 @@
                 </section>
 
                 <footer class="gl-kino-pos-footer">
-                    Gerätegebundener Zugriff · Daten aktualisieren sich automatisch.
+                    <t t-if="internal_mode">Angemeldeter Odoo-Zugang · Daten aktualisieren sich automatisch.</t>
+                    <t t-else="">Gerätegebundener Zugriff · Daten aktualisieren sich automatisch.</t>
                 </footer>
             </main>
-            <script src="/groundlift_kino_pos/static/src/js/kino_pos.js?v=100" defer="defer"></script>
+            <script src="/groundlift_kino_pos/static/src/js/kino_pos.js?v=110" defer="defer"></script>
         </t>
     </template>
 
     <template id="kino_pos_device_setup_page" name="Kino POS Gerätezugang einrichten">
         <t t-call="web.frontend_layout">
             <t t-set="title">Kino POS Gerät einrichten</t>
-            <link rel="stylesheet" href="/groundlift_kino_pos/static/src/css/kino_pos.css?v=100"/>
+            <link rel="stylesheet" href="/groundlift_kino_pos/static/src/css/kino_pos.css?v=110"/>
             <main id="gl-kino-pos-device-setup"
                   class="gl-kino-pos-device-setup"
                   t-att-data-public-id="device.public_id"
@@ -108,7 +110,7 @@
     <template id="kino_pos_device_setup_invalid" name="Kino POS Einrichtungslink ungültig">
         <t t-call="web.frontend_layout">
             <t t-set="title">Kino POS Einrichtungslink ungültig</t>
-            <link rel="stylesheet" href="/groundlift_kino_pos/static/src/css/kino_pos.css?v=100"/>
+            <link rel="stylesheet" href="/groundlift_kino_pos/static/src/css/kino_pos.css?v=110"/>
             <main class="gl-kino-pos-device-setup">
                 <div class="gl-kino-pos-setup-card">
                     <div class="gl-kino-pos-eyebrow">GROUNDLIFT · KINO POS</div>
@@ -123,7 +125,7 @@
     <template id="kino_pos_device_access_denied" name="Kino POS Gerät nicht freigeschaltet">
         <t t-call="web.frontend_layout">
             <t t-set="title">Kino POS nicht freigeschaltet</t>
-            <link rel="stylesheet" href="/groundlift_kino_pos/static/src/css/kino_pos.css?v=100"/>
+            <link rel="stylesheet" href="/groundlift_kino_pos/static/src/css/kino_pos.css?v=110"/>
             <main class="gl-kino-pos-device-setup">
                 <div class="gl-kino-pos-setup-card">
                     <div class="gl-kino-pos-eyebrow">GROUNDLIFT · KINO POS</div>

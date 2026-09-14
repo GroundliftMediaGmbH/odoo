@@ -53,6 +53,10 @@ def _b64url_encode(value):
 
 class GlKinoPosController(http.Controller):
 
+    def _check_internal_user(self):
+        if not request.env.user.has_group("base.group_user"):
+            raise AccessError(_("Kino POS ist nur für angemeldete interne Odoo-Benutzer freigegeben."))
+
     # ------------------------------------------------------------------
     # Generic POS data helpers
     # ------------------------------------------------------------------
@@ -231,13 +235,19 @@ class GlKinoPosController(http.Controller):
         all_done = bool(payload) and all(item["checked"] for item in payload)
         return payload, all_done
 
-    def _dashboard_payload(self, device):
+    def _dashboard_payload(self, device=None):
         config = self._config()
         day = self._local_today(config=config)
         shift = self._current_shift(day=day)
         employee = shift.employee_id if shift else request.env["hr.employee"].sudo().browse([])
         first_name = self._first_name(employee)
         todos, all_done = self._todo_payload(day, shift, device)
+        if device:
+            ha_url = config.get_ha_url() or ""
+        elif config.ha_dashboard_id and config.ha_dashboard_id.active:
+            ha_url = "/groundlift/ha/%s" % config.ha_dashboard_id.slug
+        else:
+            ha_url = ""
         return {
             "today": day.isoformat(),
             "greeting_name": first_name,
@@ -251,9 +261,70 @@ class GlKinoPosController(http.Controller):
             "todos": todos,
             "todos_all_done": all_done,
             "has_due_todos": bool(todos),
-            "ha_url": config.get_ha_url() or "",
+            "ha_url": ha_url,
             "refresh_seconds": max(int(config.refresh_seconds or 30), 10),
         }
+
+    # ------------------------------------------------------------------
+    # Internal Odoo access — mirrors the Home Assistant dashboard flow
+    # ------------------------------------------------------------------
+
+    @http.route("/kino-pos", type="http", auth="user", website=True, methods=["GET"], sitemap=False)
+    def internal_page(self, **kwargs):
+        self._check_internal_user()
+        return request.render("groundlift_kino_pos.kino_pos_page", {
+            "device": False,
+            "internal_mode": True,
+        })
+
+    @http.route("/kino-pos/data", type="jsonrpc", auth="user", methods=["POST"])
+    def internal_data(self):
+        self._check_internal_user()
+        return self._dashboard_payload()
+
+    @http.route("/kino-pos/todo", type="jsonrpc", auth="user", methods=["POST"])
+    def internal_todo(self, item_id=None, checked=None):
+        self._check_internal_user()
+        item = request.env["gl.kino.pos.todo.item"].sudo().browse(int(item_id or 0)).exists()
+        if not item or not item.active:
+            raise UserError(_("Die Aufgabe wurde nicht gefunden oder ist deaktiviert."))
+        config = self._config()
+        day = self._local_today(config=config)
+        shift = self._current_shift(day=day)
+        if not shift or not shift.employee_id:
+            raise UserError(_("Für heute ist keine besetzte Kinoschicht im Dienstplan eingetragen."))
+        period_key = item.period_key(day)
+        Completion = request.env["gl.kino.pos.todo.completion"].sudo()
+        completion = Completion.search([
+            ("item_id", "=", item.id),
+            ("period_key", "=", period_key),
+        ], limit=1)
+        if bool(checked) and not completion:
+            Completion.create({
+                "item_id": item.id,
+                "period_key": period_key,
+                "shift_date": day,
+                "employee_id": shift.employee_id.id,
+                "device_id": False,
+            })
+        elif not bool(checked) and completion:
+            completion.unlink()
+        return self._dashboard_payload()
+
+    @http.route("/kino-pos/ticket/solve", type="jsonrpc", auth="user", methods=["POST"])
+    def internal_ticket_solve(self, ticket_id=None):
+        self._check_internal_user()
+        ticket = request.env["helpdesk.ticket"].sudo().browse(int(ticket_id or 0)).exists()
+        if not ticket:
+            raise UserError(_("Das Kundenticket wurde nicht gefunden."))
+        payload = self._parse_ticket_payload(ticket)
+        if not self._is_cinema_ticket(ticket, payload=payload):
+            raise AccessError(_("Dieses Ticket ist keine Kinoreservierungsanfrage."))
+        stage = self._find_solved_stage(ticket=ticket)
+        if not stage:
+            raise UserError(_("Es wurde keine Ticketphase „Gelöst“ gefunden. Bitte diese in Kino POS → Einstellungen auswählen."))
+        ticket.write({"stage_id": stage.id})
+        return self._dashboard_payload()
 
     # ------------------------------------------------------------------
     # Secure device binding — same mechanism as Home Assistant module
@@ -393,6 +464,7 @@ class GlKinoPosController(http.Controller):
             return request.render("groundlift_kino_pos.kino_pos_device_access_denied", {})
         return request.render("groundlift_kino_pos.kino_pos_page", {
             "device": device,
+            "internal_mode": False,
         })
 
     @http.route("/kino-pos/device/data", type="jsonrpc", auth="public", methods=["POST"], csrf=False)
