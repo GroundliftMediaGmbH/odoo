@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 import logging
+import math
 import re
 import urllib.error
 import urllib.request
@@ -21,6 +22,16 @@ _logger = logging.getLogger(__name__)
 CATEGORY_LABELS = dict(CATEGORY_SELECTION_ITEMS)
 
 
+class InboxFilterRateLimitError(UserError):
+    """Interne, transiente Ausnahme: Verarbeitung später fortsetzen, nicht als dauerhaften Fehler behandeln."""
+
+    inbox_filter_rate_limit = True
+
+    def __init__(self, message, retry_seconds=5):
+        super().__init__(message)
+        self.retry_seconds = max(1, int(math.ceil(float(retry_seconds or 5))))
+
+
 class InboxFilterService(models.AbstractModel):
     _name = "inbox.filter.service"
     _description = "Inbox Filter Service"
@@ -38,8 +49,8 @@ class InboxFilterService(models.AbstractModel):
             "params": {
                 "title": _("Inbox Filter"),
                 "message": message,
-                "type": "warning" if stats.get("error") or stats.get("action_required") else "success",
-                "sticky": bool(stats.get("action_required")),
+                "type": "warning" if stats.get("error") or stats.get("action_required") or stats.get("rate_limited") else "success",
+                "sticky": bool(stats.get("action_required") or stats.get("rate_limited")),
             },
         }
 
@@ -69,6 +80,14 @@ class InboxFilterService(models.AbstractModel):
                 stats[category] += 1
                 if category in ACTION_REQUIRED_CATEGORY_CODES:
                     stats["action_required"] += 1
+            except InboxFilterRateLimitError as exc:
+                # Nicht alle folgenden Leads als Fehler markieren, wenn lediglich das zeitliche API-Budget
+                # gerade erschöpft ist. Der nächste Sortierlauf kann nach dem Reset sauber fortsetzen.
+                stats["processed"] = max(0, stats["processed"] - 1)
+                stats["rate_limited"] = True
+                stats["retry_seconds"] = exc.retry_seconds
+                _logger.info("Inbox Filter sort run paused by rate limiter for ~%ss", exc.retry_seconds)
+                break
             except Exception as exc:  # noqa: BLE001 - in Odoo soll ein Lead den Gesamtlauf nicht abbrechen
                 _logger.exception("Inbox Filter failed for lead %s", lead.id)
                 stats["error"] += 1
@@ -130,22 +149,41 @@ class InboxFilterService(models.AbstractModel):
     def reclassify_history_record(self, history):
         history.ensure_one()
         history._ensure_not_locked()
-        lead = history.get_or_restore_lead()
-        decision = self.classify_lead(lead)
+
+        # Vorhandene (auch archivierte) Leads können analysiert werden, ohne sie vor dem API-Aufruf
+        # bereits nach CRM: Neu zurückzuschieben. So hinterlässt eine Rate-Limit-Pause keine
+        # unnötige sichtbare Zwischenverschiebung.
+        lead = history.with_context(active_test=False).lead_id.exists()
+        if lead:
+            decision = self.classify_lead(lead)
+            lead = history.get_or_restore_lead()
+        else:
+            # Nur wenn der ursprüngliche Datensatz tatsächlich gelöscht wurde, muss er für die
+            # Klassifizierung aus dem Snapshot rekonstruiert werden.
+            lead = history.get_or_restore_lead()
+            decision = self.classify_lead(lead)
+
         category = decision.get("category") if decision.get("category") in CATEGORY_CODES else "review"
         decision["category"] = category
-        history.with_context(inbox_filter_allow_locked_write=True).write({
-            "name": "%s → %s" % (lead.display_name, category),
-            "category": category,
-            "confidence": decision.get("confidence") or 0.0,
-            "reason": decision.get("reason") or "",
-            "summary": decision.get("summary") or "",
-            "gpt_response_json": json.dumps(decision, ensure_ascii=False, indent=2),
-            "status": "reclassified",
-        })
-        self.apply_decision(lead, history, decision)
-        history.with_context(inbox_filter_allow_locked_write=True).write({"status": "reclassified"})
-        history.message_post(body=_("Datensatz wurde per Button 'Neu erkennen' erneut klassifiziert."))
+        # Mapping-/Verschiebefehler dürfen keine halbfertigen Zielzustände committen. Der API-Aufruf
+        # liegt bewusst vor dem Savepoint, damit Rate-Limit-Metadaten nicht zurückgerollt werden.
+        with self.env.cr.savepoint():
+            history.with_context(inbox_filter_allow_locked_write=True).write({
+                "name": "%s → %s" % (lead.display_name, category),
+                "category": category,
+                "confidence": decision.get("confidence") or 0.0,
+                "reason": decision.get("reason") or "",
+                "summary": decision.get("summary") or "",
+                "gpt_response_json": json.dumps(decision, ensure_ascii=False, indent=2),
+                "status": "reclassified",
+                "error_message": False,
+                "retry_count": 0,
+                "last_retry_at": fields.Datetime.now(),
+                "next_retry_at": False,
+            })
+            self.apply_decision(lead, history, decision)
+            history.with_context(inbox_filter_allow_locked_write=True).write({"status": "reclassified"})
+            history.message_post(body=_("Datensatz wurde per Button 'Neu erkennen' erneut klassifiziert."))
         return history
 
     @api.model
@@ -497,6 +535,11 @@ class InboxFilterService(models.AbstractModel):
             "inbox_filter.customer_care_email": "customer_care_email",
             "inbox_filter.limit": "limit",
             "inbox_filter.auto_sort_enabled": "auto_sort_enabled",
+            "inbox_filter.rate_limit_tpm": "rate_limit_tpm",
+            "inbox_filter.rate_safety_percent": "rate_safety_percent",
+            "inbox_filter.min_request_interval": "min_request_interval",
+            "inbox_filter.classification_max_completion_tokens": "classification_max_completion_tokens",
+            "inbox_filter.error_retry_enabled": "error_retry_enabled",
         }
         field_name = settings_map.get(key)
         if field_name and "inbox.filter.settings" in self.env.registry.models:
@@ -877,6 +920,8 @@ Filterdefinitionen:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ]
+        schema_name = (schema or {}).get("name") or ""
+        max_completion_tokens = self._max_completion_tokens_for_schema(schema_name)
         request_payload = {
             "model": model,
             "messages": messages,
@@ -884,9 +929,12 @@ Filterdefinitionen:
                 "type": "json_schema",
                 "json_schema": schema,
             },
+            "max_completion_tokens": max_completion_tokens,
         }
         try:
             data = self._http_json(url, api_key, request_payload)
+        except InboxFilterRateLimitError:
+            raise
         except UserError as exc:
             _logger.warning("Structured output failed, trying json_object fallback: %s", exc)
             request_payload["response_format"] = {"type": "json_object"}
@@ -895,7 +943,7 @@ Filterdefinitionen:
                 + ", ".join(schema["schema"]["required"])
             )
             request_payload["messages"] = messages + [{"role": "system", "content": fallback_instruction}]
-            data = self._http_json(url, api_key, request_payload)
+            data = self._http_json(url, api_key, request_payload, skip_min_interval=True)
 
         try:
             content = data["choices"][0]["message"]["content"]
@@ -903,7 +951,18 @@ Filterdefinitionen:
             raise UserError(_("Unerwartete OpenAI-Antwort: %s") % data) from exc
         return self._parse_json_content(content)
 
-    def _http_json(self, url, api_key, payload):
+    def _max_completion_tokens_for_schema(self, schema_name):
+        if schema_name == "inbox_filter_decision":
+            return max(300, self._get_int_param("inbox_filter.classification_max_completion_tokens", 1200))
+        if schema_name in ("inbox_filter_learning_note", "inbox_filter_balanced_learning_notes"):
+            return 2400
+        if schema_name == "inbox_filter_prompt_regeneration":
+            return 12000
+        return 2400
+
+    def _http_json(self, url, api_key, payload, skip_min_interval=False):
+        estimated_tokens = self._estimate_request_tokens(payload)
+        self._reserve_api_capacity(estimated_tokens, skip_min_interval=skip_min_interval)
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
@@ -915,12 +974,167 @@ Filterdefinitionen:
         )
         try:
             with urllib.request.urlopen(req, timeout=60) as response:
-                return json.loads(response.read().decode("utf-8"))
+                raw = response.read().decode("utf-8")
+                self._update_rate_state_from_headers(response.headers)
+                return json.loads(raw)
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")
+            if exc.code == 429:
+                retry_seconds = self._rate_limit_retry_seconds(exc.headers, body)
+                self._remember_rate_limit_error(exc.headers, body, retry_seconds)
+                raise InboxFilterRateLimitError(
+                    _("OpenAI Rate-Limit erreicht. Automatische Fortsetzung in ca. %(seconds)s Sekunden.") % {"seconds": int(math.ceil(retry_seconds))},
+                    retry_seconds=retry_seconds,
+                ) from exc
             raise UserError(_("OpenAI API Fehler %(code)s: %(body)s") % {"code": exc.code, "body": body[:1500]}) from exc
         except urllib.error.URLError as exc:
             raise UserError(_("OpenAI API nicht erreichbar: %s") % exc) from exc
+
+    def _estimate_request_tokens(self, payload):
+        """Konservative Schätzung ohne zusätzliche Python-Abhängigkeit wie tiktoken.
+
+        Für deutschen/englischen CRM-Text rechnen wir absichtlich mit nur ca. 3 Zeichen pro Token
+        und addieren die maximal reservierte Ausgabe plus Overhead. Dadurch wird eher zu früh als
+        zu spät pausiert.
+        """
+        raw = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        max_output = int(payload.get("max_completion_tokens") or 0)
+        return max(1, int(math.ceil(len(raw) / 3.0)) + max_output + 500)
+
+    def _reserve_api_capacity(self, estimated_tokens, skip_min_interval=False):
+        settings = self.env["inbox.filter.settings"].sudo().get_singleton()
+        now = fields.Datetime.now()
+
+        if settings.rate_blocked_until and settings.rate_blocked_until > now:
+            wait = (settings.rate_blocked_until - now).total_seconds()
+            raise InboxFilterRateLimitError(_("Lokale Rate-Limit-Pause aktiv."), retry_seconds=wait)
+
+        min_interval = max(0.0, float(settings.min_request_interval or 0.0))
+        if settings.rate_last_request_at and min_interval and not skip_min_interval:
+            elapsed = (now - settings.rate_last_request_at).total_seconds()
+            if elapsed < min_interval:
+                raise InboxFilterRateLimitError(
+                    _("API-Anfragen werden zur Vermeidung kurzer Lastspitzen zeitlich verteilt."),
+                    retry_seconds=min_interval - elapsed,
+                )
+
+        # Wenn OpenAI selbst verbleibende Token + Reset gemeldet hat, hat diese Information Vorrang.
+        if settings.rate_reset_at and settings.rate_reset_at > now and settings.rate_remaining_tokens >= 0:
+            reserve_factor = max(0.50, min(0.98, (settings.rate_safety_percent or 85) / 100.0))
+            if estimated_tokens > int(settings.rate_remaining_tokens * reserve_factor):
+                wait = max(1.0, (settings.rate_reset_at - now).total_seconds())
+                raise InboxFilterRateLimitError(_("Zu wenig OpenAI-Tokenbudget bis zum nächsten Reset."), retry_seconds=wait)
+
+        window_start = settings.rate_window_started_at
+        used = settings.rate_window_tokens or 0
+        if not window_start or (now - window_start).total_seconds() >= 60:
+            window_start = now
+            used = 0
+
+        observed = settings.rate_observed_limit_tokens or 0
+        fallback = settings.rate_limit_tpm or 200000
+        limit = observed if observed > 0 else fallback
+        safety = max(50, min(98, settings.rate_safety_percent or 85)) / 100.0
+        budget = max(1, int(limit * safety))
+        if used + estimated_tokens > budget:
+            elapsed = max(0.0, (now - window_start).total_seconds())
+            raise InboxFilterRateLimitError(
+                _("Lokales TPM-Budget ausgeschöpft; kurze Pause bis zum nächsten Minutenfenster."),
+                retry_seconds=max(1.0, 60.0 - elapsed),
+            )
+
+        settings.with_context(inbox_filter_skip_param_sync=True).write({
+            "rate_window_started_at": window_start,
+            "rate_window_tokens": used + estimated_tokens,
+            "rate_last_request_at": now,
+            "rate_blocked_until": False,
+        })
+
+    def _update_rate_state_from_headers(self, headers):
+        if not headers:
+            return
+        settings = self.env["inbox.filter.settings"].sudo().get_singleton()
+        vals = {}
+        limit = self._safe_header_int(headers.get("x-ratelimit-limit-tokens"))
+        remaining = self._safe_header_int(headers.get("x-ratelimit-remaining-tokens"))
+        reset_seconds = self._parse_duration_seconds(headers.get("x-ratelimit-reset-tokens"))
+        if limit is not None:
+            vals["rate_observed_limit_tokens"] = limit
+        if remaining is not None:
+            vals["rate_remaining_tokens"] = remaining
+        if reset_seconds is not None:
+            vals["rate_reset_at"] = fields.Datetime.now() + timedelta(seconds=max(0.0, reset_seconds))
+        if vals:
+            vals["rate_blocked_until"] = False
+            settings.with_context(inbox_filter_skip_param_sync=True).write(vals)
+
+    def _remember_rate_limit_error(self, headers, body, retry_seconds):
+        settings = self.env["inbox.filter.settings"].sudo().get_singleton()
+        now = fields.Datetime.now()
+        vals = {
+            "rate_blocked_until": now + timedelta(seconds=max(1.0, retry_seconds)),
+        }
+        limit = self._safe_header_int(headers.get("x-ratelimit-limit-tokens")) if headers else None
+        remaining = self._safe_header_int(headers.get("x-ratelimit-remaining-tokens")) if headers else None
+        if limit is None:
+            match = re.search(r"Limit\s*(?:[:=]|\s)\s*([0-9]+(?:\.[0-9]+)?)", body or "", flags=re.I)
+            if match:
+                limit = int(float(match.group(1)))
+        if remaining is not None:
+            vals["rate_remaining_tokens"] = remaining
+        if limit is not None:
+            vals["rate_observed_limit_tokens"] = limit
+        vals["rate_reset_at"] = now + timedelta(seconds=max(1.0, retry_seconds))
+        settings.with_context(inbox_filter_skip_param_sync=True).write(vals)
+
+    def _rate_limit_retry_seconds(self, headers, body):
+        if headers:
+            retry_after = headers.get("Retry-After") or headers.get("retry-after")
+            try:
+                if retry_after:
+                    return max(1.0, float(retry_after))
+            except (TypeError, ValueError):
+                pass
+            reset_seconds = self._parse_duration_seconds(headers.get("x-ratelimit-reset-tokens"))
+            if reset_seconds is not None:
+                return max(1.0, reset_seconds)
+        match = re.search(r"try again in\s+([0-9]+(?:\.[0-9]+)?)\s*(ms|s|sec|seconds)?", body or "", flags=re.I)
+        if match:
+            value = float(match.group(1))
+            unit = (match.group(2) or "s").lower()
+            return max(1.0, value / 1000.0 if unit == "ms" else value)
+        return 5.0
+
+    def _parse_duration_seconds(self, value):
+        if not value:
+            return None
+        text = str(value).strip().lower()
+        try:
+            return float(text)
+        except ValueError:
+            pass
+        total = 0.0
+        matched = False
+        for number, unit in re.findall(r"([0-9]+(?:\.[0-9]+)?)(ms|s|m|h)", text):
+            matched = True
+            amount = float(number)
+            if unit == "ms":
+                total += amount / 1000.0
+            elif unit == "s":
+                total += amount
+            elif unit == "m":
+                total += amount * 60.0
+            elif unit == "h":
+                total += amount * 3600.0
+        return total if matched else None
+
+    def _safe_header_int(self, value):
+        if value in (None, ""):
+            return None
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return None
 
     def _parse_json_content(self, content):
         content = (content or "").strip()
@@ -975,6 +1189,8 @@ Filterdefinitionen:
             parts.append(_("%(action_required)s mit Handlungsbedarf") % stats)
         if stats.get("error"):
             parts.append(_("%(error)s Fehler") % stats)
+        if stats.get("rate_limited"):
+            parts.append(_("Rate-Limit-Pause; bitte in ca. %(retry_seconds)s Sekunden fortsetzen") % stats)
         return _("Inbox Filter abgeschlossen: %s.") % ", ".join(parts)
 
     def _format_internal_note(self, title, decision):
