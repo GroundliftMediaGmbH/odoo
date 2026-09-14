@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Native To-Do-Kanbanansicht: Kategorien als Standardspalten. -->
+    <!-- Native To-Do-Kanbanansicht: rechts bleiben die persönlichen Phasen als Spalten. -->
     <record id="project_task_view_todo_kanban_category" model="ir.ui.view">
         <field name="name">project.task.todo.kanban.category</field>
         <field name="model">project.task</field>
         <field name="inherit_id" ref="project_todo.project_task_view_todo_kanban"/>
         <field name="arch" type="xml">
             <xpath expr="//kanban" position="attributes">
-                <attribute name="default_group_by">gl_todo_category_id</attribute>
+                <attribute name="default_group_by">personal_stage_type_id</attribute>
                 <attribute name="default_order">sequence, id</attribute>
             </xpath>
             <xpath expr="//kanban/field[@name='sequence']" position="after">
@@ -16,14 +16,14 @@
         </field>
     </record>
 
-    <!-- Native To-Do-Listenansicht: Kategorie + Sortiergriff. -->
+    <!-- Native To-Do-Listenansicht: Phase als Gruppierung, Kategorie als eigene Spalte. -->
     <record id="project_task_view_todo_tree_category" model="ir.ui.view">
         <field name="name">project.task.todo.list.category</field>
         <field name="model">project.task</field>
         <field name="inherit_id" ref="project_todo.project_task_view_todo_tree"/>
         <field name="arch" type="xml">
             <xpath expr="//list" position="attributes">
-                <attribute name="default_group_by">gl_todo_category_id</attribute>
+                <attribute name="default_group_by">personal_stage_type_id</attribute>
                 <attribute name="default_order">sequence, id</attribute>
             </xpath>
             <xpath expr="//list/field[@name='state']" position="before">
@@ -67,6 +67,21 @@
         <field name="arch" type="xml">
             <xpath expr="//search/field[@name='tag_ids']" position="after">
                 <field name="gl_todo_category_id" string="Kategorie"/>
+            </xpath>
+            <!--
+                Unabhängige linke Kategorienleiste. Die Auswahl filtert nur die
+                Datensätze rechts; die Kanban-Spalten bleiben persönliche Phasen.
+                "Alle" ist bei select="one" nativ verfügbar.
+            -->
+            <xpath expr="//search/group" position="after">
+                <searchpanel>
+                    <field name="gl_todo_category_id"
+                           string="Kategorien"
+                           icon="fa-folder-open"
+                           select="one"
+                           enable_counters="1"
+                           limit="0"/>
+                </searchpanel>
             </xpath>
             <xpath expr="//filter[@name='open_tasks']" position="before">
                 <filter name="gl_my_todos" string="Meine To-Dos" domain="[('user_ids', 'in', [uid])]"/>

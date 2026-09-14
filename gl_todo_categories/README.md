@@ -31,3 +31,12 @@ Erweiterung der nativen Odoo-App **To-Do** (`project_todo`).
 
 
 Recovery build: technical module name gl_todo_categories, version 19.0.1.0.3. No i18n/PO files included.
+
+
+## Version 19.0.1.1.0
+
+- Kategorien werden als unabhängiges Odoo-Search-Panel links angezeigt.
+- Rechts bleibt das native To-Do-Kanban nach persönlichen Phasen gruppiert.
+- Klick auf eine Kategorie filtert die To-Dos, ohne die Phasenspalten zu verändern.
+- Kategorien zeigen Zähler; "Alle" hebt die Kategorieauswahl auf.
+- Listenansicht wird ebenfalls wieder nach Phase gruppiert; Kategorie bleibt als Spalte sichtbar.
