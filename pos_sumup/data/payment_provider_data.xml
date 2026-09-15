@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <record id="payment_provider_sumup" model="payment.provider">
+        <field name="name">Sumup</field>
+        <field name="image_128" type="base64" file="pos_sumup/static/description/icon.png"/>
+        <field name="code">sumup</field>
+    </record>
+
+</odoo>

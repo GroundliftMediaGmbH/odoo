@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sumup_reader_pairing_wizard_form" model="ir.ui.view">
+        <field name="name">sumup.reader.pairing.wizard.form</field>
+        <field name="model">sumup.reader.pairing.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Pair New SumUp Reader">
+                <p>Enter the pairing code and a name for the new SumUp payment terminal.</p>
+                <group>
+                    <field name="reader_name" />
+                    <field name="pairing_code" />
+                </group>
+                <footer>
+                    <button
+                        name="action_pair_reader"
+                        string="Pair Reader"
+                        type="object"
+                        class="btn-primary"
+                    />
+                    <button
+                        string="Cancel"
+                        class="btn-secondary"
+                        special="cancel"
+                    />
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_sumup_reader_pairing_wizard" model="ir.actions.act_window">
+        <field name="name">Pair New SumUp Reader</field>
+        <field name="res_model">sumup.reader.pairing.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field> </record>
+</odoo>

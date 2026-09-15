@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="payment_provider_form" model="ir.ui.view">
+        <field name="name">Sumup Provider Form</field>
+        <field name="model">payment.provider</field>
+        <field name="inherit_id" ref="payment.payment_provider_form"/>
+        <field name="arch" type="xml">
+            <group name="provider_credentials" position="inside">
+                <field name="sumup_merchant_code" required="code == 'sumup' and state != 'disabled'"/>
+                <field name="sumup_api_key" required="code == 'sumup' and state != 'disabled'"/>
+            </group>
+        </field>
+    </record>
+    <record id="pos_payment_method_view_form_inherit_pos_sumup" model="ir.ui.view">
+        <field name="name">pos.payment.method.form.inherit.sumup</field>
+        <field name="model">pos.payment.method</field>
+        <field name="inherit_id" ref="point_of_sale.pos_payment_method_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='use_payment_terminal']" position="after">
+                <field name="sumup_tipping_enabled" invisible="use_payment_terminal != 'sumup'"/>
+                <field name="sumup_tip_rates" invisible="use_payment_terminal != 'sumup' or not sumup_tipping_enabled" placeholder="5,10,15"/>
+                <field name="reader" invisible="use_payment_terminal != 'sumup'"/>
+                <button
+                        name="%(action_sumup_reader_pairing_wizard)d"
+                        string="Pair New Reader"
+                        type="action"
+                        class="oe_highlight"
+                        invisible="use_payment_terminal != 'sumup'"
+                />
+                <button
+                        name="action_update_readers"
+                        string="Update Readers"
+                        type="object"
+                        class="btn-secondary"
+                        invisible="use_payment_terminal != 'sumup'"
+                />
+                <button
+                        name="action_delete_reader"
+                        string="Delete Reader"
+                        type="object"
+                        class="btn-danger"
+                        invisible="use_payment_terminal != 'sumup' or not reader"
+                        confirm="Are you sure you want to delete this reader? This will attempt to remove it from SumUp and delete the local record."
+                />
+            </xpath>
+        </field>
+    </record>
+</odoo>

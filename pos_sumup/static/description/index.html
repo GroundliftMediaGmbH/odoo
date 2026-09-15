@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>POS SumUp Integration</title>
+</head>
+
+<body>
+
+    <section class="oe_container oe_dark">
+        <div class="row items-center justify-content-center pt-4 pb-4">
+            <div class="col-md-12 text-center">
+                <img src="icon.png" style="max-width: 100px; margin-bottom: 20px;" alt="Icon">
+                <h2 class="display-3 font-weight-bold" style="color: #714B67;">POS SumUp Integration</h2>
+                <h3 class="text-muted">Direct Integration for SumUp Solo Terminals</h3>
+            </div>
+            <div class="col-md-10 offset-md-1 mt-4">
+                <p class="lead text-center">
+                    Seamlessly connect your <b style="color: #714B67;">SumUp Solo</b> payment terminals with Odoo Point
+                    of Sale.
+                    Eliminate manual entry errors and accept card payments & tips directly from your POS interface.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section class="oe_container">
+        <div class="row mt-5 mb-5">
+            <div class="col-md-12 text-center mb-4">
+                <h3 class="font-weight-bold">Key Features</h3>
+            </div>
+
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-body text-center">
+                        <i class="fa fa-plug fa-4x mb-3" style="color: #714B67;"></i>
+                        <h4 class="card-title">Direct Integration</h4>
+                        <p class="card-text">Connects Odoo POS securely to SumUp via the official API.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-body text-center">
+                        <i class="fa fa-credit-card fa-4x mb-3" style="color: #714B67;"></i>
+                        <h4 class="card-title">Auto-Amount Transfer</h4>
+                        <p class="card-text">Odoo pushes the exact amount to the terminal instantly. Say goodbye to
+                            manual typing errors!</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-body text-center">
+                        <i class="fa fa-money fa-4x mb-3" style="color: #714B67;"></i>
+                        <h4 class="card-title">Integrated Tipping</h4>
+                        <p class="card-text">Enable tipping on the terminal with configurable rates (10%, 15%, etc.).
+                            Tips are automatically recorded in Odoo.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-body text-center">
+                        <i class="fa fa-wifi fa-4x mb-3" style="color: #714B67;"></i>
+                        <h4 class="card-title">Multi-Terminal Support</h4>
+                        <p class="card-text">Manage multiple SumUp Solo terminals for different registers or shops
+                            easily from a single Odoo instance.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-body text-center">
+                        <i class="fa fa-refresh fa-4x mb-3" style="color: #714B67;"></i>
+                        <h4 class="card-title">Real-Time Status</h4>
+                        <p class="card-text">Get instant feedback on the POS screen. The system polls the transaction
+                            status in real-time (Success, Failed, etc.).</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How it Works / Workflow -->
+    <section class="oe_container oe_dark">
+        <div class="row mt-5 mb-5 align-items-center">
+            <div class="col-md-12 text-center">
+                <h3 class="font-weight-bold mb-4">How it Works</h3>
+            </div>
+            <div class="col-md-6">
+                <div class="p-4">
+                    <h4 class="mb-3">Simple Workflow</h4>
+                    <ul class="list-group list-group-flush" style="background: transparent;">
+                        <li class="list-group-item" style="background: transparent; font-size: 1.1em;">
+                            <b>Configure</b>: Enter your Merchant credentials in Odoo.
+                        </li>
+                        <li class="list-group-item" style="background: transparent; font-size: 1.1em;">
+                            <b>Pair</b>: Use the Odoo wizard to pair your SumUp Solo terminal.
+                        </li>
+                        <li class="list-group-item" style="background: transparent; font-size: 1.1em;">
+                            <b>Sell</b>: Select "SumUp" as the payment method in POS.
+                        </li>
+                        <li class="list-group-item" style="background: transparent; font-size: 1.1em;">
+                            <b>Pay</b>: The customer pays on the terminal.
+                        </li>
+                        <li class="list-group-item" style="background: transparent; font-size: 1.1em;">
+                            <b>Done</b>: Odoo automatically validates the payment.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-md-6 text-center">
+                <img src="pos_integration.png" class="img-fluid shadow-sm rounded" alt="POS Payment Screen"
+                    style="border: 1px solid #eee;">
+            </div>
+        </div>
+    </section>
+
+    <!-- Configuration Section -->
+    <section class="oe_container">
+        <div class="row mt-5">
+            <div class="col-md-12 text-center">
+                <h3 class="font-weight-bold mb-4">Simple Configuration</h3>
+            </div>
+            <!-- Provider -->
+            <div class="col-md-4">
+                <div class="card shadow-sm mb-4 h-100">
+                    <div class="card-header font-weight-bold bg-white">1. Payment Provider</div>
+                    <div class="card-body">
+                        <p>Activate the "SumUp" provider in <b>Invoicing</b>, enter your Merchant Code & API Key.</p>
+                        <img src="configure_payment_provider.png" class="img-fluid mt-2 shadow-sm border"
+                            alt="Provider Config">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Method -->
+            <div class="col-md-4">
+                <div class="card shadow-sm mb-4 h-100">
+                    <div class="card-header font-weight-bold bg-white">2. Payment Method</div>
+                    <div class="card-body">
+                        <p>Create payment method in <b>POS Config</b>, select integration "Terminal", and select
+                            "SumUp".</p>
+                        <img src="configure_payment_method.png" class="img-fluid mt-2 shadow-sm border"
+                            alt="Method Config">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pairing -->
+            <div class="col-md-4">
+                <div class="card shadow-sm mb-4 h-100">
+                    <div class="card-header font-weight-bold bg-white">3. Pair Reader</div>
+                    <div class="card-body">
+                        <p>Click "Pair New Reader", enter the code shown on device, and confirm.</p>
+                        <img src="pair_reader.png" class="img-fluid mt-2 shadow-sm border" alt="Pairing Wizard">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Support Section -->
+    <section class="oe_container oe_dark">
+        <div class="row mt-5 mb-5 pb-5">
+            <div class="col-md-12 text-center">
+                <hr>
+                <h4 class="mt-4">Need Help or Customization?</h4>
+                <p>Contact us for support or if you need to adapt this module to your specific workflows.</p>
+                <a href="mailto:office@vorstieg.eu" class="btn btn-primary btn-lg mt-2"
+                    style="background-color: #714B67; border: none;">Contact Support</a>
+            </div>
+        </div>
+    </section>
+
+</body>
+
+</html>
