@@ -1,6 +1,6 @@
 # Inbox Filter für Odoo 19 SH
 
-Version: 19.0.1.1.1
+Version: 19.0.1.2.1
 
 ## Zweck
 GPT-gestützte Sortierung neuer CRM-Leads aus der Phase „Neu“ in:
@@ -18,6 +18,16 @@ GPT-gestützte Sortierung neuer CRM-Leads aus der Phase „Neu“ in:
 - ToDo für Mitarbeitende
 - Kundensupport
 - Zu prüfen
+
+
+## Änderungen in 19.0.1.2.1
+
+- Eingehende E-Mails werden erst **nach dem Erstellen der `mail.message` samt Anhängen** automatisch einsortiert. Damit ist der komplette Mail-Eingang beim ersten Sortierlauf verfügbar.
+- Die vollständige **HTML-Originalmail** wird in Zielobjekte übernommen; App-eigenes HTML wird als sicheres `Markup` gepostet, damit Odoo 19 Tags wie `<p>`/`<b>` nicht als Klartext darstellt.
+- **Anhänge werden ins Zielobjekt kopiert und am Chatter-Eintrag verknüpft**: Helpdesk-Ticket, Projekt, Veranstaltung, ToDo-Ziel und Inbox-Filter-Historie.
+- Inline-Bild-/Attachment-Links werden beim Kopieren auf die neuen Attachment-IDs umgeschrieben.
+- Identische Anhänge werden beim erneuten Synchronisieren nicht mehrfach erzeugt.
+- Neuer Historien-Button **Originalmail + Anhänge ins Ziel** repariert bereits bestehende Zielobjekte, die vor diesem Fix unvollständig angelegt wurden. Bei Helpdesk-Tickets wird zusätzlich die Ticketbeschreibung neu aufgebaut.
 
 ## Änderungen in 19.0.1.1.1
 

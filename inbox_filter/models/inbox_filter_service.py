@@ -7,6 +7,8 @@ import urllib.error
 import urllib.request
 from datetime import timedelta
 
+from markupsafe import Markup
+
 from odoo import _, api, fields, models, tools
 from odoo.exceptions import UserError
 
@@ -322,7 +324,7 @@ class InboxFilterService(models.AbstractModel):
 
     def _apply_qualified(self, lead, history, decision):
         stage = self._get_or_create_stage("Qualifiziert", sequence=20)
-        lead.write({"stage_id": stage.id, "active": True})
+        lead.with_context(inbox_filter_skip_auto=True).write({"stage_id": stage.id, "active": True})
         lead.message_post(body=self._format_internal_note("Inbox Filter: als Lead qualifiziert", decision))
         history.write({
             "target_stage_id": stage.id,
@@ -333,7 +335,7 @@ class InboxFilterService(models.AbstractModel):
 
     def _apply_band_request(self, lead, history, decision):
         stage = self._get_or_create_stage("Bandanfragen", sequence=25)
-        lead.write({"stage_id": stage.id, "active": True})
+        lead.with_context(inbox_filter_skip_auto=True).write({"stage_id": stage.id, "active": True})
         lead.message_post(body=self._format_internal_note("Inbox Filter: als Bandanfrage erkannt", decision))
         history.write({
             "target_stage_id": stage.id,
@@ -342,7 +344,7 @@ class InboxFilterService(models.AbstractModel):
         })
 
     def _apply_archive_category(self, lead, history, decision, title, moved_to):
-        lead.write({"active": False})
+        lead.with_context(inbox_filter_skip_auto=True).write({"active": False})
         history.write({
             "moved_to": moved_to,
             "status": "applied",
@@ -351,7 +353,7 @@ class InboxFilterService(models.AbstractModel):
 
     def _apply_review(self, lead, history, decision):
         stage = self._get_or_create_stage("Zu prüfen", sequence=30)
-        lead.write({"stage_id": stage.id, "active": True})
+        lead.with_context(inbox_filter_skip_auto=True).write({"stage_id": stage.id, "active": True})
         lead.message_post(body=self._format_internal_note("Inbox Filter: manuell prüfen", decision))
         history.write({
             "target_stage_id": stage.id,
@@ -367,9 +369,9 @@ class InboxFilterService(models.AbstractModel):
             history.write({"gpt_response_json": json.dumps(decision, ensure_ascii=False, indent=2)})
             return self._apply_review(lead, history, decision)
 
-        body = self._format_production_chatter_note(lead, decision)
-        record.message_post(body=body)
-        lead.write({"active": False})
+        intro = self._format_production_chatter_note(lead, decision, include_original=False)
+        self._post_original_mail_to_target(record, lead, intro_html=intro, message_type="comment")
+        lead.with_context(inbox_filter_skip_auto=True).write({"active": False})
         values = {
             "moved_to": "%s: %s" % (record._description or record._name, record.display_name),
             "status": "applied",
@@ -390,7 +392,7 @@ class InboxFilterService(models.AbstractModel):
 
         target = self._resolve_target_record(decision) or lead
         self._schedule_todo(target, employee.user_id, lead, decision)
-        lead.write({"active": False})
+        lead.with_context(inbox_filter_skip_auto=True).write({"active": False})
         history.write({
             "employee_id": employee.id,
             "user_id": employee.user_id.id,
@@ -405,7 +407,7 @@ class InboxFilterService(models.AbstractModel):
             decision["reason"] = (decision.get("reason") or "") + " | Helpdesk ist nicht installiert; Support-Ticket konnte nicht erstellt werden."
             history.write({"gpt_response_json": json.dumps(decision, ensure_ascii=False, indent=2)})
             return self._apply_review(lead, history, decision)
-        lead.write({"active": False})
+        lead.with_context(inbox_filter_skip_auto=True).write({"active": False})
         history.write({
             "moved_to": "Kundensupport: %s" % ticket.display_name,
             "status": "applied",
@@ -422,7 +424,7 @@ class InboxFilterService(models.AbstractModel):
             decision["reason"] = (decision.get("reason") or "") + " | Helpdesk ist nicht installiert; Kartenbestellung konnte nicht als Ticket erstellt werden."
             history.write({"gpt_response_json": json.dumps(decision, ensure_ascii=False, indent=2)})
             return self._apply_review(lead, history, decision)
-        lead.write({"active": False})
+        lead.with_context(inbox_filter_skip_auto=True).write({"active": False})
         history.write({
             "moved_to": "Kundensupport / Kartenbestellung: %s" % ticket.display_name,
             "status": "applied",
@@ -621,8 +623,13 @@ class InboxFilterService(models.AbstractModel):
     def _schedule_todo(self, target, user, source_lead, decision):
         activity_type = self.env.ref("mail.mail_activity_data_todo")
         deadline = fields.Date.context_today(self) + timedelta(days=1)
-        body = self._format_internal_note("Inbox Filter: ToDo aus CRM-Eingang", decision)
-        body += "<p><b>Ursprünglicher Lead:</b> %s</p>" % tools.html_escape(source_lead.display_name)
+        intro = self._format_internal_note("Inbox Filter: ToDo aus CRM-Eingang", decision)
+        intro += Markup("<p><b>Ursprünglicher Lead:</b> %s</p>") % source_lead.display_name
+
+        # Im ToDo selbst soll der komplette Inhalt lesbar sein. Anhänge hängen wir
+        # zusätzlich an einen Chatter-Eintrag des Zielobjekts, weil mail.activity
+        # keine eigene Attachment-Ablage für diese Übergabe bietet.
+        activity_body = intro + self._format_original_mail_html(source_lead)
         self.env["mail.activity"].create({
             "activity_type_id": activity_type.id,
             "res_model_id": self.env["ir.model"]._get_id(target._name),
@@ -630,9 +637,15 @@ class InboxFilterService(models.AbstractModel):
             "user_id": user.id,
             "date_deadline": deadline,
             "summary": decision.get("suggested_title") or self._record_value(source_lead, "name", "") or _("Inbox Filter ToDo"),
-            "note": body,
+            "note": activity_body,
         })
-        target.message_post(body=body)
+
+        if target._name == source_lead._name and target.id == source_lead.id:
+            # Originalmail und Anhänge liegen bereits am CRM-Datensatz. Nur die
+            # Zuordnungsnotiz ergänzen, damit keine Attachment-Duplikate entstehen.
+            target.message_post(body=intro)
+        else:
+            self._post_original_mail_to_target(target, source_lead, intro_html=intro, message_type="comment")
 
     def _create_support_ticket(self, lead, decision, ticket_kind="Kundensupport"):
         if "helpdesk.ticket" not in self.env.registry.models:
@@ -645,6 +658,8 @@ class InboxFilterService(models.AbstractModel):
         if "name" in Ticket._fields:
             vals["name"] = title
         if "description" in Ticket._fields:
+            # Die Beschreibung enthält nicht mehr nur eine plaintext/escaped Kopie,
+            # sondern den tatsächlich gerenderten Original-Mailbody.
             vals["description"] = self._support_description(lead, decision, ticket_kind=ticket_kind)
         lead_contact_name = self._record_value(lead, "contact_name", "") or ""
         lead_partner_name = self._record_value(lead, "partner_name", "") or ""
@@ -666,22 +681,144 @@ class InboxFilterService(models.AbstractModel):
         return ticket
 
     def _post_original_as_email_to_ticket(self, ticket, lead, decision, ticket_kind="Kundensupport"):
-        subject = self._record_value(lead, "name", "") or ticket.display_name
-        body = self._support_description(lead, decision, ticket_kind=ticket_kind)
+        intro = self._support_intro_html(lead, decision, ticket_kind=ticket_kind)
+        self._post_original_mail_to_target(ticket, lead, intro_html=intro, message_type="email")
+
+    def _get_original_mail_data(self, lead):
+        if not lead or not lead.exists():
+            return {}, self.env["mail.message"]
+        data = self.env["inbox.filter.history"].sudo()._extract_original_mail_message(lead)
+        message = self.env["mail.message"].sudo()
+        message_id = data.get("message_id")
+        if message_id:
+            message = message.browse(int(message_id)).exists()
+        return data, message
+
+    def _get_source_mail_attachments(self, lead, source_message=None):
+        Attachment = self.env["ir.attachment"].sudo()
+        attachments = Attachment
+        if source_message and source_message.exists():
+            attachments = source_message.sudo().attachment_ids
+
+        # Defensive Fallback: Manche Mail-Routen hängen Dateien am Zieldatensatz
+        # an, ohne dass sie in message.attachment_ids auftauchen. Beim ersten
+        # Sortierlauf (jetzt Pre-Commit) sind diese Dateien bereits vorhanden.
+        if not attachments and lead and lead.exists():
+            domain = [("res_model", "=", lead._name), ("res_id", "=", lead.id)]
+            if "res_field" in Attachment._fields:
+                domain.append(("res_field", "=", False))
+            attachments = Attachment.search(domain, order="id asc")
+        return attachments
+
+    def _copy_mail_attachments(self, source_attachments, target):
+        """Kopiert Mail-Anhänge ins Ziel und vermeidet identische Duplikate.
+
+        Das ist besonders für den Reparatur-/Synchronisieren-Button wichtig: Ein
+        zweiter Klick soll dieselbe PDF/JPG-Datei nicht erneut erzeugen.
+        """
+        Attachment = self.env["ir.attachment"].sudo()
+        copied = Attachment
+        id_map = {}
+
+        existing = Attachment.search([
+            ("res_model", "=", target._name),
+            ("res_id", "=", target.id),
+        ])
+        existing_by_key = {}
+        for item in existing:
+            key = (item.name or "", item.checksum or "", item.file_size or 0, item.mimetype or "")
+            existing_by_key.setdefault(key, item)
+
+        for attachment in source_attachments.sudo():
+            key = (
+                attachment.name or "",
+                attachment.checksum or "",
+                attachment.file_size or 0,
+                attachment.mimetype or "",
+            )
+            new_attachment = existing_by_key.get(key)
+            if not new_attachment:
+                values = {
+                    "res_model": target._name,
+                    "res_id": target.id,
+                }
+                if "res_field" in attachment._fields:
+                    values["res_field"] = False
+                try:
+                    new_attachment = attachment.copy(values)
+                except Exception:  # noqa: BLE001
+                    _logger.exception(
+                        "Inbox Filter could not copy attachment %s to %s,%s",
+                        attachment.id, target._name, target.id,
+                    )
+                    continue
+                existing_by_key[key] = new_attachment
+            copied |= new_attachment
+            id_map[attachment.id] = new_attachment.id
+        return copied, id_map
+
+    def _rewrite_attachment_links(self, html_body, attachment_id_map):
+        html_body = html_body or ""
+        for old_id, new_id in (attachment_id_map or {}).items():
+            replacements = (
+                ("/web/image/ir.attachment/%s/" % old_id, "/web/image/ir.attachment/%s/" % new_id),
+                ("/web/content/ir.attachment/%s/" % old_id, "/web/content/ir.attachment/%s/" % new_id),
+                ("/web/image/%s" % old_id, "/web/image/%s" % new_id),
+                ("/web/content/%s" % old_id, "/web/content/%s" % new_id),
+            )
+            for old, new in replacements:
+                html_body = html_body.replace(old, new)
+        return html_body
+
+    def _post_original_mail_to_target(self, target, lead, intro_html=None, message_type="comment"):
+        """Kopiert die vollständige Originalmail inklusive Attachments ins Ziel.
+
+        Diese Methode ist absichtlich zentral für Helpdesk, Projekt/Event, ToDo
+        und Inbox-Filter-Historie. So gibt es nicht mehr mehrere leicht
+        unterschiedliche/abgeschnittene Darstellungen derselben Mail.
+        """
+        data, source_message = self._get_original_mail_data(lead)
+        source_attachments = self._get_source_mail_attachments(lead, source_message)
+        copied_attachments, attachment_id_map = self._copy_mail_attachments(source_attachments, target)
+
+        source_html = data.get("body_html") or ""
+        if source_html and attachment_id_map:
+            source_html = self._rewrite_attachment_links(source_html, attachment_id_map)
+
+        original = self._format_original_mail_html(lead, mail_data=data, body_html=source_html or None)
+        body = (intro_html or Markup("")) + original
+        subject = data.get("subject") or self._record_value(lead, "name", "") or target.display_name
+
         kwargs = {
             "body": body,
             "subject": subject,
-            "message_type": "email",
+            "message_type": message_type,
             "subtype_xmlid": "mail.mt_comment",
         }
-        email_from = self._record_value(lead, "email_from", "")
-        if email_from:
-            kwargs["email_from"] = email_from
+        if copied_attachments:
+            kwargs["attachment_ids"] = copied_attachments.ids
+
+        if message_type == "email":
+            email_from = data.get("email_from") or self._record_value(lead, "email_from", "") or ""
+            if email_from:
+                kwargs["email_from"] = email_from
+            if source_message and source_message.author_id:
+                kwargs["author_id"] = source_message.author_id.id
+
         try:
-            ticket.message_post(**kwargs)
+            return target.message_post(**kwargs)
         except Exception as exc:  # noqa: BLE001
-            _logger.warning("Could not post original support mail with email metadata: %s", exc)
-            ticket.message_post(body=body, subject=subject, subtype_xmlid="mail.mt_comment")
+            # Einige Zielmodelle akzeptieren keine message_type=email-Metadaten.
+            # Inhalt und Attachments müssen trotzdem erhalten bleiben.
+            _logger.warning("Inbox Filter mail copy fallback for %s,%s: %s", target._name, target.id, exc)
+            fallback = {
+                "body": body,
+                "subject": subject,
+                "subtype_xmlid": "mail.mt_comment",
+            }
+            if copied_attachments:
+                fallback["attachment_ids"] = copied_attachments.ids
+            return target.message_post(**fallback)
 
     def _find_customer_care_team(self):
         if "helpdesk.team" not in self.env.registry.models:
@@ -704,7 +841,7 @@ class InboxFilterService(models.AbstractModel):
         return Team.search([], limit=1)
 
     def _notify_action_required(self, history, title, message, target=None):
-        body = "<p><b>%s</b></p><p>%s</p>" % (tools.html_escape(title), tools.html_escape(message or ""))
+        body = Markup("<p><b>%s</b></p><p>%s</p>") % (title, message or "")
         try:
             history.message_post(body=body)
         except Exception:  # noqa: BLE001
@@ -1194,7 +1331,10 @@ Filterdefinitionen:
         return _("Inbox Filter abgeschlossen: %s.") % ", ".join(parts)
 
     def _format_internal_note(self, title, decision):
-        return """
+        # Odoo 19 escaped normale Python-Strings in message_post bewusst. HTML,
+        # das von unserer Anwendung selbst erzeugt wird, muss deshalb explizit
+        # als Markup gekennzeichnet sein; sonst erscheinen <p>, <b> usw. als Text.
+        return Markup("""
             <p><b>%s</b></p>
             <ul>
                 <li><b>Kategorie:</b> %s</li>
@@ -1202,58 +1342,84 @@ Filterdefinitionen:
                 <li><b>Begründung:</b> %s</li>
                 <li><b>Zusammenfassung:</b> %s</li>
             </ul>
-        """ % (
-            tools.html_escape(title),
-            tools.html_escape(CATEGORY_LABELS.get(decision.get("category"), decision.get("category") or "")),
-            tools.html_escape(str(decision.get("confidence") or "")),
-            tools.html_escape(decision.get("reason") or ""),
-            tools.html_escape(decision.get("summary") or ""),
+        """) % (
+            title,
+            CATEGORY_LABELS.get(decision.get("category"), decision.get("category") or ""),
+            str(decision.get("confidence") or ""),
+            decision.get("reason") or "",
+            decision.get("summary") or "",
         )
 
-    def _format_production_chatter_note(self, lead, decision):
-        return """
+    def _format_production_chatter_note(self, lead, decision, include_original=True):
+        intro = Markup("""
             <p><b>Inbox Filter: Anfrage aus CRM-Eingang zugeordnet</b></p>
             <p><b>Ursprünglicher CRM-Datensatz:</b> %s</p>
             <p><b>Zusammenfassung:</b> %s</p>
             <p><b>Begründung:</b> %s</p>
-            <hr/>
-            %s
-        """ % (
-            tools.html_escape(lead.display_name),
-            tools.html_escape(decision.get("summary") or ""),
-            tools.html_escape(decision.get("reason") or ""),
-            self._format_original_text_html(lead),
+        """) % (
+            lead.display_name,
+            decision.get("summary") or "",
+            decision.get("reason") or "",
         )
+        if include_original:
+            return intro + self._format_original_mail_html(lead)
+        return intro
 
-    def _support_description(self, lead, decision, ticket_kind="Kundensupport"):
-        return """
+    def _support_intro_html(self, lead, decision, ticket_kind="Kundensupport"):
+        return Markup("""
             <p><b>Aus CRM Inbox Filter übernommen</b></p>
             <p><b>Typ:</b> %s</p>
             <p><b>Zusammenfassung:</b> %s</p>
             <p><b>Support-Grund:</b> %s</p>
             <p><b>Kontakt:</b> %s / %s / %s</p>
-            <hr/>
-            %s
-        """ % (
-            tools.html_escape(ticket_kind or "Kundensupport"),
-            tools.html_escape(decision.get("summary") or ""),
-            tools.html_escape(decision.get("support_reason") or decision.get("reason") or ""),
-            tools.html_escape(self._record_value(lead, "contact_name", "") or self._record_value(lead, "partner_name", "") or ""),
-            tools.html_escape(self._record_value(lead, "email_from", "") or ""),
-            tools.html_escape(self._record_value(lead, "phone", "") or self._record_value(lead, "mobile", "") or ""),
-            self._format_original_text_html(lead),
+        """) % (
+            ticket_kind or "Kundensupport",
+            decision.get("summary") or "",
+            decision.get("support_reason") or decision.get("reason") or "",
+            self._record_value(lead, "contact_name", "") or self._record_value(lead, "partner_name", "") or "",
+            self._record_value(lead, "email_from", "") or "",
+            self._record_value(lead, "phone", "") or self._record_value(lead, "mobile", "") or "",
+        )
+
+    def _support_description(self, lead, decision, ticket_kind="Kundensupport"):
+        return self._support_intro_html(lead, decision, ticket_kind=ticket_kind) + self._format_original_mail_html(lead)
+
+    def _format_original_mail_html(self, lead, mail_data=None, body_html=None):
+        mail_data = mail_data if mail_data is not None else self._get_original_mail_data(lead)[0]
+        subject = mail_data.get("subject") or self._record_value(lead, "name", "") or ""
+        sender = mail_data.get("email_from") or self._record_value(lead, "email_from", "") or ""
+        sent_date = mail_data.get("date") or ""
+
+        if body_html is None:
+            body_html = mail_data.get("body_html") or ""
+        if body_html:
+            # mail.message.body ist beim Eingang bereits von Odoo sanitisiert.
+            original_content = Markup(body_html)
+        else:
+            body_text = mail_data.get("body") or ""
+            if not body_text:
+                description = self._record_value(lead, "description", "") or ""
+                body_text = tools.html2plaintext(description).strip()
+            if body_text:
+                original_content = Markup('<pre style="white-space: pre-wrap; font-family: inherit;">%s</pre>') % body_text
+            else:
+                original_content = Markup("<p><i>Kein Nachrichtentext vorhanden.</i></p>")
+
+        meta = Markup("<p><b>Von:</b> %s<br/><b>Betreff:</b> %s") % (sender, subject)
+        if sent_date:
+            meta += Markup("<br/><b>Datum:</b> %s") % sent_date
+        meta += Markup("</p>")
+
+        return (
+            Markup('<div class="o_inbox_filter_original_mail"><hr/><p><b>Originalnachricht</b></p>')
+            + meta
+            + Markup("<hr/>")
+            + original_content
+            + Markup("</div>")
         )
 
     def _format_original_text_html(self, lead):
-        subject = self._record_value(lead, "name", "") or ""
-        raw = self.env["inbox.filter.history"].sudo()._format_lead_raw_input(lead)
-        if not raw:
-            description = self._record_value(lead, "description", "") or ""
-            message = tools.html2plaintext(description).strip()
-            raw = "Betreff:\n%s\n\nNachricht:\n%s" % (subject, message)
-        return """
-            <p><b>Originaltext:</b></p>
-            <p><b>Betreff:</b> %s</p>
-            <p><b>Gesamte Nachricht:</b></p>
-            <pre style="white-space: pre-wrap; font-family: inherit;">%s</pre>
-        """ % (tools.html_escape(subject), tools.html_escape(raw))
+        # Abwärtskompatibler Methodenname für ältere Aufrufer. Die Darstellung
+        # verwendet jetzt HTML, wenn die Originalmail HTML enthielt.
+        return self._format_original_mail_html(lead)
+

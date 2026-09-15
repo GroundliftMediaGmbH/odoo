@@ -24,6 +24,7 @@
             <form string="Inbox Filter Vorgang">
                 <header>
                     <button name="action_open_record" type="object" string="Datensatz öffnen"/>
+                    <button name="action_sync_original_mail_to_target" type="object" string="Originalmail + Anhänge ins Ziel" class="btn-secondary" confirm="Die vollständige Originalmail samt Anhängen erneut in den aktuellen Ziel-Datensatz übertragen?"/>
                     <button name="action_reclassify" type="object" string="Neu erkennen" class="btn-primary" confirm="Diesen Datensatz erneut prüfen und neu einsortieren?"/>
                     <button name="action_reclassify_all" type="object" string="Alle neu einsortieren" class="btn-secondary" confirm="Alle Historien-Datensätze, die nicht auf 'Perfekt erkannt' stehen, werden neu geprüft und erneut verschoben. Fortfahren?"/>
                     <button name="action_reclassify_errors" type="object" string="Alle mit Fehler neu einsortieren" class="btn-secondary" confirm="Alle fehlerhaften Historien-Datensätze, die nicht auf 'Perfekt erkannt' stehen, werden erneut geprüft. Fortfahren?"/>
