@@ -8,6 +8,7 @@
                 <header>
                     <button name="action_sort_now" type="object" string="Sortieren" class="btn-primary"/>
                     <button name="action_resort_all_history" type="object" string="Alle neu einsortieren" class="btn-secondary" confirm="Alle Historien-Datensätze, die nicht auf 'Perfekt erkannt' stehen, werden neu geprüft und erneut verschoben. Fortfahren?"/>
+                    <button name="action_resort_error_history" type="object" string="Alle mit Fehler neu einsortieren" class="btn-secondary" confirm="Alle fehlerhaften Historien-Datensätze, die nicht auf 'Perfekt erkannt' stehen, werden erneut geprüft. Fortfahren?"/>
                     <button name="action_regenerate_prompts" type="object" string="Alle Prompts neu generieren" class="btn-secondary" confirm="Alle als perfekt erkannt markierten Historien-Datensätze werden analysiert. Danach werden alte und neue Prompts zum Vergleich angezeigt. Fortfahren?"/>
                     <button name="action_open_history" type="object" string="Historie"/>
                     <button name="action_open_settings" type="object" string="Einstellungen"/>
