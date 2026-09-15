@@ -1,7 +1,7 @@
 {
     "name": "Groundlift To-Do Categories",
-    "summary": "Kategorien, gemeinsame Phasen sowie Alle/Meine Ansichten für die native Odoo To-Do-App",
-    "version": "19.0.1.4.1",
+    "summary": "Hierarchische Kategorien, Hidden-To-Dos, gemeinsame Phasen sowie Alle/Meine Ansichten für Odoo To-Do",
+    "version": "19.0.1.5.0",
     "category": "Productivity/To-Do",
     "author": "Groundlift",
     "license": "LGPL-3",

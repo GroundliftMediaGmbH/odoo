@@ -7,8 +7,9 @@
             <list string="To-Do-Kategorien" editable="bottom" default_order="sequence, name">
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
+                <field name="parent_id" string="Überkategorie" optional="show"/>
                 <field name="color" widget="color_picker" optional="show"/>
-                <field name="fold" optional="show"/>
+                <field name="fold" optional="hide"/>
                 <field name="active" optional="hide"/>
             </list>
         </field>
@@ -20,12 +21,22 @@
         <field name="arch" type="xml">
             <form string="To-Do-Kategorie">
                 <sheet>
+                    <field name="is_uncategorized" invisible="1"/>
                     <group>
                         <field name="name"/>
+                        <field name="parent_id" string="Überkategorie" options="{'no_create_edit': False}"/>
                         <field name="sequence"/>
                         <field name="color" widget="color_picker"/>
-                        <field name="fold"/>
                         <field name="active"/>
+                    </group>
+                    <group string="Unterkategorien" invisible="is_uncategorized">
+                        <field name="child_ids" nolabel="1" context="{'default_parent_id': id}">
+                            <list editable="bottom" default_order="sequence, name">
+                                <field name="sequence" widget="handle"/>
+                                <field name="name"/>
+                                <field name="active" optional="hide"/>
+                            </list>
+                        </field>
                     </group>
                 </sheet>
             </form>
@@ -38,7 +49,7 @@
         <field name="view_mode">list,form</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">Erste To-Do-Kategorie anlegen</p>
-            <p>Kategorien werden von allen internen Benutzern gemeinsam verwendet und können per Drag-and-drop sortiert werden.</p>
+            <p>Kategorien können hierarchisch mit Über- und Unterkategorien aufgebaut werden. Die Hierarchie erscheint links in der To-Do-Ansicht als aufklappbarer Baum.</p>
         </field>
     </record>
 </odoo>

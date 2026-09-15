@@ -2,16 +2,16 @@
 <odoo>
     <data noupdate="1">
         <!--
-            Native project_todo only grants internal users access to their own
-            top-level private To-Dos.  This extra READ-only rule makes the
-            requested "All To-Dos" overview possible without allowing users to
-            edit/delete another employee's private To-Do unless they are also an
-            assignee (the native write rules continue to apply for write/create/delete).
+            Interne Benutzer dürfen alle normalen privaten To-Dos lesen.
+            Hidden-To-Dos sind dagegen nur für zugewiesene Benutzer sichtbar.
+            Ist ein Hidden-To-Do unzugewiesen, bleibt es ausschließlich für den
+            Ersteller sichtbar. Schreib-/Löschrechte anderer Benutzer werden
+            weiterhin nicht erweitert.
         -->
         <record id="rule_gl_todo_read_all_internal" model="ir.rule">
-            <field name="name">To-Do: internal users can read all top-level To-Dos</field>
+            <field name="name">To-Do: internal users can read visible top-level To-Dos</field>
             <field name="model_id" ref="project.model_project_task"/>
-            <field name="domain_force">[("project_id", "=", False), ("parent_id", "=", False)]</field>
+            <field name="domain_force">[("project_id", "=", False), ("parent_id", "=", False), "|", ("gl_todo_hidden", "=", False), "|", ("user_ids", "in", [user.id]), "&amp;", ("user_ids", "=", False), ("create_uid", "=", user.id)]</field>
             <field name="groups" eval="[(4, ref('base.group_user'))]"/>
             <field name="perm_read" eval="True"/>
             <field name="perm_write" eval="False"/>

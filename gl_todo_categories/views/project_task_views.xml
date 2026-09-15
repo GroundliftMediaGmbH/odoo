@@ -13,6 +13,7 @@
             <xpath expr="//kanban/field[@name='sequence']" position="after">
                 <field name="gl_todo_category_id"/>
                 <field name="gl_todo_phase_id"/>
+                <field name="gl_todo_hidden"/>
             </xpath>
         </field>
     </record>
@@ -32,6 +33,7 @@
             </xpath>
             <xpath expr="//list/field[@name='name']" position="after">
                 <field name="gl_todo_category_id" string="Kategorie" optional="show"/>
+                <field name="gl_todo_hidden" string="Hidden" optional="show"/>
             </xpath>
         </field>
     </record>
@@ -44,6 +46,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='user_ids']" position="after">
                 <field name="gl_todo_category_id" string="Kategorie"/>
+                <field name="gl_todo_hidden" string="Hidden"/>
             </xpath>
         </field>
     </record>
@@ -56,6 +59,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='display_name']" position="after">
                 <field name="gl_todo_category_id" string="Kategorie"/>
+                <field name="gl_todo_hidden" string="Hidden"/>
             </xpath>
         </field>
     </record>
@@ -67,7 +71,7 @@
         <field name="inherit_id" ref="project_todo.project_task_view_todo_search"/>
         <field name="arch" type="xml">
             <xpath expr="//search/field[@name='tag_ids']" position="after">
-                <field name="gl_todo_category_id" string="Kategorie"/>
+                <field name="gl_todo_category_id" string="Kategorie" operator="child_of"/>
             </xpath>
             <!--
                 Unabhängige linke Kategorienleiste. Die Auswahl filtert nur die
@@ -80,6 +84,8 @@
                            string="Kategorien"
                            icon="fa-folder-open"
                            select="one"
+                           hierarchize="1"
+                           depth="1"
                            enable_counters="1"
                            limit="0"/>
                 </searchpanel>
@@ -108,6 +114,7 @@
             'search_default_open_tasks': 1,
             'list_view_ref': 'project_todo.project_task_view_todo_tree',
             'default_project_id': False,
+            'gl_category_tree_filter': True,
             'default_user_ids': [uid],
             'show_todo_mail_helper': True,
             'show_task_options': False,
@@ -126,6 +133,7 @@
             'search_default_open_tasks': 1,
             'list_view_ref': 'project_todo.project_task_view_todo_tree',
             'default_project_id': False,
+            'gl_category_tree_filter': True,
             'show_todo_mail_helper': True,
             'show_task_options': False,
         }</field>

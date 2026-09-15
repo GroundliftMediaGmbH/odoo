@@ -1,4 +1,5 @@
 from odoo import api, fields, models
+from odoo.fields import Domain
 
 
 class ProjectTask(models.Model):
@@ -12,6 +13,15 @@ class ProjectTask(models.Model):
         group_expand="_read_group_gl_todo_category_id",
         help="Gemeinsame Kategorie zur Organisation der To-Dos in der To-Do-App.",
     )
+    gl_todo_hidden = fields.Boolean(
+        string="Hidden",
+        default=False,
+        index=True,
+        help=(
+            "Versteckte To-Dos sind nur für ihre zugewiesenen Mitarbeiter sichtbar. "
+            "Ist niemand zugewiesen, bleibt das To-Do nur für seinen Ersteller sichtbar."
+        ),
+    )
     gl_todo_phase_id = fields.Many2one(
         "gl.todo.phase",
         string="Phase",
@@ -23,6 +33,39 @@ class ProjectTask(models.Model):
             "auch für nicht zugewiesene To-Dos und in der Teamansicht eindeutig."
         ),
     )
+
+    @api.model
+    def _search(self, domain, offset=0, limit=None, order=None, **kwargs):
+        """Im Kategorienbaum bedeutet ein Klick auf eine Überkategorie: inklusive Kinder.
+
+        Das native Search Panel rendert die Hierarchie, erzeugt für die Auswahl
+        jedoch einen normalen Gleichheitsfilter. In unseren To-Do-Actions wandeln
+        wir ausschließlich diesen Kategorienfilter in ``child_of`` um. Andere
+        Suchen auf project.task bleiben unverändert.
+        """
+        if self.env.context.get("gl_category_tree_filter"):
+            def expand_category(condition):
+                if (
+                    condition.field_expr == "gl_todo_category_id"
+                    and condition.operator == "="
+                    and condition.value
+                ):
+                    return Domain(
+                        "gl_todo_category_id",
+                        "child_of",
+                        condition.value,
+                    )
+                return condition
+
+            domain = Domain(domain).map_conditions(expand_category)
+
+        return super()._search(
+            domain,
+            offset=offset,
+            limit=limit,
+            order=order,
+            **kwargs,
+        )
 
     @api.model
     def _read_group_gl_todo_category_id(self, categories, domain):
@@ -173,8 +216,35 @@ class ProjectTask(models.Model):
         return result
 
     @api.model
+    def _gl_update_read_all_security_rule(self):
+        """Aktualisiert die bestehende Alle-To-Dos-Regel auch bei älteren Installationen.
+
+        Die Regel war in früheren Versionen mit ``noupdate=1`` angelegt. Deshalb
+        schreiben wir den Domain hier bewusst per ORM, damit Hidden beim Upgrade
+        sofort serverseitig geschützt ist.
+        """
+        rule = self.env.ref(
+            "gl_todo_categories.rule_gl_todo_read_all_internal",
+            raise_if_not_found=False,
+        )
+        if rule:
+            rule.sudo().write({
+                "domain_force": (
+                    "[(\"project_id\", \"=\", False), "
+                    "(\"parent_id\", \"=\", False), "
+                    "\"|\", (\"gl_todo_hidden\", \"=\", False), "
+                    "\"|\", (\"user_ids\", \"in\", [user.id]), "
+                    "\"&\", (\"user_ids\", \"=\", False), "
+                    "(\"create_uid\", \"=\", user.id)]"
+                ),
+                "active": True,
+            })
+        return True
+
+    @api.model
     def _gl_ensure_uncategorized_category_and_backfill(self):
         """Installations-/Upgrade-Migration für Kategorien und gemeinsame Phasen."""
+        self._gl_update_read_all_security_rule()
         fallback = self._gl_uncategorized_category()
         Phase = self.env["gl.todo.phase"]
         Phase._ensure_standard_phases()
