@@ -47,14 +47,20 @@ async function sendBrowserEvent(ctx, eventName, value=0, currency="EUR") {
         currency: currency || "EUR",
     };
     window.fbq("trackSingle", ctx.pixel_id, eventName, params, { eventID: eventUid });
-    await rpc("/meta_pixel/log_browser_event", {
-        event_id: ctx.event_id,
-        event_name: eventName,
-        event_uid: eventUid,
-        value: Number(value || 0),
-        currency: currency || "EUR",
-        page_url: window.location.href,
-    });
+
+    // Internal reporting is deliberately best-effort.  Never make a Meta reporting
+    // request part of Odoo's checkout/payment flow.  On event pages we can log it;
+    // on commerce pages Meta receives the event but Odoo checkout remains untouched.
+    if (!ctx.skip_internal_log) {
+        rpc("/meta_pixel/log_browser_event", {
+            event_id: ctx.event_id,
+            event_name: eventName,
+            event_uid: eventUid,
+            value: Number(value || 0),
+            currency: currency || "EUR",
+            page_url: window.location.href,
+        }).catch((error) => console.warn("Meta Pixel reporting log error", error));
+    }
     return true;
 }
 async function onEventPage() {
@@ -86,12 +92,15 @@ async function onEventPage() {
 }
 async function onCommercePage() {
     const path = window.location.pathname;
-    const interesting = path.startsWith("/shop/cart") || path.startsWith("/shop/checkout") || path.startsWith("/shop/payment") || path.startsWith("/payment");
+    // Do NOT run on generic /payment/* routes. Those include Odoo payment status,
+    // polling and provider return pages. Tracking must never touch those routes.
+    const interesting = path.startsWith("/shop/cart") || path.startsWith("/shop/checkout") || path.startsWith("/shop/payment");
     if (!interesting) return;
     const data = await rpc("/meta_pixel/cart_context", {});
     if (!data?.consent) return;
     for (const ctx of (data.events || [])) {
         ctx.consent = true;
+        ctx.skip_internal_log = true;
         const onceKey = `${path}:${ctx.event_id}`;
         const store = readStore();
         if (store[onceKey]) continue;
@@ -99,7 +108,7 @@ async function onCommercePage() {
             await sendBrowserEvent(ctx, "AddToCart", ctx.value, ctx.currency);
         } else if (path.startsWith("/shop/checkout") && ctx.events?.InitiateCheckout) {
             await sendBrowserEvent(ctx, "InitiateCheckout", ctx.value, ctx.currency);
-        } else if ((path.startsWith("/shop/payment") || path.startsWith("/payment")) && ctx.events?.AddPaymentInfo) {
+        } else if (path.startsWith("/shop/payment") && ctx.events?.AddPaymentInfo) {
             await sendBrowserEvent(ctx, "AddPaymentInfo", ctx.value, ctx.currency);
         }
         store[onceKey] = true;

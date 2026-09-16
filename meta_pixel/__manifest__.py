@@ -1,6 +1,6 @@
 {
     "name": "Meta Pixel",
-    "version": "19.0.1.0.2",
+    "version": "19.0.1.0.3",
     "summary": "Event-specific Meta Pixel and Conversions API tracking with reporting",
     "category": "Marketing/Events",
     "author": "Groundlift",
@@ -13,6 +13,7 @@
     ],
     "data": [
         "security/ir.model.access.csv",
+        "data_meta_pixel_cron.xml",
         "views/meta_pixel_config_views.xml",
         "views/meta_pixel_log_views.xml",
         "views/event_event_views.xml",

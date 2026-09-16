@@ -146,3 +146,77 @@ class MetaPixelConfig(models.Model):
                 "sticky": False,
             },
         }
+
+    @api.model
+    def _cron_send_pending_purchase_events(self):
+        """Send Purchase events independently from the checkout transaction.
+
+        This job is intentionally detached from payment.transaction._post_process().
+        Any Meta/CAPI failure therefore cannot affect a payment, sale order, event
+        registration, or customer redirect.
+        """
+        Log = self.env["meta.pixel.log"].sudo()
+        Transaction = self.env["payment.transaction"].sudo()
+
+        # Keep the scan bounded. A successful Purchase is idempotent in our own log
+        # through event_uid, so re-scanning recent transactions is safe.
+        cutoff = fields.Datetime.subtract(fields.Datetime.now(), days=7)
+        transactions = Transaction.search([
+            ("state", "in", ("done", "authorized")),
+            ("sale_order_ids", "!=", False),
+            ("last_state_change", ">=", cutoff),
+        ], order="last_state_change asc", limit=500)
+
+        for tx in transactions:
+            try:
+                for order in tx.sale_order_ids.sudo():
+                    event_lines = order.order_line.filtered(
+                        lambda line: line.event_id and not line.display_type
+                    )
+                    for event in event_lines.mapped("event_id"):
+                        if not event.meta_track_purchase:
+                            continue
+                        config = event._get_meta_config().sudo()
+                        if not config or not config.capi_enabled or not config.access_token:
+                            continue
+
+                        event_uid = f"purchase_{order.id}_{event.id}_{tx.id}"
+                        if Log.search_count([
+                            ("event_uid", "=", event_uid),
+                            ("source", "=", "capi"),
+                        ], limit=1):
+                            continue
+
+                        lines = event_lines.filtered(lambda line: line.event_id == event)
+                        value = sum(lines.mapped("price_total"))
+                        result = config._send_capi(
+                            event=event,
+                            event_name="Purchase",
+                            event_id=event_uid,
+                            value=value,
+                            currency=order.currency_id.name,
+                            order=order,
+                            source_url=event.website_url,
+                            test_mode=event.meta_test_mode,
+                        )
+                        Log.create({
+                            "event_id": event.id,
+                            "config_id": config.id,
+                            "sale_order_id": order.id,
+                            "event_name": "Purchase",
+                            "event_uid": event_uid,
+                            "source": "capi",
+                            "status": "sent" if result.get("ok") else "error",
+                            "is_test": event.meta_test_mode,
+                            "value": value,
+                            "currency_id": order.currency_id.id,
+                            "response_code": str(result.get("status") or ""),
+                            "response_message": result.get("response") or result.get("message") or "",
+                            "page_url": event.website_url,
+                        })
+            except Exception:
+                # Never let one malformed order/config abort the cron batch.
+                _logger.exception(
+                    "Meta Pixel purchase cron failed for transaction %s", tx.reference
+                )
+        return True

@@ -12,7 +12,7 @@ class MetaPixelController(http.Controller):
         except Exception:
             return False
 
-    @http.route("/meta_pixel/event_context", type="jsonrpc", auth="public", website=True, csrf=False)
+    @http.route("/meta_pixel/event_context", type="jsonrpc", auth="public", website=True, csrf=False, readonly=True)
     def event_context(self, event_id=None, **kwargs):
         event = request.env["event.event"].sudo().browse(int(event_id or 0)).exists()
         if not event:
@@ -37,11 +37,19 @@ class MetaPixelController(http.Controller):
             },
         }
 
-    @http.route("/meta_pixel/cart_context", type="jsonrpc", auth="public", website=True, csrf=False)
+    @http.route("/meta_pixel/cart_context", type="jsonrpc", auth="public", website=True, csrf=False, readonly=True)
     def cart_context(self, **kwargs):
-        order = getattr(request, "cart", None)
+        # IMPORTANT: Never access request.cart here.  request.cart is part of Odoo's
+        # eCommerce cart lifecycle and may update/reset session cart state.  Tracking
+        # must be strictly observational.  Read the already existing order id only.
+        order_id = request.session.get("sale_order_id")
+        try:
+            order_id = int(order_id or 0)
+        except (TypeError, ValueError):
+            order_id = 0
+        order = request.env["sale.order"].sudo().browse(order_id).exists() if order_id else request.env["sale.order"]
         if not order:
-            return {"events": []}
+            return {"consent": self._optional_consent(), "events": []}
         contexts = []
         for event in order.order_line.sudo().filtered(lambda l: l.event_id and not l.display_type).mapped("event_id"):
             config = event._get_meta_config().sudo()
