@@ -18,7 +18,18 @@ class EventEvent(models.Model):
     meta_track_add_to_cart = fields.Boolean(string="AddToCart", default=True)
     meta_track_checkout = fields.Boolean(string="InitiateCheckout", default=True)
     meta_track_payment_info = fields.Boolean(string="AddPaymentInfo", default=True)
-    meta_track_purchase = fields.Boolean(string="Purchase", default=True)
+    meta_track_purchase = fields.Boolean(string="Purchase erfassen", default=True)
+    meta_purchase_browser = fields.Boolean(
+        string="Purchase über Browser-Pixel",
+        default=True,
+        help="Sendet den Purchase auf der Odoo-Bestätigungsseite über den Meta Browser Pixel.",
+    )
+    meta_purchase_capi = fields.Boolean(
+        string="Purchase über Conversions API",
+        default=True,
+        help="Sendet den Purchase zusätzlich serverseitig über die Meta Conversions API. "
+             "Bei paralleler Browser- und CAPI-Übermittlung verwendet die App dieselbe Event-ID zur Deduplication.",
+    )
     meta_log_count = fields.Integer(compute="_compute_meta_log_count")
     meta_purchase_count = fields.Integer(compute="_compute_meta_stats")
     meta_purchase_value = fields.Monetary(compute="_compute_meta_stats", currency_field="currency_id")
@@ -33,16 +44,24 @@ class EventEvent(models.Model):
             record.meta_log_count = counts.get(record.id, 0)
 
     def _compute_meta_stats(self):
+        """Count business purchases once even when Browser Pixel + CAPI both report them.
+
+        Browser and server use the same event_uid for Purchase.  The raw event log keeps
+        both transport records for diagnostics, while these event-level KPIs deduplicate
+        by event_uid so revenue is never doubled in the event form.
+        """
         for record in self:
             logs = self.env["meta.pixel.log"].search([
                 ("event_id", "=", record.id),
                 ("event_name", "=", "Purchase"),
-                ("source", "=", "capi"),
                 ("status", "=", "sent"),
                 ("is_test", "=", False),
-            ])
-            record.meta_purchase_count = len(logs)
-            record.meta_purchase_value = sum(logs.mapped("value"))
+            ], order="create_date asc, id asc")
+            purchases = {}
+            for log in logs:
+                purchases.setdefault(log.event_uid, log.value or 0.0)
+            record.meta_purchase_count = len(purchases)
+            record.meta_purchase_value = sum(purchases.values())
 
     def _get_meta_config(self):
         self.ensure_one()

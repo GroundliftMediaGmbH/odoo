@@ -27,8 +27,12 @@
                         <field name="meta_track_payment_info"/>
                         <field name="meta_track_purchase"/>
                     </group>
+                    <group string="Purchase-Übermittlung" invisible="meta_tracking_mode == 'disabled' or not meta_track_purchase">
+                        <field name="meta_purchase_browser"/>
+                        <field name="meta_purchase_capi"/>
+                    </group>
                     <div class="alert alert-info" role="alert" invisible="meta_tracking_mode == 'disabled'">
-                        Browser-Tracking wird nur nach Zustimmung zu optionalen Cookies aktiviert. Purchase wird zusätzlich über die Meta Conversions API gesendet, wenn diese in der gewählten Pixel-Konfiguration aktiviert ist.
+                        Browser-Tracking wird nur nach Zustimmung zu optionalen Cookies aktiviert. Purchase kann über den Browser-Pixel, die Conversions API oder über beide Wege gesendet werden. Bei Browser + CAPI verwendet die App dieselbe Event-ID, damit Meta beide Meldungen als denselben Kauf deduplizieren kann.
                     </div>
                 </page>
             </xpath>

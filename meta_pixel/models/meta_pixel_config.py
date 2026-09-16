@@ -170,11 +170,17 @@ class MetaPixelConfig(models.Model):
         for tx in transactions:
             try:
                 for order in tx.sale_order_ids.sudo():
+                    # Only the order's current/last successful transaction may create
+                    # a Purchase. This keeps the server event aligned with the browser
+                    # confirmation event and avoids duplicates after payment retries.
+                    last_tx = order.get_portal_last_transaction().sudo()
+                    if not last_tx or last_tx.id != tx.id or last_tx.state not in ("done", "authorized"):
+                        continue
                     event_lines = order.order_line.filtered(
                         lambda line: line.event_id and not line.display_type
                     )
                     for event in event_lines.mapped("event_id"):
-                        if not event.meta_track_purchase:
+                        if not event.meta_track_purchase or not event.meta_purchase_capi:
                             continue
                         config = event._get_meta_config().sudo()
                         if not config or not config.capi_enabled or not config.access_token:

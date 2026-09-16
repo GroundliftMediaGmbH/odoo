@@ -35,10 +35,10 @@ function loadPixel(pixelId) {
     window.fbq("init", pixelId);
     window.glMetaPixels[pixelId] = true;
 }
-async function sendBrowserEvent(ctx, eventName, value=0, currency="EUR") {
+async function sendBrowserEvent(ctx, eventName, value=0, currency="EUR", options={}) {
     if (!ctx?.consent || !ctx?.pixel_id) return false;
     loadPixel(ctx.pixel_id);
-    const eventUid = uid(eventName.toLowerCase(), ctx.event_id);
+    const eventUid = options.eventUid || ctx.event_uid || uid(eventName.toLowerCase(), ctx.event_id);
     const params = eventName === "PageView" ? {} : {
         content_ids: [`event_${ctx.event_id}`],
         content_type: "product",
@@ -48,19 +48,17 @@ async function sendBrowserEvent(ctx, eventName, value=0, currency="EUR") {
     };
     window.fbq("trackSingle", ctx.pixel_id, eventName, params, { eventID: eventUid });
 
-    // Internal reporting is deliberately best-effort.  Never make a Meta reporting
-    // request part of Odoo's checkout/payment flow.  On event pages we can log it;
-    // on commerce pages Meta receives the event but Odoo checkout remains untouched.
-    if (!ctx.skip_internal_log) {
-        rpc("/meta_pixel/log_browser_event", {
-            event_id: ctx.event_id,
-            event_name: eventName,
-            event_uid: eventUid,
-            value: Number(value || 0),
-            currency: currency || "EUR",
-            page_url: window.location.href,
-        }).catch((error) => console.warn("Meta Pixel reporting log error", error));
-    }
+    // Internal reporting is best-effort only. The request is intentionally NOT
+    // awaited, so a reporting failure can never block or roll back Odoo checkout.
+    rpc("/meta_pixel/log_browser_event", {
+        event_id: ctx.event_id,
+        event_name: eventName,
+        event_uid: eventUid,
+        value: Number(value || 0),
+        currency: currency || "EUR",
+        page_url: window.location.href,
+        sale_order_id: ctx.order_id || null,
+    }).catch((error) => console.warn("Meta Pixel reporting log error", error));
     return true;
 }
 async function onEventPage() {
@@ -100,8 +98,9 @@ async function onCommercePage() {
     if (!data?.consent) return;
     for (const ctx of (data.events || [])) {
         ctx.consent = true;
-        ctx.skip_internal_log = true;
-        const onceKey = `${path}:${ctx.event_id}`;
+        // Scope de-duplication to the current sale order. A second purchase of the
+        // same event in the same browser session must generate fresh funnel events.
+        const onceKey = `${path}:${ctx.event_id}:${ctx.order_id || "no_order"}`;
         const store = readStore();
         if (store[onceKey]) continue;
         if (path.startsWith("/shop/cart") && ctx.events?.AddToCart) {
@@ -116,12 +115,50 @@ async function onCommercePage() {
     }
 }
 
+function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function onPurchaseConfirmationPage() {
+    const path = window.location.pathname;
+    if (!path.startsWith("/shop/confirmation")) return;
+
+    // Some payment providers return the customer before the final transaction state
+    // has reached Odoo. Poll read-only for a short period so browser-only Purchase
+    // still has a chance to fire once Odoo marks the payment done/authorized.
+    for (let attempt = 0; attempt < 30; attempt++) {
+        const data = await rpc("/meta_pixel/purchase_context", {});
+        if (!data?.consent) return;
+        if (data?.ready) {
+            const store = readStore();
+            for (const ctx of (data.events || [])) {
+                ctx.consent = true;
+                const onceKey = `purchase:${ctx.event_uid}`;
+                if (store[onceKey]) continue;
+                await sendBrowserEvent(
+                    ctx,
+                    "Purchase",
+                    ctx.value,
+                    ctx.currency,
+                    { eventUid: ctx.event_uid },
+                );
+                store[onceKey] = true;
+            }
+            writeStore(store);
+            return;
+        }
+        if (!data?.pending) return;
+        await delay(1500);
+    }
+}
+
 async function boot() {
     if (bootPromise) return bootPromise;
     bootPromise = (async () => {
         try {
             await onEventPage();
             await onCommercePage();
+            await onPurchaseConfirmationPage();
         } catch (error) {
             console.warn("Meta Pixel tracking error", error);
         } finally {
