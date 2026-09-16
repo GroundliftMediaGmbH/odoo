@@ -3,6 +3,7 @@
 import { rpc } from "@web/core/network/rpc";
 
 const STORAGE_KEY = "gl_meta_pixel_seen_events";
+let bootPromise = null;
 
 function readStore() {
     try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}"); }
@@ -35,10 +36,10 @@ function loadPixel(pixelId) {
     window.glMetaPixels[pixelId] = true;
 }
 async function sendBrowserEvent(ctx, eventName, value=0, currency="EUR") {
-    if (!ctx?.consent || !ctx?.pixel_id) return;
+    if (!ctx?.consent || !ctx?.pixel_id) return false;
     loadPixel(ctx.pixel_id);
     const eventUid = uid(eventName.toLowerCase(), ctx.event_id);
-    const params = {
+    const params = eventName === "PageView" ? {} : {
         content_ids: [`event_${ctx.event_id}`],
         content_type: "product",
         content_name: ctx.event_name,
@@ -50,25 +51,37 @@ async function sendBrowserEvent(ctx, eventName, value=0, currency="EUR") {
         event_id: ctx.event_id,
         event_name: eventName,
         event_uid: eventUid,
-        value: params.value,
-        currency: params.currency,
+        value: Number(value || 0),
+        currency: currency || "EUR",
         page_url: window.location.href,
     });
+    return true;
 }
 async function onEventPage() {
     const marker = document.getElementById("gl_meta_pixel_event_context");
     if (!marker) return false;
     const eventId = Number(marker.dataset.eventId);
+    if (!eventId) return true;
+
     const ctx = await rpc("/meta_pixel/event_context", { event_id: eventId });
     if (!ctx?.enabled) return true;
+
     const store = readStore();
     store[eventId] = { pixel_id: ctx.pixel_id, ts: Date.now() };
     writeStore(store);
-    if (ctx.consent) {
-        loadPixel(ctx.pixel_id);
-        window.fbq("trackSingle", ctx.pixel_id, "PageView");
-        if (ctx.events?.ViewContent) await sendBrowserEvent(ctx, "ViewContent");
+
+    if (!ctx.consent) return true;
+
+    const pageKey = `eventpage:${eventId}:${window.location.pathname}`;
+    if (store[pageKey]) return true;
+
+    loadPixel(ctx.pixel_id);
+    await sendBrowserEvent(ctx, "PageView");
+    if (ctx.events?.ViewContent) {
+        await sendBrowserEvent(ctx, "ViewContent");
     }
+    store[pageKey] = true;
+    writeStore(store);
     return true;
 }
 async function onCommercePage() {
@@ -94,11 +107,30 @@ async function onCommercePage() {
     }
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
-    try {
-        await onEventPage();
-        await onCommercePage();
-    } catch (error) {
-        console.warn("Meta Pixel tracking error", error);
-    }
-});
+async function boot() {
+    if (bootPromise) return bootPromise;
+    bootPromise = (async () => {
+        try {
+            await onEventPage();
+            await onCommercePage();
+        } catch (error) {
+            console.warn("Meta Pixel tracking error", error);
+        } finally {
+            bootPromise = null;
+        }
+    })();
+    return bootPromise;
+}
+
+// Odoo 19 loads frontend assets lazily. If this module is evaluated after
+// DOMContentLoaded, registering only a DOMContentLoaded handler means the
+// tracking bootstrap would never run. Start immediately when the DOM is ready.
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot, { once: true });
+} else {
+    boot();
+}
+
+// Odoo emits this event when the visitor accepts optional cookies. This makes
+// the pixel start immediately after consent instead of requiring a page reload.
+document.addEventListener("optionalCookiesAccepted", boot);
