@@ -16,7 +16,14 @@ class GlHaScheduleWindow(models.Model):
     _order = "start_at, source, name"
 
     name = fields.Char(required=True)
-    source = fields.Selection([("event", "Groundlift Veranstaltung"), ("cinema", "Kino")], required=True, index=True)
+    source = fields.Selection([
+        ("event", "Groundlift Veranstaltung"),
+        ("cinema", "Kino"),
+        ("project_event", "Projekt · Theater / Veranstaltung"),
+        ("project_cinema", "Projekt · Kino"),
+        ("project_lounge", "Projekt Lounge"),
+        ("project_podcast", "Projekt Podcaststudio"),
+    ], required=True, index=True)
     source_ref = fields.Char(index=True)
     start_at = fields.Datetime(required=True, index=True)
     end_at = fields.Datetime(required=True, index=True)
@@ -32,6 +39,7 @@ class GlHaScheduleWindow(models.Model):
         config = config or self.env["gl.ha.config"].get_config().sudo()
         self._refresh_events(config)
         self._refresh_cinema(config)
+        self._refresh_projects(config)
         # Alte Cache-Fenster dienen nicht als Historie und werden begrenzt gehalten.
         self.search([("end_at", "<", fields.Datetime.now() - timedelta(days=7))]).unlink()
         config.sudo().write({"last_schedule_sync_at": fields.Datetime.now()})
@@ -97,6 +105,77 @@ class GlHaScheduleWindow(models.Model):
                 "details": _("Odoo Veranstaltung"),
             })
         self._replace_source("event", vals_list, start, end)
+
+    @api.model
+    def _project_window_values(self, project):
+        """Zeitfensterwerte eines Odoo-Projekts nach Raumquelle gruppieren."""
+        if not project or not project.exists():
+            return []
+        if not getattr(project, "ha_building_automation", False):
+            return []
+        if "active" in project._fields and not project.active:
+            return []
+        start_at = fields.Datetime.to_datetime(getattr(project, "ha_start_at", False))
+        end_at = fields.Datetime.to_datetime(getattr(project, "ha_end_at", False))
+        rooms = getattr(project, "ha_room_ids", self.env["gl.ha.project.room"])
+        if not start_at or not end_at or end_at <= start_at or not rooms:
+            return []
+
+        grouped = {}
+        for room in rooms:
+            source = room.schedule_source()
+            if source:
+                grouped.setdefault(source, []).append(room.name)
+
+        vals_list = []
+        for source, room_names in grouped.items():
+            vals_list.append({
+                "name": project.name or _("Projekt"),
+                "source": source,
+                "source_ref": "project:%s:%s" % (project.id, source),
+                "start_at": start_at,
+                "end_at": end_at,
+                "details": _("Odoo-Projekt · Räume: %s") % ", ".join(room_names),
+            })
+        return vals_list
+
+    @api.model
+    def _sync_single_project(self, project):
+        """Ein Projekt unmittelbar aktualisieren, ohne auf den Cron zu warten."""
+        if not project or not project.exists():
+            return True
+        self.search([("source_ref", "=like", "project:%s:%%" % project.id)]).unlink()
+        vals_list = self._project_window_values(project)
+        if vals_list:
+            self.create(vals_list)
+        return True
+
+    @api.model
+    def _refresh_projects(self, config):
+        now = fields.Datetime.now()
+        cutoff_start = now - timedelta(days=7)
+        cutoff_end = now + timedelta(days=config.schedule_horizon_days + 7)
+        Project = self.env["project.project"].sudo()
+        domain = [
+            ("ha_building_automation", "=", True),
+            ("ha_start_at", "<=", cutoff_end),
+            ("ha_end_at", ">=", cutoff_start),
+        ]
+        if "active" in Project._fields:
+            domain.append(("active", "=", True))
+        projects = Project.search(domain)
+        vals_by_source = {
+            "project_event": [],
+            "project_cinema": [],
+            "project_lounge": [],
+            "project_podcast": [],
+        }
+        for project in projects:
+            for vals in self._project_window_values(project):
+                vals_by_source[vals["source"]].append(vals)
+        for source, vals_list in vals_by_source.items():
+            self._replace_source(source, vals_list, cutoff_start, cutoff_end)
+        return True
 
     @api.model
     def _parse_duration_minutes(self, raw, fallback):

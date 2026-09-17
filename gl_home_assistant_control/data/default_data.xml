@@ -85,4 +85,6 @@
         <field name="has_numeric_value">True</field>
         <field name="is_available">False</field>
     </record>
+
+
 </odoo>

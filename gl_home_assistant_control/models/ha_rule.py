@@ -24,6 +24,9 @@ class GlHaAutomationRule(models.Model):
         ("cinema", "Kinovorstellungen"),
         ("daily", "Tägliches Zeitprogramm"),
         ("project", "Odoo-Projekt (manuell)"),
+        ("project_lounge", "Projekt Lounge"),
+        ("project_podcast", "Projekt Podcaststudio"),
+        ("dewpoint", "Taupunkt-Trocknung"),
     ], required=True, default="event")
 
     # Neue Mehrfachauswahl. Die beiden alten Many2one-Felder bleiben bewusst im
@@ -105,6 +108,43 @@ class GlHaAutomationRule(models.Model):
         string="Projektende",
         help="Manuell gepflegtes Ende. Bei Veranstaltungen über Mitternacht bitte das Folgedatum wählen, z. B. 13.02.2027 03:00.",
     )
+
+    # Taupunkt-Trocknung: Außenluft ist trocknungsfähig, wenn ihr Taupunkt
+    # ausreichend unter dem Taupunkt des Innenraums liegt. Die Regel besitzt
+    # einen eigenen Laufzeit-Zustand, damit Mindest- und Maximallaufzeit auch
+    # über mehrere Cron-Auswertungen hinweg stabil eingehalten werden.
+    dewpoint_outside_entity_id = fields.Many2one(
+        "gl.ha.entity",
+        string="Taupunkt außen",
+        domain="[('source_type','=','home_assistant'),('domain','=','sensor'),('active','=',True)]",
+        help="Außen-Taupunktsensor in °C.",
+    )
+    dewpoint_inside_entity_id = fields.Many2one(
+        "gl.ha.entity",
+        string="Taupunkt innen",
+        domain="[('source_type','=','home_assistant'),('domain','=','sensor'),('active','=',True)]",
+        help="Taupunktsensor des zu trocknenden Raums in °C.",
+    )
+    dewpoint_delta_threshold = fields.Float(
+        string="Mindest-Taupunktdifferenz (°C)",
+        default=2.0,
+        help="Trocknung startet, wenn Taupunkt innen minus Taupunkt außen mindestens diesen Wert erreicht. Beispiel innen 12 °C, außen 8 °C => Differenz 4 K.",
+    )
+    dewpoint_min_runtime_minutes = fields.Integer(
+        string="Mindestlaufzeit (Min.)",
+        default=15,
+        help="Nach dem Start bleibt die Trocknung mindestens so lange aktiv, sofern kein gewählter Betriebsblocker beginnt.",
+    )
+    dewpoint_max_runtime_minutes = fields.Integer(
+        string="Maximallaufzeit (Min.)",
+        default=180,
+        help="Nach dieser Laufzeit wird abgeschaltet. Ein Neustart ist erst möglich, nachdem die Taupunktdifferenz einmal wieder unter die Einschaltschwelle gefallen ist oder ein Betriebsblocker den Zyklus beendet hat.",
+    )
+    dewpoint_block_event = fields.Boolean(string="Bei Veranstaltungsbetrieb sperren", default=True)
+    dewpoint_block_cinema = fields.Boolean(string="Bei Kinobetrieb sperren", default=True)
+    dewpoint_block_project = fields.Boolean(string="Bei Projektbetrieb sperren", default=True)
+    dewpoint_running_since = fields.Datetime(string="Trocknung läuft seit", readonly=True, copy=False)
+    dewpoint_max_latched = fields.Boolean(string="Maximallaufzeit erreicht", readonly=True, default=False, copy=False)
 
     condition_entity_ids = fields.Many2many(
         "gl.ha.entity",
@@ -256,6 +296,27 @@ class GlHaAutomationRule(models.Model):
             if rec.condition_hysteresis < 0:
                 raise ValidationError(_("Die Hysterese darf nicht negativ sein."))
 
+    @api.constrains(
+        "source", "dewpoint_outside_entity_id", "dewpoint_inside_entity_id",
+        "dewpoint_delta_threshold", "dewpoint_min_runtime_minutes", "dewpoint_max_runtime_minutes",
+    )
+    def _check_dewpoint_settings(self):
+        for rec in self:
+            if rec.source != "dewpoint":
+                continue
+            if not rec.dewpoint_outside_entity_id or not rec.dewpoint_inside_entity_id:
+                raise ValidationError(_("Bitte Außen- und Innen-Taupunktsensor auswählen."))
+            if rec.dewpoint_outside_entity_id == rec.dewpoint_inside_entity_id:
+                raise ValidationError(_("Außen- und Innen-Taupunktsensor müssen unterschiedliche Entitäten sein."))
+            if rec.dewpoint_delta_threshold < 0:
+                raise ValidationError(_("Die Mindest-Taupunktdifferenz darf nicht negativ sein."))
+            if rec.dewpoint_min_runtime_minutes < 0:
+                raise ValidationError(_("Die Mindestlaufzeit darf nicht negativ sein."))
+            if rec.dewpoint_max_runtime_minutes <= 0:
+                raise ValidationError(_("Die Maximallaufzeit muss größer als 0 Minuten sein."))
+            if rec.dewpoint_max_runtime_minutes < rec.dewpoint_min_runtime_minutes:
+                raise ValidationError(_("Die Maximallaufzeit darf nicht kleiner als die Mindestlaufzeit sein."))
+
     @api.constrains("condition_entity_ids", "condition_entity_id")
     def _check_solar_sensor_selection(self):
         for rec in self:
@@ -339,6 +400,15 @@ class GlHaAutomationRule(models.Model):
         }
         if hysteresis_config_fields.intersection(vals) and "condition_hysteresis_latched" not in vals:
             vals["condition_hysteresis_latched"] = False
+        dewpoint_config_fields = {
+            "source", "dewpoint_outside_entity_id", "dewpoint_inside_entity_id",
+            "dewpoint_delta_threshold", "dewpoint_min_runtime_minutes",
+            "dewpoint_max_runtime_minutes", "dewpoint_block_event",
+            "dewpoint_block_cinema", "dewpoint_block_project", "active",
+        }
+        if dewpoint_config_fields.intersection(vals):
+            vals.setdefault("dewpoint_running_since", False)
+            vals.setdefault("dewpoint_max_latched", False)
         return super().write(vals)
 
     @api.model
@@ -522,6 +592,13 @@ class GlHaAutomationRule(models.Model):
         zur Auswahl des klaren/bewölkten Sonnen-Vorlaufs.
         """
         self.ensure_one()
+        if self.source == "dewpoint":
+            # Die Taupunkt-Sensoren besitzen ihre eigene Vergleichslogik.
+            # Eventuell aus einer kopierten Regel verbliebene Standardbedingungen
+            # dürfen die Trocknung nicht unsichtbar zusätzlich blockieren.
+            if reset_hysteresis and self.condition_hysteresis_latched:
+                self.sudo().write({"condition_hysteresis_latched": False})
+            return True, False
         sensors = self._generic_condition_entities()
         if not sensors:
             if reset_hysteresis and self.condition_hysteresis_latched:
@@ -659,7 +736,115 @@ class GlHaAutomationRule(models.Model):
             return max(fields.Datetime.to_datetime(effective_start), trigger), False, detail
         return fields.Datetime.to_datetime(effective_start), False, detail
 
-    def _window_result(self, now, config=None, weather_data=None, persist_solar_latch=False):
+    def _schedule_sources_for_rule(self):
+        """Cache-Quellen, die eine Regel als Betriebsfenster verwenden soll."""
+        self.ensure_one()
+        if self.source == "event":
+            # Theater-Projekte verhalten sich wie normale Veranstaltungen.
+            return ["event", "project_event"]
+        if self.source == "cinema":
+            # Kino-Projekte verhalten sich wie reguläre Kinovorstellungen.
+            return ["cinema", "project_cinema"]
+        if self.source in ("project_lounge", "project_podcast"):
+            return [self.source]
+        return [self.source]
+
+    def _dewpoint_blocking_window(self, now):
+        """Aktives Betriebsfenster liefern, das Taupunkt-Trocknung sperrt."""
+        self.ensure_one()
+        now = fields.Datetime.to_datetime(now)
+        sources = set()
+        if self.dewpoint_block_event:
+            sources.update(["event", "project_event"])
+        if self.dewpoint_block_cinema:
+            sources.update(["cinema", "project_cinema"])
+        if self.dewpoint_block_project:
+            sources.update(["project_event", "project_cinema", "project_lounge", "project_podcast"])
+        if sources:
+            window = self.env["gl.ha.schedule.window"].sudo().search([
+                ("source", "in", list(sources)),
+                ("start_at", "<=", now),
+                ("end_at", ">=", now),
+            ], order="start_at", limit=1)
+            if window:
+                return window
+
+        if self.dewpoint_block_project:
+            # Abwärtskompatibilität für bereits vorhandene manuelle Projektregeln.
+            project_rule = self.sudo().search([
+                ("id", "!=", self.id),
+                ("active", "=", True),
+                ("source", "=", "project"),
+                ("project_start_at", "<=", now),
+                ("project_end_at", ">=", now),
+            ], limit=1)
+            if project_rule:
+                return project_rule
+        return False
+
+    def _dewpoint_result(self, now, persist_state=False):
+        """Taupunkt-Trocknung inkl. Betriebsblockern und Laufzeitgrenzen.
+
+        Rückgabe entspricht der Zeitfensterlogik: (aktiv, unbekannt, Detail).
+        Ein Betriebsblocker hat immer Vorrang vor der Mindestlaufzeit.
+        """
+        self.ensure_one()
+        now = fields.Datetime.to_datetime(now)
+        blocker = self._dewpoint_blocking_window(now)
+        if blocker:
+            if persist_state and (self.dewpoint_running_since or self.dewpoint_max_latched):
+                self.sudo().write({"dewpoint_running_since": False, "dewpoint_max_latched": False})
+            label = getattr(blocker, "name", False) or _("Betrieb")
+            return False, False, _("Taupunkt-Trocknung gesperrt durch Betrieb: %s") % label
+
+        running_since = fields.Datetime.to_datetime(self.dewpoint_running_since) if self.dewpoint_running_since else False
+        if running_since:
+            runtime_minutes = max(0.0, (now - running_since).total_seconds() / 60.0)
+            if runtime_minutes >= self.dewpoint_max_runtime_minutes:
+                if persist_state:
+                    self.sudo().write({"dewpoint_running_since": False, "dewpoint_max_latched": True})
+                return False, False, _("Maximallaufzeit von %s Min. erreicht; wartet auf neue Trocknungsphase") % self.dewpoint_max_runtime_minutes
+
+        outside = self.dewpoint_outside_entity_id
+        inside = self.dewpoint_inside_entity_id
+        if not outside or not inside or not outside.is_available or not inside.is_available or not outside.has_numeric_value or not inside.has_numeric_value:
+            return False, True, _("Taupunktsensoren derzeit nicht vollständig verfügbar")
+
+        outside_dp = float(outside.numeric_value)
+        inside_dp = float(inside.numeric_value)
+        delta = inside_dp - outside_dp
+        dry_ok = delta >= float(self.dewpoint_delta_threshold or 0.0)
+        detail = _("Taupunkt innen %(inside).1f °C / außen %(outside).1f °C / Differenz %(delta).1f K (Schwelle %(threshold).1f K)") % {
+            "inside": inside_dp,
+            "outside": outside_dp,
+            "delta": delta,
+            "threshold": self.dewpoint_delta_threshold,
+        }
+
+        if self.dewpoint_max_latched:
+            if not dry_ok:
+                if persist_state:
+                    self.sudo().write({"dewpoint_max_latched": False, "dewpoint_running_since": False})
+                return False, False, detail + " · " + _("Neue Trocknungsphase wieder freigegeben")
+            return False, False, detail + " · " + _("Maximallaufzeit bereits erreicht; wartet bis Differenz unter die Schwelle fällt")
+
+        if running_since:
+            runtime_minutes = max(0.0, (now - running_since).total_seconds() / 60.0)
+            if dry_ok:
+                return True, False, detail + _(" · läuft seit %.0f Min.") % runtime_minutes
+            if runtime_minutes < self.dewpoint_min_runtime_minutes:
+                return True, False, detail + _(" · Mindestlaufzeit aktiv (%.0f/%s Min.)") % (runtime_minutes, self.dewpoint_min_runtime_minutes)
+            if persist_state:
+                self.sudo().write({"dewpoint_running_since": False, "dewpoint_max_latched": False})
+            return False, False, detail + " · " + _("Trocknung beendet")
+
+        if dry_ok:
+            if persist_state:
+                self.sudo().write({"dewpoint_running_since": now, "dewpoint_max_latched": False})
+            return True, False, detail + " · " + _("Trocknung startet")
+        return False, False, detail + " · " + _("Differenz zu klein")
+
+    def _window_result(self, now, config=None, weather_data=None, persist_solar_latch=False, persist_runtime=False):
         """Zeitfenster mit optionalem Sonnenanker auswerten.
 
         Rückgabe: (aktiv, unbekannt, Detailtext). 'Unbekannt' wird nur gemeldet,
@@ -669,6 +854,9 @@ class GlHaAutomationRule(models.Model):
         self.ensure_one()
         config = config or self.env["gl.ha.config"].sudo().get_config()
         now = fields.Datetime.to_datetime(now)
+
+        if self.source == "dewpoint":
+            return self._dewpoint_result(now, persist_state=persist_runtime)
 
         def evaluate_period(anchor_start, effective_start, effective_end):
             anchor_start = fields.Datetime.to_datetime(anchor_start)
@@ -732,7 +920,7 @@ class GlHaAutomationRule(models.Model):
             return evaluate_period(anchor_start, effective_start, effective_end)
 
         windows = self.env["gl.ha.schedule.window"].sudo().search([
-            ("source", "=", self.source),
+            ("source", "in", self._schedule_sources_for_rule()),
             ("start_at", "<=", now + timedelta(minutes=self.minutes_before)),
             ("end_at", ">=", now - timedelta(minutes=self.minutes_after)),
         ])
@@ -779,13 +967,14 @@ class GlHaAutomationRule(models.Model):
         weather_needed = any(bool(rule._weather_condition_entities()) for rule in rules)
         weather_data = config.weather_snapshot(refresh_if_stale=True) if weather_needed else {}
 
-        schedule_rules = rules.filtered(lambda r: r.source in ("event", "cinema"))
+        schedule_rules = rules.filtered(lambda r: r.source in ("event", "cinema", "project_lounge", "project_podcast"))
         max_before = max([r.minutes_before for r in schedule_rules] or [0])
         max_after = max([r.minutes_after for r in schedule_rules] or [0])
+        schedule_sources = sorted({source for rule in schedule_rules for source in rule._schedule_sources_for_rule()})
         windows = self.env["gl.ha.schedule.window"].sudo().search([
             ("start_at", "<=", horizon_end + timedelta(minutes=max_before)),
             ("end_at", ">=", now - timedelta(minutes=max_after)),
-            ("source", "in", ["event", "cinema"]),
+            ("source", "in", schedule_sources or ["event", "cinema"]),
         ], order="start_at, source, name")
         windows_by_source = defaultdict(list)
         for window in windows:
@@ -856,6 +1045,10 @@ class GlHaAutomationRule(models.Model):
                     day_cursor += timedelta(days=1)
                 continue
 
+            if rule.source == "dewpoint":
+                # Sensorgetriebene Trocknung ist nicht im Voraus planbar.
+                continue
+
             if rule.source == "project":
                 if not rule.project_id or not rule.project_start_at or not rule.project_end_at:
                     continue
@@ -882,24 +1075,25 @@ class GlHaAutomationRule(models.Model):
                 )
                 continue
 
-            for window in windows_by_source.get(rule.source, []):
-                anchor_start = fields.Datetime.to_datetime(window.start_at)
-                effective_start = anchor_start - timedelta(minutes=rule.minutes_before)
-                effective_end = fields.Datetime.to_datetime(window.end_at) + timedelta(minutes=rule.minutes_after)
-                effective_start, solar_unknown, solar_detail = rule._solar_adjusted_start(
-                    anchor_start, effective_start, config, weather_data
-                )
-                if effective_start >= effective_end:
-                    continue
-                source_details = window.details or ""
-                if solar_detail:
-                    source_details = (source_details + " · " if source_details else "") + solar_detail
-                if solar_unknown:
-                    source_details = (source_details + " · " if source_details else "") + _("Wetterdaten derzeit nicht verfügbar")
-                add_detail(
-                    rule, targets, local_day(effective_start), effective_start, effective_end,
-                    window.source, window.name or "", source_details,
-                )
+            for schedule_source in rule._schedule_sources_for_rule():
+                for window in windows_by_source.get(schedule_source, []):
+                    anchor_start = fields.Datetime.to_datetime(window.start_at)
+                    effective_start = anchor_start - timedelta(minutes=rule.minutes_before)
+                    effective_end = fields.Datetime.to_datetime(window.end_at) + timedelta(minutes=rule.minutes_after)
+                    effective_start, solar_unknown, solar_detail = rule._solar_adjusted_start(
+                        anchor_start, effective_start, config, weather_data
+                    )
+                    if effective_start >= effective_end:
+                        continue
+                    source_details = window.details or ""
+                    if solar_detail:
+                        source_details = (source_details + " · " if source_details else "") + solar_detail
+                    if solar_unknown:
+                        source_details = (source_details + " · " if source_details else "") + _("Wetterdaten derzeit nicht verfügbar")
+                    add_detail(
+                        rule, targets, local_day(effective_start), effective_start, effective_end,
+                        window.source, window.name or "", source_details,
+                    )
 
         result = []
         for group in grouped.values():
@@ -980,7 +1174,7 @@ class GlHaAutomationRule(models.Model):
             hold_current = False
             for rule in target_rules:
                 window, window_unknown, window_detail = rule._window_result(
-                    now, config, weather_data, persist_solar_latch=True
+                    now, config, weather_data, persist_solar_latch=True, persist_runtime=True
                 )
                 condition, condition_unknown = rule._condition_result(
                     persist_hysteresis=bool(window and not window_unknown),

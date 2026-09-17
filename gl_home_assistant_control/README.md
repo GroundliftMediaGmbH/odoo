@@ -277,3 +277,37 @@ Hinweis: Dies ist eine starke Browserprofil-/Gerätebindung ohne übertragbares 
 - Die Schimmelrisiko-Prüfung kann pro Klima-Gruppe aktiviert werden; die bisherige Sensor-Auswahl bleibt aus Kompatibilitätsgründen zusätzlich erhalten.
 - Hauptseiten und Unterseiten können ein responsives **Behaglichkeitsdiagramm** aktivieren. Ausgewählte Klima-Gruppen erscheinen darin als beschriftete Punkte im Temperatur-/Feuchte-Koordinatensystem; die Punktfarben entsprechen den Kachelfarben Behaglich / noch behaglich / außerhalb / Schimmelrisiko.
 - Das Diagramm verwendet getrennte Layout-Geometrien für Hoch- und Querformat, damit Achsen, Beschriftungen und Punkte korrekt skalieren.
+
+## Version 19.0.1.7.0 – Taupunkt-Trocknung und Projekt-Raumautomation
+
+### Taupunkt-Trocknung
+
+Unter **Gebäudesteuerung → Automatikregeln** steht die neue Quelle **„Taupunkt-Trocknung“** zur Verfügung.
+
+- Außen- und Innen-Taupunktsensor werden direkt ausgewählt.
+- Die Trocknung startet, wenn `Taupunkt innen − Taupunkt außen` mindestens die konfigurierte Differenz erreicht.
+- Es können mehrere Lüftungs-/Schaltentitäten als Ziel ausgewählt werden.
+- Mindest- und Maximallaufzeit werden über einen persistenten Regelzustand eingehalten.
+- Nach Erreichen der Maximallaufzeit bleibt der Trocknungszyklus gesperrt, bis die Taupunktdifferenz einmal wieder unter die Einschaltschwelle gefallen ist.
+- Veranstaltungs-, Kino- und Projektbetrieb können einzeln als Blocker aktiviert werden. Ein aktiver Betriebsblocker beendet die Trocknung sofort, auch wenn die Mindestlaufzeit noch nicht erreicht ist.
+- Bei nicht verfügbaren Taupunktsensoren wird während eines laufenden Zyklus der aktuelle Schaltzustand gehalten; die Maximallaufzeit bleibt dennoch wirksam.
+
+### Projekt-App / Räume
+
+`project.project` erhält vier neue Felder:
+
+- **Startzeit**
+- **Endzeit**
+- **Räume** (Mehrfachauswahl: Kino 1, Kino 2, Theater, Lounge, Podcaststudio)
+- **Gebäude-Automation**
+
+Bei aktivierter Gebäude-Automation werden die Projektzeiten direkt in den HA-Zeitfenster-Cache gespiegelt. Änderungen an Zeiten, Räumen, Projektname, Aktivstatus oder Checkbox werden unmittelbar nach dem Speichern nachgeführt.
+
+Die Raumlogik ist:
+
+- **Kino 1 / Kino 2** → zählt für bestehende Regeln mit Quelle **Kinovorstellungen** wie Kinobetrieb.
+- **Theater** → zählt für bestehende Regeln mit Quelle **Groundlift Veranstaltungen** wie Veranstaltungsbetrieb.
+- **Lounge** → neue Regelquelle **Projekt Lounge**.
+- **Podcaststudio** → neue Regelquelle **Projekt Podcaststudio**.
+
+Damit können Lounge und Podcaststudio jeweils eigene Automatikregeln mit eigenen Zielgeräten, Vor-/Nachläufen und optionalen Sensorbedingungen erhalten, während Kino und Theater die bereits vorhandenen Automatikregeln wiederverwenden.

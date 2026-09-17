@@ -12,12 +12,17 @@
                 <field name="project_id" optional="show" invisible="source != 'project'"/>
                 <field name="project_template_id" optional="show" invisible="source != 'project'"/>
                 <field name="target_entity_ids" widget="many2many_tags"/>
-                <field name="minutes_before" invisible="source == 'daily'"/>
-                <field name="minutes_after" invisible="source == 'daily'"/>
+                <field name="minutes_before" invisible="source in ['daily', 'dewpoint']"/>
+                <field name="minutes_after" invisible="source in ['daily', 'dewpoint']"/>
                 <field name="project_start_at" optional="show" invisible="source != 'project'"/>
                 <field name="project_end_at" optional="show" invisible="source != 'project'"/>
                 <field name="daily_start_hour" widget="float_time" invisible="source != 'daily'"/>
                 <field name="daily_end_hour" widget="float_time" invisible="source != 'daily'"/>
+                <field name="dewpoint_outside_entity_id" optional="show" invisible="source != 'dewpoint'"/>
+                <field name="dewpoint_inside_entity_id" optional="show" invisible="source != 'dewpoint'"/>
+                <field name="dewpoint_delta_threshold" optional="show" invisible="source != 'dewpoint'"/>
+                <field name="dewpoint_min_runtime_minutes" optional="hide" invisible="source != 'dewpoint'"/>
+                <field name="dewpoint_max_runtime_minutes" optional="show" invisible="source != 'dewpoint'"/>
                 <field name="condition_entity_ids" widget="many2many_tags" optional="show"/>
                 <field name="condition_match_mode" optional="hide"/>
                 <field name="condition_threshold_mode" optional="show"/>
@@ -55,7 +60,7 @@
                             <label for="sequence" string="Reihenfolge"/>
                             <field name="sequence" nolabel="1"/>
 
-                            <label for="source" string="Zeitquelle"/>
+                            <label for="source" string="Automatiktyp / Quelle"/>
                             <field name="source" nolabel="1"/>
 
                             <label for="project_id" string="Odoo-Projekt" invisible="source != 'project'"/>
@@ -76,11 +81,11 @@
                                    widget="many2many_tags"
                                    options="{'no_create': True, 'no_create_edit': True}"/>
 
-                            <label for="minutes_before" string="Einschalten vor Beginn (Min.)" invisible="source == 'daily'"/>
-                            <field name="minutes_before" nolabel="1" invisible="source == 'daily'"/>
+                            <label for="minutes_before" string="Einschalten vor Beginn (Min.)" invisible="source in ['daily', 'dewpoint']"/>
+                            <field name="minutes_before" nolabel="1" invisible="source in ['daily', 'dewpoint']"/>
 
-                            <label for="minutes_after" string="Ausschalten nach Ende (Min.)" invisible="source == 'daily'"/>
-                            <field name="minutes_after" nolabel="1" invisible="source == 'daily'"/>
+                            <label for="minutes_after" string="Ausschalten nach Ende (Min.)" invisible="source in ['daily', 'dewpoint']"/>
+                            <field name="minutes_after" nolabel="1" invisible="source in ['daily', 'dewpoint']"/>
 
                             <label for="daily_start_hour" string="Einschalten um" invisible="source != 'daily'"/>
                             <field name="daily_start_hour" nolabel="1" widget="float_time" invisible="source != 'daily'"/>
@@ -103,8 +108,11 @@
                             <p class="text-muted" invisible="source != 'project'">Bei einer Projekt-Automatik wählst du das Odoo-Projekt aus und trägst den für die Gebäudesteuerung relevanten Beginn und das Ende manuell ein. Bei Ende nach Mitternacht bitte das Folgedatum verwenden, z. B. 12.02.2027 14:00 bis 13.02.2027 03:00.</p>
                             <p class="text-muted" invisible="source != 'project'">Eine Projekt-Vorlage übernimmt Geräte, Vor-/Nachlauf und optionale Sensorbedingungen. Die übernommenen Werte bleiben in der konkreten Projektregel frei anpassbar.</p>
                             <p class="text-muted" invisible="source != 'project'">Wenn sich Projekt-, Kino-, Veranstaltungs- oder Zeitregeln für dasselbe Gerät überschneiden, bleibt das Gerät eingeschaltet, solange mindestens eine dieser Regeln noch aktiv ist.</p>
+                            <p class="text-muted" invisible="source != 'project_lounge'">Diese Regel reagiert auf Odoo-Projekte, in denen „Gebäude-Automation“ aktiv ist und der Raum Lounge ausgewählt wurde.</p>
+                            <p class="text-muted" invisible="source != 'project_podcast'">Diese Regel reagiert auf Odoo-Projekte, in denen „Gebäude-Automation“ aktiv ist und der Raum Podcaststudio ausgewählt wurde.</p>
+                            <p class="text-muted" invisible="source != 'dewpoint'">Taupunkt-Trocknung vergleicht Innen- und Außen-Taupunkt. Die ausgewählten Lüftungen schalten ein, sobald innen − außen mindestens die eingestellte Differenz erreicht. Betriebsblocker haben immer Vorrang.</p>
                         </group>
-                        <group string="Optionale Sensorbedingungen" col="2">
+                        <group string="Optionale Sensorbedingungen" col="2" invisible="source == 'dewpoint'">
                             <field name="has_solar_condition" invisible="1"/>
                             <field name="has_cloud_condition" invisible="1"/>
                             <field name="has_generic_condition" invisible="1"/>
@@ -147,6 +155,38 @@
                             <p class="text-muted" invisible="not has_solar_condition or not has_cloud_condition">Beispiel: Sonnenuntergang + Bewölkung auswählen, 60 Minuten bei wenig Bewölkung, 90 Minuten bei Bewölkung und z. B. 60 % Grenzwert. Für die Entscheidung wird die Bewölkungsprognose zur Sonnenzeit verwendet, damit das Licht nicht bei wechselnder Bewölkung wieder aus- und eingeschaltet wird.</p>
                             <p class="text-muted" invisible="not has_generic_condition or condition_threshold_mode != 'simple'">Einfacher Grenzwert: Die Bedingung wird bei jedem Lauf direkt mit Operator und Grenzwert ausgewertet.</p>
                             <p class="text-muted" invisible="not has_generic_condition or condition_threshold_mode != 'hysteresis'">Hysterese verhindert Flattern an der Schwelle. Beispiel Licht: „kleiner als“, Einschaltschwelle 250 Lux und Hysterese 50 Lux bedeutet EIN unter 250 Lux; nach dem Einschalten erst wieder AUS ab 300 Lux. Bei „größer als“ wird die Ausschaltschwelle entsprechend unter die Einschaltschwelle gelegt. Nach Ende des Zeitfensters wird die Hysterese zurückgesetzt.</p>
+                        </group>
+                        <group string="Taupunkt-Trocknung" col="2" invisible="source != 'dewpoint'">
+                            <label for="dewpoint_outside_entity_id" string="Taupunkt außen"/>
+                            <field name="dewpoint_outside_entity_id" nolabel="1" options="{'no_create': True, 'no_create_edit': True}"/>
+
+                            <label for="dewpoint_inside_entity_id" string="Taupunkt innen"/>
+                            <field name="dewpoint_inside_entity_id" nolabel="1" options="{'no_create': True, 'no_create_edit': True}"/>
+
+                            <label for="dewpoint_delta_threshold" string="Mindest-Taupunktdifferenz (°C)"/>
+                            <field name="dewpoint_delta_threshold" nolabel="1"/>
+
+                            <label for="dewpoint_min_runtime_minutes" string="Mindestlaufzeit (Min.)"/>
+                            <field name="dewpoint_min_runtime_minutes" nolabel="1"/>
+
+                            <label for="dewpoint_max_runtime_minutes" string="Maximallaufzeit (Min.)"/>
+                            <field name="dewpoint_max_runtime_minutes" nolabel="1"/>
+
+                            <separator string="Während Betrieb nicht trocknen" colspan="2"/>
+                            <label for="dewpoint_block_event" string="Veranstaltungsbetrieb"/>
+                            <field name="dewpoint_block_event" nolabel="1"/>
+                            <label for="dewpoint_block_cinema" string="Kinobetrieb"/>
+                            <field name="dewpoint_block_cinema" nolabel="1"/>
+                            <label for="dewpoint_block_project" string="Projektbetrieb"/>
+                            <field name="dewpoint_block_project" nolabel="1"/>
+
+                            <separator string="Aktueller Trocknungszyklus" colspan="2"/>
+                            <label for="dewpoint_running_since" string="Läuft seit"/>
+                            <field name="dewpoint_running_since" nolabel="1" readonly="1"/>
+                            <label for="dewpoint_max_latched" string="Maximallaufzeit erreicht"/>
+                            <field name="dewpoint_max_latched" nolabel="1" readonly="1"/>
+
+                            <p class="text-muted" colspan="2">Beispiel: Taupunkt Theater 12 °C, Taupunkt außen 8 °C und Schwelle 2 °C → Differenz 4 K, die Trocknung darf starten. Nach Erreichen der Maximallaufzeit bleibt sie aus, bis die Differenz einmal wieder unter die Schwelle fällt. Beginnt ein gewählter Veranstaltungs-, Kino- oder Projektbetrieb, wird die Trocknung unabhängig von der Mindestlaufzeit sofort beendet.</p>
                         </group>
                     </group>
                     <!-- Legacy-Felder nur für verlustfreie Updates älterer Regeln. -->

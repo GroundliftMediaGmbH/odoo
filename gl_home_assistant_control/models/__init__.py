@@ -6,6 +6,7 @@ from . import ha_power
 from . import ha_alert
 from . import ha_schedule
 from . import ha_project_template
+from . import project_extension
 from . import ha_rule
 from . import ha_dashboard
 

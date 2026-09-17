@@ -18,3 +18,5 @@ access_gl_ha_power_day_manager,gl.ha.power.day manager,model_gl_ha_power_day,gl_
 access_gl_ha_device_access_manager,gl.ha.device.access manager,model_gl_ha_device_access,gl_home_assistant_control.group_ha_manager,1,1,1,1
 access_gl_ha_comfort_group_viewer,gl.ha.comfort.group viewer,model_gl_ha_comfort_group,gl_home_assistant_control.group_ha_viewer,1,0,0,0
 access_gl_ha_comfort_group_manager,gl.ha.comfort.group manager,model_gl_ha_comfort_group,gl_home_assistant_control.group_ha_manager,1,1,1,1
+access_gl_ha_project_room_user,gl.ha.project.room user,model_gl_ha_project_room,project.group_project_user,1,0,0,0
+access_gl_ha_project_room_manager,gl.ha.project.room manager,model_gl_ha_project_room,gl_home_assistant_control.group_ha_manager,1,1,1,1
