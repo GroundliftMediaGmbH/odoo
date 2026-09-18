@@ -22,6 +22,9 @@ class GroundliftGraphicsEditorPage(http.Controller):
     <title>Grafikeditor</title>
     <link rel="stylesheet" href="/web/static/lib/bootstrap/css/bootstrap.css"/>
     <link rel="stylesheet" href="/web/static/src/libs/fontawesome/css/font-awesome.css"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous"/>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700&amp;display=swap"/>
     <style>
         :root {
             --gl-bg: #151821;
@@ -67,11 +70,12 @@ class GroundliftGraphicsEditorPage(http.Controller):
         .gl-hidden { display: none !important; }
         .gl-small { font-size: 12px; color: var(--gl-muted); line-height: 1.35; }
         .gl-error { background: #3a1717; color: #ffd7d7; border-radius: 4px; padding: 12px; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+        .gl-save-toast { position: fixed; top: 72px; right: 24px; z-index: 1000; background: #1f7a4d; color: #fff; border-radius: 6px; padding: 10px 14px; box-shadow: 0 8px 30px rgba(0,0,0,.28); font-size: 13px; font-weight: 600; }
     </style>
 </head>
 <body>
     <div id="gl-editor-root" data-poster-id="__POSTER_ID__"></div>
-    <script src="/groundlift_graphics/static/src/js/graphics_editor_standalone.js?v=19.0.1.6.0"></script>
+    <script src="/groundlift_graphics/static/src/js/graphics_editor_standalone.js?v=19.0.1.8.0"></script>
 </body>
 </html>"""
         html = html.replace("__POSTER_ID__", str(poster_id))
