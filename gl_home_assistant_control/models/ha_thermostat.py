@@ -245,6 +245,48 @@ class GlHaThermostatZone(models.Model):
         zones = self.sudo().search([], order="sequence, id")
         active_systems = set()
 
+        # Taupunkt-Trocknung kann optional Wärme für ein Zuluft-Heizregister
+        # anfordern. Sie wird absichtlich als zusätzliche Wärmeanforderung an
+        # die bestehende Thermostat-/Pumpenlogik übergeben, statt Pumpe oder
+        # Ventil direkt zu schalten. So bleibt die gemeinsame Pumpe sauber über
+        # alle Räume ODER-verknüpft und wird nie abgeschaltet, solange eine
+        # andere Zone noch Wärme benötigt.
+        dewpoint_assist = defaultdict(list)
+        dewpoint_rules = self.env["gl.ha.automation.rule"].sudo().search([
+            ("active", "=", True),
+            ("source", "=", "dewpoint"),
+            ("dewpoint_heat_assist", "=", True),
+            ("dewpoint_heating_zone_id", "!=", False),
+        ], order="sequence, id")
+        for rule in dewpoint_rules:
+            drying, unknown, detail = rule._dewpoint_result(now, persist_state=True)
+            zone = rule.dewpoint_heating_zone_id
+            if not zone or not zone.active or not zone.heating_system_id or not zone.heating_system_id.active:
+                continue
+
+            allowed = bool(drying and not unknown)
+            temp = None
+            sensor = zone.temperature_entity_id
+            if allowed:
+                if not sensor or not sensor.active or not sensor.is_available or not sensor.has_numeric_value:
+                    allowed = False
+                    detail += " · " + _("Heizunterstützung AUS: Raumtemperatur nicht verfügbar")
+                else:
+                    temp = float(sensor.numeric_value)
+                    max_temp = float(rule.dewpoint_heat_max_room_temp or 0.0)
+                    if max_temp > 0 and temp >= max_temp:
+                        allowed = False
+                        detail += _(" · Heizunterstützung AUS: %.1f °C ≥ %.1f °C Maximaltemperatur") % (temp, max_temp)
+                    else:
+                        detail += _(" · Heizunterstützung EIN")
+
+            if allowed:
+                dewpoint_assist[zone.id].append({
+                    "rule": rule,
+                    "detail": detail,
+                    "temperature": temp,
+                })
+
         for zone in zones:
             system = zone.heating_system_id
             if system:
@@ -272,7 +314,17 @@ class GlHaThermostatZone(models.Model):
                     "source": source,
                 }
 
+            assist_entries = dewpoint_assist.get(zone.id) or []
+            assist = bool(assist_entries)
+            effective_demand = bool(demand or assist)
+            if assist:
+                names = ", ".join(entry["rule"].name for entry in assist_entries)
+                message += _(" · Taupunkt-Heizunterstützung aktiv: %s") % names
+
             vals = {
+                # heat_demand bleibt bewusst die normale Thermostat-Anforderung.
+                # So verfälscht eine zeitweise Taupunkt-Heizunterstützung nicht
+                # den Hysteresezustand des Raumthermostats.
                 "heat_demand": demand,
                 "last_effective_setpoint": setpoint,
                 "last_setpoint_source": source,
@@ -287,10 +339,10 @@ class GlHaThermostatZone(models.Model):
             if zone.valve_entity_id:
                 intent = intents[zone.valve_entity_id.id]
                 intent["exclusive"] = True
-                intent["wants_on"] = intent["wants_on"] or demand
+                intent["wants_on"] = intent["wants_on"] or effective_demand
                 intent["messages"].append(_("%(zone)s Ventil: %(state)s") % {
                     "zone": zone.name,
-                    "state": _("EIN") if demand else _("AUS"),
+                    "state": _("EIN") if effective_demand else _("AUS"),
                 })
 
             # Lüftung: Heizbedarf ist nur eine weitere EIN-Anforderung. Andere
@@ -306,10 +358,10 @@ class GlHaThermostatZone(models.Model):
             if system and system.pump_entity_id:
                 intent = intents[system.pump_entity_id.id]
                 intent["exclusive"] = True
-                intent["wants_on"] = intent["wants_on"] or demand
+                intent["wants_on"] = intent["wants_on"] or effective_demand
                 intent["messages"].append(_("%(zone)s: %(state)s") % {
                     "zone": zone.name,
-                    "state": _("Wärmeanforderung") if demand else _("kein Bedarf"),
+                    "state": _("Wärmeanforderung") if effective_demand else _("kein Bedarf"),
                 })
 
         # Heizsysteme ohne (aktive) Zone bekommen ebenfalls einen definierten

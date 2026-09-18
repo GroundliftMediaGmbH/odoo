@@ -180,6 +180,15 @@
                             <label for="dewpoint_block_project" string="Projektbetrieb"/>
                             <field name="dewpoint_block_project" nolabel="1"/>
 
+                            <separator string="Optionale Zuluft-Heizunterstützung" colspan="2"/>
+                            <label for="dewpoint_heat_assist" string="Zuluft über Heizregister erwärmen"/>
+                            <field name="dewpoint_heat_assist" nolabel="1"/>
+                            <label for="dewpoint_heating_zone_id" string="Heizkreis / Raumthermostat" invisible="not dewpoint_heat_assist"/>
+                            <field name="dewpoint_heating_zone_id" nolabel="1" invisible="not dewpoint_heat_assist" options="{'no_create': True, 'no_create_edit': True}"/>
+                            <label for="dewpoint_heat_max_room_temp" string="Max. Raumtemperatur" invisible="not dewpoint_heat_assist"/>
+                            <field name="dewpoint_heat_max_room_temp" nolabel="1" invisible="not dewpoint_heat_assist"/>
+                            <p class="text-muted" colspan="2" invisible="not dewpoint_heat_assist">Die Heizunterstützung ändert den Taupunkt der angesaugten Außenluft nicht. Sie erwärmt die bereits trocknere Zuluft, senkt dadurch deren relative Feuchte und erhöht die Feuchteaufnahme im Raum. Die Taupunkt-Trocknung bleibt die Freigabebedingung. Oberhalb der maximalen Raumtemperatur wird nur die Heizung beendet; die Lüftung kann weiter trocknen.</p>
+
                             <separator string="Aktueller Trocknungszyklus" colspan="2"/>
                             <label for="dewpoint_running_since" string="Läuft seit"/>
                             <field name="dewpoint_running_since" nolabel="1" readonly="1"/>

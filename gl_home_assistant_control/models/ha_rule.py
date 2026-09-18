@@ -143,6 +143,30 @@ class GlHaAutomationRule(models.Model):
     dewpoint_block_event = fields.Boolean(string="Bei Veranstaltungsbetrieb sperren", default=True)
     dewpoint_block_cinema = fields.Boolean(string="Bei Kinobetrieb sperren", default=True)
     dewpoint_block_project = fields.Boolean(string="Bei Projektbetrieb sperren", default=True)
+
+    # Optionale Heizunterstützung für Zuluft-Heizregister. Die eigentliche
+    # Trocknungsfreigabe bleibt ausschließlich taupunktgeführt. Wird sie
+    # aktiviert, fordert die Regel zusätzlich den ausgewählten Heizkreis und
+    # dessen gemeinsame Pumpe an. Das Erwärmen ändert den Taupunkt der
+    # Außenluft nicht, senkt aber deren relative Feuchte und erhöht damit die
+    # Feuchteaufnahme im Raum.
+    dewpoint_heat_assist = fields.Boolean(
+        string="Zuluft-Heizunterstützung",
+        default=False,
+        help="Während aktiver Taupunkt-Trocknung zusätzlich den gewählten Heizkreis öffnen und die zugehörige Heizungspumpe anfordern.",
+    )
+    dewpoint_heating_zone_id = fields.Many2one(
+        "gl.ha.thermostat.zone",
+        string="Heizkreis / Raumthermostat",
+        ondelete="set null",
+        domain="[('active','=',True)]",
+        help="Thermostat-Zone, deren Heizungsventil und gemeinsame Pumpe während der Trocknung für das Zuluft-Heizregister angefordert werden.",
+    )
+    dewpoint_heat_max_room_temp = fields.Float(
+        string="Max. Raumtemperatur bei Trocknung (°C)",
+        default=20.0,
+        help="Oberhalb dieser Raumtemperatur wird die Heizunterstützung beendet, die Taupunkt-Lüftung läuft bei weiter erfüllten Bedingungen jedoch weiter.",
+    )
     dewpoint_running_since = fields.Datetime(string="Trocknung läuft seit", readonly=True, copy=False)
     dewpoint_max_latched = fields.Boolean(string="Maximallaufzeit erreicht", readonly=True, default=False, copy=False)
 
@@ -299,6 +323,7 @@ class GlHaAutomationRule(models.Model):
     @api.constrains(
         "source", "dewpoint_outside_entity_id", "dewpoint_inside_entity_id",
         "dewpoint_delta_threshold", "dewpoint_min_runtime_minutes", "dewpoint_max_runtime_minutes",
+        "dewpoint_heat_assist", "dewpoint_heating_zone_id", "dewpoint_heat_max_room_temp",
     )
     def _check_dewpoint_settings(self):
         for rec in self:
@@ -316,6 +341,16 @@ class GlHaAutomationRule(models.Model):
                 raise ValidationError(_("Die Maximallaufzeit muss größer als 0 Minuten sein."))
             if rec.dewpoint_max_runtime_minutes < rec.dewpoint_min_runtime_minutes:
                 raise ValidationError(_("Die Maximallaufzeit darf nicht kleiner als die Mindestlaufzeit sein."))
+            if rec.dewpoint_heat_assist:
+                if not rec.dewpoint_heating_zone_id:
+                    raise ValidationError(_("Bitte für die Zuluft-Heizunterstützung einen Heizkreis / Raumthermostat auswählen."))
+                if rec.dewpoint_heat_max_room_temp <= 0:
+                    raise ValidationError(_("Die maximale Raumtemperatur für die Heizunterstützung muss größer als 0 °C sein."))
+                zone = rec.dewpoint_heating_zone_id
+                if not (zone.min_setpoint <= rec.dewpoint_heat_max_room_temp <= zone.max_setpoint):
+                    raise ValidationError(_(
+                        "Die maximale Raumtemperatur der Taupunkt-Heizunterstützung muss innerhalb des erlaubten Temperaturbereichs der Thermostat-Zone liegen."
+                    ))
 
     @api.constrains("condition_entity_ids", "condition_entity_id")
     def _check_solar_sensor_selection(self):
@@ -404,7 +439,9 @@ class GlHaAutomationRule(models.Model):
             "source", "dewpoint_outside_entity_id", "dewpoint_inside_entity_id",
             "dewpoint_delta_threshold", "dewpoint_min_runtime_minutes",
             "dewpoint_max_runtime_minutes", "dewpoint_block_event",
-            "dewpoint_block_cinema", "dewpoint_block_project", "active",
+            "dewpoint_block_cinema", "dewpoint_block_project",
+            "dewpoint_heat_assist", "dewpoint_heating_zone_id",
+            "dewpoint_heat_max_room_temp", "active",
         }
         if dewpoint_config_fields.intersection(vals):
             vals.setdefault("dewpoint_running_since", False)
