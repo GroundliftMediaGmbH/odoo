@@ -3,7 +3,7 @@
 
     const root = document.getElementById("gl-editor-root");
     const posterId = parseInt(root?.dataset?.posterId || "0", 10);
-    const APP_VERSION = "19.0.1.7.2";
+    const APP_VERSION = "19.0.1.8.0";
 
     const state = {
         loading: true,
@@ -12,6 +12,7 @@
         selectedTemplateKey: "",
         sourceImageBase64: "",
         sourceImageFilename: "",
+        designImages: {},
         externalLogoBase64: "",
         externalLogoFilename: "",
         qrImageBase64: "",
@@ -25,6 +26,20 @@
         activeTextField: "event_title",
         selectedOverlayRole: "",
         odooTemplateDefaults: {},
+        autosaveTimer: null,
+        lastSavedSnapshot: "",
+    };
+
+    const INDIVIDUAL_IMAGE_TEMPLATE_KEYS = new Set([
+        "design_element_square",
+        "design_element_scope",
+        "design_element_flat",
+    ]);
+
+    const DESIGN_IMAGE_FIELDS = {
+        design_element_square: ["design_element_square_image", "design_element_square_filename"],
+        design_element_scope: ["design_element_scope_image", "design_element_scope_filename"],
+        design_element_flat: ["design_element_flat_image", "design_element_flat_filename"],
     };
 
     function clamp(value, min, max) {
@@ -47,30 +62,37 @@
 
     async function registerEditorFonts(templateInfo) {
         const fonts = [
-            ["GroundliftRegular", templateInfo?.font_regular_file, templateInfo?.font_regular_filename],
-            ["GroundliftBold", templateInfo?.font_bold_file, templateInfo?.font_bold_filename],
-            ["GroundliftCondensed", templateInfo?.font_condensed_file, templateInfo?.font_condensed_filename],
+            [300, templateInfo?.font_light_file, templateInfo?.font_light_filename],
+            [400, templateInfo?.font_regular_file, templateInfo?.font_regular_filename],
+            [500, templateInfo?.font_medium_file, templateInfo?.font_medium_filename],
+            [700, templateInfo?.font_bold_file, templateInfo?.font_bold_filename],
         ];
-        for (const [family, base64, filename] of fonts) {
+        for (const [weight, base64, filename] of fonts) {
             if (!base64 || !("FontFace" in window)) continue;
             try {
-                const face = new FontFace(family, `url(${dataUrlFromBase64(base64, fontMime(filename))})`);
+                const face = new FontFace(
+                    "GroundliftRubik",
+                    `url(${dataUrlFromBase64(base64, fontMime(filename))})`,
+                    { weight: String(weight), style: "normal" },
+                );
                 await face.load();
                 document.fonts.add(face);
             } catch (error) {
-                console.warn(`Font konnte nicht geladen werden: ${family}`, error);
+                console.warn(`Rubik ${weight} konnte nicht lokal geladen werden`, error);
             }
         }
         try {
+            await Promise.all([300, 400, 500, 700].map((weight) => document.fonts.load(`${weight} 16px GroundliftRubik, Rubik`)));
             await document.fonts.ready;
         } catch {
-            // ignore
+            // Der Browser verwendet in diesem Fall die Rubik-Webfont bzw. den Arial-Fallback.
         }
     }
 
-    const FONT_REGULAR = "GroundliftRegular, Arial, sans-serif";
-    const FONT_BOLD = "GroundliftBold, Arial Black, Arial, sans-serif";
-    const FONT_CONDENSED = "GroundliftCondensed, Arial Narrow, Arial, sans-serif";
+    const FONT_LIGHT = "GroundliftRubik, Rubik, Arial, sans-serif";
+    const FONT_REGULAR = "GroundliftRubik, Rubik, Arial, sans-serif";
+    const FONT_MEDIUM = "GroundliftRubik, Rubik, Arial, sans-serif";
+    const FONT_BOLD = "GroundliftRubik, Rubik, Arial, sans-serif";
 
 
     const TEXT_FIELDS = [
@@ -111,7 +133,7 @@
     }
 
     function fontChoiceLabel(value) {
-        return ({ auto: "Vorlage", regular: "Regular", bold: "Bold", condensed: "Condensed" }[value] || value);
+        return ({ auto: "Vorgabe", light: "Rubik Light", regular: "Rubik Regular", medium: "Rubik Medium", bold: "Rubik Bold" }[value] || value);
     }
 
     function templateDisplayName(templateKey) {
@@ -414,6 +436,10 @@
         return state.editorState.globalImage;
     }
 
+    function isIndependentImageTemplate(templateKey) {
+        return INDIVIDUAL_IMAGE_TEMPLATE_KEYS.has(templateKey);
+    }
+
     function ensureVariant(templateKey) {
         state.editorState.variants = state.editorState.variants || {};
         if (!state.editorState.variants[templateKey]) {
@@ -421,6 +447,9 @@
         }
         const variant = state.editorState.variants[templateKey];
         variant.image = variant.image || { ...defaultImageTransform() };
+        if (isIndependentImageTemplate(templateKey)) {
+            variant.imageCustom = true;
+        }
         variant.qr = variant.qr || { dx: 0, dy: 0, scale: 1 };
         variant.externalLogo = variant.externalLogo || { dx: 0, dy: 0, scale: 1 };
         variant.sticker = variant.sticker || { dx: 0, dy: 0, scale: 1 };
@@ -434,6 +463,7 @@
     function getTextStyle(templateKey, field) {
         const variant = ensureVariant(templateKey);
         if (!variant.textStyles[field]) variant.textStyles[field] = defaultTextStyle();
+        if (variant.textStyles[field].font === "condensed") variant.textStyles[field].font = "auto";
         return variant.textStyles[field];
     }
 
@@ -448,8 +478,16 @@
 
     function getImageTransform(templateKey) {
         const variant = ensureVariant(templateKey);
-        if (variant.imageCustom) return variant.image;
+        if (isIndependentImageTemplate(templateKey) || variant.imageCustom) return variant.image;
         return ensureGlobalImageTransform();
+    }
+
+    function getSourceImageForTemplate(templateKey) {
+        const custom = state.designImages?.[templateKey];
+        if (isIndependentImageTemplate(templateKey) && custom?.base64) {
+            return { base64: custom.base64, filename: custom.filename || "designelement.jpg", custom: true };
+        }
+        return { base64: state.sourceImageBase64, filename: state.sourceImageFilename, custom: false };
     }
 
     function cacheBustedUrl(url) {
@@ -466,12 +504,13 @@
             scale: clamp(Number(transform.scale || 1), 0.2, 5),
             rotation: Number(transform.rotation || 0),
         };
-        if (state.imageEditMode === "local" || forceLocal) {
+        if (isIndependentImageTemplate(templateKey) || state.imageEditMode === "local" || forceLocal) {
             variant.imageCustom = true;
             variant.image = clean;
         } else {
             state.editorState.globalImage = clean;
             for (const tmpl of state.data?.templates || []) {
+                if (isIndependentImageTemplate(tmpl.key)) continue;
                 const v = ensureVariant(tmpl.key);
                 if (!v.imageCustom) v.image = { ...clean };
             }
@@ -616,9 +655,10 @@
             return String(baseFont).replace(/\d+px/, `${size}px`);
         }
         const familyMap = {
+            light: [300, FONT_LIGHT],
             regular: [400, FONT_REGULAR],
-            bold: [900, FONT_BOLD],
-            condensed: [600, FONT_CONDENSED],
+            medium: [500, FONT_MEDIUM],
+            bold: [700, FONT_BOLD],
         };
         const [weight, family] = familyMap[style.font] || [400, FONT_REGULAR];
         return `${weight} ${size}px ${family}`;
@@ -630,6 +670,10 @@
 
     function maxFontSize(base, style) {
         return style?.size > 0 ? style.size : base;
+    }
+
+    function minFontSize(base, style, fallback = 10) {
+        return style?.size > 0 ? style.size : fallback;
     }
 
     function applyDividerVariant(bbox, dividerVariant = {}) {
@@ -695,6 +739,7 @@
         const p = state.data.poster;
         root.innerHTML = `
             <div class="gl-editor o_form_view">
+                <div class="gl-save-toast gl-hidden" id="saveToast"><i class="fa fa-check-circle"></i> Manuell gespeichert.</div>
                 <div class="gl-toolbar">
                     <button class="gl-btn gl-btn-light" id="backBtn"><i class="fa fa-arrow-left"></i> Zurück</button>
                     <strong class="text-truncate">${escapeHtml(p.event_name || "Grafikeditor")}</strong>
@@ -712,12 +757,19 @@
                             </select>
                         </div>
                         <div class="gl-section">
-                            <button class="gl-btn gl-btn-secondary w-100 mb-2" id="uploadBtn">Bild hochladen / ersetzen</button>
+                            <button class="gl-btn gl-btn-secondary w-100 mb-2" id="uploadBtn">Veranstaltungsbild hochladen / ersetzen</button>
                             <input type="file" accept="image/*" id="sourceFile" class="gl-hidden"/>
                             <button class="gl-btn gl-btn-secondary w-100 mb-2" id="uploadExternalLogoBtn">Externes Logo hochladen / ersetzen</button>
                             <input type="file" accept="image/*" id="externalLogoFile" class="gl-hidden"/>
                             <button class="gl-btn gl-btn-light w-100" id="removeExternalLogoBtn">Externes Logo entfernen</button>
                             <div class="gl-small mt-2">Im Bild ziehen = verschieben, Mausrad = sanft zoomen. Seiten-Anfasser = Crop/Position, Eck-Anfasser = Drehen.</div>
+                        </div>
+                        <div class="gl-section gl-hidden" id="designImageSection">
+                            <label class="gl-label gl-label-strong">Individuelles Bild für dieses Designelement</label>
+                            <button class="gl-btn gl-btn-secondary w-100 mb-2" id="uploadDesignImageBtn">Eigenes Bild hochladen / ersetzen</button>
+                            <input type="file" accept="image/*" id="designImageFile" class="gl-hidden"/>
+                            <button class="gl-btn gl-btn-light w-100" id="removeDesignImageBtn">Wieder Veranstaltungsbild verwenden</button>
+                            <div class="gl-small mt-2" id="designImageInfo">Ohne eigenes Bild wird automatisch das Veranstaltungsbild verwendet.</div>
                         </div>
                         <div class="gl-section">
                             <label class="gl-label gl-label-strong">Bildposition übernehmen</label>
@@ -725,7 +777,7 @@
                                 <option value="global">Global für alle Formate</option>
                                 <option value="local">Nur aktuelles Format nachbearbeiten</option>
                             </select>
-                            <div class="gl-small">Standard: zuerst global positionieren. Danach pro Ausspielformat auf „Nur aktuelles Format“ stellen und feinjustieren.</div>
+                            <div class="gl-small" id="imageModeHelp">Standard: zuerst global positionieren. Danach pro Ausspielformat auf „Nur aktuelles Format“ stellen und feinjustieren.</div>
                         </div>
                         <div class="gl-section">
                             ${input("date_text", "Datum")}
@@ -766,7 +818,7 @@
                             </div>
                             <div class="gl-small mb-2" id="textStyleInfo"></div>
                             <div class="gl-grid-2">
-                                <div class="gl-col"><label class="gl-label">Schriftart</label><select class="gl-input" id="textStyleFont"><option value="auto">Vorlage</option><option value="regular">Regular</option><option value="bold">Bold</option><option value="condensed">Condensed</option></select></div>
+                                <div class="gl-col"><label class="gl-label">Schriftart</label><select class="gl-input" id="textStyleFont"><option value="auto">Vorgabe</option><option value="light">Rubik Light</option><option value="regular">Rubik Regular</option><option value="medium">Rubik Medium</option><option value="bold">Rubik Bold</option></select></div>
                                 <div class="gl-col"><label class="gl-label">Ausrichtung</label><select class="gl-input" id="textStyleAlign"><option value="auto">Vorlage</option><option value="left">Links</option><option value="center">Zentriert</option><option value="right">Rechts</option></select></div>
                                 <div class="gl-col"><label class="gl-label">Schriftgröße</label><input class="gl-input" type="number" step="1" id="textStyleSize"/></div>
                                 <div class="gl-col"><label class="gl-label">Position X</label><input class="gl-input" type="number" step="1" id="textStyleDx"/></div>
@@ -839,6 +891,7 @@
         syncVariantInputs();
         syncTextStyleInputs();
         syncOverlayRoleOptions();
+        updateImageControls();
     }
 
     function input(field, label) {
@@ -859,6 +912,14 @@
             else window.location.href = "/odoo";
         };
         document.getElementById("uploadBtn").onclick = () => document.getElementById("sourceFile").click();
+        document.getElementById("uploadDesignImageBtn").onclick = () => document.getElementById("designImageFile").click();
+        document.getElementById("removeDesignImageBtn").onclick = async () => {
+            if (!isIndependentImageTemplate(state.selectedTemplateKey)) return;
+            state.designImages[state.selectedTemplateKey] = { base64: "", filename: "" };
+            state.imageObjectCache.clear();
+            updateImageControls();
+            await renderCanvas();
+        };
         document.getElementById("uploadExternalLogoBtn").onclick = () => document.getElementById("externalLogoFile").click();
         document.getElementById("removeExternalLogoBtn").onclick = async () => {
             state.externalLogoBase64 = "";
@@ -889,7 +950,20 @@
             if (!file) return;
             state.sourceImageFilename = file.name;
             state.sourceImageBase64 = await fileToBase64(file);
+            state.imageObjectCache.clear();
             await applyPaletteFromSourceImage({ force: true });
+            updateImageControls();
+            await renderCanvas();
+        };
+        document.getElementById("designImageFile").onchange = async (ev) => {
+            const file = ev.target.files[0];
+            if (!file || !isIndependentImageTemplate(state.selectedTemplateKey)) return;
+            state.designImages[state.selectedTemplateKey] = {
+                base64: await fileToBase64(file),
+                filename: file.name,
+            };
+            state.imageObjectCache.clear();
+            updateImageControls();
             await renderCanvas();
         };
         document.getElementById("externalLogoFile").onchange = async (ev) => {
@@ -916,10 +990,16 @@
             syncVariantInputs();
             syncTextStyleInputs();
             syncOverlayRoleOptions();
+            updateImageControls();
             await renderCanvas();
         };
         document.getElementById("imageModeSelect").value = state.imageEditMode;
         document.getElementById("imageModeSelect").onchange = (ev) => {
+            if (isIndependentImageTemplate(state.selectedTemplateKey)) {
+                state.imageEditMode = "local";
+                updateImageControls();
+                return;
+            }
             state.imageEditMode = ev.target.value;
             if (state.imageEditMode === "local") {
                 const variant = ensureVariant(state.selectedTemplateKey);
@@ -968,7 +1048,7 @@
                 await renderCanvas();
             });
         });
-        document.getElementById("saveBtn").onclick = () => saveAll(false);
+        document.getElementById("saveBtn").onclick = () => saveAll(false, true);
         document.getElementById("downloadBtn").onclick = () => saveAll("current");
         document.getElementById("zipBtn").onclick = () => saveAll("zip");
 
@@ -992,9 +1072,86 @@
             node.value = group === "image" ? (imageTransform[field] ?? 0) : (variant[group]?.[field] ?? 0);
         });
         const modeSelect = document.getElementById("imageModeSelect");
-        if (modeSelect) modeSelect.value = state.imageEditMode;
+        if (modeSelect) modeSelect.value = isIndependentImageTemplate(state.selectedTemplateKey) ? "local" : state.imageEditMode;
         syncTextStyleInputs();
         syncOverlayRoleOptions();
+    }
+
+    function updateImageControls() {
+        const independent = isIndependentImageTemplate(state.selectedTemplateKey);
+        const section = document.getElementById("designImageSection");
+        const modeSelect = document.getElementById("imageModeSelect");
+        const modeHelp = document.getElementById("imageModeHelp");
+        const info = document.getElementById("designImageInfo");
+        if (section) section.classList.toggle("gl-hidden", !independent);
+        if (modeSelect) {
+            modeSelect.disabled = independent;
+            modeSelect.value = independent ? "local" : state.imageEditMode;
+        }
+        if (modeHelp) {
+            modeHelp.textContent = independent
+                ? "Quadratisch, Scope und Flat sind immer individuell und werden nie von der globalen Bildposition überschrieben."
+                : "Standard: zuerst global positionieren. Danach pro Ausspielformat auf „Nur aktuelles Format“ stellen und feinjustieren.";
+        }
+        if (info && independent) {
+            const custom = state.designImages?.[state.selectedTemplateKey];
+            info.textContent = custom?.base64
+                ? `Eigenes Bild aktiv: ${custom.filename || "individuelles Bild"}`
+                : "Kein eigenes Bild hinterlegt – es wird automatisch das Veranstaltungsbild verwendet.";
+        }
+    }
+
+    function buildSaveValues(outputFilename = null) {
+        const values = {
+            source_image: state.sourceImageBase64,
+            source_image_filename: state.sourceImageFilename,
+            external_logo_image: state.externalLogoBase64,
+            external_logo_filename: state.externalLogoFilename,
+            ...state.fields,
+            editor_state: state.editorState,
+            output_filename: outputFilename || state.fields.output_filename,
+        };
+        for (const [templateKey, [imageField, filenameField]] of Object.entries(DESIGN_IMAGE_FIELDS)) {
+            const custom = state.designImages?.[templateKey] || {};
+            values[imageField] = custom.base64 || false;
+            values[filenameField] = custom.filename || false;
+        }
+        return values;
+    }
+
+    function saveSnapshot(values = null) {
+        return JSON.stringify(values || buildSaveValues());
+    }
+
+    async function autosaveEditorState() {
+        if (state.saving) return;
+        const values = buildSaveValues();
+        const snapshot = saveSnapshot(values);
+        if (snapshot === state.lastSavedSnapshot) return;
+        state.saving = true;
+        try {
+            await rpc("gl.graphics.poster", "save_editor_data", [[posterId], values, false, false]);
+            state.lastSavedSnapshot = snapshot;
+            setStatus("Automatisch gespeichert.");
+        } catch (error) {
+            console.error(error);
+            setStatus(`Autosave-Fehler: ${error.message}`, true);
+        } finally {
+            state.saving = false;
+        }
+    }
+
+    function startAutosave() {
+        if (state.autosaveTimer) window.clearInterval(state.autosaveTimer);
+        state.autosaveTimer = window.setInterval(autosaveEditorState, 10000);
+    }
+
+    function showManualSaveConfirmation() {
+        const toast = document.getElementById("saveToast");
+        if (!toast) return;
+        toast.classList.remove("gl-hidden");
+        window.clearTimeout(showManualSaveConfirmation._timer);
+        showManualSaveConfirmation._timer = window.setTimeout(() => toast.classList.add("gl-hidden"), 2200);
     }
 
     function syncColorInputs() {
@@ -1224,7 +1381,7 @@
         ctx.clearRect(0, 0, template.canvas_width, template.canvas_height);
 
         if (template.photo_only) {
-            await safeLayer("Veranstaltungsbild", () => drawSourceImage(ctx, info, getImageTransform(template.key)));
+            await safeLayer("Veranstaltungsbild", () => drawSourceImage(ctx, info, getImageTransform(template.key), template.key));
             if (showGuides) {
                 safeLayer("Bildgriffe", () => drawImageHandles(ctx, info.geometries.image_mask));
             }
@@ -1268,7 +1425,7 @@
         const dividerVariant = variant.divider || {};
 
         const drawShiftedContent = async () => {
-            await safeLayer("Veranstaltungsbild", () => drawSourceImage(ctx, info, getImageTransform(template.key)));
+            await safeLayer("Veranstaltungsbild", () => drawSourceImage(ctx, info, getImageTransform(template.key), template.key));
             safeDrawImage(ctx, img.frame, 0, 0, template.canvas_width, template.canvas_height, "Rahmen");
             safeLayer("Datum/Titel", () => {
                 if (templateKey === "theater_konzert") {
@@ -1288,7 +1445,7 @@
             safeLayer("Kurzzusammenfassung", () => drawParagraphBox(ctx, state.fields.summary_text, textBox("summary"), template));
             safeLayer("Fotocredit", () => drawPhotoCredit(ctx, state.fields.photo_credit, photoCreditBox, photoCreditFont, template));
             if (ticketLinkBox) {
-                safeLayer("Ticketlink", () => drawSingleLine(ctx, state.fields.ticket_link_text, ticketLinkBox, "600 28px GroundliftCondensed, Arial Narrow, Arial, sans-serif", "center", template, "ticket_link_text"));
+                safeLayer("Ticketlink", () => drawSingleLine(ctx, state.fields.ticket_link_text, ticketLinkBox, "300 28px GroundliftRubik, Rubik, Arial, sans-serif", "center", template, "ticket_link_text"));
             }
             if (qrImg && qrBox) safeLayer("QR-Code zeichnen", () => drawImageBox(ctx, qrImg, applyBoxVariant(qrBox, variant.qr)));
             await safeLayer("Externes Logo", () => drawExternalLogo(ctx, img, box, variant, template));
@@ -1416,8 +1573,8 @@
     }
 
     function resolvePhotoCreditFont(template) {
-        if (isFoyerTemplate(template)) return "400 22px GroundliftRegular, Arial, sans-serif";
-        return "400 28px GroundliftRegular, Arial, sans-serif";
+        if (isFoyerTemplate(template)) return "300 22px GroundliftRubik, Rubik, Arial, sans-serif";
+        return "300 28px GroundliftRubik, Rubik, Arial, sans-serif";
     }
 
     function resolvePhotoCreditTargetBox(template, box = {}) {
@@ -1481,6 +1638,7 @@
             valign: isFoyerTemplate(template) ? "top" : "middle",
             lineHeight: 1.0,
             maxSize: maxFontSize(parseInt((String(font).match(/(\d+)px/) || ["", "28"])[1], 10), style),
+            minSize: minFontSize(parseInt((String(font).match(/(\d+)px/) || ["", "28"])[1], 10), style),
         });
     }
 
@@ -1668,7 +1826,7 @@
         if (!layout) return;
         const admissionStyle = getTextStyle(template?.key, "admission_time_text");
         const priceStyle = getTextStyle(template?.key, "ticket_price_text");
-        const baseFont = "600 42px GroundliftCondensed, Arial Narrow, Arial, sans-serif";
+        const baseFont = "500 42px GroundliftRubik, Rubik, Arial, sans-serif";
 
         if (admission) {
             drawFitText(
@@ -1682,6 +1840,7 @@
                     valign: "middle",
                     lineHeight: 1.0,
                     maxSize: maxFontSize(42, admissionStyle),
+                    minSize: minFontSize(42, admissionStyle),
                 },
             );
         }
@@ -1697,6 +1856,7 @@
                     valign: "middle",
                     lineHeight: 1.0,
                     maxSize: maxFontSize(42, priceStyle),
+                    minSize: minFontSize(42, priceStyle),
                 },
             );
         }
@@ -1713,7 +1873,7 @@
             ctx,
             `BEGINN ${beginTime}`,
             expandedTextBox(bbox, template, 0.035, 10),
-            "600 42px GroundliftCondensed, Arial Narrow, Arial, sans-serif",
+            "700 42px GroundliftRubik, Rubik, Arial, sans-serif",
             "center",
             template,
             "time_text",
@@ -1726,14 +1886,14 @@
         const gap = options.gap || 8;
         const titleBox = { x: bbox.x, y: bbox.y, width: bbox.width, height: Math.max(1, bbox.height * ratio - gap / 2) };
         const subtitleBox = { x: bbox.x, y: bbox.y + bbox.height * ratio + gap / 2, width: bbox.width, height: Math.max(1, bbox.height * (1 - ratio) - gap / 2) };
-        drawFitText(ctx, title || "", titleBox, "900 72px GroundliftBold, Arial Black, Arial, sans-serif", "left", {
+        drawFitText(ctx, title || "", titleBox, "700 72px GroundliftRubik, Rubik, Arial, sans-serif", "left", {
             allowWrap: true,
             maxLines: preferredTitleLineCount(title, titleBox),
             valign: "top",
             lineHeight: 1.0,
             maxSize: 72,
         });
-        drawFitText(ctx, subtitle || "", subtitleBox, "500 34px GroundliftRegular, Arial, sans-serif", "left", {
+        drawFitText(ctx, subtitle || "", subtitleBox, "400 34px GroundliftRubik, Rubik, Arial, sans-serif", "left", {
             allowWrap: true,
             maxLines: preferredSubtitleLineCount(subtitle, subtitleBox),
             valign: "bottom",
@@ -1750,11 +1910,12 @@
         ctx.fillRect(0, 0, template.canvas_width, template.canvas_height);
     }
 
-    async function drawSourceImage(ctx, info, transform) {
+    async function drawSourceImage(ctx, info, transform, templateKey = "") {
         const geometry = info.geometries.image_mask;
         const box = geometry?.bbox || info.bboxes.image_mask;
-        if (!state.sourceImageBase64 || !box) return;
-        const src = dataUrlFromBase64(state.sourceImageBase64, extensionMime(state.sourceImageFilename, "image/jpeg"));
+        const source = getSourceImageForTemplate(templateKey);
+        if (!source.base64 || !box) return;
+        const src = dataUrlFromBase64(source.base64, extensionMime(source.filename, "image/jpeg"));
         const image = await loadImageCached(src);
         const imageTransform = transform || { offsetX: 0, offsetY: 0, scale: 1, rotation: 0 };
         const coverScale = Math.max(box.width / image.width, box.height / image.height);
@@ -1796,24 +1957,26 @@
         if (layout) {
             if (layout.divider) drawDivider(ctx, applyDividerVariant(layout.divider, dividerVariant));
             if (layout.left) {
-                const font = overrideFont(`900 ${layout.dateFontSize || 64}px GroundliftBold, Arial Black, Arial, sans-serif`, dateStyle);
+                const font = overrideFont(`700 ${layout.dateFontSize || 64}px GroundliftRubik, Rubik, Arial, sans-serif`, dateStyle);
                 const target = applyTextBoxStyle(layout.left, dateStyle);
                 drawFitText(ctx, [date], target, font, textAlign(dateStyle, "right"), {
                     allowWrap: false,
                     valign: "top",
                     lineHeight: 1.0,
                     maxSize: maxFontSize(layout.dateFontSize || 64, dateStyle),
+                    minSize: minFontSize(layout.dateFontSize || 64, dateStyle),
                 });
             }
             if (layout.right) {
                 const target = applyTextBoxStyle(layout.right, titleStyle);
-                const font = overrideFont(`900 ${layout.titleFontSize || 64}px GroundliftBold, Arial Black, Arial, sans-serif`, titleStyle);
+                const font = overrideFont(`700 ${layout.titleFontSize || 64}px GroundliftRubik, Rubik, Arial, sans-serif`, titleStyle);
                 drawFitText(ctx, title, target, font, textAlign(titleStyle, "left"), {
                     allowWrap: true,
                     maxLines: preferredTitleLineCount(title, target),
                     valign: "top",
                     lineHeight: 1.0,
                     maxSize: maxFontSize(layout.titleFontSize || 64, titleStyle),
+                    minSize: minFontSize(layout.titleFontSize || 64, titleStyle),
                 });
             }
             return;
@@ -1834,30 +1997,33 @@
             const categoryFontSize = layout.categoryFontSize || timeFontSize;
             const subtitleFontSize = layout.subtitleFontSize || 46;
             if (layout.leftTop) {
-                drawFitText(ctx, [state.fields.time_text], applyTextBoxStyle(layout.leftTop, timeStyle), overrideFont(`900 ${timeFontSize}px GroundliftBold, Arial Black, Arial, sans-serif`, timeStyle), textAlign(timeStyle, "right"), {
+                drawFitText(ctx, [state.fields.time_text], applyTextBoxStyle(layout.leftTop, timeStyle), overrideFont(`700 ${timeFontSize}px GroundliftRubik, Rubik, Arial, sans-serif`, timeStyle), textAlign(timeStyle, "right"), {
                     allowWrap: false,
                     valign: "middle",
                     lineHeight: 1.0,
                     maxSize: maxFontSize(timeFontSize, timeStyle),
+                    minSize: minFontSize(timeFontSize, timeStyle),
                 });
             }
             if (layout.leftBottom) {
-                drawFitText(ctx, [state.fields.event_type_text], applyTextBoxStyle(layout.leftBottom, categoryStyle), overrideFont(`900 ${categoryFontSize}px GroundliftBold, Arial Black, Arial, sans-serif`, categoryStyle), textAlign(categoryStyle, "right"), {
+                drawFitText(ctx, [state.fields.event_type_text], applyTextBoxStyle(layout.leftBottom, categoryStyle), overrideFont(`700 ${categoryFontSize}px GroundliftRubik, Rubik, Arial, sans-serif`, categoryStyle), textAlign(categoryStyle, "right"), {
                     allowWrap: false,
                     valign: "middle",
                     lineHeight: 1.0,
                     maxSize: maxFontSize(categoryFontSize, categoryStyle),
+                    minSize: minFontSize(categoryFontSize, categoryStyle),
                 });
             }
             if (layout.right) {
                 const target = applyTextBoxStyle(layout.right, subtitleStyle);
                 const maxLines = Math.max(lines.length || 1, Math.min(preferredSubtitleLineCount(subtitle, target), layout.rowCount || 2));
-                drawFitText(ctx, lines.length > 1 ? lines : subtitle, target, overrideFont(`500 ${subtitleFontSize}px GroundliftRegular, Arial, sans-serif`, subtitleStyle), textAlign(subtitleStyle, "left"), {
+                drawFitText(ctx, lines.length > 1 ? lines : subtitle, target, overrideFont(`400 ${subtitleFontSize}px GroundliftRubik, Rubik, Arial, sans-serif`, subtitleStyle), textAlign(subtitleStyle, "left"), {
                     allowWrap: true,
                     maxLines,
                     valign: "middle",
                     lineHeight: layout.subtitleLineHeight || 1.18,
                     maxSize: maxFontSize(subtitleFontSize, subtitleStyle),
+                    minSize: minFontSize(subtitleFontSize, subtitleStyle),
                 });
             }
             return;
@@ -1871,8 +2037,9 @@
         const style = getTextStyle(template?.key, "ticket_link_text");
         const target = applyTextBoxStyle(regions.length ? insetBox(unionBoxes(regions), 2) : bbox, style);
         const fontSize = estimateFontSizeFromRegions(regions, 30, 1.12);
-        drawFitText(ctx, lines, target, overrideFont(`600 ${fontSize}px GroundliftCondensed, Arial Narrow, Arial, sans-serif`, style), textAlign(style, "center"), {
+        drawFitText(ctx, lines, target, overrideFont(`300 ${fontSize}px GroundliftRubik, Rubik, Arial, sans-serif`, style), textAlign(style, "center"), {
             maxSize: maxFontSize(fontSize, style),
+            minSize: minFontSize(fontSize, style),
         });
     }
 
@@ -1885,12 +2052,24 @@
         drawDivider(ctx, applyDividerVariant({ x: dividerX - 2, y: bbox.y + 4, width: 4, height: Math.max(1, bbox.height - 8) }, dividerVariant));
         const leftStyle = getTextStyle(template?.key, options.leftBottom ? "time_text" : "date_text");
         const rightStyle = getTextStyle(template?.key, options.boldRight === false ? "event_subtitle" : "event_title");
-        drawFitText(ctx, leftTopLines, applyTextBoxStyle({ ...leftBox, height: options.leftBottom ? leftBox.height * 0.68 : leftBox.height }, leftStyle), overrideFont("900 64px GroundliftBold, Arial Black, Arial, sans-serif", leftStyle), textAlign(leftStyle, "center"));
+        drawFitText(ctx, leftTopLines, applyTextBoxStyle({ ...leftBox, height: options.leftBottom ? leftBox.height * 0.68 : leftBox.height }, leftStyle), overrideFont("700 64px GroundliftRubik, Rubik, Arial, sans-serif", leftStyle), textAlign(leftStyle, "center"), {
+            maxSize: maxFontSize(64, leftStyle),
+            minSize: minFontSize(64, leftStyle),
+        });
         if (options.leftBottom) {
             const categoryStyle = getTextStyle(template?.key, "event_type_text");
-            drawFitText(ctx, [options.leftBottom], applyTextBoxStyle({ x: leftBox.x, y: leftBox.y + leftBox.height * 0.66, width: leftBox.width, height: leftBox.height * 0.34 }, categoryStyle), overrideFont("900 46px GroundliftBold, Arial Black, Arial, sans-serif", categoryStyle), textAlign(categoryStyle, "center"));
+            drawFitText(ctx, [options.leftBottom], applyTextBoxStyle({ x: leftBox.x, y: leftBox.y + leftBox.height * 0.66, width: leftBox.width, height: leftBox.height * 0.34 }, categoryStyle), overrideFont("700 46px GroundliftRubik, Rubik, Arial, sans-serif", categoryStyle), textAlign(categoryStyle, "center"), {
+                maxSize: maxFontSize(46, categoryStyle),
+                minSize: minFontSize(46, categoryStyle),
+            });
         }
-        drawFitText(ctx, rightLines, applyTextBoxStyle(rightBox, rightStyle), overrideFont(`${options.boldRight === false ? 500 : 900} 52px GroundliftBold, Arial Black, Arial, sans-serif`, rightStyle), textAlign(rightStyle, "left"));
+        const rightBaseFont = options.boldRight === false
+            ? "400 52px GroundliftRubik, Rubik, Arial, sans-serif"
+            : "700 52px GroundliftRubik, Rubik, Arial, sans-serif";
+        drawFitText(ctx, rightLines, applyTextBoxStyle(rightBox, rightStyle), overrideFont(rightBaseFont, rightStyle), textAlign(rightStyle, "left"), {
+            maxSize: maxFontSize(52, rightStyle),
+            minSize: minFontSize(52, rightStyle),
+        });
     }
 
     function drawTitleOnly(ctx, bbox, regions = [], template = null, dividerVariant = null) {
@@ -1901,21 +2080,23 @@
             if (layout?.divider) drawDivider(ctx, applyDividerVariant(layout.divider, dividerVariant));
             const target = applyTextBoxStyle(layout?.right || unionBoxes(regions) || bbox, style);
             const fontSize = layout?.titleFontSize || estimateFontSizeFromRegions(regions, 64, 1.14);
-            drawFitText(ctx, state.fields.event_title, target, overrideFont(`900 ${fontSize}px GroundliftBold, Arial Black, Arial, sans-serif`, style), textAlign(style, layout?.right ? "left" : "center"), {
+            drawFitText(ctx, state.fields.event_title, target, overrideFont(`700 ${fontSize}px GroundliftRubik, Rubik, Arial, sans-serif`, style), textAlign(style, layout?.right ? "left" : "center"), {
                 allowWrap: true,
                 maxLines: preferredTitleLineCount(state.fields.event_title, target),
                 valign: layout?.right ? "top" : "middle",
                 lineHeight: 1.0,
                 maxSize: maxFontSize(fontSize, style),
+                minSize: minFontSize(fontSize, style),
             });
             return;
         }
-        drawFitText(ctx, state.fields.event_title, applyTextBoxStyle(bbox, style), overrideFont("900 64px GroundliftBold, Arial Black, Arial, sans-serif", style), textAlign(style, "center"), {
+        drawFitText(ctx, state.fields.event_title, applyTextBoxStyle(bbox, style), overrideFont("700 64px GroundliftRubik, Rubik, Arial, sans-serif", style), textAlign(style, "center"), {
             allowWrap: true,
             maxLines: preferredTitleLineCount(state.fields.event_title, bbox),
             valign: "middle",
             lineHeight: 1.0,
             maxSize: maxFontSize(64, style),
+            minSize: minFontSize(64, style),
         });
     }
 
@@ -1926,12 +2107,13 @@
         const style = getTextStyle(template?.key, "event_subtitle");
         const target = applyTextBoxStyle(regions.length ? (unionBoxes(regions) || bbox) : bbox, style);
         const fontSize = estimateFontSizeFromRegions(regions, 46, 1.12);
-        drawFitText(ctx, lines.length > 1 ? lines : subtitle, target, overrideFont(`500 ${fontSize}px GroundliftRegular, Arial, sans-serif`, style), textAlign(style, "left"), {
+        drawFitText(ctx, lines.length > 1 ? lines : subtitle, target, overrideFont(`400 ${fontSize}px GroundliftRubik, Rubik, Arial, sans-serif`, style), textAlign(style, "left"), {
             allowWrap: true,
             maxLines: preferredSubtitleLineCount(subtitle, target),
             valign: "bottom",
             lineHeight: 1.12,
             maxSize: maxFontSize(fontSize, style),
+            minSize: minFontSize(fontSize, style),
         });
     }
 
@@ -2115,7 +2297,7 @@
     function drawParagraphBox(ctx, text, bbox, template = null) {
         if (!bbox || !text) return;
         const style = getTextStyle(template?.key, "summary_text");
-        drawParagraph(ctx, String(text), applyTextBoxStyle(bbox, style), overrideFont("400 34px GroundliftRegular, Arial, sans-serif", style));
+        drawParagraph(ctx, String(text), applyTextBoxStyle(bbox, style), overrideFont("300 34px GroundliftRubik, Rubik, Arial, sans-serif", style), style);
     }
 
     function drawSingleLine(ctx, text, bbox, font, align = "left", template = null, field = null) {
@@ -2126,6 +2308,7 @@
             valign: "middle",
             lineHeight: 1.0,
             maxSize: maxFontSize(parseInt((String(font).match(/(\d+)px/) || ["", "28"])[1], 10), style),
+            minSize: minFontSize(parseInt((String(font).match(/(\d+)px/) || ["", "28"])[1], 10), style),
         });
     }
 
@@ -2240,14 +2423,16 @@
         ctx.restore();
     }
 
-    function drawParagraph(ctx, text, bbox, font) {
+    function drawParagraph(ctx, text, bbox, font, style = null) {
         if (!text || !bbox) return;
+        const baseSize = parseInt((String(font).match(/(\d+)px/) || ["", "34"])[1], 10);
         drawFitText(ctx, String(text), bbox, font, "left", {
             allowWrap: true,
             maxLines: Math.max(3, Math.floor(bbox.height / 30)),
             valign: "top",
             lineHeight: 1.16,
-            minSize: 9,
+            maxSize: maxFontSize(baseSize, style),
+            minSize: minFontSize(baseSize, style, 9),
         });
     }
 
@@ -2383,31 +2568,30 @@
         window.addEventListener("pointerup", up);
     }
 
-    async function saveAll(downloadMode) {
+    async function saveAll(downloadMode, manualSave = false) {
+        if (state.saving) return;
+        state.saving = true;
         try {
             setStatus("Speichere…");
             const renderedOutputs = await renderAllOutputs();
             const current = renderedOutputs[state.selectedTemplateKey];
-            const values = {
-                source_image: state.sourceImageBase64,
-                source_image_filename: state.sourceImageFilename,
-                external_logo_image: state.externalLogoBase64,
-                external_logo_filename: state.externalLogoFilename,
-                ...state.fields,
-                editor_state: state.editorState,
-                output_filename: current ? current.filename : state.fields.output_filename,
-            };
+            if (current?.filename) state.fields.output_filename = current.filename;
+            const values = buildSaveValues(current ? current.filename : state.fields.output_filename);
             await rpc("gl.graphics.poster", "save_editor_data", [[posterId], values, current ? current.data : false, renderedOutputs]);
+            state.lastSavedSnapshot = saveSnapshot(values);
             if (downloadMode === "current") {
                 window.location.href = `/web/content?model=gl.graphics.poster&id=${posterId}&field=output_image&filename_field=output_filename&download=true`;
             } else if (downloadMode === "zip") {
                 window.location.href = `/groundlift_graphics/poster/${posterId}/outputs.zip`;
             } else {
-                setStatus("Gespeichert.");
+                setStatus("Manuell gespeichert.");
+                if (manualSave) showManualSaveConfirmation();
             }
         } catch (error) {
             console.error(error);
             setStatus(`Speicherfehler: ${error.message}`, true);
+        } finally {
+            state.saving = false;
         }
     }
 
@@ -2444,13 +2628,21 @@
             const p = data.poster;
             state.sourceImageBase64 = p.source_image;
             state.sourceImageFilename = p.source_image_filename;
+            state.designImages = {
+                design_element_square: { base64: p.design_element_square_image || "", filename: p.design_element_square_filename || "" },
+                design_element_scope: { base64: p.design_element_scope_image || "", filename: p.design_element_scope_filename || "" },
+                design_element_flat: { base64: p.design_element_flat_image || "", filename: p.design_element_flat_filename || "" },
+            };
             state.externalLogoBase64 = p.external_logo_image;
             state.externalLogoFilename = p.external_logo_filename;
             state.qrImageBase64 = data.qr_image || "";
             state.editorState = p.editor_state || {};
             state.selectedTemplateKey = state.editorState.selectedTemplateKey || (data.templates[0] && data.templates[0].key) || "";
             if (!state.editorState.globalImage) {
-                const firstVariant = state.editorState.variants && state.editorState.variants[state.selectedTemplateKey];
+                const sharedTemplate = data.templates.find((template) => !isIndependentImageTemplate(template.key));
+                const firstVariant = state.editorState.variants && sharedTemplate
+                    ? state.editorState.variants[sharedTemplate.key]
+                    : null;
                 state.editorState.globalImage = firstVariant?.image || defaultImageTransform();
             }
             state.fields = {
@@ -2476,10 +2668,13 @@
                 drink_card_profile_id: p.drink_card_profile_id || false,
                 output_filename: p.output_filename || "",
             };
+            state.lastSavedSnapshot = saveSnapshot();
             await prefillVariantsFromOdooDefaults();
+            for (const templateKey of INDIVIDUAL_IMAGE_TEMPLATE_KEYS) ensureVariant(templateKey);
             await applyPaletteFromSourceImage();
             buildApp();
             await renderCanvas();
+            startAutosave();
         } catch (error) {
             console.error(error);
             root.innerHTML = `<div class="gl-error">Der isolierte Grafikeditor konnte nicht geladen werden:\n${escapeHtml(error.message)}</div>`;

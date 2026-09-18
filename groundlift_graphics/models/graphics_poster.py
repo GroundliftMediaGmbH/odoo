@@ -103,6 +103,12 @@ class GraphicsPoster(models.Model):
 
     source_image = fields.Binary(string="Veranstaltungsbild", attachment=True, copy=False)
     source_image_filename = fields.Char(default="veranstaltungsbild.jpg")
+    design_element_square_image = fields.Binary(string="Designelement quadratisch – Bild", attachment=True, copy=False)
+    design_element_square_filename = fields.Char()
+    design_element_scope_image = fields.Binary(string='Designelement "Scope" – Bild', attachment=True, copy=False)
+    design_element_scope_filename = fields.Char()
+    design_element_flat_image = fields.Binary(string='Designelement "Flat" – Bild', attachment=True, copy=False)
+    design_element_flat_filename = fields.Char()
     external_logo_image = fields.Binary(string="Externes Logo", attachment=True, copy=False)
     external_logo_filename = fields.Char(default="externes_logo.png")
 
@@ -663,6 +669,12 @@ class GraphicsPoster(models.Model):
                 "event_name": self.event_id.display_name,
                 "source_image": self._b64_text(self.source_image),
                 "source_image_filename": self.source_image_filename or "veranstaltungsbild.jpg",
+                "design_element_square_image": self._b64_text(self.design_element_square_image),
+                "design_element_square_filename": self.design_element_square_filename or "",
+                "design_element_scope_image": self._b64_text(self.design_element_scope_image),
+                "design_element_scope_filename": self.design_element_scope_filename or "",
+                "design_element_flat_image": self._b64_text(self.design_element_flat_image),
+                "design_element_flat_filename": self.design_element_flat_filename or "",
                 "external_logo_image": self._b64_text(self.external_logo_image),
                 "external_logo_filename": self.external_logo_filename or "externes_logo.png",
                 "claim": self.claim or "",
@@ -692,11 +704,15 @@ class GraphicsPoster(models.Model):
                 "logo_image": self._b64_text(template.logo_image),
                 "frame_image": self._b64_text(template.frame_image),
                 "sticker_image": self._b64_text(template.sticker_image),
-                "font_regular_name": template.font_regular_name or "Arial",
-                "font_bold_name": template.font_bold_name or "Arial Black",
-                "font_condensed_name": template.font_condensed_name or "Arial Narrow",
+                "font_regular_name": template.font_regular_name or "Rubik",
+                "font_bold_name": template.font_bold_name or "Rubik",
+                "font_condensed_name": template.font_condensed_name or "Rubik",
+                "font_light_file": self._b64_text(template.font_light_file),
+                "font_light_filename": template.font_light_filename or "",
                 "font_regular_file": self._b64_text(template.font_regular_file),
                 "font_regular_filename": template.font_regular_filename or "",
+                "font_medium_file": self._b64_text(template.font_medium_file),
+                "font_medium_filename": template.font_medium_filename or "",
                 "font_bold_file": self._b64_text(template.font_bold_file),
                 "font_bold_filename": template.font_bold_filename or "",
                 "font_condensed_file": self._b64_text(template.font_condensed_file),
@@ -714,7 +730,11 @@ class GraphicsPoster(models.Model):
         self.check_access_rights("write")
         self.check_access_rule("write")
         allowed = {
-            "source_image", "source_image_filename", "external_logo_image", "external_logo_filename", "claim", "event_title", "event_subtitle",
+            "source_image", "source_image_filename",
+            "design_element_square_image", "design_element_square_filename",
+            "design_element_scope_image", "design_element_scope_filename",
+            "design_element_flat_image", "design_element_flat_filename",
+            "external_logo_image", "external_logo_filename", "claim", "event_title", "event_subtitle",
             "date_text", "time_text", "event_type_text", "summary_text", "photo_credit", "ticket_url", "ticket_link_text", "admission_time_text", "ticket_price_text", "qr_url",
             "color_contrast", "color_1", "color_2", "sticker_mode", "sticker_text", "sticker_color", "drink_card_profile_id", "editor_state", "output_filename",
         }
