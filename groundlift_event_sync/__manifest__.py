@@ -1,6 +1,6 @@
 {
     "name": "Groundlift Event Sync",
-    "version": "19.0.1.0.2",
+    "version": "19.0.1.0.4",
     "summary": "Synchronisiert angekündigte Odoo-Veranstaltungen auf die externe Groundlift-Website.",
     "author": "OpenAI",
     "license": "LGPL-3",

@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_ha_config_form" model="ir.ui.view">
+        <field name="name">gl.ha.config.form</field>
+        <field name="model">gl.ha.config</field>
+        <field name="arch" type="xml">
+            <form string="Home Assistant Einstellungen">
+                <header>
+                    <button name="action_test_connection" type="object" string="Verbindung testen" class="oe_highlight"/>
+                    <button name="action_sync_entities" type="object" string="Entitäten synchronisieren"/>
+                    <button name="action_refresh_schedules" type="object" string="Zeitfenster aktualisieren"/>
+                    <button name="action_refresh_weather" type="object" string="Wetterdaten aktualisieren"/>
+                    <button name="action_update_power_costs" type="object" string="Stromkosten aktualisieren" invisible="not power_cost_enabled"/>
+                    <button name="action_backfill_power_costs" type="object" string="Stromkosten-Historie neu berechnen" invisible="not power_cost_enabled"/>
+                    <button name="action_run_automation" type="object" string="Automatik jetzt prüfen"/>
+                    <button name="action_import_history_24h" type="object" string="24h Verlauf importieren"/>
+                    <button name="action_open_dashboard" type="object" string="Dashboard öffnen"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <notebook>
+                        <page string="Home Assistant">
+                            <group>
+                                <group string="Verbindung">
+                                    <field name="active"/>
+                                    <field name="base_url" placeholder="https://deine-home-assistant-url.example"/>
+                                    <field name="access_token" password="True"/>
+                                    <field name="verify_ssl"/>
+                                    <field name="request_timeout"/>
+                                    <field name="extra_headers_json" placeholder='{"CF-Access-Client-Id":"…","CF-Access-Client-Secret":"…"}'/>
+                                    <field name="timezone_name"/>
+                                </group>
+                                <group string="Status">
+                                    <field name="last_test_at" readonly="1"/>
+                                    <field name="last_test_message" readonly="1"/>
+                                    <field name="last_state_sync_at" readonly="1"/>
+                                    <field name="last_schedule_sync_at" readonly="1"/>
+                                    <field name="last_automation_at" readonly="1"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Wetter &amp; Sonne">
+                            <group>
+                                <group string="Wetter-Ort">
+                                    <field name="weather_enabled"/>
+                                    <field name="weather_location" placeholder="z. B. 82266 Inning am Ammersee, Deutschland"/>
+                                    <field name="weather_latitude" readonly="1"/>
+                                    <field name="weather_longitude" readonly="1"/>
+                                    <field name="weather_resolved_location" readonly="1"/>
+                                    <p class="text-muted">Standard ist 82266 Inning am Ammersee. Wenn du den Ort änderst und oben „Wetterdaten aktualisieren“ klickst, werden die Koordinaten automatisch neu bestimmt.</p>
+                                </group>
+                                <group string="Status">
+                                    <field name="last_weather_sync_at" readonly="1"/>
+                                    <field name="last_weather_message" readonly="1"/>
+                                    <p class="text-muted">Die App lädt Sonnenaufgang, Sonnenuntergang und Bewölkung als virtuelle Messsensoren. Die Daten werden automatisch aktualisiert und können in Automatikregeln unter „Optionale Messsensoren“ ausgewählt werden.</p>
+                                    <p class="text-muted">Wetterquelle: Open-Meteo. Sonnenzeiten werden für den eingestellten Ort berechnet; die Bewölkung stammt aus der stündlichen Wetterprognose.</p>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Stromkosten">
+                            <group>
+                                <group string="Zähler &amp; Preis">
+                                    <field name="power_cost_enabled"/>
+                                    <field name="power_entity_ids" widget="many2many_tags" options="{'no_create': True}" invisible="not power_cost_enabled"/>
+                                    <field name="power_price_kwh" invisible="not power_cost_enabled"/>
+                                    <field name="power_refresh_minutes" invisible="not power_cost_enabled"/>
+                                    <p class="text-muted" invisible="not power_cost_enabled">Mehrere ausgewählte Stromzähler werden addiert. Empfohlen sind Energiezähler mit kWh/Wh/MWh. Alternativ können W/kW/MW-Sensoren verwendet werden; deren Leistung wird über die Zeit integriert.</p>
+                                </group>
+                                <group string="Veranstaltungstag">
+                                    <field name="power_day_start_hour" widget="float_time" invisible="not power_cost_enabled"/>
+                                    <field name="power_day_end_hour" widget="float_time" invisible="not power_cost_enabled"/>
+                                    <field name="power_average_event_count" invisible="not power_cost_enabled"/>
+                                    <p class="text-muted" invisible="not power_cost_enabled">Standard: Messung ab 07:00 Uhr am Veranstaltungstag bis 05:00 Uhr am Folgetag. Gibt es an einem Kalendertag mehrere Veranstaltungen, werden die gesamten Kosten dieses Messfensters gleichmäßig auf alle Veranstaltungen dieses Tages verteilt.</p>
+                                </group>
+                            </group>
+                            <group invisible="not power_cost_enabled">
+                                <group string="Odoo-Veranstaltungsfelder">
+                                    <field name="power_actual_field_name"/>
+                                    <field name="power_budget_field_name"/>
+                                    <p class="text-muted">Standard-IST: x_studio_event_kalk_ist_sonstige_kosten · Standard-SOLL: x_studio_event_kalk_soll_sonstige_kosten. Beide technischen Feldnamen können jederzeit auf ein anderes numerisches Feld von event.event geändert werden.</p>
+                                </group>
+                                <group string="Status">
+                                    <field name="power_current_average_cost" readonly="1"/>
+                                    <field name="last_power_cost_sync_at" readonly="1"/>
+                                    <field name="last_power_cost_message" readonly="1"/>
+                                    <p class="text-muted">Der IST-Wert wird während eines laufenden Veranstaltungstages regelmäßig aktualisiert. Nach dem Messende am Folgetag bleibt der Tageswert final. Der SOLL-Wert wird aus den letzten abgeschlossenen Veranstaltungen gebildet.</p>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Klima &amp; Behaglichkeit" class="gl_ha_comfort_settings_page">
+                            <separator string="Temperatur-/Feuchtegruppen"/>
+                            <div class="text-muted mb-2">
+                                Temperatur und Luftfeuchtigkeit werden hier bewusst manuell zu einem Raum bzw. Messpunkt zusammengefasst.
+                                Sobald beide Entitäten auf einer Dashboard-Seite angezeigt werden, entsteht dort nur noch eine gemeinsame Klima-Kachel.
+                                Dieselben Gruppen können zusätzlich im Behaglichkeitsdiagramm ausgewählt werden.
+                            </div>
+                            <div class="mb-2">
+                                <button name="action_open_comfort_groups" type="object" string="Klima-Gruppen verwalten" class="btn btn-secondary"/>
+                            </div>
+                            <div class="gl_ha_comfort_group_editor">
+                                <field name="comfort_group_ids" nolabel="1" class="gl_ha_comfort_group_o2m">
+                                    <list editable="bottom" string="Temperatur-/Feuchtegruppen">
+                                        <field name="sequence" widget="handle"/>
+                                        <field name="active"/>
+                                        <field name="name"/>
+                                        <field name="temperature_entity_id" options="{'no_create': True, 'no_create_edit': True}"/>
+                                        <field name="humidity_entity_id" options="{'no_create': True, 'no_create_edit': True}"/>
+                                        <field name="mould_warning_enabled"/>
+                                        <field name="note" optional="hide"/>
+                                    </list>
+                                </field>
+                            </div>
+
+                            <separator string="Schimmelwarnung – Zusatz/Bestandsschutz"/>
+                            <div class="gl_ha_mould_sensor_editor">
+                                <label for="mould_warning_entity_ids" string="Schimmelgefahrmeldung für Sensoren"/>
+                                <field name="mould_warning_entity_ids" nolabel="1" widget="many2many_tags" options="{'no_create': True, 'no_create_edit': True}"/>
+                            </div>
+                            <div class="text-muted mt-2">
+                                Empfohlen ist die Option „Schimmelgefahrmeldung“ direkt in der jeweiligen Gruppe oben.
+                                Diese zusätzliche Sensor-Auswahl bleibt für bereits konfigurierte Installationen erhalten und aktiviert die lila Risikobewertung ebenfalls.
+                            </div>
+                        </page>
+                        <page string="Historie &amp; Warnungen">
+                            <group>
+                                <group string="Historie">
+                                    <field name="state_poll_minutes"/>
+                                    <field name="history_retention_days"/>
+                                    <field name="unavailable_grace_minutes"/>
+                                </group>
+                                <group string="Warnungen">
+                                    <field name="alert_email_enabled"/>
+                                    <field name="alert_email_to" invisible="not alert_email_enabled"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Automatik">
+                            <group>
+                                <group string="Allgemein">
+                                    <field name="automation_enabled"/>
+                                    <field name="default_manual_override_minutes"/>
+                                    <field name="schedule_horizon_days"/>
+                                </group>
+                                <group string="Veranstaltungen">
+                                    <field name="event_stage_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                                    <p class="text-muted">Leer = alle aktiven, nicht stornierten Veranstaltungen. Optional können z. B. nur die bei euch relevanten Veranstaltungsphasen ausgewählt werden.</p>
+                                </group>
+                                <group string="Kino">
+                                    <field name="cinema_default_duration_minutes"/>
+                                    <p class="text-muted">Die Kinospielzeiten werden aus dem installierten Modul gl_kino_newsletter_nl2go und dessen Cinetixx-Anbindung gelesen. Pro Tag wird ein gemeinsames Zeitfenster von der ersten bis zum Ende der letzten Vorstellung erzeugt.</p>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_gl_ha_config_list" model="ir.ui.view">
+        <field name="name">gl.ha.config.list</field>
+        <field name="model">gl.ha.config</field>
+        <field name="arch" type="xml">
+            <list string="Home Assistant Einstellungen">
+                <field name="name"/>
+                <field name="base_url"/>
+                <field name="active"/>
+                <field name="automation_enabled"/>
+                <field name="last_state_sync_at"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_gl_ha_config" model="ir.actions.act_window">
+        <field name="name">Home Assistant Einstellungen</field>
+        <field name="res_model">gl.ha.config</field>
+        <field name="view_mode">form</field>
+        <field name="res_id" ref="gl_home_assistant_control.default_ha_config"/>
+        <field name="target">current</field>
+    </record>
+</odoo>

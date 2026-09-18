@@ -3,7 +3,7 @@
 
     const root = document.getElementById("gl-editor-root");
     const posterId = parseInt(root?.dataset?.posterId || "0", 10);
-    const APP_VERSION = "19.0.1.5.1";
+    const APP_VERSION = "19.0.1.7.2";
 
     const state = {
         loading: true,
@@ -82,6 +82,8 @@
         ["summary_text", "Kurzzusammenfassung"],
         ["photo_credit", "Fotocredit"],
         ["ticket_link_text", "Ticketlink"],
+        ["admission_time_text", "Foyer Eingang – Einlass"],
+        ["ticket_price_text", "Foyer Eingang – Ticketpreis"],
     ];
 
     const TEXT_FIELD_LABELS = Object.fromEntries(TEXT_FIELDS);
@@ -94,6 +96,7 @@
             externalLogo: { dx: 0, dy: 0, scale: 1 },
             sticker: { dx: 0, dy: 0, scale: 1 },
             divider: { dx: 0, dy: 0, width: 0, height: 0 },
+            admissionDivider: { dx: 0, dy: 0, width: 0, height: 0 },
             textStyles: {},
             overlayOverrides: {},
         };
@@ -422,6 +425,7 @@
         variant.externalLogo = variant.externalLogo || { dx: 0, dy: 0, scale: 1 };
         variant.sticker = variant.sticker || { dx: 0, dy: 0, scale: 1 };
         variant.divider = variant.divider || { dx: 0, dy: 0, width: 0, height: 0 };
+        variant.admissionDivider = variant.admissionDivider || { dx: 0, dy: 0, width: 0, height: 0 };
         variant.textStyles = variant.textStyles || {};
         variant.overlayOverrides = variant.overlayOverrides || {};
         return variant;
@@ -571,12 +575,13 @@
         const hasTransform = (obj = {}, keys = []) => keys.some((key) => Math.abs(Number(obj[key] || 0)) > 0.0001) || Math.abs(Number(obj.scale || 1) - 1) > 0.0001;
         const hasTextStyle = Object.values(variant.textStyles || {}).some((style) => style && (Math.abs(Number(style.dx || 0)) > 0.0001 || Math.abs(Number(style.dy || 0)) > 0.0001 || Number(style.size || 0) > 0 || (style.font && style.font !== "auto") || (style.align && style.align !== "auto")));
         const hasDivider = hasTransform(variant.divider || {}, ["dx", "dy", "width", "height"]);
+        const hasAdmissionDivider = hasTransform(variant.admissionDivider || {}, ["dx", "dy", "width", "height"]);
         const hasQr = hasTransform(variant.qr || {}, ["dx", "dy"]);
         const hasLogo = hasTransform(variant.externalLogo || {}, ["dx", "dy"]);
         const hasSticker = hasTransform(variant.sticker || {}, ["dx", "dy"]);
         const hasImage = Boolean(variant.imageCustom) || hasTransform(variant.image || {}, ["offsetX", "offsetY", "rotation"]);
         const hasOverlay = Object.keys(variant.overlayOverrides || {}).length > 0;
-        return hasTextStyle || hasDivider || hasQr || hasLogo || hasSticker || hasImage || hasOverlay;
+        return hasTextStyle || hasDivider || hasAdmissionDivider || hasQr || hasLogo || hasSticker || hasImage || hasOverlay;
     }
 
     async function prefillVariantsFromOdooDefaults() {
@@ -654,12 +659,22 @@
                 const geometry = alphaGeometry(image);
                 geometries[asset.role] = geometry;
                 bboxes[asset.role] = geometry ? geometry.bbox : null;
-                if (["date_title", "time_subtitle", "time_ticketlink", "title", "subtitle"].includes(asset.role)) {
+                if (["date_title", "time_subtitle", "time_ticketlink", "title", "subtitle", "static_admission_price"].includes(asset.role)) {
                     regions[asset.role] = groupedAlphaRegions(image);
                 }
             } catch (error) {
                 console.warn("Template asset konnte nicht geladen werden", asset, error);
             }
+        }
+        if (template.photo_only) {
+            const fullCanvasBox = {
+                x: 0,
+                y: 0,
+                width: template.canvas_width,
+                height: template.canvas_height,
+            };
+            bboxes.image_mask = fullCanvasBox;
+            geometries.image_mask = { bbox: fullCanvasBox, corners: null };
         }
         const info = { template, imagesByRole, bboxes, geometries, regions, staticOverlays };
         state.templateCache.set(template.key, info);
@@ -721,6 +736,8 @@
                             ${textarea("summary_text", "Kurzzusammenfassung", 4)}
                             ${input("photo_credit", "Fotocredit")}
                             ${input("ticket_link_text", "Ticketlink-Zeile")}
+                            ${input("admission_time_text", "Foyer Eingang – Einlass (Uhrzeit)")}
+                            ${input("ticket_price_text", "Foyer Eingang – Tickets ab")}
                             ${input("qr_url", "QR-Code-Ziel")}
                         </div>
                         <div class="gl-section">
@@ -764,6 +781,16 @@
                                 ${numberInput("divider.width", "Breite px")}
                                 ${numberInput("divider.height", "Länge px")}
                             </div>
+                        </div>
+                        <div class="gl-section">
+                            <label class="gl-label gl-label-strong">Foyer Eingang – Trennstrich Einlass / Preis</label>
+                            <div class="gl-grid-2">
+                                ${numberInput("admissionDivider.dx", "Trennstrich X")}
+                                ${numberInput("admissionDivider.dy", "Trennstrich Y")}
+                                ${numberInput("admissionDivider.width", "Breite px")}
+                                ${numberInput("admissionDivider.height", "Länge px")}
+                            </div>
+                            <div class="gl-small mt-2">Einlass und Ticketpreis selbst lassen sich oben unter „Text-Einstellungen je Element“ getrennt verschieben und skalieren.</div>
                         </div>
                         <div class="gl-section">
                             <label class="gl-label gl-label-strong">Externes Logo</label>
@@ -1196,6 +1223,14 @@
         const templateKey = template.key;
         ctx.clearRect(0, 0, template.canvas_width, template.canvas_height);
 
+        if (template.photo_only) {
+            await safeLayer("Veranstaltungsbild", () => drawSourceImage(ctx, info, getImageTransform(template.key)));
+            if (showGuides) {
+                safeLayer("Bildgriffe", () => drawImageHandles(ctx, info.geometries.image_mask));
+            }
+            return;
+        }
+
         // Ebenenreihenfolge:
         // 1) Verlauf ganz hinten
         // 2) hochgeladenes Bild / Content
@@ -1212,6 +1247,7 @@
         const contentShift = resolveTemplateContentShift(template, box);
 
         for (const overlay of info.staticOverlays || []) {
+            if (["static_admission_price", "static_begin", "static_admission_sticker"].includes(overlay.role)) continue;
             safeDrawImage(ctx, overlay.image, 0, 0, template.canvas_width, template.canvas_height, overlay.role || "Static Overlay");
         }
 
@@ -1267,6 +1303,19 @@
             await drawShiftedContent();
         }
 
+        if (templateKey === "foyer_eingang") {
+            safeLayer("Einlass / Ticketpreis", () => drawFoyerAdmissionPrice(
+                ctx,
+                box.static_admission_price,
+                regions.static_admission_price || [],
+                template,
+                variant.admissionDivider || {},
+            ));
+        }
+        if (templateKey === "theater_konzert") {
+            safeLayer("Beginn", () => drawTheaterBegin(ctx, box.static_begin, template));
+        }
+
         if (img.logo) {
             await safeLayer("Logo", () => {
                 if (img.logo.width === template.canvas_width && img.logo.height === template.canvas_height) {
@@ -1286,6 +1335,13 @@
             } else {
                 await safeLayer("Störer", () => drawCroppedLayer(ctx, img.sticker, box.sticker, applyBoxVariant(box.sticker, variant.sticker)));
             }
+        }
+
+        // Der runde „LIVE ON STAGE“-Störer von Foyer Eingang ist ein eigenes
+        // static_* Asset. Er wird absichtlich als allerletzte sichtbare Ebene
+        // gezeichnet, damit weder Veranstaltungsbild noch Rahmen ihn überdecken.
+        if (templateKey === "foyer_eingang" && img.static_admission_sticker) {
+            safeDrawImage(ctx, img.static_admission_sticker, 0, 0, template.canvas_width, template.canvas_height, "Foyer Eingang – Live On Stage");
         }
 
         if (showGuides) {
@@ -1523,6 +1579,145 @@
             };
         }
         return box.external_logo || null;
+    }
+
+    function cleanGraphicValue(value) {
+        return String(value || "").trim().replace(/\s+/g, " ");
+    }
+
+    function admissionTimeFromBeginText(value) {
+        const result = cleanGraphicValue(value).toUpperCase();
+        const match = result.match(/(?:^|\D)([01]?\d|2[0-3])(?:[.:]([0-5]\d))?(?:\s*UHR)?(?!\d)/);
+        if (!match) return "";
+        const minutes = (parseInt(match[1], 10) * 60 + parseInt(match[2] || "0", 10) - 60 + 24 * 60) % (24 * 60);
+        return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+    }
+
+    function normalizeAdmissionTime(value) {
+        let result = cleanGraphicValue(value).toUpperCase();
+        result = result.replace(/^EINLASS\s+(?:AB\s+)?/, "").trim();
+        if (!result) return "";
+        if (!/\bUHR\b/.test(result)) result += " UHR";
+        return result;
+    }
+
+    function normalizeTicketPrice(value) {
+        return cleanGraphicValue(value)
+            .replace(/^TICKETS?\s*(?:AB)?\s*:?\s*/i, "")
+            .trim();
+    }
+
+    function normalizeBeginTime(value) {
+        let result = cleanGraphicValue(value).toUpperCase();
+        result = result.replace(/^BEGINN\s+/, "").trim();
+        result = result.replace(/\bUHR\b/g, "").trim();
+        const match = result.match(/^(\d{1,2})[.:](\d{2})$/);
+        if (match) {
+            return match[2] === "00" ? `${parseInt(match[1], 10)} UHR` : `${parseInt(match[1], 10)}:${match[2]} UHR`;
+        }
+        return result ? `${result} UHR` : "";
+    }
+
+    function expandedTextBox(bbox, template, xPaddingRatio = 0.035, yPadding = 8) {
+        if (!bbox) return null;
+        const padX = Math.round((template?.canvas_width || 1920) * xPaddingRatio);
+        return {
+            x: Math.max(0, bbox.x - padX),
+            y: Math.max(0, bbox.y - yPadding),
+            width: Math.min((template?.canvas_width || 1920) - Math.max(0, bbox.x - padX), bbox.width + padX * 2),
+            height: bbox.height + yPadding * 2,
+        };
+    }
+
+    function resolveFoyerAdmissionLayout(bbox, regions = [], template = null) {
+        if (!bbox) return null;
+        const useful = usefulTextRegions(regions);
+        const detectedDivider = findDividerBox(bbox, useful, 0.576);
+        const dividerCenter = detectedDivider.x + detectedDivider.width / 2;
+        const dividerWidth = Math.max(3, Math.round(bbox.width * 0.005));
+        const divider = {
+            x: dividerCenter - dividerWidth / 2,
+            y: bbox.y,
+            width: dividerWidth,
+            height: bbox.height,
+        };
+
+        // Nutzt links/rechts bewusst mehr Platz als die Alpha-Bounds des Referenztextes.
+        // So kann die Schriftgröße wie bei den übrigen Textelementen auch vergrößert werden,
+        // ohne sofort durch die ursprüngliche Musterbreite begrenzt zu sein.
+        const outerPad = Math.max(24, Math.round((template?.canvas_width || 1920) * 0.055));
+        const gap = Math.max(14, Math.round(bbox.width * 0.022));
+        const top = Math.max(0, bbox.y - 10);
+        const height = bbox.height + 20;
+        const leftX = Math.max(0, bbox.x - outerPad);
+        const leftRight = divider.x - gap;
+        const rightX = divider.x + divider.width + gap;
+        const rightRight = Math.min((template?.canvas_width || 1920), bbox.x + bbox.width + outerPad);
+        const left = { x: leftX, y: top, width: Math.max(1, leftRight - leftX), height };
+        const right = { x: rightX, y: top, width: Math.max(1, rightRight - rightX), height };
+        return { divider, left, right };
+    }
+
+    function drawFoyerAdmissionPrice(ctx, bbox, regions, template, dividerVariant = {}) {
+        if (!bbox) return;
+        const admission = normalizeAdmissionTime(state.fields.admission_time_text);
+        const price = normalizeTicketPrice(state.fields.ticket_price_text);
+        if (!admission && !price) return;
+
+        const layout = resolveFoyerAdmissionLayout(bbox, regions || [], template);
+        if (!layout) return;
+        const admissionStyle = getTextStyle(template?.key, "admission_time_text");
+        const priceStyle = getTextStyle(template?.key, "ticket_price_text");
+        const baseFont = "600 42px GroundliftCondensed, Arial Narrow, Arial, sans-serif";
+
+        if (admission) {
+            drawFitText(
+                ctx,
+                [`EINLASS AB ${admission}`],
+                applyTextBoxStyle(layout.left, admissionStyle),
+                overrideFont(baseFont, admissionStyle),
+                textAlign(admissionStyle, "right"),
+                {
+                    allowWrap: false,
+                    valign: "middle",
+                    lineHeight: 1.0,
+                    maxSize: maxFontSize(42, admissionStyle),
+                },
+            );
+        }
+        if (price) {
+            drawFitText(
+                ctx,
+                [`TICKETS AB: ${price}`],
+                applyTextBoxStyle(layout.right, priceStyle),
+                overrideFont(baseFont, priceStyle),
+                textAlign(priceStyle, "left"),
+                {
+                    allowWrap: false,
+                    valign: "middle",
+                    lineHeight: 1.0,
+                    maxSize: maxFontSize(42, priceStyle),
+                },
+            );
+        }
+
+        if (admission && price) {
+            drawDivider(ctx, applyDividerVariant(layout.divider, dividerVariant));
+        }
+    }
+
+    function drawTheaterBegin(ctx, bbox, template) {
+        const beginTime = normalizeBeginTime(state.fields.time_text);
+        if (!bbox || !beginTime) return;
+        drawSingleLine(
+            ctx,
+            `BEGINN ${beginTime}`,
+            expandedTextBox(bbox, template, 0.035, 10),
+            "600 42px GroundliftCondensed, Arial Narrow, Arial, sans-serif",
+            "center",
+            template,
+            "time_text",
+        );
     }
 
     function drawTitleSubtitleStack(ctx, bbox, title, subtitle, options = {}) {
@@ -2269,6 +2464,8 @@
                 photo_credit: p.photo_credit || "",
                 ticket_url: p.ticket_url || "",
                 ticket_link_text: p.ticket_link_text || "",
+                admission_time_text: p.admission_time_text || admissionTimeFromBeginText(p.time_text || ""),
+                ticket_price_text: p.ticket_price_text || "",
                 qr_url: p.qr_url || "",
                 color_1: p.color_1 || "#000033",
                 color_2: p.color_2 || "#002E59",

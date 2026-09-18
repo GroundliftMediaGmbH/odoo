@@ -1,5 +1,6 @@
 import base64
 import io
+from datetime import timedelta
 import html as html_tools
 import re
 from pathlib import Path
@@ -26,7 +27,35 @@ TEMPLATE_ORDER = [
     "stream_problem",
     "stream_ende",
     "sudhaus_main",
+    "design_element_square",
+    "design_element_scope",
+    "design_element_flat",
 ]
+
+PHOTO_ONLY_TEMPLATES = [
+    {
+        "key": "design_element_square",
+        "name": "Designelement quadratisch",
+        "output_suffix": "DesignelementQuadratisch",
+        "canvas_width": 1600,
+        "canvas_height": 1600,
+    },
+    {
+        "key": "design_element_scope",
+        "name": 'Designelement "scope"',
+        "output_suffix": "DesignelementScope",
+        "canvas_width": 1600,
+        "canvas_height": 680,
+    },
+    {
+        "key": "design_element_flat",
+        "name": 'Designelement "flat"',
+        "output_suffix": "DesignelementFlat",
+        "canvas_width": 1140,
+        "canvas_height": 641,
+    },
+]
+
 SHORT_DESCRIPTION_FIELD_CANDIDATES = [
     "x_studio_event_kurzbeschreibung",
     "website_short_description",
@@ -92,6 +121,8 @@ class GraphicsPoster(models.Model):
     photo_credit = fields.Char(string="Fotocredit")
     ticket_url = fields.Char(string="Event-/Ticketseite")
     ticket_link_text = fields.Char(string="Ticketlink-Zeile")
+    admission_time_text = fields.Char(string="Foyer Eingang – Einlass")
+    ticket_price_text = fields.Char(string="Foyer Eingang – Tickets ab")
     qr_url = fields.Char(string="QR-Code-Ziel")
 
     color_contrast = fields.Boolean(string="Farbkontrast", default=False)
@@ -144,6 +175,9 @@ class GraphicsPoster(models.Model):
             "stream_problem": "StreamProblem",
             "stream_ende": "StreamEnde",
             "sudhaus_main": "SudhausMain",
+            "design_element_square": "DesignelementQuadratisch",
+            "design_element_scope": "DesignelementScope",
+            "design_element_flat": "DesignelementFlat",
         }
         return mapping.get(key, self._template_folder_to_title(key).replace(" ", ""))
 
@@ -241,7 +275,21 @@ class GraphicsPoster(models.Model):
                 "canvas_height": canvas_height,
                 "assets": assets,
                 "is_drink_card": key == "sudhaus_main",
+                "photo_only": False,
             })
+
+        existing_keys = {spec["key"] for spec in specs}
+        for photo_template in PHOTO_ONLY_TEMPLATES:
+            if photo_template["key"] in existing_keys:
+                continue
+            specs.append({
+                **photo_template,
+                "folder_name": "",
+                "assets": [],
+                "is_drink_card": False,
+                "photo_only": True,
+            })
+
         specs.sort(key=lambda s: (order_index.get(s["key"], 999), s["name"]))
         return specs
 
@@ -283,6 +331,7 @@ class GraphicsPoster(models.Model):
         if local_dt:
             date_text = f"{WEEKDAYS_DE[local_dt.weekday()]} {local_dt:%d.%m.}"
             time_text = f"{local_dt:%H.%M} UHR"
+        admission_time_text = self._default_admission_time_text(event, time_text)
 
         event_type = self._get_groundlift_category_label(event)
         if not event_type:
@@ -318,12 +367,83 @@ class GraphicsPoster(models.Model):
             "ticket_url": ticket_url,
             "qr_url": ticket_url,
             "ticket_link_text": (f"TICKETS & INFOS UNTER: {display_url.upper()}" if display_url else ""),
+            "admission_time_text": admission_time_text,
+            "ticket_price_text": self._lowest_positive_ticket_price_text(event),
             "color_1": template.default_color_1 or "#000033",
             "color_2": template.default_color_2 or "#002E59",
             "sticker_text": template.default_sticker_text or "LIVE\nON\nSTAGE",
             "sticker_color": template.default_sticker_color or "#D6331F",
             "output_filename": output_filename,
         }
+
+    @api.model
+    def _default_admission_time_text(self, event, begin_text=""):
+        """Return one hour before the event start, with a text fallback for legacy posters."""
+        event.ensure_one()
+        local_dt = self._event_datetime_local(event)
+        if local_dt:
+            return f"{(local_dt - timedelta(hours=1)):%H:%M}"
+
+        # Existing posters already contain the event start in ``time_text``.
+        # Use it as a second source so posters created before this field existed
+        # are still prefilled correctly.
+        match = re.search(r"(?<!\d)([01]?\d|2[0-3])(?:[.:]([0-5]\d))?(?:\s*UHR)?(?!\d)", begin_text or "", re.IGNORECASE)
+        if not match:
+            return ""
+        minutes = (int(match.group(1)) * 60 + int(match.group(2) or 0) - 60) % (24 * 60)
+        return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+    @api.model
+    def _lowest_positive_ticket_price_text(self, event):
+        """Return the lowest configured Odoo event-ticket price above zero.
+
+        Odoo 19 adds ``price``/``product_id`` to ``event.event.ticket`` through
+        ``event_product``. A ticket whose configured price is 0 is deliberately
+        treated as free and ignored instead of falling back to the product price.
+        """
+        event.ensure_one()
+        tickets = event.sudo().event_ticket_ids
+        if not tickets:
+            return ""
+
+        prices = []
+        for ticket in tickets:
+            numeric_price = None
+            currency = False
+
+            if "price" in ticket._fields:
+                raw_price = ticket["price"]
+                currency = ticket["currency_id"] if "currency_id" in ticket._fields else False
+            elif "product_id" in ticket._fields and ticket["product_id"]:
+                # Compatibility fallback for installations/customizations where
+                # a product exists on the ticket but no explicit ticket price field.
+                product = ticket["product_id"].sudo()
+                raw_price = product.lst_price
+                currency = product.currency_id
+            else:
+                continue
+
+            try:
+                numeric_price = float(raw_price)
+            except (TypeError, ValueError):
+                continue
+            if numeric_price <= 0:
+                continue
+
+            currency = currency or getattr(event.sudo(), "currency_id", False) or event.company_id.currency_id
+            prices.append((numeric_price, currency))
+
+        if not prices:
+            return ""
+
+        lowest, currency = min(prices, key=lambda item: item[0])
+        if abs(lowest - round(lowest)) < 0.00001:
+            amount = str(int(round(lowest)))
+        else:
+            amount = f"{lowest:.2f}".replace(".", ",")
+
+        currency_code = (currency.name or "EUR").upper() if currency else "EUR"
+        return f"{amount} {currency_code}"
 
     @api.model
     def _split_event_name(self, name):
@@ -530,6 +650,11 @@ class GraphicsPoster(models.Model):
         drink_profiles = self.env["gl.drink.card.profile"].search([("company_id", "in", [False, self.company_id.id])], order="name")
         library = self._get_template_library()
         output_map = {out.template_key: {"filename": out.filename} for out in self.output_ids}
+        event_defaults = self._prepare_event_values(
+            self.event_id,
+            self.template_id or self.env["gl.graphics.template"].get_default_template(),
+            creation_date=self._creation_date_local(),
+        )
         return {
             "poster": {
                 "id": self.id,
@@ -550,6 +675,8 @@ class GraphicsPoster(models.Model):
                 "photo_credit": self.photo_credit or "",
                 "ticket_url": self.ticket_url or "",
                 "ticket_link_text": self.ticket_link_text or "",
+                "admission_time_text": self.admission_time_text or event_defaults.get("admission_time_text", "") or self._default_admission_time_text(self.event_id, self.time_text or ""),
+                "ticket_price_text": self.ticket_price_text or event_defaults.get("ticket_price_text", "") or self._lowest_positive_ticket_price_text(self.event_id),
                 "qr_url": self.qr_url or "",
                 "color_contrast": bool(self.color_contrast),
                 "color_1": self.color_1 or "#000033",
@@ -588,7 +715,7 @@ class GraphicsPoster(models.Model):
         self.check_access_rule("write")
         allowed = {
             "source_image", "source_image_filename", "external_logo_image", "external_logo_filename", "claim", "event_title", "event_subtitle",
-            "date_text", "time_text", "event_type_text", "summary_text", "photo_credit", "ticket_url", "ticket_link_text", "qr_url",
+            "date_text", "time_text", "event_type_text", "summary_text", "photo_credit", "ticket_url", "ticket_link_text", "admission_time_text", "ticket_price_text", "qr_url",
             "color_contrast", "color_1", "color_2", "sticker_mode", "sticker_text", "sticker_color", "drink_card_profile_id", "editor_state", "output_filename",
         }
         write_values = {key: value for key, value in (values or {}).items() if key in allowed}

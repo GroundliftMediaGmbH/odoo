@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_gl_todo_category_user,gl.todo.category user,model_gl_todo_category,base.group_user,1,1,1,1
+access_gl_todo_phase_user,gl.todo.phase user,model_gl_todo_phase,base.group_user,1,1,1,1
