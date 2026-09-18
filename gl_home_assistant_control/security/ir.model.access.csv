@@ -20,3 +20,9 @@ access_gl_ha_comfort_group_viewer,gl.ha.comfort.group viewer,model_gl_ha_comfort
 access_gl_ha_comfort_group_manager,gl.ha.comfort.group manager,model_gl_ha_comfort_group,gl_home_assistant_control.group_ha_manager,1,1,1,1
 access_gl_ha_project_room_user,gl.ha.project.room user,model_gl_ha_project_room,project.group_project_user,1,0,0,0
 access_gl_ha_project_room_manager,gl.ha.project.room manager,model_gl_ha_project_room,gl_home_assistant_control.group_ha_manager,1,1,1,1
+access_gl_ha_heating_system_viewer,gl.ha.heating.system viewer,model_gl_ha_heating_system,gl_home_assistant_control.group_ha_viewer,1,0,0,0
+access_gl_ha_heating_system_manager,gl.ha.heating.system manager,model_gl_ha_heating_system,gl_home_assistant_control.group_ha_manager,1,1,1,1
+access_gl_ha_thermostat_zone_viewer,gl.ha.thermostat.zone viewer,model_gl_ha_thermostat_zone,gl_home_assistant_control.group_ha_viewer,1,0,0,0
+access_gl_ha_thermostat_zone_manager,gl.ha.thermostat.zone manager,model_gl_ha_thermostat_zone,gl_home_assistant_control.group_ha_manager,1,1,1,1
+access_gl_ha_thermostat_profile_viewer,gl.ha.thermostat.profile viewer,model_gl_ha_thermostat_profile,gl_home_assistant_control.group_ha_viewer,1,0,0,0
+access_gl_ha_thermostat_profile_manager,gl.ha.thermostat.profile manager,model_gl_ha_thermostat_profile,gl_home_assistant_control.group_ha_manager,1,1,1,1

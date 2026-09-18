@@ -3,7 +3,7 @@
     <template id="ha_dashboard_page" name="GROUNDLIFT Home Assistant Dashboard">
         <t t-call="web.frontend_layout">
             <t t-set="title"><t t-esc="current_page.name if current_page else dashboard.name"/></t>
-            <link rel="stylesheet" href="/gl_home_assistant_control/static/src/css/dashboard.css?v=160"/>
+            <link rel="stylesheet" href="/gl_home_assistant_control/static/src/css/dashboard.css?v=180"/>
             <t t-set="dashboard_base_url"
                t-value="('/groundlift/ha/device/%s' % device_access.public_id) if device_mode else ('/groundlift/ha/%s' % dashboard.slug)"/>
             <main id="gl-ha-app"
@@ -58,14 +58,14 @@
                     </footer>
                 </div>
             </main>
-            <script src="/gl_home_assistant_control/static/src/js/dashboard.js?v=160" defer="defer"></script>
+            <script src="/gl_home_assistant_control/static/src/js/dashboard.js?v=180" defer="defer"></script>
         </t>
     </template>
 
     <template id="ha_device_setup_page" name="GROUNDLIFT Gerätezugang einrichten">
         <t t-call="web.frontend_layout">
             <t t-set="title">Gerätezugang einrichten</t>
-            <link rel="stylesheet" href="/gl_home_assistant_control/static/src/css/dashboard.css?v=160"/>
+            <link rel="stylesheet" href="/gl_home_assistant_control/static/src/css/dashboard.css?v=180"/>
             <main id="gl-ha-device-setup"
                   class="gl-ha-device-setup"
                   t-att-data-public-id="device.public_id"
@@ -98,7 +98,7 @@
     <template id="ha_device_setup_invalid" name="GROUNDLIFT Gerätezugang ungültig">
         <t t-call="web.frontend_layout">
             <t t-set="title">Einrichtungslink ungültig</t>
-            <link rel="stylesheet" href="/gl_home_assistant_control/static/src/css/dashboard.css?v=160"/>
+            <link rel="stylesheet" href="/gl_home_assistant_control/static/src/css/dashboard.css?v=180"/>
             <main class="gl-ha-device-setup">
                 <div class="gl-ha-setup-card">
                     <div class="gl-ha-eyebrow">GROUNDLIFT · GERÄTEBINDUNG</div>
@@ -113,7 +113,7 @@
     <template id="ha_device_access_denied" name="GROUNDLIFT Gerätezugang nicht freigeschaltet">
         <t t-call="web.frontend_layout">
             <t t-set="title">Gerät nicht freigeschaltet</t>
-            <link rel="stylesheet" href="/gl_home_assistant_control/static/src/css/dashboard.css?v=160"/>
+            <link rel="stylesheet" href="/gl_home_assistant_control/static/src/css/dashboard.css?v=180"/>
             <main class="gl-ha-device-setup">
                 <div class="gl-ha-setup-card">
                     <div class="gl-ha-eyebrow">GROUNDLIFT · GERÄTEZUGANG</div>

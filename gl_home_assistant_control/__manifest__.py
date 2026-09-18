@@ -2,7 +2,7 @@
 {
     "name": "GROUNDLIFT Home Assistant Steuerung",
     "summary": "Home-Assistant-Dashboard, Sensorverlauf, Automationen sowie Stromkosten je Veranstaltung",
-    "version": "19.0.1.7.0",
+    "version": "19.0.1.8.0",
     "category": "Operations/IoT",
     "author": "GROUNDLIFT / ChatGPT",
     "license": "LGPL-3",
@@ -27,6 +27,7 @@
         "views/ha_project_template_views.xml",
         "views/project_extension_views.xml",
         "views/ha_rule_views.xml",
+        "views/ha_thermostat_views.xml",
         "views/ha_dashboard_views.xml",
         "views/ha_device_access_views.xml",
         "views/ha_alert_views.xml",

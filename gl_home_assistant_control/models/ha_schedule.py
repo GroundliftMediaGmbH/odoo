@@ -28,6 +28,11 @@ class GlHaScheduleWindow(models.Model):
     start_at = fields.Datetime(required=True, index=True)
     end_at = fields.Datetime(required=True, index=True)
     details = fields.Char()
+    room_code = fields.Char(
+        string="Raumcode",
+        index=True,
+        help="Optionaler technischer Raum-/Saalcode, z. B. cinema_1, cinema_2, theater, lounge oder podcast.",
+    )
 
     _source_ref_time_unique = models.Constraint(
         "UNIQUE(source, source_ref, start_at)",
@@ -89,6 +94,7 @@ class GlHaScheduleWindow(models.Model):
                         "start_at": begin,
                         "end_at": finish,
                         "details": _("Odoo Veranstaltung · Slot"),
+                        "room_code": "theater",
                     })
                 continue
 
@@ -103,12 +109,19 @@ class GlHaScheduleWindow(models.Model):
                 "start_at": begin,
                 "end_at": finish,
                 "details": _("Odoo Veranstaltung"),
+                "room_code": "theater",
             })
         self._replace_source("event", vals_list, start, end)
 
     @api.model
     def _project_window_values(self, project):
-        """Zeitfensterwerte eines Odoo-Projekts nach Raumquelle gruppieren."""
+        """Zeitfensterwerte eines Odoo-Projekts je Raum liefern.
+
+        Seit 1.8 bleibt der konkrete Raumcode erhalten. Dadurch kann ein
+        Raumthermostat z. B. Kino 1 und Kino 2 getrennt vorheizen, während
+        bestehende Automatikregeln weiterhin über die gemeinsame Quelle
+        ``project_cinema`` reagieren.
+        """
         if not project or not project.exists():
             return []
         if not getattr(project, "ha_building_automation", False):
@@ -121,21 +134,19 @@ class GlHaScheduleWindow(models.Model):
         if not start_at or not end_at or end_at <= start_at or not rooms:
             return []
 
-        grouped = {}
+        vals_list = []
         for room in rooms:
             source = room.schedule_source()
-            if source:
-                grouped.setdefault(source, []).append(room.name)
-
-        vals_list = []
-        for source, room_names in grouped.items():
+            if not source:
+                continue
             vals_list.append({
                 "name": project.name or _("Projekt"),
                 "source": source,
-                "source_ref": "project:%s:%s" % (project.id, source),
+                "source_ref": "project:%s:%s:%s" % (project.id, source, room.code),
                 "start_at": start_at,
                 "end_at": end_at,
-                "details": _("Odoo-Projekt · Räume: %s") % ", ".join(room_names),
+                "details": _("Odoo-Projekt · Raum: %s") % room.name,
+                "room_code": room.code,
             })
         return vals_list
 
@@ -237,6 +248,7 @@ class GlHaScheduleWindow(models.Model):
         # der letzten Vorstellung. Vor-/Nachlauf der Automatikregel werden dann
         # nur vor dieses Tagesfenster bzw. hinter dieses Tagesfenster gelegt.
         daily = {}
+        room_daily = {}
         dedupe = set()
         for show in shows:
             raw_start = show.get("start")
@@ -293,6 +305,32 @@ class GlHaScheduleWindow(models.Model):
                 bucket["cinemas"].add(cinema)
             bucket["count"] += 1
 
+            # Zusätzlicher saalbezogener Cache für Raumthermostate. Das globale
+            # Tagesfenster oben bleibt unverändert erhalten, damit bestehende
+            # Kino-Automatikregeln weiterhin exakt wie bisher arbeiten.
+            cinema_norm = cinema.lower().replace("saal", "kino").replace("-", " ").replace("_", " ")
+            room_code = False
+            if re.search(r"(?:kino\s*)?1(?:\D|$)", cinema_norm):
+                room_code = "cinema_1"
+            elif re.search(r"(?:kino\s*)?2(?:\D|$)", cinema_norm):
+                room_code = "cinema_2"
+            if room_code:
+                room_key = (day, room_code)
+                room_bucket = room_daily.setdefault(room_key, {
+                    "start_local": start_local,
+                    "end_local": end_local,
+                    "films": [],
+                    "cinema": cinema or ("Kino 1" if room_code == "cinema_1" else "Kino 2"),
+                    "count": 0,
+                })
+                if start_local < room_bucket["start_local"]:
+                    room_bucket["start_local"] = start_local
+                if end_local > room_bucket["end_local"]:
+                    room_bucket["end_local"] = end_local
+                if film and film not in room_bucket["films"]:
+                    room_bucket["films"].append(film)
+                room_bucket["count"] += 1
+
         vals_list = []
         for day in sorted(daily):
             bucket = daily[day]
@@ -314,6 +352,25 @@ class GlHaScheduleWindow(models.Model):
                 "start_at": self._aware_to_odoo(bucket["start_local"]),
                 "end_at": self._aware_to_odoo(bucket["end_local"]),
                 "details": " · ".join(detail_parts),
+                "room_code": False,
+            })
+
+        for (day, room_code), bucket in sorted(room_daily.items(), key=lambda item: (item[0][0], item[0][1])):
+            count = bucket["count"]
+            film_preview = ", ".join(bucket["films"][:3])
+            if len(bucket["films"]) > 3:
+                film_preview += _(" + weitere")
+            detail_parts = [_("%s Vorstellung" if count == 1 else "%s Vorstellungen") % count, bucket["cinema"]]
+            if film_preview:
+                detail_parts.append(film_preview)
+            vals_list.append({
+                "name": _("Kino – %s") % bucket["cinema"],
+                "source": "cinema",
+                "source_ref": "cinema-room:%s:%s" % (room_code, day.isoformat()),
+                "start_at": self._aware_to_odoo(bucket["start_local"]),
+                "end_at": self._aware_to_odoo(bucket["end_local"]),
+                "details": " · ".join(detail_parts),
+                "room_code": room_code,
             })
 
         now = fields.Datetime.now()

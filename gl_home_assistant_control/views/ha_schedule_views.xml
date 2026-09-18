@@ -8,6 +8,7 @@
                 <field name="source"/>
                 <field name="name"/>
                 <field name="details"/>
+                <field name="room_code" optional="show"/>
                 <field name="start_at"/>
                 <field name="end_at"/>
                 <field name="source_ref" optional="hide"/>

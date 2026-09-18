@@ -1077,6 +1077,12 @@ class GlHaAutomationRule(models.Model):
 
             for schedule_source in rule._schedule_sources_for_rule():
                 for window in windows_by_source.get(schedule_source, []):
+                    # Seit 1.8 existieren für Raumthermostate zusätzlich
+                    # saalbezogene Kino-Fenster. Normale Kino-Automatikregeln
+                    # behalten das etablierte globale Tagesfenster und zeigen
+                    # dadurch keine doppelten Planzeilen.
+                    if rule.source == "cinema" and window.source == "cinema" and getattr(window, "room_code", False):
+                        continue
                     anchor_start = fields.Datetime.to_datetime(window.start_at)
                     effective_start = anchor_start - timedelta(minutes=rule.minutes_before)
                     effective_end = fields.Datetime.to_datetime(window.end_at) + timedelta(minutes=rule.minutes_after)
@@ -1144,6 +1150,13 @@ class GlHaAutomationRule(models.Model):
             for target in rule._target_entities():
                 by_target[target.id].append(rule)
 
+        # Raumthermostate liefern zusätzliche EIN/AUS-Anforderungen für
+        # Heizkreisventile, die gemeinsame Heizungspumpe und optional die
+        # Lüftung. Diese Anforderungen werden unten mit allen bestehenden
+        # Automatikregeln ODER-verknüpft. Dadurch schaltet ein Thermostat eine
+        # Lüftung niemals aus, solange z. B. Kino oder Veranstaltung sie braucht.
+        thermostat_intents = self.env["gl.ha.thermostat.zone"].sudo().automation_intents(now=now)
+
         weather_needed = any(bool(rule._weather_condition_entities()) for rule in rules)
         weather_data = config.weather_snapshot(refresh_if_stale=True) if weather_needed else {}
 
@@ -1152,7 +1165,10 @@ class GlHaAutomationRule(models.Model):
         if config.last_state_sync_at and now - config.last_state_sync_at > timedelta(minutes=3):
             raise RuntimeError(_("Home-Assistant-Zustände sind älter als 3 Minuten; Automatik wird aus Sicherheitsgründen ausgesetzt."))
 
-        for target_id, target_rules in by_target.items():
+        all_target_ids = sorted(set(by_target.keys()) | set(thermostat_intents.keys()))
+        for target_id in all_target_ids:
+            target_rules = by_target.get(target_id, [])
+            thermostat_intent = thermostat_intents.get(target_id) or {}
             target = self.env["gl.ha.entity"].sudo().browse(target_id).exists()
             if not target:
                 continue
@@ -1170,8 +1186,9 @@ class GlHaAutomationRule(models.Model):
             if target.manual_override_until and target.manual_override_until <= now:
                 target.action_clear_override()
 
-            wants_on = False
-            hold_current = False
+            thermostat_exclusive = bool(thermostat_intent.get("exclusive"))
+            wants_on = bool(thermostat_intent.get("wants_on"))
+            hold_current = bool(thermostat_intent.get("hold"))
             for rule in target_rules:
                 window, window_unknown, window_detail = rule._window_result(
                     now, config, weather_data, persist_solar_latch=True, persist_runtime=True
@@ -1181,11 +1198,14 @@ class GlHaAutomationRule(models.Model):
                     reset_hysteresis=bool(not window and not window_unknown),
                 )
                 desired = window and condition
-                wants_on = wants_on or desired
-                # Bei fehlenden Sonnen-/Wetterdaten innerhalb eines grundsätzlich
-                # aktiven Quellfensters oder bei unklarer normaler Sensorbedingung
-                # wird der aktuelle Schaltzustand gehalten.
-                hold_current = hold_current or bool(window_unknown or (window and condition_unknown))
+                if not thermostat_exclusive:
+                    wants_on = wants_on or desired
+                    # Bei fehlenden Sonnen-/Wetterdaten innerhalb eines grundsätzlich
+                    # aktiven Quellfensters oder bei unklarer normaler Sensorbedingung
+                    # wird der aktuelle Schaltzustand gehalten. Pumpen und Heizkreis-
+                    # ventile eines Raumthermostats sind dagegen exklusiv dem
+                    # Thermostat zugeordnet; Lüftungen bleiben bewusst ODER-verknüpft.
+                    hold_current = hold_current or bool(window_unknown or (window and condition_unknown))
                 sensor_count = len(rule._condition_entities())
                 generic_count = len(rule._generic_condition_entities())
                 if not generic_count:

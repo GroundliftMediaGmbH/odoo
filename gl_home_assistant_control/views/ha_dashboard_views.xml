@@ -58,6 +58,10 @@
                         <field name="entity_ids" widget="many2many_tags" options="{'no_create': True}"/>
                         <p class="text-muted">Hier können z. B. nur Temperatur- und Luftfeuchtesensoren für eine Unterseite „Klima“ ausgewählt werden. Die Zuordnung „Sensor / Messwert“ oder „Aktives Element / Steuerung“ erfolgt pro Entität.</p>
                     </group>
+                    <group string="Raumthermostate auf dieser Unterseite">
+                        <field name="thermostat_zone_ids" widget="many2many_tags" options="{'no_create': True, 'no_create_edit': True}"/>
+                        <p class="text-muted">Ausgewählte Thermostate erscheinen mit Solltemperatur, Isttemperatur und +/- Bedienung in 0,5-°C-Schritten bzw. der pro Zone eingestellten Schrittweite.</p>
+                    </group>
                 </sheet>
             </form>
         </field>
@@ -129,6 +133,10 @@
                                 <field name="show_status"/>
                                 <field name="show_alerts"/>
                                 <field name="show_windows"/>
+                            </group>
+                            <group string="Raumthermostate">
+                                <field name="thermostat_zone_ids" widget="many2many_tags" options="{'no_create': True, 'no_create_edit': True}"/>
+                                <p class="text-muted">Diese Thermostate erscheinen als eigene Soll-/Ist-Kacheln mit +/- Bedienung. Die Schrittweite wird pro Raumthermostat festgelegt.</p>
                             </group>
                         </page>
                         <page string="Unterseiten">

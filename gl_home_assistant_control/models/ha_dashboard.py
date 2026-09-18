@@ -91,6 +91,15 @@ class GlHaDashboard(models.Model):
         domain="[('active','=',True)]",
         help="Leer = alle auf dieser Dashboard-Seite vollständig vorhandenen Klima-Gruppen. Bei Auswahl werden nur diese Gruppen im Behaglichkeitsdiagramm dargestellt.",
     )
+    thermostat_zone_ids = fields.Many2many(
+        "gl.ha.thermostat.zone",
+        "gl_ha_dashboard_thermostat_zone_rel",
+        "dashboard_id",
+        "zone_id",
+        string="Raumthermostate auf der Hauptseite",
+        domain="[('active','=',True)]",
+        help="Raumthermostate, die als Soll/Ist-Kachel mit +/- Bedienung auf der Hauptseite angezeigt werden.",
+    )
     grid_columns = fields.Selection([
         ("2", "2 Spalten"),
         ("3", "3 Spalten"),
@@ -320,6 +329,15 @@ class GlHaDashboardPage(models.Model):
         string="Klima-Gruppen im Diagramm",
         domain="[('active','=',True)]",
         help="Leer = alle auf dieser Unterseite vollständig vorhandenen Klima-Gruppen. Bei Auswahl werden nur diese Gruppen im Behaglichkeitsdiagramm dargestellt.",
+    )
+    thermostat_zone_ids = fields.Many2many(
+        "gl.ha.thermostat.zone",
+        "gl_ha_dashboard_page_thermostat_zone_rel",
+        "page_id",
+        "zone_id",
+        string="Raumthermostate auf dieser Unterseite",
+        domain="[('active','=',True)]",
+        help="Raumthermostate, die als Soll/Ist-Kachel mit +/- Bedienung auf dieser Unterseite angezeigt werden.",
     )
     grid_columns = fields.Selection([
         ("2", "2 Spalten"),

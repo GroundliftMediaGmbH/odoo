@@ -91,6 +91,7 @@ class GlHaDashboardController(http.Controller):
             "show_history_charts": bool(source.show_history_charts),
             "show_comfort_chart": bool(source.show_comfort_chart),
             "comfort_group_ids": source.comfort_group_ids.ids,
+            "thermostat_zone_ids": source.thermostat_zone_ids.ids,
             "show_entity_ids": bool(source.show_entity_ids),
             "show_last_seen": bool(source.show_last_seen),
             "grid_columns": int(source.grid_columns or 4),
@@ -289,6 +290,59 @@ class GlHaDashboardController(http.Controller):
                 )
         return result
 
+    def _selected_thermostats(self, dashboard, page=None):
+        source = page or dashboard
+        return source.thermostat_zone_ids.filtered(lambda zone: zone.active).sorted(key=lambda zone: (zone.sequence, zone.name or "", zone.id))
+
+    def _thermostat_json(self, zone, can_control):
+        now = fields.Datetime.now()
+        setpoint, source = zone.dashboard_setpoint_info(now=now)
+        sensor = zone.temperature_entity_id
+        system = zone.heating_system_id
+        pump = system.pump_entity_id if system else request.env["gl.ha.entity"].sudo().browse([])
+        valve = zone.valve_entity_id
+        ventilation = zone.ventilation_entity_id
+        manual_active = bool(zone.manual_override_until and zone.manual_override_until > now)
+        return {
+            "id": zone.id,
+            "name": zone.name,
+            "room": sensor.room or zone.name or "Heizung",
+            "display_role": "control",
+            "is_thermostat": True,
+            "is_available": bool(sensor and sensor.active and sensor.is_available and sensor.has_numeric_value),
+            "temperature": float(sensor.numeric_value) if sensor and sensor.has_numeric_value else None,
+            "temperature_unit": sensor.unit or "°C" if sensor else "°C",
+            "setpoint": float(setpoint),
+            "setpoint_source": source or "",
+            "base_setpoint": float(zone.base_setpoint),
+            "min_setpoint": float(zone.min_setpoint),
+            "max_setpoint": float(zone.max_setpoint),
+            "step": float(zone.dashboard_step or 0.5),
+            "heat_demand": bool(zone.heat_demand),
+            "manual_override_active": manual_active,
+            "manual_override_until": fields.Datetime.to_string(zone.manual_override_until) if manual_active else None,
+            "can_control": bool(can_control),
+            "last_message": zone.last_message or "",
+            "valve": {
+                "id": valve.id if valve else None,
+                "name": valve.name if valve else "",
+                "on": bool(valve._current_on()) if valve else False,
+                "available": bool(valve.is_available) if valve else False,
+            },
+            "pump": {
+                "id": pump.id if pump else None,
+                "name": pump.name if pump else "",
+                "on": bool(pump._current_on()) if pump else False,
+                "available": bool(pump.is_available) if pump else False,
+            },
+            "ventilation": {
+                "id": ventilation.id if ventilation else None,
+                "name": ventilation.name if ventilation else "",
+                "on": bool(ventilation._current_on()) if ventilation else False,
+                "available": bool(ventilation.is_available) if ventilation else False,
+            } if ventilation else False,
+        }
+
     def _dashboard_payload(self, dashboard, page=None, can_control=False):
         entities = self._selected_entities(dashboard, page)
         view = self._view_settings(dashboard, page)
@@ -337,6 +391,7 @@ class GlHaDashboardController(http.Controller):
                 "last_automation_at": fields.Datetime.to_string(config.last_automation_at) if config.last_automation_at else None,
             },
             "entities": [self._entity_json(e, can_control, comfort=comfort_map.get(e.id)) for e in entities],
+            "thermostats": [self._thermostat_json(zone, can_control) for zone in self._selected_thermostats(dashboard, page)],
             "comfort_groups": comfort_groups,
             "comfort_chart": {
                 "x_min": 12,
@@ -421,6 +476,21 @@ class GlHaDashboardController(http.Controller):
         entity.dashboard_command(command, value=value, override_minutes=override_minutes)
         return self._entity_json(entity, True)
 
+    def _execute_thermostat_command(self, dashboard, page, zone_id, command, value=None, override_minutes=None, can_control=False):
+        view = self._view_settings(dashboard, page)
+        if not view["allow_control"] or not can_control:
+            raise AccessError(_("Thermostat-Steuerung ist auf dieser Dashboard-Seite deaktiviert oder für diesen Zugang nicht freigegeben."))
+        zone = request.env["gl.ha.thermostat.zone"].sudo().browse(int(zone_id or 0)).exists()
+        if not zone or not zone.active:
+            raise UserError(_("Raumthermostat nicht gefunden oder deaktiviert."))
+        if zone.id not in set(self._selected_thermostats(dashboard, page).ids):
+            raise AccessError(_("Dieser Raumthermostat gehört nicht zu dieser Dashboard-Seite."))
+        zone.dashboard_command(command, value=value, override_minutes=override_minutes)
+        config = request.env["gl.ha.config"].sudo().get_config()
+        if config.automation_enabled:
+            request.env["gl.ha.automation.rule"].sudo().evaluate_all(config)
+        return self._thermostat_json(zone, True)
+
     # -------------------------------------------------------------------------
     # Interner Odoo-Zugang (unverändert: Odoo-Benutzer + Gruppenrechte)
     # -------------------------------------------------------------------------
@@ -488,6 +558,20 @@ class GlHaDashboardController(http.Controller):
             dashboard, page, entity_id, command,
             value=value, override_minutes=override_minutes,
             can_control=can_control,
+        )
+
+    @http.route("/groundlift/ha/thermostat-command", type="jsonrpc", auth="user", methods=["POST"])
+    def thermostat_command(self, slug=None, page_slug=None, zone_id=None, command=None, value=None, override_minutes=None):
+        self._check_view()
+        dashboard = self._get_dashboard(slug)
+        if not dashboard:
+            raise AccessError(_("Dashboard nicht gefunden."))
+        page = self._get_page(dashboard, page_slug)
+        if page_slug and not page:
+            raise AccessError(_("Dashboard-Unterseite nicht gefunden."))
+        can_control = request.env.user.has_group("gl_home_assistant_control.group_ha_operator")
+        return self._execute_thermostat_command(
+            dashboard, page, zone_id, command, value=value, override_minutes=override_minutes, can_control=can_control
         )
 
     # -------------------------------------------------------------------------
@@ -730,3 +814,21 @@ class GlHaDashboardController(http.Controller):
             value=value, override_minutes=override_minutes,
             can_control=bool(device.allow_control),
         )
+    @http.route("/groundlift/ha/device/thermostat-command", type="jsonrpc", auth="public", methods=["POST"], csrf=False)
+    def device_thermostat_command(self, slug=None, page_slug=None, zone_id=None, command=None, value=None, override_minutes=None):
+        device = self._verify_signed_device_request({
+            "command": command,
+            "override_minutes": override_minutes,
+            "page_slug": page_slug,
+            "slug": slug,
+            "value": value,
+            "zone_id": zone_id,
+        })
+        dashboard, page = self._device_page(device, page_slug)
+        if slug and slug != dashboard.slug:
+            raise AccessError(_("Dieses Dashboard ist für das Gerät nicht freigegeben."))
+        return self._execute_thermostat_command(
+            dashboard, page, zone_id, command, value=value, override_minutes=override_minutes,
+            can_control=bool(device.allow_control),
+        )
+

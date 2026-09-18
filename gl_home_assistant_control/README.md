@@ -311,3 +311,15 @@ Die Raumlogik ist:
 - **Podcaststudio** → neue Regelquelle **Projekt Podcaststudio**.
 
 Damit können Lounge und Podcaststudio jeweils eigene Automatikregeln mit eigenen Zielgeräten, Vor-/Nachläufen und optionalen Sensorbedingungen erhalten, während Kino und Theater die bereits vorhandenen Automatikregeln wiederverwenden.
+
+## 19.0.1.8.0 – Raumthermostate / gemeinsame Heizungspumpe
+
+- Neue Modelle **Heizsysteme** und **Raumthermostate**.
+- Ein Heizsystem besitzt eine gemeinsame Pumpen-Entität; die Pumpe wird nur angefordert, wenn mindestens eine aktive Zone Wärmebedarf hat.
+- Pro Zone: Ist-Temperatursensor, Heizkreis-/Thermostat-Relais, optionale Lüftung, Grundtemperatur, Hysterese und Dashboard-Schrittweite.
+- Die optionale Lüftung wird bei Heizbedarf als zusätzliche EIN-Anforderung in die bestehende OR-Automatik aufgenommen. Event-/Kino-/Taupunktregeln können sie deshalb weiterhin eingeschaltet halten.
+- Solltemperaturprofile können mit Event-, Kino- und Projekt-Zeitfenstern verbunden werden. Raumfilter (Kino 1, Kino 2, Theater, Lounge, Podcaststudio), Vorlauf und Nachlauf sind möglich.
+- Kinofenster bleiben global wie bisher vorhanden; zusätzlich werden, sofern Cinetixx den Saal liefert, raumbezogene Fenster für Kino 1/2 erzeugt.
+- Dashboards und Unterseiten können ausgewählte Raumthermostate als Soll-/Ist-Kachel mit +/- Steuerung anzeigen. Standard-Schrittweite: 0,5 °C. Eine manuelle Änderung nutzt die globale Dauer für manuelle Übersteuerungen und kann mit „Automatik“ beendet werden.
+
+Nach dem Update einmal **Zeitfenster aktualisieren**, damit bestehende Kino-/Projekt-Caches die neuen Raumcodes erhalten.

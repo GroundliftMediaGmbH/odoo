@@ -430,6 +430,44 @@
         </article>`;
     }
 
+    function thermostatHtml(zone) {
+        const temp = hasFiniteNumber(zone.temperature) ? `${Number(zone.temperature).toFixed(1)} ${esc(zone.temperature_unit || "°C")}` : "–";
+        const setpoint = hasFiniteNumber(zone.setpoint) ? Number(zone.setpoint).toFixed(1) : "–";
+        const demand = zone.heat_demand ? "Heizt" : "Kein Wärmebedarf";
+        const override = zone.manual_override_active
+            ? `<div class="gl-ha-override">Manuell bis ${esc(formatDate(zone.manual_override_until))}</div>`
+            : "";
+        const canControl = Boolean(zone.can_control);
+        const controls = canControl ? `<div class="gl-ha-thermostat-controls">
+            <button type="button" class="gl-ha-thermostat-adjust" data-zone-id="${zone.id}" data-delta="-${Number(zone.step || 0.5)}" aria-label="Solltemperatur senken">−</button>
+            <div class="gl-ha-thermostat-target"><span>Soll</span><strong>${setpoint} °C</strong></div>
+            <button type="button" class="gl-ha-thermostat-adjust" data-zone-id="${zone.id}" data-delta="${Number(zone.step || 0.5)}" aria-label="Solltemperatur erhöhen">+</button>
+            ${zone.manual_override_active ? `<button type="button" class="gl-ha-thermostat-command secondary" data-zone-id="${zone.id}" data-command="auto">Automatik</button>` : ""}
+        </div>` : `<div class="gl-ha-thermostat-target readonly"><span>Soll</span><strong>${setpoint} °C</strong></div>`;
+        const statusBits = [
+            zone.valve?.name ? `Ventil ${zone.valve.on ? "EIN" : "AUS"}` : "",
+            zone.pump?.name ? `Pumpe ${zone.pump.on ? "EIN" : "AUS"}` : "",
+            zone.ventilation?.name ? `Lüftung ${zone.ventilation.on ? "EIN" : "AUS"}` : "",
+        ].filter(Boolean).join(" · ");
+        return `<article class="gl-ha-entity gl-ha-item gl-ha-thermostat${zone.heat_demand ? " active" : ""}${zone.is_available ? "" : " offline"}" data-thermostat-id="${zone.id}">
+            <div class="gl-ha-entity-head">
+                <div>
+                    <h3>${esc(zone.name)}</h3>
+                    <small>${esc(zone.setpoint_source || "Grundtemperatur")}</small>
+                </div>
+                <span class="gl-ha-dot" title="${zone.is_available ? "Temperatursensor erreichbar" : "Temperatursensor nicht verfügbar"}"></span>
+            </div>
+            <div class="gl-ha-thermostat-readings">
+                <div><span>Ist</span><strong>${temp}</strong></div>
+                <div><span>Status</span><strong>${esc(demand)}</strong></div>
+            </div>
+            ${controls}
+            ${override}
+            ${statusBits ? `<div class="gl-ha-thermostat-devices">${esc(statusBits)}</div>` : ""}
+            ${zone.last_message ? `<div class="gl-ha-lastseen">${esc(zone.last_message)}</div>` : ""}
+        </article>`;
+    }
+
     function combinedDisplayItems(entities) {
         const entityIds = new Set(entities.map(entity => entity.id));
         const used = new Set();
@@ -451,7 +489,14 @@
             used.add(group.temperature_entity_id);
             used.add(group.humidity_entity_id);
         });
-        return [...entities.filter(entity => !used.has(entity.id)), ...groups];
+        const thermostats = (state?.thermostats || []).map(zone => ({
+            ...zone,
+            is_thermostat: true,
+            display_role: "control",
+            room: zone.room || zone.name || "Heizung",
+            dashboard_group: zone.room || zone.name || "Heizung",
+        }));
+        return [...entities.filter(entity => !used.has(entity.id)), ...groups, ...thermostats];
     }
 
     function sensorHtml(entity) {
@@ -488,7 +533,7 @@
             <section class="gl-ha-room">
                 ${room ? `<div class="gl-ha-section-head gl-ha-room-head"><h3>${esc(room)}</h3><span>${items.length}</span></div>` : ""}
                 <div class="${compactSensors ? "gl-ha-sensor-grid" : "gl-ha-grid"}">
-                    ${items.map(item => item.is_comfort_group ? comfortGroupHtml(item, compactSensors) : (compactSensors ? sensorHtml(item) : entityHtml(item))).join("")}
+                    ${items.map(item => item.is_thermostat ? thermostatHtml(item) : (item.is_comfort_group ? comfortGroupHtml(item, compactSensors) : (compactSensors ? sensorHtml(item) : entityHtml(item)))).join("")}
                 </div>
             </section>`).join("");
     }
@@ -855,6 +900,28 @@
         }
     }
 
+    async function sendThermostatCommand(zoneId, command, value) {
+        const zone = (state?.thermostats || []).find(item => item.id === Number(zoneId));
+        if (!zone) return;
+        const card = document.querySelector(`[data-thermostat-id="${zone.id}"]`);
+        if (card) card.classList.add("busy");
+        try {
+            await rpc(`${apiBase}/thermostat-command`, {
+                slug,
+                page_slug: pageSlug,
+                zone_id: zone.id,
+                command,
+                value: value == null ? null : Number(value),
+                override_minutes: null,
+            });
+            await loadData(false);
+        } catch (err) {
+            window.alert(err.message);
+        } finally {
+            if (card) card.classList.remove("busy");
+        }
+    }
+
     windowsEl.addEventListener("click", (event) => {
         const row = event.target.closest(".gl-ha-plan-row");
         if (!row) return;
@@ -870,6 +937,16 @@
     });
 
     roomsEl.addEventListener("click", (event) => {
+        const thermostatAdjust = event.target.closest(".gl-ha-thermostat-adjust");
+        if (thermostatAdjust) {
+            sendThermostatCommand(thermostatAdjust.dataset.zoneId, "adjust", thermostatAdjust.dataset.delta);
+            return;
+        }
+        const thermostatCommand = event.target.closest(".gl-ha-thermostat-command");
+        if (thermostatCommand) {
+            sendThermostatCommand(thermostatCommand.dataset.zoneId, thermostatCommand.dataset.command, null);
+            return;
+        }
         const adjust = event.target.closest(".gl-ha-adjust");
         if (adjust) {
             const entity = findEntity(adjust.dataset.id);
