@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Global, admin-editable defaults for newly created Groundlift events."""
 
-from odoo import fields, models
+from odoo import api, fields, models
 
 from .artist_media import (DEFAULT_INVITATION_TEXT, INTRODUCTION_PARAMETER,
                            TECH_USER_PARAMETER, SERVICE_USER_PARAMETER)
@@ -12,7 +12,6 @@ class ResConfigSettings(models.TransientModel):
 
     gl_artist_default_introduction = fields.Text(
         string='Standard-E-Mail-Text',
-        config_parameter=INTRODUCTION_PARAMETER,
         default=DEFAULT_INVITATION_TEXT,
         help='Wird beim Anlegen einer neuen Veranstaltung in den individuell bearbeitbaren '
              'Einladungstext übernommen. Platzhalter: {event}, {portal_url}. '
@@ -32,3 +31,25 @@ class ResConfigSettings(models.TransientModel):
         help='Interner Odoo-Benutzer, der bei neuen Veranstaltungen in '
              'x_studio_organisation_service übernommen wird.',
     )
+
+
+    @api.model
+    def get_values(self):
+        """Odoo 19 does not support Text fields with config_parameter.
+
+        Read the multi-line invitation text ourselves, leaving the two
+        supported Many2one config_parameter fields to core res.config.settings.
+        """
+        values = super().get_values()
+        values['gl_artist_default_introduction'] = (
+            self.env['ir.config_parameter'].sudo().get_param(
+                INTRODUCTION_PARAMETER, default=DEFAULT_INVITATION_TEXT)
+        )
+        return values
+
+    def set_values(self):
+        """Persist the multi-line text without collapsing its newlines."""
+        result = super().set_values()
+        self.env['ir.config_parameter'].sudo().set_param(
+            INTRODUCTION_PARAMETER, self.gl_artist_default_introduction or '')
+        return result

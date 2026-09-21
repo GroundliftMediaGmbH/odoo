@@ -129,3 +129,13 @@ Techn. Leitung und Organisation Service im Event prüfen, einen individuellen
 Text/Mitarbeiter ändern und kontrollieren, dass eine nachfolgende Änderung
 an den globalen Standards dieses Event nicht beeinflusst. Ein vor dem Update
 angelegtes Event unverändert lassen. Testmail aus Odoo nur an Julius.
+
+
+## Update 19.0.2.0.5 – Einstellungen unter Odoo 19 repariert
+
+Das mehrzeilige Textfeld `gl_artist_default_introduction` wird nun ausdrücklich
+über `get_values()` / `set_values()` in `ir.config_parameter` gespeichert. Odoo
+19 erlaubt `config_parameter=` nicht direkt für `fields.Text`; dadurch hatte
+das Öffnen der Einstellungen einen RPC_ERROR verursacht. Die beiden auswählbaren
+Standardmitarbeiter bleiben als native Many2one-Konfigurationsfelder erhalten.
+Das Update greift nicht in bestehende Veranstaltungsdaten ein.
