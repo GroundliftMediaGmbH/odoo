@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Groundlift Künstler- & Agenturportal',
-    'version': '19.0.2.0.1',
+    'version': '19.0.2.0.2',
     'category': 'Marketing/Events',
-    'summary': 'Token-geschütztes Künstlerportal für Gästeliste, Abendkasse und Ticketstände',
+    'summary': 'Bestandsportal für Gästelisten; erweiterter Medien- und Einladungsworkflow nur für neue Events',
     'description': """
 Groundlift Künstler- & Agenturportal
 ====================================

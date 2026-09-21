@@ -36,6 +36,20 @@ class ArtistPhoto(models.Model):
 class EventEvent(models.Model):
     _inherit = 'event.event'
 
+    # Important: existing event.event rows get False when the module is upgraded.
+    # New rows are explicitly opted in by create(), irrespective of their event date.
+    # Never use default=True: that would also upgrade old events to the new portal.
+    artist_portal_extended_enabled = fields.Boolean(
+        string='Erweitertes Künstlerportal für diese Veranstaltung',
+        default=False, copy=False, readonly=True,
+        help='Nur Veranstaltungen, die nach diesem Update angelegt wurden, '
+             'erhalten Rider-, Presse-, Grafik- und Einladungsfunktionen.')
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        vals_list = [dict(vals, artist_portal_extended_enabled=True) for vals in vals_list]
+        return super().create(vals_list)
+
     artist_portal_contract_contact_id = fields.Many2one(
         'res.partner', string='Vertrag: Künstler / Agentur (Portal-Einladung)', copy=False,
         help='Die Einladung geht an die E-Mail-Adresse dieses Kontakts. Im Staging nur an julius@groundlift.de.')
@@ -65,7 +79,9 @@ class EventEvent(models.Model):
 
     def _is_artist_portal_upload_stage(self):
         self.ensure_one()
-        return self._is_artist_portal_stage() or bool(self._artist_portal_stage_names() & {'gebucht', 'booked'})
+        return bool(self.artist_portal_extended_enabled and (
+            self._is_artist_portal_stage() or
+            self._artist_portal_stage_names() & {'gebucht', 'booked'}))
 
     def _is_artist_portal_booked(self):
         self.ensure_one()
@@ -81,7 +97,7 @@ class EventEvent(models.Model):
     def write(self, vals):
         # Do not lock a field just because a user opened the form: only actual changes count.
         if not self.env.context.get('artist_portal_source'):
-            for event in self:
+            for event in self.filtered('artist_portal_extended_enabled'):
                 locks = {}
                 if SHORT_FIELD in vals and SHORT_FIELD in event._fields and vals[SHORT_FIELD] != event[SHORT_FIELD]:
                     locks['artist_portal_short_locked'] = True
@@ -96,7 +112,8 @@ class EventEvent(models.Model):
         result = super().write(vals)
         if old_stage and not self.env.context.get('artist_portal_source'):
             for event in self:
-                if not old_stage[event.id] and event._is_artist_portal_booked() and not event.artist_portal_invitation_sent_at:
+                if (event.artist_portal_extended_enabled and not old_stage[event.id]
+                        and event._is_artist_portal_booked() and not event.artist_portal_invitation_sent_at):
                     try:
                         event._artist_portal_send_invitation()
                     except UserError as exc:
@@ -113,6 +130,8 @@ class EventEvent(models.Model):
 
     def _artist_portal_send_invitation(self, force_test=False):
         self.ensure_one()
+        if not self.artist_portal_extended_enabled:
+            raise UserError(_('Bestehende Veranstaltungen verwenden ausschließlich das bisherige Gästelistenportal.'))
         if not self._is_artist_portal_upload_stage():
             raise UserError(_('Die Einladung ist erst ab der Phase „Gebucht“ möglich.'))
         if not self.artist_portal_access_token:
@@ -159,7 +178,7 @@ class EventEvent(models.Model):
 
     def _artist_portal_photos_editable(self):
         self.ensure_one()
-        if self.artist_portal_photo_locked or self.artist_portal_graphics_locked:
+        if not self.artist_portal_extended_enabled or self.artist_portal_photo_locked or self.artist_portal_graphics_locked:
             return False
         posters = self.env['gl.graphics.poster'].sudo().search([
             ('event_id', '=', self.id), ('active', '=', True)])
@@ -180,7 +199,8 @@ class EventEvent(models.Model):
         root = etree.fromstring(result['arch'].encode('utf-8'))
         pages = root.xpath("//page[@string='Vertragsdaten' or @name='vertragsdaten' or @name='contract_data']")
         if pages and not pages[0].xpath(".//field[@name='artist_portal_contract_contact_id']"):
-            group = etree.Element('group', string='Künstler-/Agenturportal')
+            group = etree.Element('group', string='Künstler-/Agenturportal',
+                                  invisible='not artist_portal_extended_enabled')
             etree.SubElement(group, 'field', name='artist_portal_contract_contact_id')
             pages[0].insert(0, group)
             result['arch'] = etree.tostring(root, encoding='unicode')
@@ -189,7 +209,7 @@ class EventEvent(models.Model):
     def _artist_portal_sync_graphics(self):
         """Seed the existing graphics editor; final Canvas render occurs in-browser."""
         for event in self:
-            if event.artist_portal_graphics_locked:
+            if not event.artist_portal_extended_enabled or event.artist_portal_graphics_locked:
                 continue
             Poster = self.env['gl.graphics.poster'].sudo().with_context(artist_portal_source=True)
             poster = Poster.search([('event_id', '=', event.id), ('active', '=', True)],
@@ -250,7 +270,8 @@ class GraphicsPoster(models.Model):
         to_lock = self.env['event.event']
         if tracked and not self.env.context.get('artist_portal_source'):
             for poster in self:
-                if poster.event_id and any(name in poster._fields and vals[name] != poster[name] for name in tracked):
+                if (poster.event_id and poster.event_id.artist_portal_extended_enabled
+                        and any(name in poster._fields and vals[name] != poster[name] for name in tracked)):
                     to_lock |= poster.event_id
         result = super().write(vals)
         for event in to_lock:

@@ -9,6 +9,9 @@
 
 ## Ablauf
 
+**Wichtig ab 19.0.2.0.2:** Der nachstehend beschriebene erweiterte Ablauf gilt ausschließlich für Veranstaltungen, die **nach der Installation dieses Updates** neu angelegt werden. Bereits bestehende Veranstaltungen behalten ausschließlich ihr bisheriges Portal für Ticketübersicht, Gästeliste und Abendkasse in der Phase „Angekündigt“. Siehe „Bestandsschutz / Stichtag Modulupdate“ am Ende dieser Datei.
+
+
 - Veranstaltung wird erstmals nach **Gebucht** verschoben: genau eine Einladung pro Veranstaltung wird in die Odoo-E-Mail-Warteschlange gestellt. Die Einführung ist im Reiter **Info für Band/Agentur** individuell editierbar. Platzhalter: `{event}` und `{portal_url}`. Das Odoo-CRM-Kontaktfeld **Vertrag: Künstler / Agentur** erscheint in diesem Reiter und zusätzlich (sofern per Studio vorhanden) im Reiter **Vertragsdaten**.
 - **Staging, Dev und unbekannte Umgebungen**: Versand nur an `julius@groundlift.de` (`[STAGING TEST]` im Betreff); Produktion: an `artist_portal_contract_contact_id.email`. Ein gezielter Testbutton sendet immer nur an Julius. Ohne SMTP-Konfiguration oder bei neutralisiertem Odoo.sh-Staging kann die Warteschlange den Versand nicht ausführen.
 - Optional Systemparameter `gl_event_artist_portal.test_mode=1` erzwingt Testmodus; `gl_event_artist_portal.delivery_mode=production` erlaubt Produktivversand, falls `ODOO_STAGE` in eurem Production-Branch fehlt. Hat `ODOO_STAGE` den Wert `staging` oder `dev`, bleibt Testmodus unabhängig von `delivery_mode` erzwungen. Produktionsadresse nur aktivieren, nachdem ihr den Test geprüft habt.
@@ -37,3 +40,30 @@
 
 ## Update 19.0.2.0.1
 - Das quadratische Pressebild (1:1) wird nun als primäres Standardbild in die Grafik-App übernommen. Querformat und Hochformat bleiben zusätzlich formatbezogen verfügbar.
+
+
+## Update 19.0.2.0.2 – Bestandsschutz / Stichtag Modulupdate
+
+- **Bestehende Odoo-Veranstaltungen** (auch zukünftige Termine und bisherige Portal-Links)
+  bleiben im **bisherigen Gästelistenportal**: nur bei `Angekündigt`, mit
+  Ticketübersicht, Gästeliste und Abendkasse. Es gibt keine neuen Uploads,
+  Pressetexte, Bild-/Grafikübergaben oder automatischen Einladungsmails.
+- **Erst nach dem Update neu angelegte Veranstaltungen** (unabhängig vom
+  Aufführungsdatum, auch beim Duplizieren) erhalten automatisch den erweiterten
+  Portalmodus: bereits ab `Gebucht` mit Uploads / Einladung, ab
+  `Angekündigt` zusätzlich Gästeliste und Ticketübersicht.
+- Technisch: persistentes `artist_portal_extended_enabled` ist **default=False**
+  für sämtliche vorhandenen Datensätze; nur `event.event.create()` setzt es bei
+  neu angelegten Events auf True. Keine Datumsvergleiche, rückwirkenden
+  Massenschreibungen oder Änderungen an bestehenden Eventdaten.
+- Die bestehenden Links, Zugriffstokens und Gästelisteneinträge werden nicht
+  gelöscht. Bereits von einer früheren Version importierte Pressebilder und
+  Texte werden nicht gelöscht, aber im Bestandsportal nicht mehr angeboten.
+- Die Backend-Registerkarte `Info für Band/Agentur` zeigt bei bestehenden
+  Events nur den bisherigen Link/QR-Code und Portalstatus. Die zusätzlichen
+  Bereiche sind nur bei neu angelegten Events sichtbar.
+- **Prüfung nach Modulupdate in Staging:** ein bestehendes `Angekündigt`-Event
+  und seinen alten Link öffnen (nur Gästeliste); bestehendes Event von
+  `Neu` auf `Gebucht` bewegen (keine Mail); danach ein neues Event anlegen
+  und auf `Gebucht` bewegen (Einladung nur an Julius im Testmodus, Medienbereich
+  sichtbar); anschließend `Angekündigt` testen (beide Funktionsbereiche).

@@ -20,7 +20,7 @@ from .main import EventArtistPortalController
 class EventArtistMediaController(EventArtistPortalController):
     def _media_event(self, event_id, token):
         event = self._get_event_by_token(event_id, token, require_active=False)
-        if not event or not event._is_artist_portal_upload_stage():
+        if not event or not event.artist_portal_extended_enabled or not event._is_artist_portal_upload_stage():
             return request.env['event.event'].sudo()
         return event
 

@@ -60,10 +60,13 @@ class EventEvent(models.Model):
         names = self._artist_portal_stage_names()
         return ANNOUNCED_STAGE_NAME in names or 'angekuendigt' in names
 
-    @api.depends('stage_id', 'stage_id.name', 'artist_portal_access_token')
+    @api.depends('stage_id', 'stage_id.name', 'artist_portal_access_token',
+                 'artist_portal_extended_enabled')
     def _compute_artist_portal_access(self):
         for event in self:
-            enabled = bool(event.id and event.artist_portal_access_token and event._is_artist_portal_upload_stage())
+            enabled = bool(event.id and event.artist_portal_access_token and (
+                event._is_artist_portal_upload_stage() if event.artist_portal_extended_enabled
+                else event._is_artist_portal_stage()))
             event.artist_portal_available = enabled
             if enabled:
                 event.artist_portal_url = '%s/event/artist/%s/%s' % (
@@ -71,17 +74,25 @@ class EventEvent(models.Model):
                     event.id,
                     event.artist_portal_access_token,
                 )
-                event.artist_portal_status = _('Aktiv – Veranstaltung ist „Gebucht“ oder „Angekündigt“.')
+                event.artist_portal_status = (
+                    _('Aktiv – Veranstaltung ist „Gebucht“ oder „Angekündigt“.')
+                    if event.artist_portal_extended_enabled else
+                    _('Aktiv – bisheriges Gästelistenportal in „Angekündigt“.'))
             else:
                 event.artist_portal_url = False
-                event.artist_portal_status = _('Nicht aktiv – das Portal ist ab „Gebucht“ bis einschließlich „Angekündigt“ erreichbar.')
+                event.artist_portal_status = (
+                    _('Nicht aktiv – Portal ab „Gebucht“ bis einschließlich „Angekündigt“.')
+                    if event.artist_portal_extended_enabled else
+                    _('Nicht aktiv – bisheriges Gästelistenportal nur in „Angekündigt“.'))
 
     @api.depends('artist_portal_url')
     def _compute_artist_portal_qr_html(self):
         for event in self:
             if not event.artist_portal_url:
                 event.artist_portal_qr_html = Markup(
-                    '<span class="text-muted">QR-Code wird angezeigt, sobald die Veranstaltung „Gebucht“ oder „Angekündigt“ ist.</span>'
+                    ('<span class="text-muted">QR-Code wird angezeigt, sobald die Veranstaltung „Gebucht“ oder „Angekündigt“ ist.</span>'
+                     if event.artist_portal_extended_enabled else
+                     '<span class="text-muted">QR-Code wird angezeigt, sobald die Veranstaltung „Angekündigt“ ist.</span>')
                 )
                 continue
             from urllib.parse import quote

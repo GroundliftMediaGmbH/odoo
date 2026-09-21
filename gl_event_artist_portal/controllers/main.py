@@ -149,7 +149,9 @@ class EventArtistPortalController(http.Controller):
         media_values = {
             'event': event,
             'token': token,
-            'portal_active': event._is_artist_portal_upload_stage(),
+            'portal_active': (event._is_artist_portal_upload_stage()
+                              if event.artist_portal_extended_enabled else event._is_artist_portal_stage()),
+            'extended_portal': bool(event.artist_portal_extended_enabled),
             'guestlist_active': event._is_artist_portal_stage(),
             'press_short_value': html2plaintext(event['x_studio_event_kurzbeschreibung'] or '') if 'x_studio_event_kurzbeschreibung' in event._fields else '',
             'press_long_value': html2plaintext(event.description or ''),

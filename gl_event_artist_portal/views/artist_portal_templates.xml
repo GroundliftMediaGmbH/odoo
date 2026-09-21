@@ -20,7 +20,8 @@
                     <t t-if="not portal_active">
                         <section class="gl-ap-panel gl-ap-closed">
                             <h2>Portal derzeit nicht aktiv</h2>
-                            <p>Diese Seite ist ab der Phase <strong>„Gebucht“</strong> bis einschließlich <strong>„Angekündigt“</strong> erreichbar.</p>
+                            <p t-if="extended_portal">Diese Seite ist ab der Phase <strong>„Gebucht“</strong> bis einschließlich <strong>„Angekündigt“</strong> erreichbar.</p>
+                            <p t-else="">Diese Seite ist nur erreichbar, solange die Veranstaltung in der Phase <strong>„Angekündigt“</strong> ist.</p>
                         </section>
                     </t>
 
@@ -38,6 +39,7 @@
                             <div class="gl-ap-alert gl-ap-alert-error" t-esc="error"/>
                         </t>
 
+                        <t t-if="extended_portal">
                         <t t-if="media_notice">
                             <div class="gl-ap-alert gl-ap-alert-success">Deine Angaben wurden gespeichert.</div>
                         </t>
@@ -111,6 +113,7 @@
                         </section>
                         <t t-if="not guestlist_active">
                             <section class="gl-ap-panel"><h2>Gästeliste und Ticketstände</h2><p class="gl-ap-help">Diese Funktionen werden ab der Phase „Angekündigt“ freigeschaltet. Dokumente und Presseinformationen könnt ihr bereits jetzt hochladen.</p></section>
+                        </t>
                         </t>
                         <t t-if="guestlist_active">
                         <section class="gl-ap-stats-grid">

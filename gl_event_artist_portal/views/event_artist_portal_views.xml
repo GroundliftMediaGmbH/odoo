@@ -14,6 +14,7 @@
                 <page string="Info für Band/Agentur" name="artist_agent_info">
                     <group>
                         <group string="Künstler- / Agenturportal">
+                            <field name="artist_portal_extended_enabled" readonly="1"/>
                             <field name="artist_portal_available" readonly="1"/>
                             <field name="artist_portal_status" readonly="1" nolabel="1"/>
                             <button name="action_regenerate_artist_portal_token"
@@ -22,7 +23,7 @@
                                     class="btn-secondary"
                                     confirm="Dadurch wird der bisherige Künstler-/Agentur-Link ungültig. Fortfahren?"/>
                         </group>
-                        <group string="Einladung &amp; Vertragskontakt">
+                        <group string="Einladung &amp; Vertragskontakt" invisible="not artist_portal_extended_enabled">
                             <field name="artist_portal_contract_contact_id" options="{'no_create': False}"/>
                             <field name="artist_portal_introduction" placeholder="{event} und {portal_url} können als Platzhalter verwendet werden."/>
                             <field name="artist_portal_invitation_sent_at" readonly="1"/>
@@ -34,14 +35,14 @@
                                     string="Staging-Testmail an Julius" class="btn-secondary"
                                     invisible="not artist_portal_available"/>
                         </group>
-                        <group string="Presse &amp; Grafiken">
+                        <group string="Presse &amp; Grafiken" invisible="not artist_portal_extended_enabled">
                             <field name="artist_portal_media_ready" readonly="1"/>
                             <field name="artist_portal_short_locked"/>
                             <field name="artist_portal_long_locked"/>
                             <field name="artist_portal_photo_locked"/>
                             <field name="artist_portal_graphics_locked"/>
                         </group>
-                        <group string="Hochgeladene Pressebilder">
+                        <group string="Hochgeladene Pressebilder" invisible="not artist_portal_extended_enabled">
                             <field name="artist_portal_photo_ids" nolabel="1" readonly="1">
                                 <list>
                                     <field name="format"/>
