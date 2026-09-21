@@ -35,6 +35,10 @@
                                     string="Staging-Testmail an Julius" class="btn-secondary"
                                     invisible="not artist_portal_available"/>
                         </group>
+                        <group string="Benachrichtigungen" invisible="not artist_portal_extended_enabled">
+                            <field name="artist_portal_notifications_enabled"/>
+                            <div class="text-muted">Live-Hinweis und To-do-Aktivität an Verantwortlich (Fotos/Texte), Techn. Leitung (Techrider) und Organisation Service (Hospitality Rider).</div>
+                        </group>
                         <group string="Presse &amp; Grafiken" invisible="not artist_portal_extended_enabled">
                             <field name="artist_portal_media_ready" readonly="1"/>
                             <field name="artist_portal_short_locked"/>

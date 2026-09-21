@@ -69,7 +69,7 @@
                         </section>
                         <section class="gl-ap-panel" id="press">
                             <div class="gl-ap-kicker">PRESSE</div><h2>Pressetexte</h2>
-                            <p class="gl-ap-help">Sobald Groundlift einen Text im Backend verändert, wird das jeweilige Textfeld hier gesperrt.</p>
+                            <p class="gl-ap-help">Sobald Groundlift einen Text im Backend verändert, wird das jeweilige Textfeld hier gesperrt. Der lange Pressetext ist zunächst leer – eine eventuell vorhandene Standard-Veranstaltungsbeschreibung wird nicht übernommen.</p>
                             <form class="gl-ap-form" method="post" t-att-action="'/event/artist/%s/%s/press' % (event.id, token)">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                 <label><span>Pressetext kurz</span>

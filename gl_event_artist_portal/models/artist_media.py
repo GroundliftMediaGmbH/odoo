@@ -63,6 +63,14 @@ class EventEvent(models.Model):
     artist_portal_invitation_sent_at = fields.Datetime(string='Portal-Einladung versendet', readonly=True, copy=False)
     artist_portal_invitation_recipient = fields.Char(string='Letzter Einladungsempfänger', readonly=True, copy=False)
     artist_portal_photo_ids = fields.One2many('gl.artist.portal.photo', 'event_id', string='Pressefotos')
+    # The Odoo event description can be prefilled by an event template; it is NOT
+    # an artist-submitted press text. Keep the original separate and untouched
+    # until an artist actually submits text here.
+    artist_portal_press_long = fields.Text(string='Vom Künstler eingereichter Langtext', copy=False)
+    artist_portal_press_submitted_at = fields.Datetime(string='Presseangaben zuletzt eingereicht', copy=False)
+    artist_portal_notifications_enabled = fields.Boolean(
+        string='Odoo-Benachrichtigungen für Portal-Uploads', default=True, copy=False)
+
     artist_portal_short_locked = fields.Boolean(string='Pressetext kurz gesperrt', copy=False)
     artist_portal_long_locked = fields.Boolean(string='Pressetext lang gesperrt', copy=False)
     artist_portal_photo_locked = fields.Boolean(string='Pressefotos gesperrt', copy=False)
@@ -70,12 +78,76 @@ class EventEvent(models.Model):
     artist_portal_media_ready = fields.Boolean(string='Pressetexte/Fotos vollständig', compute='_compute_artist_portal_media_ready')
 
     @api.depends('artist_portal_photo_ids', 'artist_portal_photo_ids.active',
-                 'artist_portal_photo_ids.format', 'description')
+                 'artist_portal_photo_ids.format', 'artist_portal_press_long', 'description')
     def _compute_artist_portal_media_ready(self):
         for event in self:
             has_photo = any(p.active for p in event.artist_portal_photo_ids)
-            event.artist_portal_media_ready = bool(has_photo and html2plaintext(event[SHORT_FIELD] or '').strip()
-                                            and html2plaintext(event.description or '').strip()) if SHORT_FIELD in event._fields else False
+            # A prefilled Odoo event description is not artist press material.
+            event.artist_portal_media_ready = bool(
+                has_photo and event.artist_portal_press_long and event.artist_portal_press_long.strip()
+                and html2plaintext(event[SHORT_FIELD] or '').strip()
+            ) if SHORT_FIELD in event._fields else False
+
+    def _artist_portal_notify_users(self, source_field):
+        """Only resolve actual internal Odoo accounts, never arbitrary contact emails."""
+        self.ensure_one()
+        if source_field not in self._fields:
+            _logger.warning('Artist portal notification: missing field %s on event %s', source_field, self.id)
+            return self.env['res.users']
+        value = self[source_field]
+        users = self.env['res.users']
+        if not value:
+            return users
+        if not hasattr(value, '_name'):
+            _logger.warning('Artist portal notification: %s is not a relational user field', source_field)
+            return users
+        if value._name == 'res.users':
+            users = value
+        elif value._name == 'res.partner':
+            users = self.env['res.users'].sudo().search([('partner_id', 'in', value.ids), ('share', '=', False)])
+        elif value._name == 'hr.employee':
+            users = value.mapped('user_id')
+        else:
+            _logger.warning('Artist portal notification: unsupported recipient model %s for %s',
+                            value._name, source_field)
+        return users.sudo().filtered(lambda user: user.active and not user.share and user.partner_id)
+
+    def _artist_portal_notify(self, source_field, title, details):
+        """An Odoo live toast plus durable activity; no external push service needed."""
+        self.ensure_one()
+        if not (self.artist_portal_extended_enabled and self.artist_portal_notifications_enabled):
+            return
+        users = self._artist_portal_notify_users(source_field)
+        if not users:
+            _logger.info('Artist portal: no internal recipient for %s on event %s', source_field, self.id)
+            return
+        message = '%s: %s' % (self.name or _('Veranstaltung'), details)
+        activity_type = self.env.ref('mail.mail_activity_data_todo', raise_if_not_found=False)
+        model_id = self.env['ir.model']._get_id('event.event')
+        for user in users:
+            # Each notification is independent; one failing backend notification
+            # must not roll back the uploaded rider, image or press material.
+            try:
+                with self.env.cr.savepoint():
+                    if activity_type and model_id:
+                        self.env['mail.activity'].sudo().create({
+                            'res_model_id': model_id,
+                            'res_id': self.id,
+                            'activity_type_id': activity_type.id,
+                            'user_id': user.id,
+                            'summary': title,
+                            'note': html.escape(message),
+                            'date_deadline': fields.Date.context_today(self),
+                        })
+                    self.env['bus.bus'].sudo()._sendone(user.partner_id, 'simple_notification', {
+                        'title': title,
+                        'message': message,
+                        'type': 'info',
+                        'sticky': False,
+                    })
+            except Exception:
+                _logger.exception('Could not send artist-portal notification for event %s, user %s',
+                                  self.id, user.id)
 
     def _is_artist_portal_upload_stage(self):
         self.ensure_one()

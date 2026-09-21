@@ -67,3 +67,32 @@
   `Neu` auf `Gebucht` bewegen (keine Mail); danach ein neues Event anlegen
   und auf `Gebucht` bewegen (Einladung nur an Julius im Testmodus, Medienbereich
   sichtbar); anschließend `Angekündigt` testen (beide Funktionsbereiche).
+
+
+## Update 19.0.2.0.3 – Pressetext & Odoo-Benachrichtigungen
+
+- Das Portal verwendet für **Pressetext lang** ausschließlich das neue interne Feld
+  `artist_portal_press_long` (standardmäßig leer). Die Odoo-Vorlagenbeschreibung
+  `description` wird **nicht** mehr in das Formular vorbefüllt.
+- Erst wenn ein Künstler einen Langtext eingibt, geht er nach `description`;
+  wenn nur der Kurztext gespeichert wird, bleibt die vorhandene Odoo-Beschreibung
+  unverändert. Ein bereits eingereichter Langtext kann vom Künstler gelöscht
+  werden, solange Groundlift ihn nicht bearbeitet/gesperrt hat.
+- Der Automatikstart der Grafik-App verlangt nun ausdrücklich einen vom Künstler
+  eingereichten Langtext, ein Bild und eine Kurzbeschreibung; Odoo-Vorlagentext
+  alleine zählt nicht als Presseabgabe.
+- Nach neu hochgeladenen Pressefotos **oder** eingereichten/geänderten Pressetexten:
+  To-do-Aktivität und Live-Benachrichtigung für `event.event.user_id`.
+- Techrider: an interne Odoo-Benutzer aus `x_studio_techn_leitung`;
+  Hospitality Rider: aus `x_studio_organisation_service`.
+  Unterstützt Studio-Felder, die interne `res.users`, deren `res.partner` oder
+  `hr.employee` mit `user_id` referenzieren. Nicht zugeordnete Kontakte erhalten
+  aus Datenschutzgründen **keine** externe E-Mail; im Serverlog steht ein Hinweis.
+- Der Schalter **Odoo-Benachrichtigungen für Portal-Uploads** steht im Backend,
+  Reiter „Info für Band/Agentur“. Standardmäßig für neue Events aktiv.
+- **Push-Grenze:** Odoo-Toast live bei geöffneter Sitzung und dauerhaftes Odoo-To-do;
+  keine Betriebssystem-/Mobil-Pushmeldung bei geschlossenem Browser.
+- Bestehende Veranstaltungen behalten den Bestandsschutz aus 19.0.2.0.2.
+- Bereits vor 19.0.2.0.3 über das Portal eingereichte Langtexte werden nicht
+  automatisch von event.description nach artist_portal_press_long übernommen,
+  da sich Vorlagentexte und Künstlerabgaben historisch nicht sicher unterscheiden lassen.

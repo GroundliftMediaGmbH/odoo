@@ -154,7 +154,7 @@ class EventArtistPortalController(http.Controller):
             'extended_portal': bool(event.artist_portal_extended_enabled),
             'guestlist_active': event._is_artist_portal_stage(),
             'press_short_value': html2plaintext(event['x_studio_event_kurzbeschreibung'] or '') if 'x_studio_event_kurzbeschreibung' in event._fields else '',
-            'press_long_value': html2plaintext(event.description or ''),
+            'press_long_value': event.artist_portal_press_long or '',
             'press_short_field': 'x_studio_event_kurzbeschreibung' in event._fields,
             'rider_tech_available': 'x_studio_tech_rider' in event._fields,
             'rider_hospitality_available': 'x_studio_hospitality_rider' in event._fields,

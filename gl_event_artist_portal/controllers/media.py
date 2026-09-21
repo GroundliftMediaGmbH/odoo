@@ -6,7 +6,7 @@ from zipfile import ZipFile, BadZipFile
 from PIL import Image, UnidentifiedImageError
 from werkzeug.utils import secure_filename
 
-from odoo import http
+from odoo import http, fields
 from odoo.exceptions import ValidationError
 from odoo.http import request
 from odoo.tools import html_escape
@@ -106,6 +106,14 @@ class EventArtistMediaController(EventArtistPortalController):
                     break
             with request.env.cr.savepoint():
                 event.with_context(artist_portal_source=True).write(vals)
+                if kind == 'tech':
+                    event._artist_portal_notify('x_studio_techn_leitung',
+                                                'Neuer Techrider',
+                                                'Techrider / Bühnenanweisung wurde hochgeladen (%s).' % filename)
+                else:
+                    event._artist_portal_notify('x_studio_organisation_service',
+                                                'Neuer Hospitality Rider',
+                                                'Hospitality Rider wurde hochgeladen (%s).' % filename)
         except ValidationError as exc:
             return self._media_error(event, token, str(exc))
         return self._redirect_media(event, token, 'rider')
@@ -125,16 +133,31 @@ class EventArtistMediaController(EventArtistPortalController):
             if not event.artist_portal_short_locked:
                 if len(short) > 6000:
                     raise ValidationError('Der kurze Pressetext ist zu lang (maximal 6.000 Zeichen).')
-                vals[SHORT_FIELD] = html_escape(short).replace('\n', '<br/>')
+                # A blank untouched short field must not erase existing backend
+                # text when the artist submits only the long press text.
+                if short or event.artist_portal_press_submitted_at:
+                    vals[SHORT_FIELD] = html_escape(short).replace('\n', '<br/>')
             if not event.artist_portal_long_locked:
                 if len(long) > 50000:
                     raise ValidationError('Der lange Pressetext ist zu lang (maximal 50.000 Zeichen).')
-                vals['description'] = '<p>%s</p>' % html_escape(long).replace('\n', '<br/>')
+                # Do not overwrite the event template's default description when
+                # an artist saves only the short press text. Clearing an earlier
+                # *artist submission*, however, should clear its Odoo counterpart.
+                if long or event.artist_portal_press_long:
+                    vals['description'] = ('<p>%s</p>' % html_escape(long).replace('\n', '<br/>')) if long else False
+                    vals['artist_portal_press_long'] = long or False
             if not vals:
-                raise ValidationError('Beide Texte wurden von Groundlift freigegeben und sind gesperrt.')
+                raise ValidationError('Beide Texte sind gesperrt oder es wurden keine Angaben eingereicht.')
+            changed = any(vals[name] != event[name] for name in vals)
+            press_received = bool(short or long)
             with request.env.cr.savepoint():
-                event.with_context(artist_portal_source=True).write(vals)
-                event._artist_portal_sync_graphics()
+                if changed:
+                    vals['artist_portal_press_submitted_at'] = fields.Datetime.now()
+                    event.with_context(artist_portal_source=True).write(vals)
+                    event._artist_portal_sync_graphics()
+                    if press_received:
+                        event._artist_portal_notify('user_id', 'Neue Pressetexte',
+                                                    'Pressetexte wurden im Künstlerportal eingereicht oder geändert.')
         except ValidationError as exc:
             return self._media_error(event, token, str(exc))
         return self._redirect_media(event, token, 'press')
@@ -173,6 +196,8 @@ class EventArtistMediaController(EventArtistPortalController):
                 if square and image_field:
                     event.with_context(artist_portal_source=True).write({image_field: square.image})
                 event._artist_portal_sync_graphics()
+                event._artist_portal_notify('user_id', 'Neue Pressebilder',
+                                            '%s Pressefoto(s) wurden im Künstlerportal hochgeladen.' % len(prepared))
         except ValidationError as exc:
             return self._media_error(event, token, str(exc))
         return self._redirect_media(event, token, 'photos')
