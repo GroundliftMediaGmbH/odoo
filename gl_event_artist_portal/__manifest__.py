@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Groundlift Künstler- & Agenturportal',
-    'version': '19.0.2.0.3',
+    'version': '19.0.2.0.4',
     'category': 'Marketing/Events',
     'summary': 'Bestandsportal für Gästelisten; erweiterter Medien- und Einladungsworkflow nur für neue Events',
     'description': """
@@ -29,6 +29,7 @@ als gl.event.guestlist.line gespeichert und verwenden deren Kapazitätsprüfung.
         'security/ir.model.access.csv',
         'data/artist_portal_data.xml',
         'views/event_artist_portal_views.xml',
+        'views/res_config_settings_views.xml',
         'views/artist_portal_templates.xml',
     ],
     'assets': {

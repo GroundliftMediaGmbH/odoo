@@ -96,3 +96,36 @@
 - Bereits vor 19.0.2.0.3 über das Portal eingereichte Langtexte werden nicht
   automatisch von event.description nach artist_portal_press_long übernommen,
   da sich Vorlagentexte und Künstlerabgaben historisch nicht sicher unterscheiden lassen.
+
+
+## Update 19.0.2.0.4 – Globale Standardwerte
+
+Unter **Einstellungen → Allgemeine Einstellungen → GROUNDLIFT Künstlerportal** können
+Administratoren nun folgende Werte zentral speichern:
+
+- **Standard-E-Mail-Text** der Portal-Einladung inklusive `{event}` und `{portal_url}`.
+- **Standard – Technische Leitung** (interner Odoo-Benutzer).
+- **Standard – Organisation Service** (interner Odoo-Benutzer).
+
+Die Defaults erscheinen bereits im **Neu anlegen**-Formular und werden **nur beim
+erstmaligen Anlegen** einer Veranstaltung in deren individuelle Felder kopiert. Bestehende Veranstaltungen, ihre individuellen
+Einladungstexte und Personenzuordnungen werden **nicht rückwirkend** geändert.
+Bereits ausdrücklich im Erstellungsformular/über API übermittelte Werte, auch
+eine bewusste Leerauswahl, werden nicht durch Standardwerte überschrieben.
+Der Einladungstext bleibt im Reiter **Info für Band/Agentur** pro neuem Event
+bearbeitbar. Die Platzhalter werden erst beim Versand ersetzt. Ohne `{portal_url}`
+wird der persönliche Link weiterhin am Ende der E-Mail angefügt.
+
+Die Standardpersonen werden in die vorhandenen Studio-Felder
+`x_studio_techn_leitung` und `x_studio_organisation_service` geschrieben.
+Unterstützt werden Many2one-/Many2many-Verknüpfungen zu `res.users`,
+`res.partner` oder `hr.employee` (mit zugeordnetem Odoo-Benutzer).
+Bei abweichenden Feldtypen / nicht zugeordneten Mitarbeitern wird nichts
+Unpassendes eingetragen und der Serverlog nennt den Grund.
+
+**Staging-Prüfung:** Im Einstellungsmenü Text und zwei Mitarbeiter setzen,
+neues Event anlegen, im Reiter *Info für Band/Agentur* den Text prüfen,
+Techn. Leitung und Organisation Service im Event prüfen, einen individuellen
+Text/Mitarbeiter ändern und kontrollieren, dass eine nachfolgende Änderung
+an den globalen Standards dieses Event nicht beeinflusst. Ein vor dem Update
+angelegtes Event unverändert lassen. Testmail aus Odoo nur an Julius.

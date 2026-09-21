@@ -18,6 +18,18 @@ MAX_IMAGE = 12 * 1024 * 1024
 MAX_DOCUMENT = 20 * 1024 * 1024
 
 
+DEFAULT_INVITATION_TEXT = (
+    'Liebe Künstlerinnen, Künstler und Agenturen,\n\n'
+    'für die Veranstaltung {event} steht euch unser Groundlift-Portal zur Verfügung. '
+    'Dort könnt ihr Tech- und Hospitality-Rider, Pressefotos und Pressetexte einreichen. '
+    'Ab der Phase „Angekündigt“ könnt ihr außerdem die Gästeliste pflegen und Ticketstände ansehen.\n\n'
+    'Euer persönlicher Link: {portal_url}\n\nViele Grüße\nEuer GROUNDLIFT-Team'
+)
+INTRODUCTION_PARAMETER = 'gl_event_artist_portal.default_introduction'
+TECH_USER_PARAMETER = 'gl_event_artist_portal.default_technical_user_id'
+SERVICE_USER_PARAMETER = 'gl_event_artist_portal.default_service_user_id'
+
+
 class ArtistPhoto(models.Model):
     _name = 'gl.artist.portal.photo'
     _description = 'Künstlerportal-Pressefoto'
@@ -45,21 +57,92 @@ class EventEvent(models.Model):
         help='Nur Veranstaltungen, die nach diesem Update angelegt wurden, '
              'erhalten Rider-, Presse-, Grafik- und Einladungsfunktionen.')
 
+    @api.model
+    def _artist_portal_default_staff_value(self, field_name, user_id):
+        """Translate a configured internal Odoo user to the existing Studio field.
+
+        Studio may define the recipient as a user, contact or HR employee.
+        Never write an incompatible foreign key or change an existing event.
+        """
+        studio_field = self._fields.get(field_name)
+        if not studio_field or not user_id:
+            return None
+        try:
+            user = self.env['res.users'].sudo().browse(int(user_id)).exists()
+        except (TypeError, ValueError):
+            _logger.warning('Invalid default artist-portal user id for %s: %r', field_name, user_id)
+            return None
+        if not user or not user.active or user.share:
+            _logger.warning('Configured artist-portal user for %s is not an active internal user', field_name)
+            return None
+        comodel = getattr(studio_field, 'comodel_name', None)
+        if comodel == 'res.users':
+            targets = user.ids
+        elif comodel == 'res.partner':
+            targets = user.partner_id.ids
+        elif comodel == 'hr.employee':
+            employees = self.env['hr.employee'].sudo().search(
+                [('user_id', '=', user.id)], order='id asc')
+            targets = employees.ids[:1]
+        else:
+            _logger.warning('Unsupported Studio staff field %s (%s / %s)',
+                            field_name, studio_field.type, comodel)
+            return None
+        if not targets:
+            _logger.warning('No matching %s found for default artist-portal user %s', field_name, user.id)
+            return None
+        if studio_field.type == 'many2one':
+            return targets[0]
+        if studio_field.type == 'many2many':
+            return [(6, 0, targets)]
+        _logger.warning('Unsupported relation type for artist-portal staff field %s: %s',
+                        field_name, studio_field.type)
+        return None
+
+    @api.model
+    def _artist_portal_new_event_defaults(self):
+        params = self.env['ir.config_parameter'].sudo()
+        return {
+            'artist_portal_introduction': params.get_param(
+                INTRODUCTION_PARAMETER, default=DEFAULT_INVITATION_TEXT),
+            'x_studio_techn_leitung': self._artist_portal_default_staff_value(
+                'x_studio_techn_leitung', params.get_param(TECH_USER_PARAMETER)),
+            'x_studio_organisation_service': self._artist_portal_default_staff_value(
+                'x_studio_organisation_service', params.get_param(SERVICE_USER_PARAMETER)),
+        }
+
+    @api.model
+    def default_get(self, fields_list):
+        """Show the defaults in the Odoo new-event form before it is saved."""
+        values = super().default_get(fields_list)
+        for name, value in self._artist_portal_new_event_defaults().items():
+            if (name in fields_list and name in self._fields
+                    and 'default_' + name not in self.env.context and value is not None):
+                values[name] = value
+        return values
+
     @api.model_create_multi
     def create(self, vals_list):
-        vals_list = [dict(vals, artist_portal_extended_enabled=True) for vals in vals_list]
-        return super().create(vals_list)
+        defaults = self._artist_portal_new_event_defaults()
+        prepared = []
+        for vals in vals_list:
+            # Existing records never pass create(); old events remain in the
+            # original guestlist-only mode. New ones explicitly opt in.
+            values = dict(vals, artist_portal_extended_enabled=True)
+            for name, value in defaults.items():
+                # Studio fields are optional, and event-specific values (including
+                # an intentional False) must take precedence over global defaults.
+                if name in self._fields and name not in values and value is not None:
+                    values[name] = value
+            prepared.append(values)
+        return super().create(prepared)
 
     artist_portal_contract_contact_id = fields.Many2one(
         'res.partner', string='Vertrag: Künstler / Agentur (Portal-Einladung)', copy=False,
         help='Die Einladung geht an die E-Mail-Adresse dieses Kontakts. Im Staging nur an julius@groundlift.de.')
     artist_portal_introduction = fields.Text(
-        string='Einladungstext Künstler-/Agenturportal',
-        default='Liebe Künstlerinnen, Künstler und Agenturen,\n\n'
-                'für die Veranstaltung {event} steht euch unser Groundlift-Portal zur Verfügung. '
-                'Dort könnt ihr Tech- und Hospitality-Rider, Pressefotos und Pressetexte einreichen. '
-                'Ab der Phase „Angekündigt“ könnt ihr außerdem die Gästeliste pflegen und Ticketstände ansehen.\n\n'
-                'Euer persönlicher Link: {portal_url}\n\nViele Grüße\nEuer GROUNDLIFT-Team')
+        string='Einladungstext Künstler-/Agenturportal', copy=False,
+        help='Bei Erstellung mit dem globalen Standard vorbelegt; anschließend je Veranstaltung individuell änderbar.')
     artist_portal_invitation_sent_at = fields.Datetime(string='Portal-Einladung versendet', readonly=True, copy=False)
     artist_portal_invitation_recipient = fields.Char(string='Letzter Einladungsempfänger', readonly=True, copy=False)
     artist_portal_photo_ids = fields.One2many('gl.artist.portal.photo', 'event_id', string='Pressefotos')
