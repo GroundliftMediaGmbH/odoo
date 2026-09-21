@@ -768,6 +768,20 @@ class GraphicsPoster(models.Model):
             else:
                 self.env["gl.graphics.output"].create(values)
 
+        # If Social Automation is installed, replace any fallback images as
+        # soon as the finished social canvases have been saved. The independent
+        # 15-minute social cron also covers older posts, archives and failures.
+        social_keys = {"social_post", "social_story"}
+        if social_keys.intersection(rendered_outputs or {}) and "social.post" in self.env.registry.models:
+            posts_model = self.env["social.post"]
+            if "gl_graphics_output_id" in posts_model._fields:
+                posts = posts_model.sudo().search([
+                    ("gl_event_id", "=", self.event_id.id),
+                    ("gl_auto_generated", "=", True),
+                    ("gl_planned_date", ">=", fields.Datetime.now() - timedelta(hours=2)),
+                ])
+                posts._gl_sync_graphics_for_posts(force=True)
+
     @api.model
     def generate_qr_base64(self, url):
         url = (url or "").strip()
