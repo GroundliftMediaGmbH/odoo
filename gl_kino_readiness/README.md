@@ -47,3 +47,10 @@ Native Odoo-App für das Kinoprogramm und die Spielbereitschaft des Kino Alte Br
 - Neue Standardansicht „Identische Filme zusammenfassen“, jederzeit umschaltbar.
 - Die Datensätze werden **nur in der Anzeige** zusammengefasst und nicht gelöscht. Film/Version in verschiedenen Sälen bleiben getrennt, da KDMs saalbezogen sein können.
 - Die OK-Checkbox ist direkt anklickbar und setzt KDM und DCP zusammen.
+
+## Version 19.0.1.1.1
+
+- **OK** setzt nun KDM und DCP auch unmittelbar sichtbar in der editierbaren Liste.
+- Beim Speichern werden OK-Änderungen sicher in die beiden gespeicherten Haken
+  übersetzt, auch wenn der Odoo-One2many-Editor den Inverse-Pfad nicht nutzt.
+- Die vorhandene Synchronisierung für Film, Version, Saal und Spielwoche bleibt erhalten.

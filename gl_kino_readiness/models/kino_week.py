@@ -638,12 +638,20 @@ class GlKinoShow(models.Model):
         for line in self:
             line.row_ready = bool(line.kdm_ready and line.dcp_ready)
 
-    def _inverse_row_ready(self):
-        """Ein Klick auf OK setzt DCP und KDM in derselben Operation.
+    @api.onchange("row_ready")
+    def _onchange_row_ready(self):
+        """Die beiden Dateihaken sofort in der editierbaren Liste aktualisieren.
 
-        Die vorhandene write()-Synchronisierung übernimmt beide Haken für alle
-        aktiven Vorstellungen desselben Films/Version im selben Kinosaal.
+        Ohne diesen Onchange kann die berechnete OK-Spalte in der One2many-Liste
+        bereits vor dem Speichern wieder auf den alten Wert springen.
         """
+        for line in self:
+            checked = bool(line.row_ready)
+            line.kdm_ready = checked
+            line.dcp_ready = checked
+
+    def _inverse_row_ready(self):
+        """Auch bei einem direkten ORM-Schreibzugriff auf OK beide Haken setzen."""
         for line in self:
             checked = bool(line.row_ready)
             line.write({"kdm_ready": checked, "dcp_ready": checked})
@@ -689,6 +697,11 @@ class GlKinoShow(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
+            # OK ist eine Sammelaktion und darf nicht nur das berechnete
+            # Anzeige-Feld setzen (z.B. bei einem Import/API-Aufruf).
+            if "row_ready" in vals:
+                checked = bool(vals.pop("row_ready"))
+                vals.update({"kdm_ready": checked, "dcp_ready": checked})
             title, version = _normalize_title_and_version(vals.get("film_title"), vals.get("version"))
             vals["film_title"] = title
             vals["version"] = version
@@ -703,6 +716,14 @@ class GlKinoShow(models.Model):
         return super().create(vals_list)
 
     def write(self, vals):
+        # Odoo schreibt Änderungen in editierbaren One2many-Listen über write().
+        # Das berechnete OK-Feld deshalb VOR super().write() in die tatsächlich
+        # gespeicherten Dateihaken übersetzen. Das ist unabhängig davon, ob
+        # Odoo die inverse-Methode beim Inline-Speichern aufruft.
+        if "row_ready" in vals:
+            vals = dict(vals)
+            checked = bool(vals.pop("row_ready"))
+            vals.update({"kdm_ready": checked, "dcp_ready": checked})
         if "film_title" in vals or "version" in vals:
             title = vals.get("film_title") if "film_title" in vals else self[:1].film_title
             version = vals.get("version") if "version" in vals else self[:1].version
