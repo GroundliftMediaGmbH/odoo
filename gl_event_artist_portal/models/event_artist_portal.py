@@ -63,7 +63,7 @@ class EventEvent(models.Model):
     @api.depends('stage_id', 'stage_id.name', 'artist_portal_access_token')
     def _compute_artist_portal_access(self):
         for event in self:
-            enabled = bool(event.id and event.artist_portal_access_token and event._is_artist_portal_stage())
+            enabled = bool(event.id and event.artist_portal_access_token and event._is_artist_portal_upload_stage())
             event.artist_portal_available = enabled
             if enabled:
                 event.artist_portal_url = '%s/event/artist/%s/%s' % (
@@ -71,17 +71,17 @@ class EventEvent(models.Model):
                     event.id,
                     event.artist_portal_access_token,
                 )
-                event.artist_portal_status = _('Aktiv – die Veranstaltung ist in der Phase „Angekündigt“.')
+                event.artist_portal_status = _('Aktiv – Veranstaltung ist „Gebucht“ oder „Angekündigt“.')
             else:
                 event.artist_portal_url = False
-                event.artist_portal_status = _('Nicht aktiv – das Portal ist nur in der Phase „Angekündigt“ erreichbar.')
+                event.artist_portal_status = _('Nicht aktiv – das Portal ist ab „Gebucht“ bis einschließlich „Angekündigt“ erreichbar.')
 
     @api.depends('artist_portal_url')
     def _compute_artist_portal_qr_html(self):
         for event in self:
             if not event.artist_portal_url:
                 event.artist_portal_qr_html = Markup(
-                    '<span class="text-muted">QR-Code wird angezeigt, sobald die Veranstaltung in der Phase „Angekündigt“ ist.</span>'
+                    '<span class="text-muted">QR-Code wird angezeigt, sobald die Veranstaltung „Gebucht“ oder „Angekündigt“ ist.</span>'
                 )
                 continue
             from urllib.parse import quote

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from hmac import compare_digest
+from odoo.tools import html2plaintext
 
 from odoo import http
 from odoo.exceptions import ValidationError
@@ -145,6 +146,25 @@ class EventArtistPortalController(http.Controller):
         edit_line_id=None, edit_form=None,
     ):
         event = event.sudo()
+        media_values = {
+            'event': event,
+            'token': token,
+            'portal_active': event._is_artist_portal_upload_stage(),
+            'guestlist_active': event._is_artist_portal_stage(),
+            'press_short_value': html2plaintext(event['x_studio_event_kurzbeschreibung'] or '') if 'x_studio_event_kurzbeschreibung' in event._fields else '',
+            'press_long_value': html2plaintext(event.description or ''),
+            'press_short_field': 'x_studio_event_kurzbeschreibung' in event._fields,
+            'rider_tech_available': 'x_studio_tech_rider' in event._fields,
+            'rider_hospitality_available': 'x_studio_hospitality_rider' in event._fields,
+            'photo_editable': event._artist_portal_photos_editable(),
+            'media_notice': request.params.get('media'),
+            'success': success,
+            'error': error,
+        }
+        # In Gebucht there is no guest-list UI; avoid creating ticket/guest-list
+        # price options just because an artist opens the media upload portal.
+        if not media_values['guestlist_active']:
+            return media_values
         event._sync_guestlist_price_options()
 
         real_tickets = event.event_ticket_ids.filtered(
@@ -232,10 +252,7 @@ class EventArtistPortalController(http.Controller):
             for option in event.guestlist_price_option_ids.filtered(lambda option: option.ticket_id)
         }
 
-        return {
-            'event': event,
-            'token': token,
-            'portal_active': event._is_artist_portal_stage(),
+        media_values.update({
             'ticket_rows': ticket_rows,
             'box_office_options': box_office_options,
             'box_office_rows': box_office_rows,
@@ -245,13 +262,13 @@ class EventArtistPortalController(http.Controller):
             'overall_remaining': overall_remaining,
             'total_portal_guestlist': total_portal_guestlist,
             'total_portal_box_office': total_portal_box_office,
-            'success': success,
-            'error': error,
             'form': form or {},
             'edit_line_id': edit_line_id,
             'edit_form': edit_form or {},
             'quantity_values': list(range(1, 21)),
-        }
+        })
+
+        return media_values
 
     @http.route(
         '/event/artist/<int:event_id>/<string:token>',

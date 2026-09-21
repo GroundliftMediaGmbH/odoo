@@ -1,84 +1,35 @@
-# Groundlift Künstler- & Agenturportal – Odoo 19 SH
-
-## Zweck
-
-Dieses Modul erweitert `gl_event_guestlist` um eine token-geschützte Website für Künstler und Agenturen.
-
-Das Portal ist ausschließlich erreichbar, solange die Veranstaltung in der Odoo-Phase **„Angekündigt“** steht.
-
-## Funktionen
-
-- pro Veranstaltung eigener geheimer Portal-Link + QR-Code im Reiter **Info für Band/Agentur**
-- Link ist nur in Phase **Angekündigt** aktiv
-- Künstler/Agenturen können ohne Odoo-Login eintragen:
-  - **Gästeliste** → kostenlose Preisoption der vorhandenen Gästelisten-App
-  - **Ticket · Abendkasse** → echte Ticketkategorie der Veranstaltung; Zahlung erfolgt erst vor Ort
-- Künstler/Agenturen können ihre über dieses Portal angelegten Einträge nachträglich **ändern**
-  - Name
-  - Anzahl
-  - Gästeliste / Abendkasse
-  - Ticketkategorie
-  - Kontaktdaten
-  - Ansprechpartner
-  - Bemerkung
-- Künstler/Agenturen können ihre Einträge **stornieren**; die reservierte Kapazität wird sofort wieder freigegeben
-- stornierte Datensätze werden intern archiviert statt gelöscht, damit ein Audit-Trail erhalten bleibt
-- Einträge landen direkt als `gl.event.guestlist.line` in der vorhandenen Gästelisten-App
-- vorhandene Kapazitäts-, Ticketlimit- und Ausverkauftlogik bleibt damit maßgeblich
-- Live-Übersicht im Portal:
-  - verkaufte Tickets je Kategorie
-  - insgesamt verkaufte Tickets
-  - reservierte Plätze je Kategorie
-  - verbleibende Plätze je Kategorie
-  - insgesamt verbleibende Plätze
-- Portal zeigt die bereits über den Künstlerlink erfassten aktiven Einträge
-- Backend-Kennzeichnung, ob ein Eintrag über das Künstlerportal kam und ob es sich um Gästeliste oder Abendkasse handelt
-- Portal-Link kann im Backend neu erzeugt und der alte Link dadurch sofort ungültig gemacht werden
-
-## Sicherheit
-
-- Ändern/Stornieren ist nur mit dem gültigen Event-Token möglich.
-- Zusätzlich wird serverseitig geprüft, dass der zu ändernde Datensatz wirklich zu derselben Veranstaltung gehört und über das Künstlerportal angelegt wurde.
-- Kapazitätsänderungen laufen in einem Datenbank-Savepoint. Wird eine Änderung wegen Überbuchung abgelehnt, bleibt der ursprüngliche Eintrag unverändert.
+# GROUNDLIFT Künstler- und Agenturportal – Odoo 19 SH
 
 ## Installation
 
-1. Voraussetzung: `gl_event_guestlist` ist installiert.
-2. Ordner `gl_event_artist_portal` in das Odoo-SH-Repository/Addons-Verzeichnis legen.
-3. Commit + Push.
-4. Apps-Liste aktualisieren.
-5. Modul **Groundlift Künstler- & Agenturportal** installieren bzw. upgraden.
+1. Das Verzeichnis `gl_event_artist_portal` vollständig ins Odoo.sh-Addons-Repository legen und nach GitHub pushen.
+2. Benötigt die bereits vorhandenen Module `gl_event_guestlist` und `groundlift_graphics` sowie `website` und `mail`.
+3. In Odoo Apps aktualisieren, **Groundlift Künstler- & Agenturportal** aktualisieren.
+4. Vor der produktiven Verwendung auf Odoo.sh **Staging** testen. Eine E-Mail wird **nicht** beim GitHub-Push aus diesem ZIP heraus verschickt; erst Odoo verarbeitet die Mail nach Installation und Phasenwechsel oder nach Klick auf den Testbutton.
 
-## Bedienung
+## Ablauf
 
-1. Veranstaltung öffnen.
-2. Reiter **Info für Band/Agentur** öffnen.
-3. Dort steht der Link samt QR-Code bereit, sobald die Phase **Angekündigt** ist.
-4. Link an Künstler/Agentur senden.
-5. Im öffentlichen Portal stehen bei jedem eigenen Eintrag die Aktionen **Ändern** und **Stornieren** zur Verfügung.
-6. Nach einem Phasenwechsel weg von **Angekündigt** bleibt der Token gespeichert, die Seite ist aber gesperrt.
+- Veranstaltung wird erstmals nach **Gebucht** verschoben: genau eine Einladung pro Veranstaltung wird in die Odoo-E-Mail-Warteschlange gestellt. Die Einführung ist im Reiter **Info für Band/Agentur** individuell editierbar. Platzhalter: `{event}` und `{portal_url}`. Das Odoo-CRM-Kontaktfeld **Vertrag: Künstler / Agentur** erscheint in diesem Reiter und zusätzlich (sofern per Studio vorhanden) im Reiter **Vertragsdaten**.
+- **Staging, Dev und unbekannte Umgebungen**: Versand nur an `julius@groundlift.de` (`[STAGING TEST]` im Betreff); Produktion: an `artist_portal_contract_contact_id.email`. Ein gezielter Testbutton sendet immer nur an Julius. Ohne SMTP-Konfiguration oder bei neutralisiertem Odoo.sh-Staging kann die Warteschlange den Versand nicht ausführen.
+- Optional Systemparameter `gl_event_artist_portal.test_mode=1` erzwingt Testmodus; `gl_event_artist_portal.delivery_mode=production` erlaubt Produktivversand, falls `ODOO_STAGE` in eurem Production-Branch fehlt. Hat `ODOO_STAGE` den Wert `staging` oder `dev`, bleibt Testmodus unabhängig von `delivery_mode` erzwungen. Produktionsadresse nur aktivieren, nachdem ihr den Test geprüft habt.
+- Button **Einladung erneut senden** für nachträglich hinterlegte Kontakte, ohne den automatischen Einmalversand zu verändern.
+- Portal ist in **Gebucht** und **Angekündigt** erreichbar; Gästeliste/Abendkasse bleiben wie bislang ausschließlich in **Angekündigt** verfügbar. Ab Abrechnung/Beeendet gesperrt.
+- Tech-/Hospitality-Rider schreiben direkt in `event.event.x_studio_tech_rider` bzw. `event.event.x_studio_hospitality_rider` (PDF/DOC/DOCX, je max. 20 MB).
+- Pro Veranstaltung mehrere Fotos in **1:1**, **Querformat**, **Hochformat** (max. 20 je Format, je 12 MB). Das erste quadratische Foto wird unmittelbar ins Eventbild (`image_1920`, daraus abgeleitet `image_1024`) übernommen.
+- Kurzer Pressetext → `x_studio_event_kurzbeschreibung`, langer Pressetext → `description` (Eventbeschreibung). HTML wird escaped, sodass eingesandte Texte keine HTML/Script-Injektion erlauben.
+- Sobald eine dieser Textangaben intern in Odoo verändert wird, sperrt das Portal **das jeweilige Textfeld**, nicht zwingend das andere. Sobald das Eventbild intern oder die Grafik bearbeitet wurde, werden **alle Fotos** gesperrt. Die Sperren stehen im Backend und können durch Groundlift bewusst wieder aufgehoben werden.
+- Wenn mindestens ein Foto **und beide Pressetexte** vorhanden sind, legt das Portal einen zugeordneten Datensatz `gl.graphics.poster` an und überträgt Bilddaten und Kurzbeschreibung in den Grafikeditor (Quadrat/Querformat auf passende Bildelemente). Hochformate bleiben als eigenständige Bilder in der Pressegalerie.
 
-## Technische Zähllogik
+## Wichtige Grenze: erstes Rendering
 
-- **Verkauft**: native Odoo-Ticketzahl `event.event.ticket.seats_taken` der echten Ticketarten; die technische Gästelisten-Summenzeile wird ausgeschlossen.
-- **Reserviert**: verbindliche Zeilen der vorhandenen Gästelisten-App, die einer Ticketart zugeordnet sind.
-- **Verfügbar**: native Odoo-Verfügbarkeit abzüglich verbindlicher Gästelistenplätze; ein globales Veranstaltungslimit wird zusätzlich berücksichtigt.
+**Der vorhandene Grafikeditor rendert ausschließlich im Browser via Canvas.** Dieses Add-on kann deshalb ohne zusätzlichen serverseitigen Renderer **noch kein fertiges Bild/alle Ausspielformate im Hintergrund berechnen**. Die Grafik ist automatisch vorbereitet, der tatsächliche erste Render erfolgt erst beim Öffnen und Speichern im Grafikeditor. Die App verspricht keine bereits gerenderten PNG/JPG-Dateien und überschreibt keine bestehenden, bereits bearbeiteten Grafiken. Für ein vollständig unbeaufsichtigtes erstes Rendering wäre eine gesonderte headless Browser-/serverseitige Renderlösung erforderlich.
 
-## Änderungen
+## Datenschutz/Sicherheit
 
-### 19.0.1.0.3
+- Token-URL pro Veranstaltung; sämtliche Upload-/Lösch-/Bildrouten prüfen Token, Phase und Event-Zugehörigkeit erneut. Kein Zugriff über abweichende Event-/Foto-IDs.
+- POST-Formulare nutzen Odoo-CSRF. Uploads werden per Byte-Signatur/Pillow validiert und größenbegrenzt. Nur interne Benutzer besitzen ACLs auf Pressebilder; öffentlich werden Fotos ausschließlich über den Eventtoken ausgeliefert.
+- Bestehende Gästelistenregeln/Überbuchungsschutz bleiben erhalten.
 
-- Künstler/Agenturen können Portal-Einträge ändern oder stornieren.
-- Stornierungen archivieren den Eintrag und geben die Kapazität sofort frei.
-- Portal-Link/QR-Code wurden aus **Gästeliste** in den neuen Reiter **Info für Band/Agentur** verschoben.
-- Zusätzliche serverseitige Prüfung der Event-Zugehörigkeit bei Änderung/Stornierung.
-- Savepoints schützen Create/Update vor Teiländerungen bei Kapazitätsfehlern.
+## Feldnamen aus den gelieferten Screenshots
 
-### 19.0.1.0.2
-
-- Ticketpreise werden im Künstlerportal mit der Odoo-Währungsformatierung angezeigt.
-- Dropdown-Optionen sind im Darkmode lesbar.
-
-### 19.0.1.0.1
-
-- Odoo-19-QWeb-Fix: `t-field` für das Veranstaltungsdatum liegt nun auf einem echten `<span>`-Element statt auf `<t>`. Dadurch wird der Künstler-/Agentur-Link ohne QWeb-AssertionError gerendert.
+`x_studio_tech_rider` · `x_studio_hospitality_rider` · `x_studio_event_kurzbeschreibung` · `image_1024` / Basisbild `image_1920` · `description`. Sollten diese Studio-Felder auf einem anderen Branch anders heißen, bitte vor Installation/Abnahme die tatsächlichen technischen Feldnamen prüfen.
