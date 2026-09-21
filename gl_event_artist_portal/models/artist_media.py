@@ -211,7 +211,11 @@ class EventEvent(models.Model):
             square = photos.filtered(lambda p: p.format == 'square')[:1]
             landscape = photos.filtered(lambda p: p.format == 'landscape')[:1]
             portrait = photos.filtered(lambda p: p.format == 'portrait')[:1]
-            base = landscape or square or portrait
+            # Use the square press image as the primary/default source image for the
+            # graphics editor. This ensures the artist portal's 1:1 upload is what
+            # initially appears in the Grafik-App and aligns with the POS image.
+            # The dedicated per-format design images remain filled separately below.
+            base = square or landscape or portrait
             values = {
                 'artist_portal_seeded': True,
                 'source_image': base.image,

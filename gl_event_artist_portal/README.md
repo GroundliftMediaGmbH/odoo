@@ -33,3 +33,7 @@
 ## Feldnamen aus den gelieferten Screenshots
 
 `x_studio_tech_rider` · `x_studio_hospitality_rider` · `x_studio_event_kurzbeschreibung` · `image_1024` / Basisbild `image_1920` · `description`. Sollten diese Studio-Felder auf einem anderen Branch anders heißen, bitte vor Installation/Abnahme die tatsächlichen technischen Feldnamen prüfen.
+
+
+## Update 19.0.2.0.1
+- Das quadratische Pressebild (1:1) wird nun als primäres Standardbild in die Grafik-App übernommen. Querformat und Hochformat bleiben zusätzlich formatbezogen verfügbar.
