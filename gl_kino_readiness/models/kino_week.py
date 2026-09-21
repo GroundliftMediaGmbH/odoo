@@ -115,6 +115,17 @@ class GlKinoWeek(models.Model):
         string="Aktive Vorstellungen",
         domain=[("active", "=", True)],
     )
+    # Nur die erste Vorstellung je Saal + Film + Version anzeigen. Die darunter-
+    # liegenden Vorstellungen bleiben gespeichert und ihre Haken synchronisiert.
+    grouped_line_ids = fields.One2many(
+        "gl.kino.show",
+        "week_id",
+        string="Zusammengefasste Filme",
+        domain=[("active", "=", True), ("is_group_representative", "=", True)],
+    )
+    collapse_identical_films = fields.Boolean(
+        string="Identische Filme zusammenfassen", default=True
+    )
     state = fields.Selection(
         [
             ("empty", "Kein Programm geladen"),
@@ -594,7 +605,18 @@ class GlKinoShow(models.Model):
     display_film_name = fields.Char(compute="_compute_display_film_name", store=True)
     kdm_ready = fields.Boolean(string="KDM vorhanden", tracking=True)
     dcp_ready = fields.Boolean(string="DCP vorhanden", tracking=True)
-    row_ready = fields.Boolean(compute="_compute_row_ready", store=True)
+    row_ready = fields.Boolean(
+        string="OK", compute="_compute_row_ready", inverse="_inverse_row_ready", store=True
+    )
+    is_group_representative = fields.Boolean(
+        string="Erste Vorstellung der Filmgruppe",
+        compute="_compute_group_representative",
+        store=True,
+        index=True,
+    )
+    group_show_count = fields.Integer(
+        string="Termine", compute="_compute_group_representative", store=True
+    )
     external_key = fields.Char(required=True, index=True, copy=False)
     group_key = fields.Char(required=True, index=True, copy=False)
 
@@ -615,6 +637,54 @@ class GlKinoShow(models.Model):
     def _compute_row_ready(self):
         for line in self:
             line.row_ready = bool(line.kdm_ready and line.dcp_ready)
+
+    def _inverse_row_ready(self):
+        """Ein Klick auf OK setzt DCP und KDM in derselben Operation.
+
+        Die vorhandene write()-Synchronisierung übernimmt beide Haken für alle
+        aktiven Vorstellungen desselben Films/Version im selben Kinosaal.
+        """
+        for line in self:
+            checked = bool(line.row_ready)
+            line.write({"kdm_ready": checked, "dcp_ready": checked})
+
+    @api.depends(
+        "active", "week_id", "show_datetime", "cinema", "film_title", "version",
+        "week_id.line_ids", "week_id.line_ids.active",
+        "week_id.line_ids.show_datetime", "week_id.line_ids.cinema",
+        "week_id.line_ids.film_title", "week_id.line_ids.version",
+    )
+    def _compute_group_representative(self):
+        """Nur den frühesten aktiven Termin je Saal, Film und Version zeigen.
+
+        Abhängigkeiten auf den Geschwisterzeilen sorgen dafür, dass auch bei
+        Neuimport, Archivierung und nach einem Modul-Upgrade korrekt gruppiert
+        wird; bestehende Vorstellungen werden niemals zusammengelegt/gelöscht.
+        """
+        week_groups = {}
+        for line in self:
+            week = line.week_id
+            if not week or not line.active:
+                line.is_group_representative = False
+                line.group_show_count = 0
+                continue
+            if week.id not in week_groups:
+                representatives = {}
+                counts = defaultdict(int)
+                active_shows = week.line_ids.filtered(lambda show: show.active).sorted(
+                    key=lambda show: (show.show_datetime or datetime.min, show.id)
+                )
+                for show in active_shows:
+                    title, version = _normalize_title_and_version(show.film_title, show.version)
+                    key = _stable_key(show.cinema, title, version)
+                    counts[key] += 1
+                    representatives.setdefault(key, show)
+                week_groups[week.id] = (representatives, counts)
+            representatives, counts = week_groups[week.id]
+            title, version = _normalize_title_and_version(line.film_title, line.version)
+            key = _stable_key(line.cinema, title, version)
+            line.is_group_representative = representatives.get(key) == line
+            line.group_show_count = counts.get(key, 0)
 
     @api.model_create_multi
     def create(self, vals_list):
