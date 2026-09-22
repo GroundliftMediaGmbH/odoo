@@ -162,3 +162,27 @@
 .gl-ap-confirm-checkbox { display: flex; align-items: center; gap: 12px; cursor: pointer; }
 .gl-ap-confirm-checkbox input { width: 22px; height: 22px; flex: 0 0 auto; accent-color: #fff; }
 .gl-ap-confirm-checkbox span { color: var(--gl-text); font-weight: 700; }
+
+
+/* Announcement-only Vimeo teaser and event chatter contact form. */
+.gl-ap-video-pitch h2 { max-width: 1000px; line-height: 1.23; margin-bottom: 20px; }
+.gl-ap-video-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 13px; margin: 22px 0 28px; }
+.gl-ap-video-tile { min-width:0; padding:0; border:1px solid var(--gl-border); border-radius: 13px; overflow:hidden;
+  background:var(--gl-panel-soft); color:#fff; cursor:pointer; text-align:left; }
+.gl-ap-video-tile:hover, .gl-ap-video-tile:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.gl-ap-video-preview { display:block; position:relative; width:100%; aspect-ratio:16/9; background:#08080a; overflow:hidden; }
+.gl-ap-video-preview iframe { pointer-events:none; border:0; width:100%; height:100%; display:block; }
+.gl-ap-video-play { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  display:grid; place-items:center; width:49px; height:49px; border-radius:50%; background:rgba(0,0,0,.76); color:white; font-size:20px; }
+.gl-ap-video-title { display:block; padding:10px 12px; font-size:.9rem; font-weight:700; overflow-wrap:anywhere; }
+.gl-ap-video-form { max-width:100%; }
+.gl-ap-honeypot { position:absolute !important; left:-10000px !important; opacity:0; height:0; overflow:hidden; }
+.gl-ap-video-dialog { width:min(1040px,96vw); max-width:96vw; padding:16px; background:#141417; color:#fff;
+  border:1px solid rgba(255,255,255,.3); border-radius:16px; box-shadow:0 30px 120px #000; }
+.gl-ap-video-dialog::backdrop { background:rgba(0,0,0,.88); }
+.gl-ap-video-dialog-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:0 0 13px; }
+.gl-ap-video-dialog-title { overflow-wrap:anywhere; }
+.gl-ap-video-dialog-screen { aspect-ratio:16/9; background:#000; }
+.gl-ap-video-dialog-screen iframe { display:block; width:100%; height:100%; border:0; }
+@media(max-width:800px) { .gl-ap-video-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:420px) { .gl-ap-video-grid { grid-template-columns:1fr; } }

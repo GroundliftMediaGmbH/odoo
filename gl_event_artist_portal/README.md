@@ -158,3 +158,13 @@ Das Update greift nicht in bestehende Veranstaltungsdaten ein.
 - Die bestehenden Portal-Abschnittsfreigaben für Altveranstaltungen bleiben unverändert. Die Rider-Bestätigung wird während der Upload-Phasen am jeweiligen Rider angezeigt; in „Abrechnung“/„Beendet“ erscheinen bestehende Bestätigungen zusätzlich schreibgeschützt im GEMA-/Setlisten-Abschnitt (keine Rider-Uploads). Bei einer Altveranstaltung mit einzeln freigeschaltetem Rider ist der Vertragskontakt im Backend editierbar, damit die Bestätigungsmail einen Empfänger hat.
 
 **Staging-Test:** bestehende Veranstaltung in Abrechnung öffnen, Setlisten-Häkchen bestätigen und Odoo-Benachrichtigungen bei `Verantwortlich` prüfen; Häkchen erneut POSTen, keine Duplikate. Event mit Tech-/Hospitality-Rider öffnen, im Backend nacheinander bestätigen, Künstlerportalstatus und Mail-Warteschlange an Julius prüfen; Rider erneut hochladen und Status erneut prüfen. Neue globale Mail-Presets speichern und Odoo-Einstellungen erneut öffnen.
+
+
+## Update 19.0.2.0.8 – klare Phasen und Video-Angebot
+
+- **Gebucht:** Medien/Rider (bei Alt-Veranstaltungen nur je freigeschaltetem Bereich); nicht mehr in Angekündigt. Upload-POSTs sind nach Verlassen von Gebucht serverseitig gesperrt.
+- **Angekündigt:** nur vier globale Vimeo-Videos, Anfrage zur Eventaufzeichnung, Live-Ticketstand und Gästeliste/Abendkasse.
+- **Abrechnung/Beendet:** nur GEMA-Link und Setlistenbestätigung; Riderbestätigungen sind dort ausgeblendet.
+- Die vier Vimeo-URLs und ihre Titel sind global unter Einstellungen → GROUNDLIFT Künstlerportal änderbar. Nur HTTPS-Vimeo-Links, kein ungefiltertes Embed-HTML.
+- Der Kontaktformular-Text erscheint als Chatter-Kommentar direkt am jeweiligen `event.event` (nicht als versandte E-Mail). Token, CSRF, 3.000-Zeichenlimit, Honeypot und 30-Sekunden-Sperre schützen die öffentliche Route.
+- Staging-Test: Installation/Modul-Upgrade in eurer konkreten Odoo-19-SH-Datenbank und Sichtprüfung der Vimeo-Einbettung sind noch erforderlich.

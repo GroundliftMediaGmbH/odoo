@@ -33,6 +33,25 @@
                             <field name="gl_artist_default_service_user_id" options="{'no_create': True}"/>
                         </setting>
                     </block>
+                    <block title="Videos im Künstlerportal (Phase Angekündigt)">
+                        <setting id="gl_artist_video_1" string="Video 1" help="Vimeo-Video 1 im Portal-Abschnitt vor dem Live-Ticketstand.">
+                            <field name="gl_artist_video_1_url" placeholder="https://player.vimeo.com/video/..."/>
+                            <field name="gl_artist_video_1_title" placeholder="Titel des Videos"/>
+                        </setting>
+                        <setting id="gl_artist_video_2" string="Video 2" help="Vimeo-Video 2 im Portal-Abschnitt vor dem Live-Ticketstand.">
+                            <field name="gl_artist_video_2_url" placeholder="https://player.vimeo.com/video/..."/>
+                            <field name="gl_artist_video_2_title" placeholder="Titel des Videos"/>
+                        </setting>
+                        <setting id="gl_artist_video_3" string="Video 3" help="Vimeo-Video 3 im Portal-Abschnitt vor dem Live-Ticketstand.">
+                            <field name="gl_artist_video_3_url" placeholder="https://player.vimeo.com/video/..."/>
+                            <field name="gl_artist_video_3_title" placeholder="Titel des Videos"/>
+                        </setting>
+                        <setting id="gl_artist_video_4" string="Video 4" help="Vimeo-Video 4 im Portal-Abschnitt vor dem Live-Ticketstand.">
+                            <field name="gl_artist_video_4_url" placeholder="https://player.vimeo.com/video/..."/>
+                            <field name="gl_artist_video_4_title" placeholder="Titel des Videos"/>
+                        </setting>
+                    </block>
+
                 </app>
             </xpath>
         </field>

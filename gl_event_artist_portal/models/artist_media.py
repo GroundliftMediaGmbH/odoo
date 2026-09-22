@@ -99,10 +99,13 @@ class EventEvent(models.Model):
                    for key in ('photos', 'press', 'tech', 'hospitality'))
 
     def _is_artist_portal_media_stage(self):
+        """Only Gebucht accepts press or rider uploads, including older opt-in events.
+
+        A legacy event may enable any of the four areas individually. Neither
+        Angekündigt nor Abrechnung may expose an old upload form or POST route.
+        """
         self.ensure_one()
-        return bool(self._artist_portal_any_media_enabled() and (
-            self._is_artist_portal_upload_stage() if self.artist_portal_extended_enabled
-            else self._is_artist_portal_stage()))
+        return bool(self._artist_portal_any_media_enabled() and self._is_artist_portal_booked())
 
     def _is_artist_portal_accounting_stage(self):
         self.ensure_one()
@@ -215,6 +218,8 @@ class EventEvent(models.Model):
     # until an artist actually submits text here.
     artist_portal_press_long = fields.Text(string='Vom Künstler eingereichter Langtext', copy=False)
     artist_portal_press_submitted_at = fields.Datetime(string='Presseangaben zuletzt eingereicht', copy=False)
+    artist_portal_contact_last_sent_at = fields.Datetime(
+        string='Letzte Portal-Anfrage zur Videoaufzeichnung', copy=False, readonly=True)
     artist_portal_notifications_enabled = fields.Boolean(
         string='Odoo-Benachrichtigungen für Portal-Uploads', default=True, copy=False)
 

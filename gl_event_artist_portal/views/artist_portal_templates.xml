@@ -32,6 +32,9 @@
                         <t t-if="success == 'updated'">
                             <div class="gl-ap-alert gl-ap-alert-success">Der Eintrag wurde geändert. Die aktualisierte Anzahl und Ticketkategorie sind sofort berücksichtigt.</div>
                         </t>
+                        <t t-if="success == 'contact'">
+                            <div class="gl-ap-alert gl-ap-alert-success">Vielen Dank! Deine Nachricht ist bei Groundlift angekommen.</div>
+                        </t>
                         <t t-if="success == 'cancelled'">
                             <div class="gl-ap-alert gl-ap-alert-success">Der Eintrag wurde storniert. Die reservierten Plätze sind wieder freigegeben.</div>
                         </t>
@@ -47,11 +50,6 @@
                                 <a t-if="gema_url" class="gl-ap-submit gl-ap-gema-link" t-att-href="gema_url"
                                    target="_blank" rel="noopener noreferrer">GEMA-Link öffnen ↗</a>
                                 <p t-else="" class="gl-ap-help">Der GEMA-Link wurde noch nicht hinterlegt. Bitte wendet euch bei Fragen an Groundlift.</p>
-                                <div t-if="tech_confirmation_visible or hospitality_confirmation_visible" class="gl-ap-setlist">
-                                    <h3>Von Groundlift bestätigte Rider</h3>
-                                    <p t-if="tech_confirmation_visible" class="gl-ap-done">✓ Technical Rider / Bühnenanweisung bestätigt</p>
-                                    <p t-if="hospitality_confirmation_visible" class="gl-ap-done">✓ Hospitality Rider bestätigt</p>
-                                </div>
                                 <div class="gl-ap-setlist">
                                     <form t-if="not setlist_submitted" class="gl-ap-form" method="post"
                                           t-att-action="'/event/artist/%s/%s/setlist' % (event.id, token)">
@@ -143,10 +141,53 @@
                             </div>
                         </section>
                         <t t-if="not guestlist_active">
-                            <section class="gl-ap-panel"><h2>Gästeliste und Ticketstände</h2><p class="gl-ap-help">Diese Funktionen werden ab der Phase „Angekündigt“ freigeschaltet.</p></section>
+                            <section class="gl-ap-panel"><h2>Gästeliste und Ticketstände</h2><p class="gl-ap-help">Diese Funktionen werden in der Phase „Angekündigt“ freigeschaltet.</p></section>
                         </t>
                         </t>
                         <t t-if="guestlist_active">
+                        <section class="gl-ap-panel gl-ap-video-pitch" id="video-pitch">
+                            <div class="gl-ap-kicker">LIVE BEI GROUNDLIFT</div>
+                            <h2>Du willst Dein Event wie viele bei uns aufzeichnen lassen? Hol´ Dir Appetit und melde Dich gerne bei uns!</h2>
+                            <div t-if="videos" class="gl-ap-video-grid">
+                                <t t-foreach="videos" t-as="video">
+                                    <button type="button" class="gl-ap-video-tile"
+                                            t-att-data-video-src="video['url']"
+                                            t-att-data-video-title="video['title']"
+                                            t-att-aria-label="'Video vergrößern: %s' % video['title']">
+                                        <span class="gl-ap-video-preview">
+                                            <iframe t-att-src="video['url']" t-att-title="'Vorschau: %s' % video['title']"
+                                                    loading="lazy" tabindex="-1" aria-hidden="true"
+                                                    referrerpolicy="strict-origin-when-cross-origin"
+                                                    allow="autoplay; fullscreen; picture-in-picture"> </iframe>
+                                            <span class="gl-ap-video-play" aria-hidden="true">▶</span>
+                                        </span>
+                                        <span class="gl-ap-video-title" t-esc="video['title']"/>
+                                    </button>
+                                </t>
+                            </div>
+                            <form class="gl-ap-form gl-ap-video-form" method="post"
+                                  t-att-action="'/event/artist/%s/%s/video-contact' % (event.id, token)">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <label class="gl-ap-honeypot" aria-hidden="true">
+                                    Website <input type="text" name="contact_website" tabindex="-1" autocomplete="off"/>
+                                </label>
+                                <label><span>Deine Nachricht an Groundlift</span>
+                                    <textarea name="contact_message" rows="4" maxlength="3000" required="required"
+                                              placeholder="Wir freuen uns auf Deine Kontaktaufnahme!"><t t-esc="contact_draft or ''"/></textarea>
+                                </label>
+                                <button type="submit" class="gl-ap-submit">Absenden</button>
+                            </form>
+                        </section>
+                        <dialog class="gl-ap-video-dialog" id="gl-ap-video-dialog" aria-label="Video abspielen">
+                            <div class="gl-ap-video-dialog-head">
+                                <strong class="gl-ap-video-dialog-title">GROUNDLIFT Video</strong>
+                                <button class="gl-ap-video-close gl-ap-secondary" type="button" aria-label="Video schließen">Schließen ✕</button>
+                            </div>
+                            <div class="gl-ap-video-dialog-screen">
+                                <iframe title="GROUNDLIFT Video" allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+                                        referrerpolicy="strict-origin-when-cross-origin" allowfullscreen="allowfullscreen"> </iframe>
+                            </div>
+                        </dialog>
                         <section class="gl-ap-stats-grid">
                             <div class="gl-ap-stat">
                                 <div class="gl-ap-stat-value" t-esc="total_sold"/>
@@ -488,6 +529,29 @@
                             }
                         });
                     });
+
+                    const videoDialog = document.getElementById('gl-ap-video-dialog');
+                    if (videoDialog) {
+                        const videoFrame = videoDialog.querySelector('.gl-ap-video-dialog-screen iframe');
+                        const videoTitle = videoDialog.querySelector('.gl-ap-video-dialog-title');
+                        function closeVideo() {
+                            videoFrame.removeAttribute('src'); // stop playback on close
+                            if (videoDialog.open) videoDialog.close();
+                        }
+                        document.querySelectorAll('.gl-ap-video-tile').forEach(function (tile) {
+                            tile.addEventListener('click', function () {
+                                // Source was validated server-side against Vimeo; no HTML embeds.
+                                videoFrame.src = tile.dataset.videoSrc;
+                                videoTitle.textContent = tile.dataset.videoTitle || 'GROUNDLIFT Video';
+                                if (typeof videoDialog.showModal === 'function') videoDialog.showModal();
+                            });
+                        });
+                        videoDialog.querySelector('.gl-ap-video-close').addEventListener('click', closeVideo);
+                        videoDialog.addEventListener('close', function () { videoFrame.removeAttribute('src'); });
+                        videoDialog.addEventListener('click', function (event) {
+                            if (event.target === videoDialog) closeVideo();
+                        });
+                    }
 
                     const openEdit = document.querySelector('.gl-ap-edit-panel.is-open');
                     if (openEdit) {

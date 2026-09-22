@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 from hmac import compare_digest
+from datetime import timedelta
+from markupsafe import Markup, escape
+from odoo import fields
 from odoo.tools import html2plaintext
 
 from odoo import http
@@ -151,27 +154,20 @@ class EventArtistPortalController(http.Controller):
         media_values = {
             'event': event,
             'token': token,
-            'portal_active': accounting or (
-                event._is_artist_portal_upload_stage() if event.artist_portal_extended_enabled
-                else event._is_artist_portal_stage()),
+            'portal_active': accounting or media_stage or event._is_artist_portal_stage()
+                or (event.artist_portal_extended_enabled and event._is_artist_portal_booked()),
             'extended_portal': bool(event.artist_portal_extended_enabled),
             'accounting_active': accounting,
             'gema_url': event._artist_portal_valid_gema_url() if accounting else False,
             'setlist_submitted': bool(event.artist_portal_setlist_submitted),
-            'tech_confirmation_visible': bool(
-                event._artist_portal_section_enabled('tech') and
-                event.artist_portal_tech_confirmed and
-                'x_studio_tech_rider' in event._fields and event.x_studio_tech_rider),
-            'hospitality_confirmation_visible': bool(
-                event._artist_portal_section_enabled('hospitality') and
-                event.artist_portal_hospitality_confirmed and
-                'x_studio_hospitality_rider' in event._fields and event.x_studio_hospitality_rider),
             'media_active': media_stage,
             'show_photos': media_stage and event._artist_portal_section_enabled('photos'),
             'show_press': media_stage and event._artist_portal_section_enabled('press'),
             'show_tech': media_stage and event._artist_portal_section_enabled('tech'),
             'show_hospitality': media_stage and event._artist_portal_section_enabled('hospitality'),
             'guestlist_active': event._is_artist_portal_stage(),
+            'videos': (request.env['gl.artist.portal.video.config'].sudo().get_portal_videos()
+                       if event._is_artist_portal_stage() else []),
             'press_short_value': html2plaintext(event['x_studio_event_kurzbeschreibung'] or '') if 'x_studio_event_kurzbeschreibung' in event._fields else '',
             'press_long_value': event.artist_portal_press_long or '',
             'press_short_field': 'x_studio_event_kurzbeschreibung' in event._fields,
@@ -181,6 +177,7 @@ class EventArtistPortalController(http.Controller):
             'media_notice': request.params.get('media'),
             'success': success,
             'error': error,
+            'contact_draft': '',
         }
         # In Gebucht there is no guest-list UI; avoid creating ticket/guest-list
         # price options just because an artist opens the media upload portal.
@@ -304,6 +301,52 @@ class EventArtistPortalController(http.Controller):
             success = 'added'
         values = self._prepare_values(event, token, success=success)
         return request.render('gl_event_artist_portal.artist_portal_page', values)
+
+    @http.route(
+        '/event/artist/<int:event_id>/<string:token>/video-contact',
+        type='http', auth='public', website=True, sitemap=False, methods=['POST']
+    )
+    def artist_portal_video_contact(self, event_id, token, **post):
+        # Never accept contact messages outside the ticket/guestlist phase.
+        event = self._get_event_by_token(event_id, token, require_active=True)
+        if not event:
+            return request.not_found()
+        if post.get('contact_website'):
+            # Honeypot for unsophisticated spam bots; no message is created.
+            return request.redirect('/event/artist/%s/%s' % (event.id, token), code=303)
+        message = (post.get('contact_message') or '').strip()
+        if not message or len(message) > 3000:
+            values = self._prepare_values(
+                event, token, error='Bitte eine Nachricht mit maximal 3.000 Zeichen eingeben.')
+            values['contact_draft'] = message[:3000]
+            return request.render('gl_event_artist_portal.artist_portal_page', values)
+        with request.env.cr.savepoint():
+            # Make double clicks/automated requests less prone to duplicate
+            # chatter entries and abuse of the publicly accessible token URL.
+            request.env.cr.execute('SELECT id FROM event_event WHERE id = %s FOR UPDATE', [event.id])
+            event.invalidate_recordset(['artist_portal_contact_last_sent_at'])
+            now = fields.Datetime.to_datetime(fields.Datetime.now())
+            last = fields.Datetime.to_datetime(event.artist_portal_contact_last_sent_at)
+            if last and now - last < timedelta(seconds=30):
+                values = self._prepare_values(
+                    event, token, error='Bitte vor der nächsten Nachricht kurz warten.')
+                values['contact_draft'] = message
+                return request.render('gl_event_artist_portal.artist_portal_page', values)
+            body = Markup('<p><strong>Nachricht aus dem Künstler-/Agenturportal</strong></p>'
+                          '<p>%s</p>') % escape(message).replace('\n', Markup('<br/>'))
+            # A normal (non-internal) Chatter comment on THIS event. Do not
+            # claim to impersonate a specific contact: the link may be shared.
+            event.sudo().with_context(
+                mail_create_nosubscribe=True, mail_notify_noemail=True,
+                mail_notify_force_send=False,
+            ).message_post(
+                body=body, subject='Anfrage zur Event-Aufzeichnung',
+                message_type='comment', subtype_xmlid='mail.mt_comment',
+            )
+            event.with_context(artist_portal_source=True).write({
+                'artist_portal_contact_last_sent_at': fields.Datetime.now(),
+            })
+        return request.redirect('/event/artist/%s/%s?success=contact' % (event.id, token), code=303)
 
     @http.route(
         '/event/artist/<int:event_id>/<string:token>/add',

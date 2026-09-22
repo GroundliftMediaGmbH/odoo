@@ -68,8 +68,9 @@ class EventEvent(models.Model):
         for event in self:
             enabled = bool(event.id and event.artist_portal_access_token and (
                 event._is_artist_portal_accounting_stage()
-                or (event._is_artist_portal_upload_stage() if event.artist_portal_extended_enabled
-                    else event._is_artist_portal_stage())))
+                or event._is_artist_portal_media_stage()
+                or event._is_artist_portal_stage()
+                or (event.artist_portal_extended_enabled and event._is_artist_portal_booked())))
             event.artist_portal_available = enabled
             if enabled:
                 event.artist_portal_url = '%s/event/artist/%s/%s' % (
@@ -80,15 +81,15 @@ class EventEvent(models.Model):
                 event.artist_portal_status = (
                     _('Aktiv – GEMA-Bereich in „Abrechnung“ / „Beendet“.')
                     if event._is_artist_portal_accounting_stage() else
-                    _('Aktiv – Portal in „Gebucht“ oder „Angekündigt“.')
+                    _('Aktiv – Medien in „Gebucht“, Gästeliste in „Angekündigt“.')
                     if event.artist_portal_extended_enabled else
-                    _('Aktiv – bisheriges Gästelistenportal in „Angekündigt“.'))
+                    _('Aktiv – gewählte Medien in „Gebucht“ oder Gästeliste in „Angekündigt“.'))
             else:
                 event.artist_portal_url = False
                 event.artist_portal_status = (
-                    _('Nicht aktiv – Portal ab „Gebucht“, GEMA ab „Abrechnung“.')
+                    _('Nicht aktiv – Medien ab „Gebucht“, Gästeliste in „Angekündigt“, GEMA ab „Abrechnung“.')
                     if event.artist_portal_extended_enabled else
-                    _('Nicht aktiv – Gästeliste in „Angekündigt“, GEMA ab „Abrechnung“.'))
+                    _('Nicht aktiv – gewählte Medien ab „Gebucht“, Gästeliste in „Angekündigt“, GEMA ab „Abrechnung“.'))
 
     @api.depends('artist_portal_url')
     def _compute_artist_portal_qr_html(self):

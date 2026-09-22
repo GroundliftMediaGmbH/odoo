@@ -34,7 +34,7 @@
                             <field name="artist_portal_section_press"/>
                             <field name="artist_portal_section_tech"/>
                             <field name="artist_portal_section_hospitality"/>
-                            <div class="text-muted">Standard: Alte Veranstaltungen zeigen nur Gästeliste, neue zeigen alle Bereiche. Mit „Anzeigen“ oder „Ausblenden“ pro Veranstaltung abweichen.</div>
+                            <div class="text-muted">Bereiche sind ausschließlich in „Gebucht“ verfügbar. In „Angekündigt“ erscheinen nur Video-Angebot, Live-Ticketstand und Gästeliste; ab „Abrechnung“ nur GEMA/Setliste. Bei Bestandsveranstaltungen einzelne Bereiche über „Anzeigen“ freischalten.</div>
                         </group>
                         <group string="Vertragskontakt / Einladung"
                                invisible="not (artist_portal_extended_enabled or artist_portal_section_tech == 'show' or artist_portal_section_hospitality == 'show')">

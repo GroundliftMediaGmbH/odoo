@@ -45,6 +45,51 @@ class ResConfigSettings(models.TransientModel):
     )
 
 
+    gl_artist_video_1_url = fields.Char(
+        string='Video 1 – Vimeo-Link',
+        config_parameter='gl_event_artist_portal.video_1_url',
+        default='https://player.vimeo.com/video/783241157?h=9ad2e52a02',
+        help='Nur https://vimeo.com/... oder https://player.vimeo.com/video/... erlaubt.',
+    )
+    gl_artist_video_1_title = fields.Char(
+        string='Video 1 – Titel',
+        config_parameter='gl_event_artist_portal.video_1_title',
+        default='Martin Schmitt',
+    )
+    gl_artist_video_2_url = fields.Char(
+        string='Video 2 – Vimeo-Link',
+        config_parameter='gl_event_artist_portal.video_2_url',
+        default='https://player.vimeo.com/video/783243493?h=d770f44eec',
+        help='Nur https://vimeo.com/... oder https://player.vimeo.com/video/... erlaubt.',
+    )
+    gl_artist_video_2_title = fields.Char(
+        string='Video 2 – Titel',
+        config_parameter='gl_event_artist_portal.video_2_title',
+        default="San2 Unplugged: You've Got a Friend – The Groundlift Stories",
+    )
+    gl_artist_video_3_url = fields.Char(
+        string='Video 3 – Vimeo-Link',
+        config_parameter='gl_event_artist_portal.video_3_url',
+        default='https://player.vimeo.com/video/906287508?h=0220cf8333',
+        help='Nur https://vimeo.com/... oder https://player.vimeo.com/video/... erlaubt.',
+    )
+    gl_artist_video_3_title = fields.Char(
+        string='Video 3 – Titel',
+        config_parameter='gl_event_artist_portal.video_3_title',
+        default='Most Foul – Bublath-Trio',
+    )
+    gl_artist_video_4_url = fields.Char(
+        string='Video 4 – Vimeo-Link',
+        config_parameter='gl_event_artist_portal.video_4_url',
+        default='https://player.vimeo.com/video/783238247?h=1bdf29dc13',
+        help='Nur https://vimeo.com/... oder https://player.vimeo.com/video/... erlaubt.',
+    )
+    gl_artist_video_4_title = fields.Char(
+        string='Video 4 – Titel',
+        config_parameter='gl_event_artist_portal.video_4_title',
+        default='Groundlift Band',
+    )
+
     @api.model
     def get_values(self):
         """Odoo 19 does not support Text fields with config_parameter.
