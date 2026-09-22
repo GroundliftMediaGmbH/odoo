@@ -33,7 +33,7 @@
                             <field name="gl_artist_default_service_user_id" options="{'no_create': True}"/>
                         </setting>
                     </block>
-                    <block title="Videos im Künstlerportal (Phase Angekündigt)">
+                    <block title="Videos im Künstlerportal (Angebot, Gebucht, Angekündigt)">
                         <setting id="gl_artist_video_1" string="Video 1" help="Vimeo-Video 1 im Portal-Abschnitt vor dem Live-Ticketstand.">
                             <field name="gl_artist_video_1_url" placeholder="https://player.vimeo.com/video/..."/>
                             <field name="gl_artist_video_1_title" placeholder="Titel des Videos"/>

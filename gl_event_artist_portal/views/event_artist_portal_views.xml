@@ -27,29 +27,42 @@
                             <field name="artist_portal_gema_url" widget="url" placeholder="https://www.gema.de/..."/>
                             <field name="artist_portal_setlist_submitted" readonly="1"/>
                             <field name="artist_portal_setlist_submitted_at" readonly="1" invisible="not artist_portal_setlist_submitted"/>
-                            <div class="text-muted">Ab Abrechnung (auch Beendet) im Portal sichtbar. Hier den vollständigen GEMA-Link hinterlegen.</div>
+                            <div class="text-muted" colspan="2">Ab Abrechnung (auch Beendet) im Portal sichtbar. Hier den vollständigen GEMA-Link hinterlegen.</div>
                         </group>
                         <group string="Portalbereiche je Veranstaltung">
                             <field name="artist_portal_section_photos"/>
                             <field name="artist_portal_section_press"/>
                             <field name="artist_portal_section_tech"/>
                             <field name="artist_portal_section_hospitality"/>
-                            <div class="text-muted">Bereiche sind ausschließlich in „Gebucht“ verfügbar. In „Angekündigt“ erscheinen nur Video-Angebot, Live-Ticketstand und Gästeliste; ab „Abrechnung“ nur GEMA/Setliste. Bei Bestandsveranstaltungen einzelne Bereiche über „Anzeigen“ freischalten.</div>
+                            <div class="text-muted" colspan="2">Bereiche sind ausschließlich in „Gebucht“ verfügbar. Das Video-Angebot erscheint bereits in „Angebot“ und „Gebucht“ sowie in „Angekündigt“; Live-Ticketstand/Gästeliste erst in „Angekündigt“, ab „Abrechnung“ nur GEMA/Setliste. Bei Bestandsveranstaltungen einzelne Bereiche über „Anzeigen“ freischalten.</div>
                         </group>
                         <group string="Vertragskontakt / Einladung"
                                invisible="not (artist_portal_extended_enabled or artist_portal_section_tech == 'show' or artist_portal_section_hospitality == 'show')">
                             <field name="artist_portal_contract_contact_id" options="{'no_create': False}"/>
-                            <group invisible="not artist_portal_extended_enabled">
-                            <field name="artist_portal_introduction" placeholder="{event} und {portal_url} können als Platzhalter verwendet werden."/>
-                            <field name="artist_portal_invitation_sent_at" readonly="1"/>
-                            <field name="artist_portal_invitation_recipient" readonly="1"/>
-                            <button name="action_artist_portal_send_invitation" type="object"
-                                    string="Einladung erneut senden" class="btn-secondary"
-                                    invisible="not artist_portal_available"/>
-                            <button name="action_artist_portal_send_test_mail" type="object"
-                                    string="Staging-Testmail an Julius" class="btn-secondary"
-                                    invisible="not artist_portal_available"/>
-                            </group>
+                            <!-- Avoid a second nested <group>: it splits the right-hand
+                                 column into two tiny subcolumns and makes the text area
+                                 and mail buttons only a few characters wide. -->
+                            <separator string="Einladungstext Künstler-/Agenturportal" colspan="2"
+                                       invisible="not artist_portal_extended_enabled"/>
+                            <field name="artist_portal_introduction" widget="text" nolabel="1"
+                                   colspan="2" class="w-100"
+                                   style="width: 100%; min-height: 9rem;"
+                                   placeholder="{event} und {portal_url} können als Platzhalter verwendet werden."
+                                   invisible="not artist_portal_extended_enabled"/>
+                            <div class="text-muted" colspan="2" invisible="not artist_portal_extended_enabled">
+                                Platzhalter: {event} = Veranstaltungsname; {portal_url} = persönlicher Zugangslink.
+                            </div>
+                            <field name="artist_portal_invitation_sent_at" readonly="1"
+                                   invisible="not artist_portal_extended_enabled"/>
+                            <field name="artist_portal_invitation_recipient" readonly="1"
+                                   invisible="not artist_portal_extended_enabled"/>
+                            <div class="d-flex flex-wrap gap-2" colspan="2"
+                                 invisible="not artist_portal_extended_enabled or not artist_portal_available">
+                                <button name="action_artist_portal_send_invitation" type="object"
+                                        string="Einladung erneut senden" class="btn-secondary"/>
+                                <button name="action_artist_portal_send_test_mail" type="object"
+                                        string="Staging-Testmail an Julius" class="btn-secondary"/>
+                            </div>
                         </group>
                         <group string="Rider-Bestätigungen"
                                invisible="not (artist_portal_extended_enabled or artist_portal_section_tech == 'show' or artist_portal_section_hospitality == 'show')">
@@ -61,11 +74,11 @@
                                    invisible="not (artist_portal_extended_enabled or artist_portal_section_hospitality == 'show')"/>
                             <field name="artist_portal_hospitality_confirmation_queued_at" readonly="1"
                                    invisible="not artist_portal_hospitality_confirmation_queued_at"/>
-                            <div class="text-muted">Haken bestätigt den jeweiligen hochgeladenen Rider auf der Künstlerseite und stellt eine E-Mail an den Vertragskontakt in die Warteschlange. Im Staging ausschließlich an julius@groundlift.de. Erneuter Upload setzt die Bestätigung zurück.</div>
+                            <div class="text-muted" colspan="2">Haken bestätigt den jeweiligen hochgeladenen Rider auf der Künstlerseite und stellt eine E-Mail an den Vertragskontakt in die Warteschlange. Im Staging ausschließlich an julius@groundlift.de. Erneuter Upload setzt die Bestätigung zurück.</div>
                         </group>
                         <group string="Benachrichtigungen" invisible="not (artist_portal_extended_enabled or artist_portal_section_photos == 'show' or artist_portal_section_press == 'show' or artist_portal_section_tech == 'show' or artist_portal_section_hospitality == 'show')">
                             <field name="artist_portal_notifications_enabled"/>
-                            <div class="text-muted">Diskussions-Posteingang (ohne Popup) und To-do-Aktivität an Verantwortlich (Fotos/Texte), Techn. Leitung (Techrider) und Organisation Service (Hospitality Rider).</div>
+                            <div class="text-muted" colspan="2">Diskussions-Posteingang (ohne Popup) und To-do-Aktivität an Verantwortlich (Fotos/Texte), Techn. Leitung (Techrider) und Organisation Service (Hospitality Rider).</div>
                         </group>
                         <group string="Presse &amp; Grafiken" invisible="not (artist_portal_extended_enabled or artist_portal_section_photos == 'show' or artist_portal_section_press == 'show')">
                             <field name="artist_portal_media_ready" readonly="1"/>

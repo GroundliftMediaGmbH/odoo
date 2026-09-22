@@ -151,11 +151,11 @@ class EventArtistPortalController(http.Controller):
         event = event.sudo()
         accounting = event._is_artist_portal_accounting_stage()
         media_stage = event._is_artist_portal_media_stage()
+        video_stage = event._is_artist_portal_video_stage()
         media_values = {
             'event': event,
             'token': token,
-            'portal_active': accounting or media_stage or event._is_artist_portal_stage()
-                or (event.artist_portal_extended_enabled and event._is_artist_portal_booked()),
+            'portal_active': accounting or video_stage or media_stage or event._is_artist_portal_stage(),
             'extended_portal': bool(event.artist_portal_extended_enabled),
             'accounting_active': accounting,
             'gema_url': event._artist_portal_valid_gema_url() if accounting else False,
@@ -166,8 +166,9 @@ class EventArtistPortalController(http.Controller):
             'show_tech': media_stage and event._artist_portal_section_enabled('tech'),
             'show_hospitality': media_stage and event._artist_portal_section_enabled('hospitality'),
             'guestlist_active': event._is_artist_portal_stage(),
+            'video_active': video_stage,
             'videos': (request.env['gl.artist.portal.video.config'].sudo().get_portal_videos()
-                       if event._is_artist_portal_stage() else []),
+                       if video_stage else []),
             'press_short_value': html2plaintext(event['x_studio_event_kurzbeschreibung'] or '') if 'x_studio_event_kurzbeschreibung' in event._fields else '',
             'press_long_value': event.artist_portal_press_long or '',
             'press_short_field': 'x_studio_event_kurzbeschreibung' in event._fields,
@@ -307,9 +308,10 @@ class EventArtistPortalController(http.Controller):
         type='http', auth='public', website=True, sitemap=False, methods=['POST']
     )
     def artist_portal_video_contact(self, event_id, token, **post):
-        # Never accept contact messages outside the ticket/guestlist phase.
-        event = self._get_event_by_token(event_id, token, require_active=True)
-        if not event:
+        # Contact form is available with the videos in Angebot, Gebucht,
+        # Angekündigt, but never in Abrechnung / Beendet.
+        event = self._get_event_by_token(event_id, token, require_active=False)
+        if not event or not event._is_artist_portal_video_stage():
             return request.not_found()
         if post.get('contact_website'):
             # Honeypot for unsophisticated spam bots; no message is created.

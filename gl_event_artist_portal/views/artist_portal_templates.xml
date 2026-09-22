@@ -20,8 +20,8 @@
                     <t t-if="not portal_active">
                         <section class="gl-ap-panel gl-ap-closed">
                             <h2>Portal derzeit nicht aktiv</h2>
-                            <p t-if="extended_portal">Das Portal ist ab „Gebucht“ für die Vorbereitung und ab „Abrechnung“ für den GEMA-Link erreichbar.</p>
-                            <p t-else="">Gästeliste ab „Angekündigt“, GEMA-Link ab „Abrechnung“.</p>
+                            <p t-if="extended_portal">Das Video-Angebot ist ab „Angebot“ verfügbar; Medien in „Gebucht“, Gästeliste in „Angekündigt“ und GEMA ab „Abrechnung“.</p>
+                            <p t-else="">Video-Angebot ab „Angebot“, Gästeliste ab „Angekündigt“ und GEMA-Link ab „Abrechnung“.</p>
                         </section>
                     </t>
 
@@ -144,7 +144,7 @@
                             <section class="gl-ap-panel"><h2>Gästeliste und Ticketstände</h2><p class="gl-ap-help">Diese Funktionen werden in der Phase „Angekündigt“ freigeschaltet.</p></section>
                         </t>
                         </t>
-                        <t t-if="guestlist_active">
+                        <t t-if="video_active">
                         <section class="gl-ap-panel gl-ap-video-pitch" id="video-pitch">
                             <div class="gl-ap-kicker">LIVE BEI GROUNDLIFT</div>
                             <h2>Du willst Dein Event wie viele bei uns aufzeichnen lassen? Hol´ Dir Appetit und melde Dich gerne bei uns!</h2>
@@ -188,6 +188,8 @@
                                         referrerpolicy="strict-origin-when-cross-origin" allowfullscreen="allowfullscreen"> </iframe>
                             </div>
                         </dialog>
+                        </t>
+                        <t t-if="guestlist_active">
                         <section class="gl-ap-stats-grid">
                             <div class="gl-ap-stat">
                                 <div class="gl-ap-stat-value" t-esc="total_sold"/>

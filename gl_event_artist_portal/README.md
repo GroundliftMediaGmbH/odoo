@@ -168,3 +168,19 @@ Das Update greift nicht in bestehende Veranstaltungsdaten ein.
 - Die vier Vimeo-URLs und ihre Titel sind global unter Einstellungen → GROUNDLIFT Künstlerportal änderbar. Nur HTTPS-Vimeo-Links, kein ungefiltertes Embed-HTML.
 - Der Kontaktformular-Text erscheint als Chatter-Kommentar direkt am jeweiligen `event.event` (nicht als versandte E-Mail). Token, CSRF, 3.000-Zeichenlimit, Honeypot und 30-Sekunden-Sperre schützen die öffentliche Route.
 - Staging-Test: Installation/Modul-Upgrade in eurer konkreten Odoo-19-SH-Datenbank und Sichtprüfung der Vimeo-Einbettung sind noch erforderlich.
+
+
+## Update 19.0.2.0.9 – Video-Angebot bereits in Angebot und Gebucht
+
+- **Angebot**: vier Videos und Kontaktformular im Künstlerportal; kein Upload, kein Ticketstand und keine Gästeliste. Ein vorhandener Portal-Zugriffstoken macht den Link schon in dieser Phase nutzbar; die automatische Einladungsmail bleibt erst bei „Gebucht“.
+- **Gebucht**: Video-Angebot/Kontaktformular zusätzlich zu den ggf. freigeschalteten Medien-Uploads.
+- **Angekündigt**: Video-Angebot/Kontaktformular plus Live-Ticketstand, Gästeliste und Abendkasse.
+- **Abrechnung/Beendet**: nur GEMA-Link und Setlistenbestätigung; weder Videos noch Kontaktformular. Die Video-Kontaktroute prüft dieselben Phasen serverseitig.
+- Die Video-URLs und -Titel bleiben unverändert global konfigurierbar.
+
+
+## Update 19.0.2.0.10 – Backend-Layout im Tab „Info für Band/Agentur“
+
+- Der Einladungstext liegt nicht mehr in einer zusätzlich verschachtelten Odoo-Gruppe, die die ohnehin halbbreite Spalte erneut in zwei Spalten geteilt und den mehrzeiligen Text extrem schmal gerendert hat.
+- Die Textarea belegt die volle Breite der rechten Sektion; die beiden Mail-Buttons bekommen gemeinsam eine umbruchfähige Zeile. Hinweise unter den übrigen Sektionen belegen jeweils die ganze Sektionsbreite.
+- Keine Änderungen an Datenfeldern, Zugangsberechtigungen, Phasen, E-Mails oder öffentlichen Portalfunktionen.
