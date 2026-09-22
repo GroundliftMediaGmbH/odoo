@@ -43,7 +43,7 @@
                         </t>
 
                         <t t-if="accounting_active">
-                            <details class="gl-ap-panel gl-ap-collapsible" id="gema">
+                            <details class="gl-ap-panel gl-ap-collapsible" id="gema" open="open">
                                 <summary class="gl-ap-collapsible-summary"><h2>GEMA</h2>
                                 </summary><div class="gl-ap-collapsible-body"><div class="gl-ap-kicker">ABRECHNUNG</div>
                                 <p class="gl-ap-help">Hier findet ihr den von Groundlift hinterlegten GEMA-Link zur Veranstaltung.</p>
@@ -67,7 +67,7 @@
                             <div class="gl-ap-alert gl-ap-alert-success">Deine Angaben wurden gespeichert.</div>
                         </t>
                         <t t-if="show_tech or show_hospitality">
-                        <details class="gl-ap-panel gl-ap-collapsible" id="documents">
+                        <details class="gl-ap-panel gl-ap-collapsible" id="documents" open="open">
                             <summary class="gl-ap-collapsible-summary"><h2>Rider &amp; Bühnenanweisung</h2>
                             </summary><div class="gl-ap-collapsible-body"><div class="gl-ap-kicker">DOKUMENTE</div><p class="gl-ap-help">PDF, DOC oder DOCX · höchstens 20 MB je Datei. Eine neue Datei ersetzt den bisherigen Rider desselben Typs.</p>
                             <div class="gl-ap-media-grid">
@@ -94,7 +94,7 @@
                             </div>
                         </div></details>
                         </t>
-                        <details t-if="show_press" class="gl-ap-panel gl-ap-collapsible" id="press">
+                        <details t-if="show_press" class="gl-ap-panel gl-ap-collapsible" id="press" open="open">
                             <summary class="gl-ap-collapsible-summary"><h2>Pressetexte</h2>
                             </summary><div class="gl-ap-collapsible-body"><div class="gl-ap-kicker">PRESSE</div><p class="gl-ap-help">Sobald Groundlift einen Text im Backend verändert, wird das jeweilige Textfeld hier gesperrt. Der lange Pressetext ist zunächst leer – eine eventuell vorhandene Standard-Veranstaltungsbeschreibung wird nicht übernommen.</p>
                             <form class="gl-ap-form" method="post" t-att-action="'/event/artist/%s/%s/press' % (event.id, token)">
@@ -110,7 +110,7 @@
                                 <button t-if="not event.artist_portal_short_locked or not event.artist_portal_long_locked" class="gl-ap-submit" type="submit">Pressetexte speichern</button>
                             </form>
                         </div></details>
-                        <details t-if="show_photos" class="gl-ap-panel gl-ap-collapsible" id="photos">
+                        <details t-if="show_photos" class="gl-ap-panel gl-ap-collapsible" id="photos" open="open">
                             <summary class="gl-ap-collapsible-summary"><h2>Fotos hochladen</h2>
                             </summary><div class="gl-ap-collapsible-body"><div class="gl-ap-kicker">PRESSEBILDER</div><p class="gl-ap-help">Mehrere Bilder pro Format sind möglich (max. 20 je Format, je max. 12 MB). JPG, PNG oder WEBP. Das erste quadratische Bild erscheint als Odoo-Veranstaltungsbild. Nach Bearbeitung in der Grafik-App ist der Fotobereich gesperrt.</p>
                             <t t-if="photo_editable">
@@ -143,7 +143,7 @@
                         </t>
                         </t>
                         <t t-if="video_active">
-                        <details class="gl-ap-panel gl-ap-video-pitch gl-ap-collapsible" id="video-pitch">
+                        <details class="gl-ap-panel gl-ap-video-pitch gl-ap-collapsible" id="video-pitch" open="open">
                             <summary class="gl-ap-collapsible-summary"><h2 t-esc="video_pitch_headline"/>
                             </summary><div class="gl-ap-collapsible-body"><div class="gl-ap-kicker" t-esc="video_pitch_eyebrow"/>
                             <div t-if="videos" class="gl-ap-video-grid">
@@ -179,7 +179,7 @@
                         </dialog>
                         </t>
                         <t t-if="guestlist_active">
-                        <details class="gl-ap-panel gl-ap-collapsible">
+                        <details class="gl-ap-panel gl-ap-collapsible" open="open">
                             <summary class="gl-ap-collapsible-summary"><h2>Verkauf &amp; Verfügbarkeit</h2>
                                 </summary><div class="gl-ap-collapsible-body"><section class="gl-ap-stats-grid">
                             <div class="gl-ap-stat">
@@ -241,7 +241,7 @@
                             <p class="gl-ap-footnote">* Reserviert umfasst verbindliche Gästelisten- und Abendkassenplätze dieser Ticketkategorie und reduziert die verfügbare Kapazität.</p>
                         </div></details>
 
-                        <details class="gl-ap-panel gl-ap-collapsible">
+                        <details class="gl-ap-panel gl-ap-collapsible" open="open">
                             <summary class="gl-ap-collapsible-summary"><h2>Gästeliste oder Abendkasse</h2>
                                 </summary><div class="gl-ap-collapsible-body"><div class="gl-ap-section-head">
                                 <div>
@@ -315,7 +315,7 @@
                             </form>
                         </div></details>
 
-                        <details class="gl-ap-panel gl-ap-collapsible" t-if="portal_lines">
+                        <details class="gl-ap-panel gl-ap-collapsible" t-if="portal_lines" open="open">
                             <summary class="gl-ap-collapsible-summary"><h2>Eure Einträge über dieses Portal</h2>
                                 </summary><div class="gl-ap-collapsible-body"><div class="gl-ap-section-head">
                                 <div>

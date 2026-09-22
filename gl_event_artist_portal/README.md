@@ -201,3 +201,7 @@ Das Update greift nicht in bestehende Veranstaltungsdaten ein.
   Gästeliste bleiben sichtbar, statt irrtümlich hinter einer Klappe zu
   verschwinden. Die Kontakt- und Gästelistenformulare sowie der Vimeo-Player
   funktionieren innerhalb der aufgeklappten Bereiche unverändert.
+
+
+## 19.0.2.0.12
+- Alle acht aufklappbaren Hauptabschnitte im Künstlerportal sind beim Laden standardmäßig geöffnet; die Überschriften bleiben anklickbar zum Einklappen.
