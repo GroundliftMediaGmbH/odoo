@@ -5,6 +5,8 @@ from odoo import api, fields, models
 
 from .artist_media import (DEFAULT_INVITATION_TEXT, INTRODUCTION_PARAMETER,
                            TECH_USER_PARAMETER, SERVICE_USER_PARAMETER)
+from .artist_videos import (VIDEO_PITCH_HEADLINE, VIDEO_PITCH_EYEBROW,
+                            VIDEO_PITCH_HEADLINE_PARAMETER, VIDEO_PITCH_EYEBROW_PARAMETER)
 from .artist_confirmations import (
     TECH_CONFIRM_PARAMETER, HOSPITALITY_CONFIRM_PARAMETER,
     DEFAULT_TECH_CONFIRMATION, DEFAULT_HOSPITALITY_CONFIRMATION,
@@ -44,6 +46,19 @@ class ResConfigSettings(models.TransientModel):
              'x_studio_organisation_service übernommen wird.',
     )
 
+
+    gl_artist_video_pitch_headline = fields.Char(
+        string='Videoangebot – Slogan',
+        config_parameter=VIDEO_PITCH_HEADLINE_PARAMETER,
+        default=VIDEO_PITCH_HEADLINE,
+        help='Globale Überschrift des Videoangebots in Angebot, Gebucht und Angekündigt.',
+    )
+    gl_artist_video_pitch_eyebrow = fields.Char(
+        string='Videoangebot – Rubrik',
+        config_parameter=VIDEO_PITCH_EYEBROW_PARAMETER,
+        default=VIDEO_PITCH_EYEBROW,
+        help='Kleine Rubrik über den Videos, standardmäßig Live bei Groundlift.',
+    )
 
     gl_artist_video_1_url = fields.Char(
         string='Video 1 – Vimeo-Link',

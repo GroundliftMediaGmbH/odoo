@@ -34,6 +34,14 @@
                         </setting>
                     </block>
                     <block title="Videos im Künstlerportal (Angebot, Gebucht, Angekündigt)">
+                        <setting id="gl_artist_video_pitch_headline" string="Videoangebot – Slogan"
+                                 help="Überschrift des Videoangebots, global für alle Veranstaltungen. Änderungen werden sofort im Künstlerportal angezeigt.">
+                            <field name="gl_artist_video_pitch_headline" placeholder="Dein Slogan für Eventaufzeichnungen"/>
+                        </setting>
+                        <setting id="gl_artist_video_pitch_eyebrow" string="Videoangebot – Rubrik"
+                                 help="Kleine Überschrift über den vier Videos, global für alle Veranstaltungen.">
+                            <field name="gl_artist_video_pitch_eyebrow" placeholder="Live bei Groundlift"/>
+                        </setting>
                         <setting id="gl_artist_video_1" string="Video 1" help="Vimeo-Video 1 im Portal-Abschnitt vor dem Live-Ticketstand.">
                             <field name="gl_artist_video_1_url" placeholder="https://player.vimeo.com/video/..."/>
                             <field name="gl_artist_video_1_title" placeholder="Titel des Videos"/>

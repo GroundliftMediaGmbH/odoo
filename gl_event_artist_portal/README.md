@@ -184,3 +184,20 @@ Das Update greift nicht in bestehende Veranstaltungsdaten ein.
 - Der Einladungstext liegt nicht mehr in einer zusätzlich verschachtelten Odoo-Gruppe, die die ohnehin halbbreite Spalte erneut in zwei Spalten geteilt und den mehrzeiligen Text extrem schmal gerendert hat.
 - Die Textarea belegt die volle Breite der rechten Sektion; die beiden Mail-Buttons bekommen gemeinsam eine umbruchfähige Zeile. Hinweise unter den übrigen Sektionen belegen jeweils die ganze Sektionsbreite.
 - Keine Änderungen an Datenfeldern, Zugangsberechtigungen, Phasen, E-Mails oder öffentlichen Portalfunktionen.
+
+
+## Update 19.0.2.0.11 – Globale Videotexte und einklappbare Portalabschnitte
+
+- Unter **Einstellungen → GROUNDLIFT Künstlerportal → Videos im Künstlerportal**
+  sind **Videoangebot – Slogan** und **Videoangebot – Rubrik** jetzt global änderbar.
+  Die bisherigen Texte bleiben Standard. Sie werden bei jedem Portalaufruf aus
+  `ir.config_parameter` gelesen, also nicht in die Veranstaltung kopiert.
+- Die acht Hauptabschnitte GEMA, Rider, Pressetexte, Pressebilder, Videoangebot,
+  Live-Ticketstand, Gästelisten-Eintragung und bestehende Einträge sind mit
+  nativen HTML-`details`-Elementen einzeln einklappbar. Standardmäßig bleibt
+  nur die anklickbare Überschrift mit Pfeil sichtbar. Die Live-Statistiken
+  liegen jetzt innerhalb des Ticketstand-Abschnitts.
+- Inaktive Portalhinweise und die Nachricht zur noch nicht freigeschalteten
+  Gästeliste bleiben sichtbar, statt irrtümlich hinter einer Klappe zu
+  verschwinden. Die Kontakt- und Gästelistenformulare sowie der Vimeo-Player
+  funktionieren innerhalb der aufgeklappten Bereiche unverändert.

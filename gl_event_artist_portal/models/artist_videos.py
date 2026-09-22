@@ -5,6 +5,11 @@ from urllib.parse import parse_qs, urlsplit
 
 from odoo import api, fields, models
 
+VIDEO_PITCH_HEADLINE = 'Du willst Dein Event wie viele bei uns aufzeichnen lassen? Hol´ Dir Appetit und melde Dich gerne bei uns!'
+VIDEO_PITCH_EYEBROW = 'Live bei Groundlift'
+VIDEO_PITCH_HEADLINE_PARAMETER = 'gl_event_artist_portal.video_pitch_headline'
+VIDEO_PITCH_EYEBROW_PARAMETER = 'gl_event_artist_portal.video_pitch_eyebrow'
+
 VIDEO_DEFAULTS = (
     ('https://player.vimeo.com/video/783241157?h=9ad2e52a02', 'Martin Schmitt'),
     ('https://player.vimeo.com/video/783243493?h=d770f44eec', "San2 Unplugged: You've Got a Friend – The Groundlift Stories"),
@@ -66,3 +71,16 @@ class ArtistPortalVideoConfig(models.AbstractModel):
             if src:
                 videos.append({'url': src, 'title': title})
         return videos
+
+    @api.model
+    def get_portal_pitch(self):
+        """Global texts, read on every page load so changes apply to all events."""
+        params = self.env['ir.config_parameter'].sudo()
+        return {
+            'headline': (params.get_param(
+                VIDEO_PITCH_HEADLINE_PARAMETER, default=VIDEO_PITCH_HEADLINE)
+                or VIDEO_PITCH_HEADLINE).strip(),
+            'eyebrow': (params.get_param(
+                VIDEO_PITCH_EYEBROW_PARAMETER, default=VIDEO_PITCH_EYEBROW)
+                or VIDEO_PITCH_EYEBROW).strip(),
+        }

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <odoo>
     <template id="artist_portal_page" name="Künstler- und Agenturportal">
         <t t-call="website.layout">
@@ -43,16 +43,14 @@
                         </t>
 
                         <t t-if="accounting_active">
-                            <section class="gl-ap-panel" id="gema">
-                                <div class="gl-ap-kicker">ABRECHNUNG</div>
-                                <h2>GEMA</h2>
+                            <details class="gl-ap-panel gl-ap-collapsible" id="gema">
+                                <summary class="gl-ap-collapsible-summary"><h2>GEMA</h2>
+                                </summary><div class="gl-ap-collapsible-body"><div class="gl-ap-kicker">ABRECHNUNG</div>
                                 <p class="gl-ap-help">Hier findet ihr den von Groundlift hinterlegten GEMA-Link zur Veranstaltung.</p>
-                                <a t-if="gema_url" class="gl-ap-submit gl-ap-gema-link" t-att-href="gema_url"
-                                   target="_blank" rel="noopener noreferrer">GEMA-Link öffnen ↗</a>
+                                <a t-if="gema_url" class="gl-ap-submit gl-ap-gema-link" t-att-href="gema_url" target="_blank" rel="noopener noreferrer">GEMA-Link öffnen ↗</a>
                                 <p t-else="" class="gl-ap-help">Der GEMA-Link wurde noch nicht hinterlegt. Bitte wendet euch bei Fragen an Groundlift.</p>
                                 <div class="gl-ap-setlist">
-                                    <form t-if="not setlist_submitted" class="gl-ap-form" method="post"
-                                          t-att-action="'/event/artist/%s/%s/setlist' % (event.id, token)">
+                                    <form t-if="not setlist_submitted" class="gl-ap-form" method="post" t-att-action="'/event/artist/%s/%s/setlist' % (event.id, token)">
                                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                         <label class="gl-ap-confirm-checkbox">
                                             <input type="checkbox" name="setlist_submitted" value="1" required="required"/>
@@ -62,16 +60,16 @@
                                     </form>
                                     <p t-else="" class="gl-ap-done">✓ Setliste wurde eingereicht – Groundlift wurde benachrichtigt.</p>
                                 </div>
-                            </section>
+                            </div></details>
                         </t>
                         <t t-if="media_active">
                         <t t-if="media_notice">
                             <div class="gl-ap-alert gl-ap-alert-success">Deine Angaben wurden gespeichert.</div>
                         </t>
                         <t t-if="show_tech or show_hospitality">
-                        <section class="gl-ap-panel" id="documents">
-                            <div class="gl-ap-kicker">DOKUMENTE</div><h2>Rider &amp; Bühnenanweisung</h2>
-                            <p class="gl-ap-help">PDF, DOC oder DOCX · höchstens 20 MB je Datei. Eine neue Datei ersetzt den bisherigen Rider desselben Typs.</p>
+                        <details class="gl-ap-panel gl-ap-collapsible" id="documents">
+                            <summary class="gl-ap-collapsible-summary"><h2>Rider &amp; Bühnenanweisung</h2>
+                            </summary><div class="gl-ap-collapsible-body"><div class="gl-ap-kicker">DOKUMENTE</div><p class="gl-ap-help">PDF, DOC oder DOCX · höchstens 20 MB je Datei. Eine neue Datei ersetzt den bisherigen Rider desselben Typs.</p>
                             <div class="gl-ap-media-grid">
                                 <form t-if="show_tech" class="gl-ap-form" method="post" enctype="multipart/form-data" t-att-action="'/event/artist/%s/%s/rider' % (event.id, token)">
                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
@@ -94,11 +92,11 @@
                                     <p t-if="not rider_hospitality_available" class="gl-ap-help">Das zugehörige Odoo-Feld ist noch nicht eingerichtet.</p>
                                 </form>
                             </div>
-                        </section>
+                        </div></details>
                         </t>
-                        <section t-if="show_press" class="gl-ap-panel" id="press">
-                            <div class="gl-ap-kicker">PRESSE</div><h2>Pressetexte</h2>
-                            <p class="gl-ap-help">Sobald Groundlift einen Text im Backend verändert, wird das jeweilige Textfeld hier gesperrt. Der lange Pressetext ist zunächst leer – eine eventuell vorhandene Standard-Veranstaltungsbeschreibung wird nicht übernommen.</p>
+                        <details t-if="show_press" class="gl-ap-panel gl-ap-collapsible" id="press">
+                            <summary class="gl-ap-collapsible-summary"><h2>Pressetexte</h2>
+                            </summary><div class="gl-ap-collapsible-body"><div class="gl-ap-kicker">PRESSE</div><p class="gl-ap-help">Sobald Groundlift einen Text im Backend verändert, wird das jeweilige Textfeld hier gesperrt. Der lange Pressetext ist zunächst leer – eine eventuell vorhandene Standard-Veranstaltungsbeschreibung wird nicht übernommen.</p>
                             <form class="gl-ap-form" method="post" t-att-action="'/event/artist/%s/%s/press' % (event.id, token)">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                 <label><span>Pressetext kurz</span>
@@ -111,10 +109,10 @@
                                 <p t-if="event.artist_portal_long_locked" class="gl-ap-done">✓ Langtext durch Groundlift bearbeitet – gesperrt</p>
                                 <button t-if="not event.artist_portal_short_locked or not event.artist_portal_long_locked" class="gl-ap-submit" type="submit">Pressetexte speichern</button>
                             </form>
-                        </section>
-                        <section t-if="show_photos" class="gl-ap-panel" id="photos">
-                            <div class="gl-ap-kicker">PRESSEBILDER</div><h2>Fotos hochladen</h2>
-                            <p class="gl-ap-help">Mehrere Bilder pro Format sind möglich (max. 20 je Format, je max. 12 MB). JPG, PNG oder WEBP. Das erste quadratische Bild erscheint als Odoo-Veranstaltungsbild. Nach Bearbeitung in der Grafik-App ist der Fotobereich gesperrt.</p>
+                        </div></details>
+                        <details t-if="show_photos" class="gl-ap-panel gl-ap-collapsible" id="photos">
+                            <summary class="gl-ap-collapsible-summary"><h2>Fotos hochladen</h2>
+                            </summary><div class="gl-ap-collapsible-body"><div class="gl-ap-kicker">PRESSEBILDER</div><p class="gl-ap-help">Mehrere Bilder pro Format sind möglich (max. 20 je Format, je max. 12 MB). JPG, PNG oder WEBP. Das erste quadratische Bild erscheint als Odoo-Veranstaltungsbild. Nach Bearbeitung in der Grafik-App ist der Fotobereich gesperrt.</p>
                             <t t-if="photo_editable">
                                 <form class="gl-ap-form" method="post" enctype="multipart/form-data" t-att-action="'/event/artist/%s/%s/photos' % (event.id, token)">
                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
@@ -139,58 +137,51 @@
                                     </div>
                                 </t>
                             </div>
-                        </section>
+                        </div></details>
                         <t t-if="not guestlist_active">
                             <section class="gl-ap-panel"><h2>Gästeliste und Ticketstände</h2><p class="gl-ap-help">Diese Funktionen werden in der Phase „Angekündigt“ freigeschaltet.</p></section>
                         </t>
                         </t>
                         <t t-if="video_active">
-                        <section class="gl-ap-panel gl-ap-video-pitch" id="video-pitch">
-                            <div class="gl-ap-kicker">LIVE BEI GROUNDLIFT</div>
-                            <h2>Du willst Dein Event wie viele bei uns aufzeichnen lassen? Hol´ Dir Appetit und melde Dich gerne bei uns!</h2>
+                        <details class="gl-ap-panel gl-ap-video-pitch gl-ap-collapsible" id="video-pitch">
+                            <summary class="gl-ap-collapsible-summary"><h2 t-esc="video_pitch_headline"/>
+                            </summary><div class="gl-ap-collapsible-body"><div class="gl-ap-kicker" t-esc="video_pitch_eyebrow"/>
                             <div t-if="videos" class="gl-ap-video-grid">
                                 <t t-foreach="videos" t-as="video">
-                                    <button type="button" class="gl-ap-video-tile"
-                                            t-att-data-video-src="video['url']"
-                                            t-att-data-video-title="video['title']"
-                                            t-att-aria-label="'Video vergrößern: %s' % video['title']">
+                                    <button type="button" class="gl-ap-video-tile" t-att-data-video-src="video['url']" t-att-data-video-title="video['title']" t-att-aria-label="'Video vergrößern: %s' % video['title']">
                                         <span class="gl-ap-video-preview">
-                                            <iframe t-att-src="video['url']" t-att-title="'Vorschau: %s' % video['title']"
-                                                    loading="lazy" tabindex="-1" aria-hidden="true"
-                                                    referrerpolicy="strict-origin-when-cross-origin"
-                                                    allow="autoplay; fullscreen; picture-in-picture"> </iframe>
+                                            <iframe t-att-src="video['url']" t-att-title="'Vorschau: %s' % video['title']" loading="lazy" tabindex="-1" aria-hidden="true" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; fullscreen; picture-in-picture"> </iframe>
                                             <span class="gl-ap-video-play" aria-hidden="true">▶</span>
                                         </span>
                                         <span class="gl-ap-video-title" t-esc="video['title']"/>
                                     </button>
                                 </t>
                             </div>
-                            <form class="gl-ap-form gl-ap-video-form" method="post"
-                                  t-att-action="'/event/artist/%s/%s/video-contact' % (event.id, token)">
+                            <form class="gl-ap-form gl-ap-video-form" method="post" t-att-action="'/event/artist/%s/%s/video-contact' % (event.id, token)">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                 <label class="gl-ap-honeypot" aria-hidden="true">
                                     Website <input type="text" name="contact_website" tabindex="-1" autocomplete="off"/>
                                 </label>
                                 <label><span>Deine Nachricht an Groundlift</span>
-                                    <textarea name="contact_message" rows="4" maxlength="3000" required="required"
-                                              placeholder="Wir freuen uns auf Deine Kontaktaufnahme!"><t t-esc="contact_draft or ''"/></textarea>
+                                    <textarea name="contact_message" rows="4" maxlength="3000" required="required" placeholder="Wir freuen uns auf Deine Kontaktaufnahme!"><t t-esc="contact_draft or ''"/></textarea>
                                 </label>
                                 <button type="submit" class="gl-ap-submit">Absenden</button>
                             </form>
-                        </section>
+                        </div></details>
                         <dialog class="gl-ap-video-dialog" id="gl-ap-video-dialog" aria-label="Video abspielen">
                             <div class="gl-ap-video-dialog-head">
                                 <strong class="gl-ap-video-dialog-title">GROUNDLIFT Video</strong>
                                 <button class="gl-ap-video-close gl-ap-secondary" type="button" aria-label="Video schließen">Schließen ✕</button>
                             </div>
                             <div class="gl-ap-video-dialog-screen">
-                                <iframe title="GROUNDLIFT Video" allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-                                        referrerpolicy="strict-origin-when-cross-origin" allowfullscreen="allowfullscreen"> </iframe>
+                                <iframe title="GROUNDLIFT Video" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen="allowfullscreen"> </iframe>
                             </div>
                         </dialog>
                         </t>
                         <t t-if="guestlist_active">
-                        <section class="gl-ap-stats-grid">
+                        <details class="gl-ap-panel gl-ap-collapsible">
+                            <summary class="gl-ap-collapsible-summary"><h2>Verkauf &amp; Verfügbarkeit</h2>
+                                </summary><div class="gl-ap-collapsible-body"><section class="gl-ap-stats-grid">
                             <div class="gl-ap-stat">
                                 <div class="gl-ap-stat-value" t-esc="total_sold"/>
                                 <div class="gl-ap-stat-label">Tickets verkauft</div>
@@ -212,12 +203,10 @@
                             </div>
                         </section>
 
-                        <section class="gl-ap-panel">
-                            <div class="gl-ap-section-head">
+                        <div class="gl-ap-section-head">
                                 <div>
                                     <div class="gl-ap-kicker">LIVE TICKETSTAND</div>
-                                    <h2>Verkauf &amp; Verfügbarkeit</h2>
-                                </div>
+                                    </div>
                             </div>
                             <div class="gl-ap-table-wrap">
                                 <table class="gl-ap-table">
@@ -250,30 +239,28 @@
                                 </table>
                             </div>
                             <p class="gl-ap-footnote">* Reserviert umfasst verbindliche Gästelisten- und Abendkassenplätze dieser Ticketkategorie und reduziert die verfügbare Kapazität.</p>
-                        </section>
+                        </div></details>
 
-                        <section class="gl-ap-panel">
-                            <div class="gl-ap-section-head">
+                        <details class="gl-ap-panel gl-ap-collapsible">
+                            <summary class="gl-ap-collapsible-summary"><h2>Gästeliste oder Abendkasse</h2>
+                                </summary><div class="gl-ap-collapsible-body"><div class="gl-ap-section-head">
                                 <div>
                                     <div class="gl-ap-kicker">EINTRAG</div>
-                                    <h2>Gästeliste oder Abendkasse</h2>
-                                </div>
+                                    </div>
                             </div>
                             <form class="gl-ap-form" method="post" t-att-action="'/event/artist/%s/%s/add' % (event.id, token)">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
 
                                 <div class="gl-ap-type-grid">
                                     <label class="gl-ap-type-card">
-                                        <input type="radio" name="entry_type" value="guestlist"
-                                               t-att-checked="(form.get('entry_type') or 'guestlist') == 'guestlist' and 'checked' or None"/>
+                                        <input type="radio" name="entry_type" value="guestlist" t-att-checked="(form.get('entry_type') or 'guestlist') == 'guestlist' and 'checked' or None"/>
                                         <span>
                                             <strong>Gästeliste</strong>
                                             <small>Kostenloser Platz, wird direkt von der verfügbaren Kapazität abgezogen.</small>
                                         </span>
                                     </label>
                                     <label class="gl-ap-type-card">
-                                        <input type="radio" name="entry_type" value="box_office"
-                                               t-att-checked="form.get('entry_type') == 'box_office' and 'checked' or None"/>
+                                        <input type="radio" name="entry_type" value="box_office" t-att-checked="form.get('entry_type') == 'box_office' and 'checked' or None"/>
                                         <span>
                                             <strong>Ticket · Abendkasse</strong>
                                             <small>Ticket wird reserviert und erst am Veranstaltungsabend an der Abendkasse bezahlt.</small>
@@ -302,9 +289,7 @@
                                         <select name="price_option_id">
                                             <option value="">Bitte auswählen</option>
                                             <t t-foreach="box_office_rows" t-as="row">
-                                                <option t-att-value="row['option'].id"
-                                                        t-att-selected="str(row['option'].id) == form.get('price_option_id', '') and 'selected' or None"
-                                                        t-esc="row['label']"/>
+                                                <option t-att-value="row['option'].id" t-att-selected="str(row['option'].id) == form.get('price_option_id', '') and 'selected' or None" t-esc="row['label']"/>
                                             </t>
                                         </select>
                                     </label>
@@ -328,14 +313,14 @@
 
                                 <button type="submit" class="gl-ap-submit">Eintrag verbindlich speichern</button>
                             </form>
-                        </section>
+                        </div></details>
 
-                        <section class="gl-ap-panel" t-if="portal_lines">
-                            <div class="gl-ap-section-head">
+                        <details class="gl-ap-panel gl-ap-collapsible" t-if="portal_lines">
+                            <summary class="gl-ap-collapsible-summary"><h2>Eure Einträge über dieses Portal</h2>
+                                </summary><div class="gl-ap-collapsible-body"><div class="gl-ap-section-head">
                                 <div>
                                     <div class="gl-ap-kicker">BEREITS EINGETRAGEN</div>
-                                    <h2>Eure Einträge über dieses Portal</h2>
-                                </div>
+                                    </div>
                             </div>
                             <div class="gl-ap-entry-list">
                                 <t t-foreach="portal_lines" t-as="line">
@@ -347,8 +332,7 @@
                                                     <span t-esc="'%s Person(en)' % line.quantity_int"/>
                                                     <span t-if="line.artist_portal_entry_type == 'guestlist'">Gästeliste</span>
                                                     <span t-if="line.artist_portal_entry_type == 'box_office'">Abendkasse</span>
-                                                    <span t-if="line.price_option_id and line.artist_portal_entry_type == 'box_office'"
-                                                          t-esc="option_labels.get(line.price_option_id.id, line.price_option_id.name)"/>
+                                                    <span t-if="line.price_option_id and line.artist_portal_entry_type == 'box_office'" t-esc="option_labels.get(line.price_option_id.id, line.price_option_id.name)"/>
                                                     <span t-if="line.artist_portal_submitted_by">von <t t-esc="line.artist_portal_submitted_by"/></span>
                                                 </div>
                                                 <div class="gl-ap-entry-note" t-if="line.contact_data">
@@ -357,45 +341,31 @@
                                                 <div class="gl-ap-entry-note" t-if="line.note" t-esc="line.note"/>
                                             </div>
                                             <div class="gl-ap-entry-actions">
-                                                <button type="button"
-                                                        class="gl-ap-secondary gl-ap-edit-toggle"
-                                                        t-att-data-target="'gl-ap-edit-%s' % line.id">
+                                                <button type="button" class="gl-ap-secondary gl-ap-edit-toggle" t-att-data-target="'gl-ap-edit-%s' % line.id">
                                                     Ändern
                                                 </button>
-                                                <form method="post"
-                                                      class="gl-ap-cancel-form"
-                                                      t-att-action="'/event/artist/%s/%s/cancel/%s' % (event.id, token, line.id)"
-                                                      onsubmit="return confirm('Diesen Eintrag wirklich stornieren? Die reservierten Plätze werden sofort wieder freigegeben.');">
+                                                <form method="post" class="gl-ap-cancel-form" t-att-action="'/event/artist/%s/%s/cancel/%s' % (event.id, token, line.id)" onsubmit="return confirm('Diesen Eintrag wirklich stornieren? Die reservierten Plätze werden sofort wieder freigegeben.');">
                                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                     <button type="submit" class="gl-ap-danger">Stornieren</button>
                                                 </form>
                                             </div>
                                         </div>
 
-                                        <div t-att-id="'gl-ap-edit-%s' % line.id"
-                                             t-attf-class="gl-ap-edit-panel #{'is-open' if edit_line_id == line.id else ''}">
+                                        <div t-att-id="'gl-ap-edit-%s' % line.id" t-attf-class="gl-ap-edit-panel #{'is-open' if edit_line_id == line.id else ''}">
                                             <div class="gl-ap-edit-title">Eintrag ändern</div>
-                                            <form class="gl-ap-form gl-ap-edit-form"
-                                                  method="post"
-                                                  t-att-action="'/event/artist/%s/%s/update/%s' % (event.id, token, line.id)">
+                                            <form class="gl-ap-form gl-ap-edit-form" method="post" t-att-action="'/event/artist/%s/%s/update/%s' % (event.id, token, line.id)">
                                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
 
                                                 <div class="gl-ap-type-grid">
                                                     <label class="gl-ap-type-card">
-                                                        <input type="radio"
-                                                               name="entry_type"
-                                                               value="guestlist"
-                                                               t-att-checked="((edit_form.get('entry_type') if edit_line_id == line.id else line.artist_portal_entry_type) == 'guestlist') and 'checked' or None"/>
+                                                        <input type="radio" name="entry_type" value="guestlist" t-att-checked="((edit_form.get('entry_type') if edit_line_id == line.id else line.artist_portal_entry_type) == 'guestlist') and 'checked' or None"/>
                                                         <span>
                                                             <strong>Gästeliste</strong>
                                                             <small>Kostenloser Platz.</small>
                                                         </span>
                                                     </label>
                                                     <label class="gl-ap-type-card">
-                                                        <input type="radio"
-                                                               name="entry_type"
-                                                               value="box_office"
-                                                               t-att-checked="((edit_form.get('entry_type') if edit_line_id == line.id else line.artist_portal_entry_type) == 'box_office') and 'checked' or None"/>
+                                                        <input type="radio" name="entry_type" value="box_office" t-att-checked="((edit_form.get('entry_type') if edit_line_id == line.id else line.artist_portal_entry_type) == 'box_office') and 'checked' or None"/>
                                                         <span>
                                                             <strong>Ticket · Abendkasse</strong>
                                                             <small>Reserviert, Zahlung am Veranstaltungsabend.</small>
@@ -406,19 +376,13 @@
                                                 <div class="gl-ap-form-grid">
                                                     <label>
                                                         <span>Name des Gastes *</span>
-                                                        <input type="text"
-                                                               name="name"
-                                                               required="required"
-                                                               maxlength="160"
-                                                               t-att-value="edit_form.get('name', '') if edit_line_id == line.id else line.name"/>
+                                                        <input type="text" name="name" required="required" maxlength="160" t-att-value="edit_form.get('name', '') if edit_line_id == line.id else line.name"/>
                                                     </label>
                                                     <label>
                                                         <span>Anzahl *</span>
                                                         <select name="quantity" required="required">
                                                             <t t-foreach="quantity_values" t-as="qty">
-                                                                <option t-att-value="qty"
-                                                                        t-att-selected="str(qty) == (edit_form.get('quantity', '1') if edit_line_id == line.id else str(line.quantity_int)) and 'selected' or None"
-                                                                        t-esc="qty"/>
+                                                                <option t-att-value="qty" t-att-selected="str(qty) == (edit_form.get('quantity', '1') if edit_line_id == line.id else str(line.quantity_int)) and 'selected' or None" t-esc="qty"/>
                                                             </t>
                                                         </select>
                                                     </label>
@@ -430,9 +394,7 @@
                                                         <select name="price_option_id">
                                                             <option value="">Bitte auswählen</option>
                                                             <t t-foreach="box_office_rows" t-as="row">
-                                                                <option t-att-value="row['option'].id"
-                                                                        t-att-selected="str(row['option'].id) == (edit_form.get('price_option_id', '') if edit_line_id == line.id else str(line.price_option_id.id or '')) and 'selected' or None"
-                                                                        t-esc="row['label']"/>
+                                                                <option t-att-value="row['option'].id" t-att-selected="str(row['option'].id) == (edit_form.get('price_option_id', '') if edit_line_id == line.id else str(line.price_option_id.id or '')) and 'selected' or None" t-esc="row['label']"/>
                                                             </t>
                                                         </select>
                                                     </label>
@@ -441,17 +403,11 @@
                                                 <div class="gl-ap-form-grid">
                                                     <label>
                                                         <span>Kontaktdaten</span>
-                                                        <input type="text"
-                                                               name="contact_data"
-                                                               maxlength="250"
-                                                               t-att-value="edit_form.get('contact_data', '') if edit_line_id == line.id else (line.contact_data or '')"/>
+                                                        <input type="text" name="contact_data" maxlength="250" t-att-value="edit_form.get('contact_data', '') if edit_line_id == line.id else (line.contact_data or '')"/>
                                                     </label>
                                                     <label>
                                                         <span>Eingetragen von</span>
-                                                        <input type="text"
-                                                               name="submitted_by"
-                                                               maxlength="160"
-                                                               t-att-value="edit_form.get('submitted_by', '') if edit_line_id == line.id else (line.artist_portal_submitted_by or '')"/>
+                                                        <input type="text" name="submitted_by" maxlength="160" t-att-value="edit_form.get('submitted_by', '') if edit_line_id == line.id else (line.artist_portal_submitted_by or '')"/>
                                                     </label>
                                                 </div>
 
@@ -462,9 +418,7 @@
 
                                                 <div class="gl-ap-edit-buttons">
                                                     <button type="submit" class="gl-ap-submit">Änderungen speichern</button>
-                                                    <button type="button"
-                                                            class="gl-ap-secondary gl-ap-edit-close"
-                                                            t-att-data-target="'gl-ap-edit-%s' % line.id">
+                                                    <button type="button" class="gl-ap-secondary gl-ap-edit-close" t-att-data-target="'gl-ap-edit-%s' % line.id">
                                                         Abbrechen
                                                     </button>
                                                 </div>
@@ -473,7 +427,7 @@
                                     </div>
                                 </t>
                             </div>
-                        </section>
+                        </div></details>
                         </t>
                     </t>
                 </div>

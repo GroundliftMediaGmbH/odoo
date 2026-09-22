@@ -152,6 +152,8 @@ class EventArtistPortalController(http.Controller):
         accounting = event._is_artist_portal_accounting_stage()
         media_stage = event._is_artist_portal_media_stage()
         video_stage = event._is_artist_portal_video_stage()
+        pitch = (request.env['gl.artist.portal.video.config'].sudo().get_portal_pitch()
+                 if video_stage else {'headline': '', 'eyebrow': ''})
         media_values = {
             'event': event,
             'token': token,
@@ -167,6 +169,8 @@ class EventArtistPortalController(http.Controller):
             'show_hospitality': media_stage and event._artist_portal_section_enabled('hospitality'),
             'guestlist_active': event._is_artist_portal_stage(),
             'video_active': video_stage,
+            'video_pitch_headline': pitch['headline'],
+            'video_pitch_eyebrow': pitch['eyebrow'],
             'videos': (request.env['gl.artist.portal.video.config'].sudo().get_portal_videos()
                        if video_stage else []),
             'press_short_value': html2plaintext(event['x_studio_event_kurzbeschreibung'] or '') if 'x_studio_event_kurzbeschreibung' in event._fields else '',
