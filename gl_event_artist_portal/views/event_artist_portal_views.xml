@@ -34,7 +34,9 @@
                             <field name="artist_portal_section_press"/>
                             <field name="artist_portal_section_tech"/>
                             <field name="artist_portal_section_hospitality"/>
-                            <div class="text-muted" colspan="2">Bereiche sind ausschließlich in „Gebucht“ verfügbar. Das Video-Angebot erscheint bereits in „Angebot“ und „Gebucht“ sowie in „Angekündigt“; Live-Ticketstand/Gästeliste erst in „Angekündigt“, ab „Abrechnung“ nur GEMA/Setliste. Bei Bestandsveranstaltungen einzelne Bereiche über „Anzeigen“ freischalten.</div>
+                            <field name="artist_portal_section_video"/>
+                            <field name="artist_portal_section_gema"/>
+                            <div class="text-muted" colspan="2">Bilder, Pressetexte und Rider: Standard bedeutet „Bestand aus / neue Veranstaltung an“, jeweils nur in „Gebucht“. Live bei Groundlift: Standard bedeutet sichtbar in „Angebot“, „Gebucht“ und „Angekündigt“. GEMA einschließlich Setliste: Standard bedeutet sichtbar in „Abrechnung“ und „Beendet“. Bei Video und GEMA gilt Standard auch für Bestandsveranstaltungen. Anzeigen/Ausblenden steuert den jeweiligen Bereich pro Veranstaltung innerhalb dieser Phasen; auch Formulare sind beim Ausblenden gesperrt.</div>
                         </group>
                         <group string="Vertragskontakt / Einladung"
                                invisible="not (artist_portal_extended_enabled or artist_portal_section_tech == 'show' or artist_portal_section_hospitality == 'show')">

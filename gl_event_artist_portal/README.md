@@ -205,3 +205,25 @@ Das Update greift nicht in bestehende Veranstaltungsdaten ein.
 
 ## 19.0.2.0.12
 - Alle acht aufklappbaren Hauptabschnitte im Künstlerportal sind beim Laden standardmäßig geöffnet; die Überschriften bleiben anklickbar zum Einklappen.
+
+
+## 19.0.2.0.13 – GEMA und Live bei Groundlift je Event steuern
+
+Im Tab **Info für Band/Agentur → Portalbereiche je Veranstaltung** gibt es
+jetzt zwei zusätzliche Auswahlen **Live bei Groundlift** und **GEMA**, jeweils
+**Standard / Anzeigen / Ausblenden**.
+
+- **Standard**: Für beide Bereiche bleiben die bisherigen Regeln unverändert,
+  auch bei Bestandsveranstaltungen. Videoangebot und Kontaktformular in
+  Angebot/Gebucht/Angekündigt; GEMA-Link und Setliste in Abrechnung/Beendet.
+- **Anzeigen**: Bereich in den dafür vorgesehenen Phasen aktivieren.
+- **Ausblenden**: Den Bereich bei genau dieser Veranstaltung deaktivieren.
+  Die POST-Routen für Video-Anfrage und Setlistenbestätigung prüfen dieselbe
+  Freigabe, nicht nur die visuelle Darstellung.
+- Live-Ticketstand/Gästeliste und die vier alten Medien-Auswahlen bleiben
+  unverändert. Eine bisherige Veranstaltung wird nicht nachträglich erweitert.
+
+**Test in Staging**: Ein neues sowie ein altes Event jeweils in Angebot,
+Gebucht, Angekündigt, Abrechnung und Beendet prüfen; Video auf Ausblenden
+setzen und Video-Anfrage-POST ablehnen; GEMA auf Ausblenden setzen und
+Setlisten-POST ablehnen; anschließend Standard wiederherstellen.

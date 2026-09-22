@@ -63,15 +63,17 @@ class EventEvent(models.Model):
     def _is_artist_portal_video_stage(self):
         """Show the recording offer in Angebot, Gebucht and Angekündigt only."""
         self.ensure_one()
-        return bool(self._artist_portal_stage_names() & {
-            'angebot', 'offer', 'quotation', 'proposal',
-            'gebucht', 'booked', 'angekündigt', 'angekuendigt', 'announced',
-        })
+        return bool(self._artist_portal_section_enabled('video') and
+                    self._artist_portal_stage_names() & {
+                        'angebot', 'offer', 'quotation', 'proposal',
+                        'gebucht', 'booked', 'angekündigt', 'angekuendigt', 'announced',
+                    })
 
     @api.depends('stage_id', 'stage_id.name', 'artist_portal_access_token',
                  'artist_portal_extended_enabled', 'artist_portal_gema_url',
                  'artist_portal_section_photos', 'artist_portal_section_press',
-                 'artist_portal_section_tech', 'artist_portal_section_hospitality')
+                 'artist_portal_section_tech', 'artist_portal_section_hospitality',
+                 'artist_portal_section_video', 'artist_portal_section_gema')
     def _compute_artist_portal_access(self):
         for event in self:
             enabled = bool(event.id and event.artist_portal_access_token and (

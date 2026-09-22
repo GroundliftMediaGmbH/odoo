@@ -76,6 +76,17 @@ class EventEvent(models.Model):
         _PORTAL_SECTION_OPTIONS, string='Technical Rider', default='default', copy=False)
     artist_portal_section_hospitality = fields.Selection(
         _PORTAL_SECTION_OPTIONS, string='Hospitality Rider', default='default', copy=False)
+    # These two sections were already enabled for ALL events in their respective
+    # stages, including pre-existing events. Their defaults must preserve that.
+    _STANDARD_VISIBLE_OPTIONS = [
+        ('default', 'Standard (in der passenden Phase: an)'),
+        ('show', 'Anzeigen'),
+        ('hide', 'Ausblenden'),
+    ]
+    artist_portal_section_video = fields.Selection(
+        _STANDARD_VISIBLE_OPTIONS, string='Live bei Groundlift', default='default', copy=False)
+    artist_portal_section_gema = fields.Selection(
+        _STANDARD_VISIBLE_OPTIONS, string='GEMA', default='default', copy=False)
     artist_portal_gema_url = fields.Char(
         string='GEMA-Link für Künstler/Agentur', copy=False,
         help='Ab Phase Abrechnung (auch Beendet) im Künstlerportal sichtbar. Vollständige https://-Adresse eintragen.')
@@ -87,10 +98,18 @@ class EventEvent(models.Model):
             'press': 'artist_portal_section_press',
             'tech': 'artist_portal_section_tech',
             'hospitality': 'artist_portal_section_hospitality',
+            'video': 'artist_portal_section_video',
+            'gema': 'artist_portal_section_gema',
         }.get(section)
         if not name:
             return False
         setting = self[name] or 'default'
+        if setting == 'hide':
+            return False
+        if section in ('video', 'gema'):
+            # Before this update both were visible by default on historic AND
+            # new events. 'show' and 'default' preserve that behavior.
+            return True
         return setting == 'show' or (setting == 'default' and bool(self.artist_portal_extended_enabled))
 
     def _artist_portal_any_media_enabled(self):
@@ -109,9 +128,11 @@ class EventEvent(models.Model):
 
     def _is_artist_portal_accounting_stage(self):
         self.ensure_one()
-        return bool(self._artist_portal_stage_names() & {
-            'abrechnung', 'beendet', 'billing', 'invoicing', 'done', 'finished',
-        })
+        return bool(self._artist_portal_section_enabled('gema') and
+                    self._artist_portal_stage_names() & {
+                        'abrechnung', 'beendet', 'billing', 'invoicing',
+                        'done', 'finished',
+                    })
 
     def _artist_portal_valid_gema_url(self):
         self.ensure_one()
