@@ -60,10 +60,26 @@ class EventEvent(models.Model):
         names = self._artist_portal_stage_names()
         return ANNOUNCED_STAGE_NAME in names or 'angekuendigt' in names
 
-    @api.depends('stage_id', 'stage_id.name', 'artist_portal_access_token')
+    def _is_artist_portal_video_stage(self):
+        """Show the recording offer in Angebot, Gebucht and Angekündigt only."""
+        self.ensure_one()
+        return bool(self._artist_portal_stage_names() & {
+            'angebot', 'offer', 'quotation', 'proposal',
+            'gebucht', 'booked', 'angekündigt', 'angekuendigt', 'announced',
+        })
+
+    @api.depends('stage_id', 'stage_id.name', 'artist_portal_access_token',
+                 'artist_portal_extended_enabled', 'artist_portal_gema_url',
+                 'artist_portal_section_photos', 'artist_portal_section_press',
+                 'artist_portal_section_tech', 'artist_portal_section_hospitality')
     def _compute_artist_portal_access(self):
         for event in self:
-            enabled = bool(event.id and event.artist_portal_access_token and event._is_artist_portal_stage())
+            enabled = bool(event.id and event.artist_portal_access_token and (
+                event._is_artist_portal_accounting_stage()
+                or event._is_artist_portal_video_stage()
+                or event._is_artist_portal_media_stage()
+                or event._is_artist_portal_stage()
+                or (event.artist_portal_extended_enabled and event._is_artist_portal_booked())))
             event.artist_portal_available = enabled
             if enabled:
                 event.artist_portal_url = '%s/event/artist/%s/%s' % (
@@ -71,17 +87,27 @@ class EventEvent(models.Model):
                     event.id,
                     event.artist_portal_access_token,
                 )
-                event.artist_portal_status = _('Aktiv – die Veranstaltung ist in der Phase „Angekündigt“.')
+                event.artist_portal_status = (
+                    _('Aktiv – GEMA-Bereich in „Abrechnung“ / „Beendet“.')
+                    if event._is_artist_portal_accounting_stage() else
+                    _('Aktiv – Video-Angebot in „Angebot“, „Gebucht“ und „Angekündigt"; Medien in „Gebucht“, Gästeliste in „Angekündigt“.')
+                    if event.artist_portal_extended_enabled else
+                    _('Aktiv – Video-Angebot in „Angebot“, „Gebucht“ und „Angekündigt"; gewählte Medien in „Gebucht“, Gästeliste in „Angekündigt“.'))
             else:
                 event.artist_portal_url = False
-                event.artist_portal_status = _('Nicht aktiv – das Portal ist nur in der Phase „Angekündigt“ erreichbar.')
+                event.artist_portal_status = (
+                    _('Nicht aktiv – Video-Angebot ab „Angebot“, Medien in „Gebucht“, Gästeliste in „Angekündigt“, GEMA ab „Abrechnung“.')
+                    if event.artist_portal_extended_enabled else
+                    _('Nicht aktiv – Video-Angebot ab „Angebot“, gewählte Medien in „Gebucht“, Gästeliste in „Angekündigt“, GEMA ab „Abrechnung“.'))
 
     @api.depends('artist_portal_url')
     def _compute_artist_portal_qr_html(self):
         for event in self:
             if not event.artist_portal_url:
                 event.artist_portal_qr_html = Markup(
-                    '<span class="text-muted">QR-Code wird angezeigt, sobald die Veranstaltung in der Phase „Angekündigt“ ist.</span>'
+                    ('<span class="text-muted">QR-Code ab „Angebot“ (Video-Angebot).</span>'
+                     if event.artist_portal_extended_enabled else
+                     '<span class="text-muted">QR-Code ab „Angebot“ (Video-Angebot).</span>')
                 )
                 continue
             from urllib.parse import quote
