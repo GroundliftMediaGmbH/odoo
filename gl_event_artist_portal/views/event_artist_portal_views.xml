@@ -38,8 +38,7 @@
                             <field name="artist_portal_section_gema"/>
                             <div class="text-muted" colspan="2">Bilder, Pressetexte und Rider: Standard bedeutet „Bestand aus / neue Veranstaltung an“, jeweils nur in „Gebucht“. Live bei Groundlift: Standard bedeutet sichtbar in „Angebot“, „Gebucht“ und „Angekündigt“. GEMA einschließlich Setliste: Standard bedeutet sichtbar in „Abrechnung“ und „Beendet“. Bei Video und GEMA gilt Standard auch für Bestandsveranstaltungen. Anzeigen/Ausblenden steuert den jeweiligen Bereich pro Veranstaltung innerhalb dieser Phasen; auch Formulare sind beim Ausblenden gesperrt.</div>
                         </group>
-                        <group string="Vertragskontakt / Einladung"
-                               invisible="not (artist_portal_extended_enabled or artist_portal_section_tech == 'show' or artist_portal_section_hospitality == 'show')">
+                        <group string="Vertragskontakt / Einladung">
                             <field name="artist_portal_contract_contact_id" options="{'no_create': False}"/>
                             <!-- Avoid a second nested <group>: it splits the right-hand
                                  column into two tiny subcolumns and makes the text area

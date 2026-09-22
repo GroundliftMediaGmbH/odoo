@@ -464,8 +464,7 @@ class EventEvent(models.Model):
         root = etree.fromstring(result['arch'].encode('utf-8'))
         pages = root.xpath("//page[@string='Vertragsdaten' or @name='vertragsdaten' or @name='contract_data']")
         if pages and not pages[0].xpath(".//field[@name='artist_portal_contract_contact_id']"):
-            group = etree.Element('group', string='Künstler-/Agenturportal',
-                                  invisible='not artist_portal_extended_enabled')
+            group = etree.Element('group', string='Künstler-/Agenturportal')
             etree.SubElement(group, 'field', name='artist_portal_contract_contact_id')
             pages[0].insert(0, group)
             result['arch'] = etree.tostring(root, encoding='unicode')

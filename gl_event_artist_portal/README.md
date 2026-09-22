@@ -227,3 +227,8 @@ jetzt zwei zusätzliche Auswahlen **Live bei Groundlift** und **GEMA**, jeweils
 Gebucht, Angekündigt, Abrechnung und Beendet prüfen; Video auf Ausblenden
 setzen und Video-Anfrage-POST ablehnen; GEMA auf Ausblenden setzen und
 Setlisten-POST ablehnen; anschließend Standard wiederherstellen.
+
+
+## 19.0.2.0.14 – Vertragskontakt bei Bestandsveranstaltungen
+
+Das Feld `artist_portal_contract_contact_id` ist bei **allen** Veranstaltungen im Reiter „Info für Band/Agentur“ sichtbar und – sofern die Studio-Seite gefunden wird – zusätzlich in „Vertragsdaten“. Für bestehende Veranstaltungen bleiben Einladungstext, erneuter Mailversand und Medienportal unverändert deaktiviert, sofern sie nicht anderweitig freigeschaltet wurden. Allein das Ausfüllen des Kontakts verschickt keine E-Mail.
