@@ -157,6 +157,15 @@ class EventArtistPortalController(http.Controller):
             'extended_portal': bool(event.artist_portal_extended_enabled),
             'accounting_active': accounting,
             'gema_url': event._artist_portal_valid_gema_url() if accounting else False,
+            'setlist_submitted': bool(event.artist_portal_setlist_submitted),
+            'tech_confirmation_visible': bool(
+                event._artist_portal_section_enabled('tech') and
+                event.artist_portal_tech_confirmed and
+                'x_studio_tech_rider' in event._fields and event.x_studio_tech_rider),
+            'hospitality_confirmation_visible': bool(
+                event._artist_portal_section_enabled('hospitality') and
+                event.artist_portal_hospitality_confirmed and
+                'x_studio_hospitality_rider' in event._fields and event.x_studio_hospitality_rider),
             'media_active': media_stage,
             'show_photos': media_stage and event._artist_portal_section_enabled('photos'),
             'show_press': media_stage and event._artist_portal_section_enabled('press'),

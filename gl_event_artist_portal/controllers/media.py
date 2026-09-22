@@ -118,6 +118,29 @@ class EventArtistMediaController(EventArtistPortalController):
             return self._media_error(event, token, str(exc))
         return self._redirect_media(event, token, 'rider')
 
+    @http.route('/event/artist/<int:event_id>/<string:token>/setlist', type='http',
+                auth='public', website=True, sitemap=False, methods=['POST'])
+    def artist_portal_setlist(self, event_id, token, **post):
+        event = self._get_event_by_token(event_id, token, require_active=False)
+        if not event or not event._is_artist_portal_accounting_stage():
+            return request.not_found()
+        if post.get('setlist_submitted') != '1':
+            return self._media_error(event, token, 'Bitte die Einreichung der Setliste bestätigen.')
+        with request.env.cr.savepoint():
+            # Idempotent under double-clicks and parallel browser sessions.
+            request.env.cr.execute('SELECT id FROM event_event WHERE id = %s FOR UPDATE', [event.id])
+            event.invalidate_recordset(['artist_portal_setlist_submitted'])
+            if not event.artist_portal_setlist_submitted:
+                event.with_context(artist_portal_source=True).write({
+                    'artist_portal_setlist_submitted': True,
+                    'artist_portal_setlist_submitted_at': fields.Datetime.now(),
+                })
+                event._artist_portal_notify(
+                    'user_id', 'Setliste wurde eingereicht',
+                    'Die Agentur / der Künstler hat „Setliste wurde eingereicht“ bestätigt.'
+                )
+        return self._redirect_media(event, token, 'setlist')
+
     @http.route('/event/artist/<int:event_id>/<string:token>/press', type='http',
                 auth='public', website=True, sitemap=False, methods=['POST'])
     def artist_portal_press(self, event_id, token, **post):

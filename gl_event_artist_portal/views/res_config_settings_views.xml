@@ -7,12 +7,22 @@
         <field name="arch" type="xml">
             <xpath expr="//form" position="inside">
                 <app name="gl_event_artist_portal" string="GROUNDLIFT Künstlerportal" data-string="GROUNDLIFT Künstlerportal">
-                    <block title="Standardwerte für neu angelegte Veranstaltungen">
+                    <block title="Globale Vorlagen und Standardwerte">
                         <setting id="gl_artist_default_introduction" string="Standard-E-Mail-Text"
                                  help="Vorlage für die Einladung beim ersten Wechsel nach Gebucht. Bestehende Veranstaltungstexte bleiben unverändert.">
                             <field name="gl_artist_default_introduction" widget="text"
                                    placeholder="{event} und {portal_url} verwenden"/>
                             <div class="text-muted">Platzhalter: {event} = Veranstaltungsname; {portal_url} = persönlicher Zugangslink.</div>
+                        </setting>
+                        <setting id="gl_artist_tech_confirmation_text" string="Bestätigungsmail – Technical Rider"
+                                 help="Wird bei Bestätigung im Veranstaltungsbackend an den Vertragskontakt verschickt (in Staging nur an Julius).">
+                            <field name="gl_artist_tech_confirmation_text" widget="text"/>
+                            <div class="text-muted">Platzhalter: {event}, {rider}, {portal_url}.</div>
+                        </setting>
+                        <setting id="gl_artist_hospitality_confirmation_text" string="Bestätigungsmail – Hospitality Rider"
+                                 help="Wird bei Bestätigung im Veranstaltungsbackend an den Vertragskontakt verschickt (in Staging nur an Julius).">
+                            <field name="gl_artist_hospitality_confirmation_text" widget="text"/>
+                            <div class="text-muted">Platzhalter: {event}, {rider}, {portal_url}.</div>
                         </setting>
                         <setting id="gl_artist_default_technical_user_id" string="Standard – Technische Leitung"
                                  help="Wird bei neuen Veranstaltungen in das vorhandene Studio-Feld Techn. Leitung übernommen.">

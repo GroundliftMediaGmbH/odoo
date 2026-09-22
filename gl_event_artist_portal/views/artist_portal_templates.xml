@@ -47,6 +47,23 @@
                                 <a t-if="gema_url" class="gl-ap-submit gl-ap-gema-link" t-att-href="gema_url"
                                    target="_blank" rel="noopener noreferrer">GEMA-Link öffnen ↗</a>
                                 <p t-else="" class="gl-ap-help">Der GEMA-Link wurde noch nicht hinterlegt. Bitte wendet euch bei Fragen an Groundlift.</p>
+                                <div t-if="tech_confirmation_visible or hospitality_confirmation_visible" class="gl-ap-setlist">
+                                    <h3>Von Groundlift bestätigte Rider</h3>
+                                    <p t-if="tech_confirmation_visible" class="gl-ap-done">✓ Technical Rider / Bühnenanweisung bestätigt</p>
+                                    <p t-if="hospitality_confirmation_visible" class="gl-ap-done">✓ Hospitality Rider bestätigt</p>
+                                </div>
+                                <div class="gl-ap-setlist">
+                                    <form t-if="not setlist_submitted" class="gl-ap-form" method="post"
+                                          t-att-action="'/event/artist/%s/%s/setlist' % (event.id, token)">
+                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                        <label class="gl-ap-confirm-checkbox">
+                                            <input type="checkbox" name="setlist_submitted" value="1" required="required"/>
+                                            <span>Setliste wurde eingereicht</span>
+                                        </label>
+                                        <button class="gl-ap-submit" type="submit">Einreichung bestätigen</button>
+                                    </form>
+                                    <p t-else="" class="gl-ap-done">✓ Setliste wurde eingereicht – Groundlift wurde benachrichtigt.</p>
+                                </div>
                             </section>
                         </t>
                         <t t-if="media_active">
@@ -62,7 +79,8 @@
                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                     <input type="hidden" name="rider_kind" value="tech"/>
                                     <h3>Techrider / Bühnenanweisung</h3>
-                                    <p t-if="rider_tech_available and event.x_studio_tech_rider" class="gl-ap-done">✓ Dokument liegt Groundlift vor</p>
+                                    <p t-if="rider_tech_available and event.x_studio_tech_rider and event.artist_portal_tech_confirmed" class="gl-ap-done">✓ Technical Rider durch Groundlift bestätigt</p>
+                                    <p t-elif="rider_tech_available and event.x_studio_tech_rider" class="gl-ap-help">Dokument eingereicht – Bestätigung durch Groundlift steht noch aus.</p>
                                     <label t-if="rider_tech_available"><span>Datei auswählen</span><input type="file" name="rider" accept=".pdf,.doc,.docx" required="required"/></label>
                                     <button t-if="rider_tech_available" type="submit" class="gl-ap-submit">Techrider hochladen</button>
                                     <p t-if="not rider_tech_available" class="gl-ap-help">Das zugehörige Odoo-Feld ist noch nicht eingerichtet.</p>
@@ -71,7 +89,8 @@
                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                     <input type="hidden" name="rider_kind" value="hospitality"/>
                                     <h3>Hospitality Rider</h3>
-                                    <p t-if="rider_hospitality_available and event.x_studio_hospitality_rider" class="gl-ap-done">✓ Dokument liegt Groundlift vor</p>
+                                    <p t-if="rider_hospitality_available and event.x_studio_hospitality_rider and event.artist_portal_hospitality_confirmed" class="gl-ap-done">✓ Hospitality Rider durch Groundlift bestätigt</p>
+                                    <p t-elif="rider_hospitality_available and event.x_studio_hospitality_rider" class="gl-ap-help">Dokument eingereicht – Bestätigung durch Groundlift steht noch aus.</p>
                                     <label t-if="rider_hospitality_available"><span>Datei auswählen</span><input type="file" name="rider" accept=".pdf,.doc,.docx" required="required"/></label>
                                     <button t-if="rider_hospitality_available" type="submit" class="gl-ap-submit">Hospitality Rider hochladen</button>
                                     <p t-if="not rider_hospitality_available" class="gl-ap-help">Das zugehörige Odoo-Feld ist noch nicht eingerichtet.</p>

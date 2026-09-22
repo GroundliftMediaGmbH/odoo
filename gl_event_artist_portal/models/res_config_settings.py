@@ -5,6 +5,10 @@ from odoo import api, fields, models
 
 from .artist_media import (DEFAULT_INVITATION_TEXT, INTRODUCTION_PARAMETER,
                            TECH_USER_PARAMETER, SERVICE_USER_PARAMETER)
+from .artist_confirmations import (
+    TECH_CONFIRM_PARAMETER, HOSPITALITY_CONFIRM_PARAMETER,
+    DEFAULT_TECH_CONFIRMATION, DEFAULT_HOSPITALITY_CONFIRMATION,
+)
 
 
 class ResConfigSettings(models.TransientModel):
@@ -16,6 +20,14 @@ class ResConfigSettings(models.TransientModel):
         help='Wird beim Anlegen einer neuen Veranstaltung in den individuell bearbeitbaren '
              'Einladungstext übernommen. Platzhalter: {event}, {portal_url}. '
              'Bestehende Veranstaltungen werden nicht verändert.',
+    )
+    gl_artist_tech_confirmation_text = fields.Text(
+        string='Bestätigungsmail Technical Rider', default=DEFAULT_TECH_CONFIRMATION,
+        help='Globaler Standard. Platzhalter: {event}, {rider}, {portal_url}.',
+    )
+    gl_artist_hospitality_confirmation_text = fields.Text(
+        string='Bestätigungsmail Hospitality Rider', default=DEFAULT_HOSPITALITY_CONFIRMATION,
+        help='Globaler Standard. Platzhalter: {event}, {rider}, {portal_url}.',
     )
     gl_artist_default_technical_user_id = fields.Many2one(
         'res.users', string='Standard – Technische Leitung',
@@ -45,6 +57,14 @@ class ResConfigSettings(models.TransientModel):
             self.env['ir.config_parameter'].sudo().get_param(
                 INTRODUCTION_PARAMETER, default=DEFAULT_INVITATION_TEXT)
         )
+        values['gl_artist_tech_confirmation_text'] = (
+            self.env['ir.config_parameter'].sudo().get_param(
+                TECH_CONFIRM_PARAMETER, default=DEFAULT_TECH_CONFIRMATION)
+        )
+        values['gl_artist_hospitality_confirmation_text'] = (
+            self.env['ir.config_parameter'].sudo().get_param(
+                HOSPITALITY_CONFIRM_PARAMETER, default=DEFAULT_HOSPITALITY_CONFIRMATION)
+        )
         return values
 
     def set_values(self):
@@ -52,4 +72,8 @@ class ResConfigSettings(models.TransientModel):
         result = super().set_values()
         self.env['ir.config_parameter'].sudo().set_param(
             INTRODUCTION_PARAMETER, self.gl_artist_default_introduction or '')
+        self.env['ir.config_parameter'].sudo().set_param(
+            TECH_CONFIRM_PARAMETER, self.gl_artist_tech_confirmation_text or '')
+        self.env['ir.config_parameter'].sudo().set_param(
+            HOSPITALITY_CONFIRM_PARAMETER, self.gl_artist_hospitality_confirmation_text or '')
         return result

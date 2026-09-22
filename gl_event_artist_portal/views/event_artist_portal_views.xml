@@ -25,6 +25,8 @@
                         </group>
                         <group string="GEMA (ab Abrechnung)">
                             <field name="artist_portal_gema_url" widget="url" placeholder="https://www.gema.de/..."/>
+                            <field name="artist_portal_setlist_submitted" readonly="1"/>
+                            <field name="artist_portal_setlist_submitted_at" readonly="1" invisible="not artist_portal_setlist_submitted"/>
                             <div class="text-muted">Ab Abrechnung (auch Beendet) im Portal sichtbar. Hier den vollständigen GEMA-Link hinterlegen.</div>
                         </group>
                         <group string="Portalbereiche je Veranstaltung">
@@ -34,8 +36,10 @@
                             <field name="artist_portal_section_hospitality"/>
                             <div class="text-muted">Standard: Alte Veranstaltungen zeigen nur Gästeliste, neue zeigen alle Bereiche. Mit „Anzeigen“ oder „Ausblenden“ pro Veranstaltung abweichen.</div>
                         </group>
-                        <group string="Einladung &amp; Vertragskontakt" invisible="not artist_portal_extended_enabled">
+                        <group string="Vertragskontakt / Einladung"
+                               invisible="not (artist_portal_extended_enabled or artist_portal_section_tech == 'show' or artist_portal_section_hospitality == 'show')">
                             <field name="artist_portal_contract_contact_id" options="{'no_create': False}"/>
+                            <group invisible="not artist_portal_extended_enabled">
                             <field name="artist_portal_introduction" placeholder="{event} und {portal_url} können als Platzhalter verwendet werden."/>
                             <field name="artist_portal_invitation_sent_at" readonly="1"/>
                             <field name="artist_portal_invitation_recipient" readonly="1"/>
@@ -45,6 +49,19 @@
                             <button name="action_artist_portal_send_test_mail" type="object"
                                     string="Staging-Testmail an Julius" class="btn-secondary"
                                     invisible="not artist_portal_available"/>
+                            </group>
+                        </group>
+                        <group string="Rider-Bestätigungen"
+                               invisible="not (artist_portal_extended_enabled or artist_portal_section_tech == 'show' or artist_portal_section_hospitality == 'show')">
+                            <field name="artist_portal_tech_confirmed"
+                                   invisible="not (artist_portal_extended_enabled or artist_portal_section_tech == 'show')"/>
+                            <field name="artist_portal_tech_confirmation_queued_at" readonly="1"
+                                   invisible="not artist_portal_tech_confirmation_queued_at"/>
+                            <field name="artist_portal_hospitality_confirmed"
+                                   invisible="not (artist_portal_extended_enabled or artist_portal_section_hospitality == 'show')"/>
+                            <field name="artist_portal_hospitality_confirmation_queued_at" readonly="1"
+                                   invisible="not artist_portal_hospitality_confirmation_queued_at"/>
+                            <div class="text-muted">Haken bestätigt den jeweiligen hochgeladenen Rider auf der Künstlerseite und stellt eine E-Mail an den Vertragskontakt in die Warteschlange. Im Staging ausschließlich an julius@groundlift.de. Erneuter Upload setzt die Bestätigung zurück.</div>
                         </group>
                         <group string="Benachrichtigungen" invisible="not (artist_portal_extended_enabled or artist_portal_section_photos == 'show' or artist_portal_section_press == 'show' or artist_portal_section_tech == 'show' or artist_portal_section_hospitality == 'show')">
                             <field name="artist_portal_notifications_enabled"/>

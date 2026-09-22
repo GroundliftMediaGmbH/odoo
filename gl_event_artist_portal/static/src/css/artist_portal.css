@@ -156,3 +156,9 @@
 
 /* GEMA action is an anchor, not a form submit button. */
 .gl-ap-gema-link { display: inline-flex; align-items: center; text-decoration: none !important; margin-top: 16px; }
+
+/* GEMA setlist acknowledgement (accessible checkbox in the accounting portal). */
+.gl-ap-setlist { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--gl-border); }
+.gl-ap-confirm-checkbox { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.gl-ap-confirm-checkbox input { width: 22px; height: 22px; flex: 0 0 auto; accent-color: #fff; }
+.gl-ap-confirm-checkbox span { color: var(--gl-text); font-weight: 700; }
