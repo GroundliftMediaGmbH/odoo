@@ -61,12 +61,15 @@ class EventEvent(models.Model):
         return ANNOUNCED_STAGE_NAME in names or 'angekuendigt' in names
 
     @api.depends('stage_id', 'stage_id.name', 'artist_portal_access_token',
-                 'artist_portal_extended_enabled')
+                 'artist_portal_extended_enabled', 'artist_portal_gema_url',
+                 'artist_portal_section_photos', 'artist_portal_section_press',
+                 'artist_portal_section_tech', 'artist_portal_section_hospitality')
     def _compute_artist_portal_access(self):
         for event in self:
             enabled = bool(event.id and event.artist_portal_access_token and (
-                event._is_artist_portal_upload_stage() if event.artist_portal_extended_enabled
-                else event._is_artist_portal_stage()))
+                event._is_artist_portal_accounting_stage()
+                or (event._is_artist_portal_upload_stage() if event.artist_portal_extended_enabled
+                    else event._is_artist_portal_stage())))
             event.artist_portal_available = enabled
             if enabled:
                 event.artist_portal_url = '%s/event/artist/%s/%s' % (
@@ -75,24 +78,26 @@ class EventEvent(models.Model):
                     event.artist_portal_access_token,
                 )
                 event.artist_portal_status = (
-                    _('Aktiv – Veranstaltung ist „Gebucht“ oder „Angekündigt“.')
+                    _('Aktiv – GEMA-Bereich in „Abrechnung“ / „Beendet“.')
+                    if event._is_artist_portal_accounting_stage() else
+                    _('Aktiv – Portal in „Gebucht“ oder „Angekündigt“.')
                     if event.artist_portal_extended_enabled else
                     _('Aktiv – bisheriges Gästelistenportal in „Angekündigt“.'))
             else:
                 event.artist_portal_url = False
                 event.artist_portal_status = (
-                    _('Nicht aktiv – Portal ab „Gebucht“ bis einschließlich „Angekündigt“.')
+                    _('Nicht aktiv – Portal ab „Gebucht“, GEMA ab „Abrechnung“.')
                     if event.artist_portal_extended_enabled else
-                    _('Nicht aktiv – bisheriges Gästelistenportal nur in „Angekündigt“.'))
+                    _('Nicht aktiv – Gästeliste in „Angekündigt“, GEMA ab „Abrechnung“.'))
 
     @api.depends('artist_portal_url')
     def _compute_artist_portal_qr_html(self):
         for event in self:
             if not event.artist_portal_url:
                 event.artist_portal_qr_html = Markup(
-                    ('<span class="text-muted">QR-Code wird angezeigt, sobald die Veranstaltung „Gebucht“ oder „Angekündigt“ ist.</span>'
+                    ('<span class="text-muted">QR-Code ab „Gebucht“ (oder für GEMA ab „Abrechnung“).</span>'
                      if event.artist_portal_extended_enabled else
-                     '<span class="text-muted">QR-Code wird angezeigt, sobald die Veranstaltung „Angekündigt“ ist.</span>')
+                     '<span class="text-muted">QR-Code für Gästeliste ab „Angekündigt“ oder für GEMA ab „Abrechnung“.</span>')
                 )
                 continue
             from urllib.parse import quote

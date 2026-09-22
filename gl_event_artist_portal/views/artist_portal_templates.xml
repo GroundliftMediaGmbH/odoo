@@ -20,8 +20,8 @@
                     <t t-if="not portal_active">
                         <section class="gl-ap-panel gl-ap-closed">
                             <h2>Portal derzeit nicht aktiv</h2>
-                            <p t-if="extended_portal">Diese Seite ist ab der Phase <strong>„Gebucht“</strong> bis einschließlich <strong>„Angekündigt“</strong> erreichbar.</p>
-                            <p t-else="">Diese Seite ist nur erreichbar, solange die Veranstaltung in der Phase <strong>„Angekündigt“</strong> ist.</p>
+                            <p t-if="extended_portal">Das Portal ist ab „Gebucht“ für die Vorbereitung und ab „Abrechnung“ für den GEMA-Link erreichbar.</p>
+                            <p t-else="">Gästeliste ab „Angekündigt“, GEMA-Link ab „Abrechnung“.</p>
                         </section>
                     </t>
 
@@ -39,15 +39,26 @@
                             <div class="gl-ap-alert gl-ap-alert-error" t-esc="error"/>
                         </t>
 
-                        <t t-if="extended_portal">
+                        <t t-if="accounting_active">
+                            <section class="gl-ap-panel" id="gema">
+                                <div class="gl-ap-kicker">ABRECHNUNG</div>
+                                <h2>GEMA</h2>
+                                <p class="gl-ap-help">Hier findet ihr den von Groundlift hinterlegten GEMA-Link zur Veranstaltung.</p>
+                                <a t-if="gema_url" class="gl-ap-submit gl-ap-gema-link" t-att-href="gema_url"
+                                   target="_blank" rel="noopener noreferrer">GEMA-Link öffnen ↗</a>
+                                <p t-else="" class="gl-ap-help">Der GEMA-Link wurde noch nicht hinterlegt. Bitte wendet euch bei Fragen an Groundlift.</p>
+                            </section>
+                        </t>
+                        <t t-if="media_active">
                         <t t-if="media_notice">
                             <div class="gl-ap-alert gl-ap-alert-success">Deine Angaben wurden gespeichert.</div>
                         </t>
+                        <t t-if="show_tech or show_hospitality">
                         <section class="gl-ap-panel" id="documents">
                             <div class="gl-ap-kicker">DOKUMENTE</div><h2>Rider &amp; Bühnenanweisung</h2>
                             <p class="gl-ap-help">PDF, DOC oder DOCX · höchstens 20 MB je Datei. Eine neue Datei ersetzt den bisherigen Rider desselben Typs.</p>
                             <div class="gl-ap-media-grid">
-                                <form class="gl-ap-form" method="post" enctype="multipart/form-data" t-att-action="'/event/artist/%s/%s/rider' % (event.id, token)">
+                                <form t-if="show_tech" class="gl-ap-form" method="post" enctype="multipart/form-data" t-att-action="'/event/artist/%s/%s/rider' % (event.id, token)">
                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                     <input type="hidden" name="rider_kind" value="tech"/>
                                     <h3>Techrider / Bühnenanweisung</h3>
@@ -56,7 +67,7 @@
                                     <button t-if="rider_tech_available" type="submit" class="gl-ap-submit">Techrider hochladen</button>
                                     <p t-if="not rider_tech_available" class="gl-ap-help">Das zugehörige Odoo-Feld ist noch nicht eingerichtet.</p>
                                 </form>
-                                <form class="gl-ap-form" method="post" enctype="multipart/form-data" t-att-action="'/event/artist/%s/%s/rider' % (event.id, token)">
+                                <form t-if="show_hospitality" class="gl-ap-form" method="post" enctype="multipart/form-data" t-att-action="'/event/artist/%s/%s/rider' % (event.id, token)">
                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                     <input type="hidden" name="rider_kind" value="hospitality"/>
                                     <h3>Hospitality Rider</h3>
@@ -67,7 +78,8 @@
                                 </form>
                             </div>
                         </section>
-                        <section class="gl-ap-panel" id="press">
+                        </t>
+                        <section t-if="show_press" class="gl-ap-panel" id="press">
                             <div class="gl-ap-kicker">PRESSE</div><h2>Pressetexte</h2>
                             <p class="gl-ap-help">Sobald Groundlift einen Text im Backend verändert, wird das jeweilige Textfeld hier gesperrt. Der lange Pressetext ist zunächst leer – eine eventuell vorhandene Standard-Veranstaltungsbeschreibung wird nicht übernommen.</p>
                             <form class="gl-ap-form" method="post" t-att-action="'/event/artist/%s/%s/press' % (event.id, token)">
@@ -83,7 +95,7 @@
                                 <button t-if="not event.artist_portal_short_locked or not event.artist_portal_long_locked" class="gl-ap-submit" type="submit">Pressetexte speichern</button>
                             </form>
                         </section>
-                        <section class="gl-ap-panel" id="photos">
+                        <section t-if="show_photos" class="gl-ap-panel" id="photos">
                             <div class="gl-ap-kicker">PRESSEBILDER</div><h2>Fotos hochladen</h2>
                             <p class="gl-ap-help">Mehrere Bilder pro Format sind möglich (max. 20 je Format, je max. 12 MB). JPG, PNG oder WEBP. Das erste quadratische Bild erscheint als Odoo-Veranstaltungsbild. Nach Bearbeitung in der Grafik-App ist der Fotobereich gesperrt.</p>
                             <t t-if="photo_editable">
@@ -112,7 +124,7 @@
                             </div>
                         </section>
                         <t t-if="not guestlist_active">
-                            <section class="gl-ap-panel"><h2>Gästeliste und Ticketstände</h2><p class="gl-ap-help">Diese Funktionen werden ab der Phase „Angekündigt“ freigeschaltet. Dokumente und Presseinformationen könnt ihr bereits jetzt hochladen.</p></section>
+                            <section class="gl-ap-panel"><h2>Gästeliste und Ticketstände</h2><p class="gl-ap-help">Diese Funktionen werden ab der Phase „Angekündigt“ freigeschaltet.</p></section>
                         </t>
                         </t>
                         <t t-if="guestlist_active">

@@ -20,7 +20,7 @@ from .main import EventArtistPortalController
 class EventArtistMediaController(EventArtistPortalController):
     def _media_event(self, event_id, token):
         event = self._get_event_by_token(event_id, token, require_active=False)
-        if not event or not event.artist_portal_extended_enabled or not event._is_artist_portal_upload_stage():
+        if not event or not event._is_artist_portal_media_stage():
             return request.env['event.event'].sudo()
         return event
 
@@ -89,7 +89,7 @@ class EventArtistMediaController(EventArtistPortalController):
         if not event:
             return request.not_found()
         kind = (post.get('rider_kind') or '').strip()
-        if kind not in RIDER_FIELDS:
+        if kind not in RIDER_FIELDS or not event._artist_portal_section_enabled(kind):
             return request.not_found()
         field = RIDER_FIELDS[kind]
         if field not in event._fields or event._fields[field].type != 'binary':
@@ -122,7 +122,7 @@ class EventArtistMediaController(EventArtistPortalController):
                 auth='public', website=True, sitemap=False, methods=['POST'])
     def artist_portal_press(self, event_id, token, **post):
         event = self._media_event(event_id, token)
-        if not event:
+        if not event or not event._artist_portal_section_enabled('press'):
             return request.not_found()
         try:
             vals = {}
@@ -166,7 +166,7 @@ class EventArtistMediaController(EventArtistPortalController):
                 auth='public', website=True, sitemap=False, methods=['POST'])
     def artist_portal_photos(self, event_id, token, **post):
         event = self._media_event(event_id, token)
-        if not event:
+        if not event or not event._artist_portal_section_enabled('photos'):
             return request.not_found()
         if not event._artist_portal_photos_editable():
             return self._media_error(event, token, 'Die Fotos wurden von Groundlift übernommen und können nicht mehr ausgetauscht werden.')
@@ -206,7 +206,7 @@ class EventArtistMediaController(EventArtistPortalController):
                 type='http', auth='public', website=True, sitemap=False, methods=['POST'])
     def artist_portal_photo_delete(self, event_id, token, photo_id, **post):
         event = self._media_event(event_id, token)
-        if not event:
+        if not event or not event._artist_portal_section_enabled('photos'):
             return request.not_found()
         if not event._artist_portal_photos_editable():
             return self._media_error(event, token, 'Pressefotos sind bereits gesperrt.')
@@ -227,7 +227,7 @@ class EventArtistMediaController(EventArtistPortalController):
                 type='http', auth='public', website=True, sitemap=False, methods=['GET'])
     def artist_portal_photo_view(self, event_id, token, photo_id, **kwargs):
         event = self._media_event(event_id, token)
-        if not event:
+        if not event or not event._artist_portal_section_enabled('photos'):
             return request.not_found()
         photo = request.env['gl.artist.portal.photo'].sudo().search([
             ('id', '=', photo_id), ('event_id', '=', event.id), ('active', '=', True)], limit=1)

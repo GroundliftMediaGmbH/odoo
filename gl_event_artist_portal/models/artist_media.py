@@ -5,6 +5,8 @@ import logging
 import os
 import uuid
 from lxml import etree
+from markupsafe import Markup, escape
+from urllib.parse import urlsplit
 
 from odoo import _, api, fields, models
 from odoo.tools import html2plaintext
@@ -56,6 +58,68 @@ class EventEvent(models.Model):
         default=False, copy=False, readonly=True,
         help='Nur Veranstaltungen, die nach diesem Update angelegt wurden, '
              'erhalten Rider-, Presse-, Grafik- und Einladungsfunktionen.')
+
+    # 'default' keeps historic events in guestlist-only mode, while events
+    # created with the extended portal automatically have all four sections.
+    # Explicit show/hide permits precise per-event overrides without migrations
+    # or bulk updates to any existing event.
+    _PORTAL_SECTION_OPTIONS = [
+        ('default', 'Standard (Bestand: aus / neu: an)'),
+        ('show', 'Anzeigen'),
+        ('hide', 'Ausblenden'),
+    ]
+    artist_portal_section_photos = fields.Selection(
+        _PORTAL_SECTION_OPTIONS, string='Bilder', default='default', copy=False)
+    artist_portal_section_press = fields.Selection(
+        _PORTAL_SECTION_OPTIONS, string='Pressetext', default='default', copy=False)
+    artist_portal_section_tech = fields.Selection(
+        _PORTAL_SECTION_OPTIONS, string='Technical Rider', default='default', copy=False)
+    artist_portal_section_hospitality = fields.Selection(
+        _PORTAL_SECTION_OPTIONS, string='Hospitality Rider', default='default', copy=False)
+    artist_portal_gema_url = fields.Char(
+        string='GEMA-Link für Künstler/Agentur', copy=False,
+        help='Ab Phase Abrechnung (auch Beendet) im Künstlerportal sichtbar. Vollständige https://-Adresse eintragen.')
+
+    def _artist_portal_section_enabled(self, section):
+        self.ensure_one()
+        name = {
+            'photos': 'artist_portal_section_photos',
+            'press': 'artist_portal_section_press',
+            'tech': 'artist_portal_section_tech',
+            'hospitality': 'artist_portal_section_hospitality',
+        }.get(section)
+        if not name:
+            return False
+        setting = self[name] or 'default'
+        return setting == 'show' or (setting == 'default' and bool(self.artist_portal_extended_enabled))
+
+    def _artist_portal_any_media_enabled(self):
+        self.ensure_one()
+        return any(self._artist_portal_section_enabled(key)
+                   for key in ('photos', 'press', 'tech', 'hospitality'))
+
+    def _is_artist_portal_media_stage(self):
+        self.ensure_one()
+        return bool(self._artist_portal_any_media_enabled() and (
+            self._is_artist_portal_upload_stage() if self.artist_portal_extended_enabled
+            else self._is_artist_portal_stage()))
+
+    def _is_artist_portal_accounting_stage(self):
+        self.ensure_one()
+        return bool(self._artist_portal_stage_names() & {
+            'abrechnung', 'beendet', 'billing', 'invoicing', 'done', 'finished',
+        })
+
+    def _artist_portal_valid_gema_url(self):
+        self.ensure_one()
+        raw = (self.artist_portal_gema_url or '').strip()
+        if not raw or any(ch in raw for ch in ('\r', '\n', '\t', ' ')):
+            return False
+        try:
+            parts = urlsplit(raw)
+            return raw if parts.scheme in ('https', 'http') and parts.netloc and not parts.username and not parts.password else False
+        except ValueError:
+            return False
 
     @api.model
     def _artist_portal_default_staff_value(self, field_name, user_id):
@@ -196,9 +260,9 @@ class EventEvent(models.Model):
         return users.sudo().filtered(lambda user: user.active and not user.share and user.partner_id)
 
     def _artist_portal_notify(self, source_field, title, details):
-        """An Odoo live toast plus durable activity; no external push service needed."""
+        """Persist an Odoo Discuss inbox item plus the existing event To-do."""
         self.ensure_one()
-        if not (self.artist_portal_extended_enabled and self.artist_portal_notifications_enabled):
+        if not self.artist_portal_notifications_enabled:
             return
         users = self._artist_portal_notify_users(source_field)
         if not users:
@@ -207,9 +271,35 @@ class EventEvent(models.Model):
         message = '%s: %s' % (self.name or _('Veranstaltung'), details)
         activity_type = self.env.ref('mail.mail_activity_data_todo', raise_if_not_found=False)
         model_id = self.env['ir.model']._get_id('event.event')
+        # Odoo 19 Discuss: persist a user_notification and deliver it through
+        # mail.message/inbox. Do not emit 'simple_notification' (top-right toast).
+        # Force inbox for these internal recipients even if their personal
+        # notification preference would normally choose email; no SMTP is used.
+        try:
+            with self.env.cr.savepoint():
+                partner_ids = users.mapped('partner_id').ids
+                author = self.env.ref('base.partner_root', raise_if_not_found=False)
+                if not author:
+                    author = self.env.user.partner_id
+                safe_body = Markup('<p>%s</p>') % escape(message)
+                inbox_message = self.sudo()._message_create([{
+                    'model': 'event.event', 'res_id': self.id,
+                    'message_type': 'user_notification',
+                    'subtype_id': self.env.ref('mail.mt_note').id,
+                    'subject': title,
+                    'body': safe_body,
+                    'is_internal': True,
+                    'author_id': author.id,
+                    'partner_ids': partner_ids,
+                    'email_add_signature': False,
+                }])
+                recipients = [{'id': user.partner_id.id, 'uid': user.id, 'notif': 'inbox'}
+                              for user in users]
+                self.sudo()._notify_thread_by_inbox(inbox_message, recipients)
+        except Exception:
+            _logger.exception('Could not add artist-portal Discuss inbox notification for event %s', self.id)
+        # Keep the durable event-specific To-do activity from earlier versions.
         for user in users:
-            # Each notification is independent; one failing backend notification
-            # must not roll back the uploaded rider, image or press material.
             try:
                 with self.env.cr.savepoint():
                     if activity_type and model_id:
@@ -222,14 +312,8 @@ class EventEvent(models.Model):
                             'note': html.escape(message),
                             'date_deadline': fields.Date.context_today(self),
                         })
-                    self.env['bus.bus'].sudo()._sendone(user.partner_id, 'simple_notification', {
-                        'title': title,
-                        'message': message,
-                        'type': 'info',
-                        'sticky': False,
-                    })
             except Exception:
-                _logger.exception('Could not send artist-portal notification for event %s, user %s',
+                _logger.exception('Could not add artist-portal To-do for event %s, user %s',
                                   self.id, user.id)
 
     def _is_artist_portal_upload_stage(self):
@@ -333,7 +417,7 @@ class EventEvent(models.Model):
 
     def _artist_portal_photos_editable(self):
         self.ensure_one()
-        if not self.artist_portal_extended_enabled or self.artist_portal_photo_locked or self.artist_portal_graphics_locked:
+        if not self._artist_portal_section_enabled('photos') or self.artist_portal_photo_locked or self.artist_portal_graphics_locked:
             return False
         posters = self.env['gl.graphics.poster'].sudo().search([
             ('event_id', '=', self.id), ('active', '=', True)])
@@ -364,7 +448,9 @@ class EventEvent(models.Model):
     def _artist_portal_sync_graphics(self):
         """Seed the existing graphics editor; final Canvas render occurs in-browser."""
         for event in self:
-            if not event.artist_portal_extended_enabled or event.artist_portal_graphics_locked:
+            if (not event._artist_portal_section_enabled('photos')
+                    or not event._artist_portal_section_enabled('press')
+                    or event.artist_portal_graphics_locked):
                 continue
             Poster = self.env['gl.graphics.poster'].sudo().with_context(artist_portal_source=True)
             poster = Poster.search([('event_id', '=', event.id), ('active', '=', True)],

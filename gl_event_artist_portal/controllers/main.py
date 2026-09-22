@@ -146,12 +146,22 @@ class EventArtistPortalController(http.Controller):
         edit_line_id=None, edit_form=None,
     ):
         event = event.sudo()
+        accounting = event._is_artist_portal_accounting_stage()
+        media_stage = event._is_artist_portal_media_stage()
         media_values = {
             'event': event,
             'token': token,
-            'portal_active': (event._is_artist_portal_upload_stage()
-                              if event.artist_portal_extended_enabled else event._is_artist_portal_stage()),
+            'portal_active': accounting or (
+                event._is_artist_portal_upload_stage() if event.artist_portal_extended_enabled
+                else event._is_artist_portal_stage()),
             'extended_portal': bool(event.artist_portal_extended_enabled),
+            'accounting_active': accounting,
+            'gema_url': event._artist_portal_valid_gema_url() if accounting else False,
+            'media_active': media_stage,
+            'show_photos': media_stage and event._artist_portal_section_enabled('photos'),
+            'show_press': media_stage and event._artist_portal_section_enabled('press'),
+            'show_tech': media_stage and event._artist_portal_section_enabled('tech'),
+            'show_hospitality': media_stage and event._artist_portal_section_enabled('hospitality'),
             'guestlist_active': event._is_artist_portal_stage(),
             'press_short_value': html2plaintext(event['x_studio_event_kurzbeschreibung'] or '') if 'x_studio_event_kurzbeschreibung' in event._fields else '',
             'press_long_value': event.artist_portal_press_long or '',

@@ -16,7 +16,7 @@
 - **Staging, Dev und unbekannte Umgebungen**: Versand nur an `julius@groundlift.de` (`[STAGING TEST]` im Betreff); Produktion: an `artist_portal_contract_contact_id.email`. Ein gezielter Testbutton sendet immer nur an Julius. Ohne SMTP-Konfiguration oder bei neutralisiertem Odoo.sh-Staging kann die Warteschlange den Versand nicht ausführen.
 - Optional Systemparameter `gl_event_artist_portal.test_mode=1` erzwingt Testmodus; `gl_event_artist_portal.delivery_mode=production` erlaubt Produktivversand, falls `ODOO_STAGE` in eurem Production-Branch fehlt. Hat `ODOO_STAGE` den Wert `staging` oder `dev`, bleibt Testmodus unabhängig von `delivery_mode` erzwungen. Produktionsadresse nur aktivieren, nachdem ihr den Test geprüft habt.
 - Button **Einladung erneut senden** für nachträglich hinterlegte Kontakte, ohne den automatischen Einmalversand zu verändern.
-- Portal ist in **Gebucht** und **Angekündigt** erreichbar; Gästeliste/Abendkasse bleiben wie bislang ausschließlich in **Angekündigt** verfügbar. Ab Abrechnung/Beeendet gesperrt.
+- Portal ist in **Gebucht** und **Angekündigt** erreichbar; Gästeliste/Abendkasse bleiben wie bislang ausschließlich in **Angekündigt** verfügbar. Ab Abrechnung/Beendet werden Gästeliste und Uploads gesperrt; stattdessen erscheint der GEMA-Link, sofern hinterlegt.
 - Tech-/Hospitality-Rider schreiben direkt in `event.event.x_studio_tech_rider` bzw. `event.event.x_studio_hospitality_rider` (PDF/DOC/DOCX, je max. 20 MB).
 - Pro Veranstaltung mehrere Fotos in **1:1**, **Querformat**, **Hochformat** (max. 20 je Format, je 12 MB). Das erste quadratische Foto wird unmittelbar ins Eventbild (`image_1920`, daraus abgeleitet `image_1024`) übernommen.
 - Kurzer Pressetext → `x_studio_event_kurzbeschreibung`, langer Pressetext → `description` (Eventbeschreibung). HTML wird escaped, sodass eingesandte Texte keine HTML/Script-Injektion erlauben.
@@ -139,3 +139,12 @@ Das mehrzeilige Textfeld `gl_artist_default_introduction` wird nun ausdrücklich
 das Öffnen der Einstellungen einen RPC_ERROR verursacht. Die beiden auswählbaren
 Standardmitarbeiter bleiben als native Many2one-Konfigurationsfelder erhalten.
 Das Update greift nicht in bestehende Veranstaltungsdaten ein.
+
+
+## Update 19.0.2.0.6 – GEMA / selektive Alt-Events / Discuss-Benachrichtigungen
+
+- Im Reiter **Info für Band/Agentur** das neue Feld **GEMA-Link für Künstler/Agentur** befüllen (vollständiges http(s)-URL). In **Abrechnung** und **Beendet** zeigt der bestehende Token-Link ausschließlich den GEMA-Abschnitt. Ohne URL erscheint der Hinweis, dass der Link noch fehlt. Gästeliste und Uploads sind ab Abrechnung gesperrt. Auch bisherige Veranstaltungen können den GEMA-Abschnitt nutzen.
+- Jedes Event hat vier separate Freigaben (Bilder, Pressetext, Technical Rider, Hospitality Rider). **Standard** bewahrt das bisherige Verhalten: alte Events aus, neue Events an. **Anzeigen/Ausblenden** überschreibt die Freigabe nur für dieses Event. Alt-Events erhalten keine rückwirkenden Einladungsmails. Freigaben gelten auch serverseitig für alle POST- und Bildrouten. Uploads für Alt-Events bleiben in der gewohnten Phase **Angekündigt**.
+- Upload-Benachrichtigungen werden jetzt als **Odoo-Discuss-Posteingangsbenachrichtigungen** mit `mail.message` / `mail.notification` an die jeweils verantwortlichen internen Nutzer gesendet, auch wenn der Nutzer als allgemeine Zustellpräferenz E-Mail hinterlegt hat; es werden für diesen Benachrichtigungstyp **keine SMTP-Mails** und **keine simple_notification-Popups** erzeugt. Die bestehende To-do-Aktivität je Event bleibt erhalten.
+- Die zuerst hochgeladene quadratische Presseaufnahme bleibt das Standardbild für die Grafik-App; ansonsten wurde der Grafikeditor nicht verändert.
+- **Staging-Prüfung:** Altes Event in Angekündigt: Bereiche einzeln auf Anzeigen stellen, alle nicht aktivierten Bereiche fehlen; im Backend GEMA-Link setzen und auf Abrechnung wechseln: nur GEMA. Beim neu angelegten Event weiterhin alle Medien in Gebucht/Angekündigt, danach ausschließlich GEMA. Upload von Foto/Text/Ridern -> Odoo-Nachrichtenmenü „Benachrichtigungen“ des passenden Mitarbeiters prüfen; kein Popup.
