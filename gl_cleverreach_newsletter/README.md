@@ -1,3 +1,13 @@
+## Änderung 19.0.1.4.8 – Newsletter-Arten unabhängig steuern
+
+- Unter **Einstellungen** sowie in den drei jeweiligen Newsletter-Menüpunkten besitzt jede automatische Art ihren eigenen Aktivierungsschalter und eine eigene CleverReach-Empfängerliste: **2-wöchig**, **Diese Woche bei Groundlift**, **Spontan / neue Events**.
+- Die globale Empfängerliste bleibt als **Fallback** erhalten, wenn bei einer Art keine eigene Liste ausgewählt wurde. Dadurch bleiben bestehende Installationen ohne Neu-Konfiguration versandfähig. Der manuelle Konzert-Newsletter behält seine freie Empfängerwahl und den globalen Fallback.
+- Ein deaktivierter Typ wird nicht mehr automatisch erzeugt, vorbereitet oder versendet. Bereits geplante, noch nicht versendete Jobs dieser Art werden auf **Blockiert** gesetzt; versendete Jobs und andere Newsletter-Arten bleiben unverändert. Bei erneuter Aktivierung werden nur zukünftige, durch diese Deaktivierung blockierte Jobs wieder freigegeben. Alte, inzwischen fällige Jobs werden nicht nachträglich automatisch verschickt.
+- Bei Änderung der Liste werden noch nicht versendete Jobs, die bisher die alte Standardliste dieses Typs verwenden, auf die neue Liste umgestellt. Individuell auf einem Job eingestellte andere Listen bleiben erhalten. Ein bereits in CleverReach vorbereiteter Entwurf wird bei Bedarf mit der neuen Liste neu angelegt (der alte CleverReach-Entwurf wird nicht versendet).
+- Beim Modulupgrade wird **Spontan** einmalig auf aktiviert gesetzt, damit die bisher bestehende spontane Automatik nicht durch den neuen Schalter ungewollt ausgeschaltet wird. Bereits bestehende Termine, geplante Sendezeiten und die Newsletter-Historie werden nicht gelöscht.
+
+**Update in Odoo.sh:** Ordner `gl_cleverreach_newsletter` im bestehenden Addons-Pfad ersetzen/pushen und die App **Groundlift CleverReach Event Newsletter** aktualisieren (nicht deinstallieren), damit die neuen Felder und die Migration angelegt werden. Anschließend die drei Empfängerlisten in den einzelnen Menüpunkten prüfen; leere Typ-Listen verwenden weiterhin den globalen Fallback.
+
 # Groundlift CleverReach Event Newsletter für Odoo 19 SH
 
 Dieses Modul erzeugt aus Odoo-Veranstaltungen automatisch HTML-Newsletter für CleverReach.

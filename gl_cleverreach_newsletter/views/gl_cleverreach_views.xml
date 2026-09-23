@@ -35,6 +35,23 @@
                         </group>
                     </group>
 
+                    <separator string="Newsletter-Arten: Aktivierung und Empfänger"/>
+                    <div class="text-muted">Ohne eigene Empfängerliste wird die globale CleverReach-Empfängerliste verwendet. Die Schalter stoppen auch bereits geplante automatische Newsletter dieser Art.</div>
+                    <group>
+                        <group string="2-wöchiger Newsletter">
+                            <field name="biweekly_enabled"/>
+                            <field name="biweekly_recipient_group_id" domain="[('config_id', '=', id)]"/>
+                        </group>
+                        <group string="Diese Woche bei Groundlift">
+                            <field name="weekly_enabled"/>
+                            <field name="weekly_recipient_group_id" domain="[('config_id', '=', id)]"/>
+                        </group>
+                        <group string="Spontane Newsletter">
+                            <field name="spontaneous_enabled"/>
+                            <field name="spontaneous_recipient_group_id" domain="[('config_id', '=', id)]"/>
+                        </group>
+                    </group>
+
                     <group string="Aktionen">
                         <button name="action_test_connection" type="object" string="Verbindung testen" class="btn-secondary"/>
                         <button name="action_open_oauth_authorization" type="object" string="CleverReach-Benutzer autorisieren" class="btn-primary"/>
@@ -110,14 +127,16 @@
                     <group string="Grunddaten">
                         <group>
                             <field name="name"/>
-                            <field name="active"/>
+                            <field name="active" string="CleverReach insgesamt aktiv"/>
+                            <field name="biweekly_enabled"/>
+                            <field name="biweekly_recipient_group_id" domain="[('config_id', '=', id)]"/>
+                            <div class="text-muted">Leer = globale CleverReach-Empfängerliste</div>
                             <field name="recipient_group_id" domain="[('config_id', '=', id)]"/>
                             <field name="newsletter_template_id"/>
                         </group>
                     </group>
                     <group>
                         <group string="Sendeplan">
-                            <field name="biweekly_enabled"/>
                             <field name="biweekly_weekday"/>
                             <field name="biweekly_send_hour"/>
                             <field name="biweekly_send_minute"/>
@@ -145,14 +164,16 @@
                     <group string="Grunddaten">
                         <group>
                             <field name="name"/>
-                            <field name="active"/>
+                            <field name="active" string="CleverReach insgesamt aktiv"/>
+                            <field name="weekly_enabled"/>
+                            <field name="weekly_recipient_group_id" domain="[('config_id', '=', id)]"/>
+                            <div class="text-muted">Leer = globale CleverReach-Empfängerliste</div>
                             <field name="recipient_group_id" domain="[('config_id', '=', id)]"/>
                             <field name="newsletter_template_id"/>
                         </group>
                     </group>
                     <group>
                         <group string="Sendeplan">
-                            <field name="weekly_enabled"/>
                             <field name="weekly_weekday"/>
                             <field name="weekly_send_hour"/>
                             <field name="weekly_send_minute"/>
@@ -179,7 +200,10 @@
                     <group string="Grunddaten">
                         <group>
                             <field name="name"/>
-                            <field name="active"/>
+                            <field name="active" string="CleverReach insgesamt aktiv"/>
+                            <field name="spontaneous_enabled"/>
+                            <field name="spontaneous_recipient_group_id" domain="[('config_id', '=', id)]"/>
+                            <div class="text-muted">Leer = globale CleverReach-Empfängerliste</div>
                             <field name="recipient_group_id" domain="[('config_id', '=', id)]"/>
                             <field name="newsletter_template_id"/>
                         </group>
