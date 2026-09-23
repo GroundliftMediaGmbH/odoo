@@ -39,6 +39,20 @@ KINO_WEEKDAYS_BY_MODE = {
     "thu_sun": (3, 4, 5, 6),  # Donnerstag bis Sonntag
     "tue_sun": (1, 2, 3, 4, 5, 6),  # Dienstag bis Sonntag
 }
+# Order matches Python date.weekday(): Monday=0 through Sunday=6.
+KINO_WEEKDAY_FIELDS = (
+    "weekday_monday",
+    "weekday_tuesday",
+    "weekday_wednesday",
+    "weekday_thursday",
+    "weekday_friday",
+    "weekday_saturday",
+    "weekday_sunday",
+)
+KINO_WEEKDAY_LABELS = (
+    "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag",
+)
+DEFAULT_KINO_WEEKDAYS = (3, 4, 5, 6)  # Retain the previous default until settings are changed.
 PRIORITY_STRONG = "strong"
 PRIORITY_NORMAL = "normal"
 PRIORITY_LABELS = {
@@ -99,6 +113,43 @@ class GroundliftKinoShiftEmployeePortal(models.Model):
         return "%s/kino-dienstplan/mitarbeiter/%s" % (base_url, self.token)
 
 
+class GroundliftKinoShiftSettings(models.Model):
+    _name = "gl.kino.shift.settings"
+    _description = "Kino Dienstplan globale Einstellungen"
+
+    name = fields.Char(string="Bezeichnung", default="Kino Dienstplan – Einstellungen", required=True)
+    weekday_monday = fields.Boolean(string="Montag", default=False)
+    weekday_tuesday = fields.Boolean(string="Dienstag", default=False)
+    weekday_wednesday = fields.Boolean(string="Mittwoch", default=False)
+    weekday_thursday = fields.Boolean(string="Donnerstag", default=True)
+    weekday_friday = fields.Boolean(string="Freitag", default=True)
+    weekday_saturday = fields.Boolean(string="Samstag", default=True)
+    weekday_sunday = fields.Boolean(string="Sonntag", default=True)
+
+    @api.constrains(*KINO_WEEKDAY_FIELDS)
+    def _check_at_least_one_weekday(self):
+        for settings in self:
+            if not any(settings[field] for field in KINO_WEEKDAY_FIELDS):
+                raise UserError(_("Bitte mindestens einen regulären Kinotag auswählen."))
+
+    @api.model
+    def get_default_weekdays(self):
+        """Read global defaults only when creating a NEW month, never when sending an old one."""
+        settings = self.env.ref(
+            "groundlift_kino_shift_signup.kino_shift_default_settings",
+            raise_if_not_found=False,
+        )
+        if not settings:
+            settings = self.sudo().search([], limit=1)
+        if settings:
+            return {field: bool(settings[field]) for field in KINO_WEEKDAY_FIELDS}
+        # Defensive fallback if the settings row has been deleted; do not affect old plans.
+        return {
+            field: index in DEFAULT_KINO_WEEKDAYS
+            for index, field in enumerate(KINO_WEEKDAY_FIELDS)
+        }
+
+
 class GroundliftKinoShiftCampaign(models.Model):
     _name = "gl.kino.shift.campaign"
     _description = "Kino Dienstplan Abfrage"
@@ -129,13 +180,22 @@ class GroundliftKinoShiftCampaign(models.Model):
         selection=[
             ("thu_sun", "Donnerstag bis Sonntag"),
             ("tue_sun", "Dienstag bis Sonntag"),
+            ("custom", "Wochentage aus Einstellungen (Monatskopie)"),
         ],
         string="Reguläre Spieltage",
-        default="thu_sun",
+        default="custom",
         required=True,
         tracking=True,
         help="Legt fest, welche Wochentage beim Erzeugen der regulären Kinotage automatisch angelegt werden. Bereits vorhandene oder manuell hinzugefügte Tage werden dabei nicht gelöscht.",
     )
+    # Stored per month: modifying global settings can NEVER rewrite a prior month's dates.
+    weekday_monday = fields.Boolean(string="Montag")
+    weekday_tuesday = fields.Boolean(string="Dienstag")
+    weekday_wednesday = fields.Boolean(string="Mittwoch")
+    weekday_thursday = fields.Boolean(string="Donnerstag")
+    weekday_friday = fields.Boolean(string="Freitag")
+    weekday_saturday = fields.Boolean(string="Samstag")
+    weekday_sunday = fields.Boolean(string="Sonntag")
     day_mode_label = fields.Char(string="Reguläre Spieltage Anzeige", compute="_compute_day_mode_label")
     request_sent_date = fields.Date(string="Anfrage gesendet am", readonly=True, copy=False)
     reminder_sent_date = fields.Date(string="Erinnerung gesendet am", readonly=True, copy=False)
@@ -165,9 +225,29 @@ class GroundliftKinoShiftCampaign(models.Model):
         ("token_unique", "unique(token)", "Der Status-Token muss eindeutig sein."),
     ]
 
+    @api.model
+    def default_get(self, fields_list):
+        defaults = super().default_get(fields_list)
+        if any(field in fields_list for field in KINO_WEEKDAY_FIELDS):
+            # Show the current global selection immediately on a new plan form,
+            # even before the month is saved and its slots are generated.
+            for field, enabled in self.env["gl.kino.shift.settings"].get_default_weekdays().items():
+                if field in fields_list:
+                    defaults[field] = enabled
+        return defaults
+
     @api.model_create_multi
     def create(self, vals_list):
+        default_weekdays = None
         for vals in vals_list:
+            # The choice is copied exactly once at creation. Old campaigns keep their
+            # existing thu_sun / tue_sun selection and their existing Kinotage.
+            vals.setdefault("day_mode", "custom")
+            if vals["day_mode"] == "custom":
+                if default_weekdays is None:
+                    default_weekdays = self.env["gl.kino.shift.settings"].get_default_weekdays()
+                for field, enabled in default_weekdays.items():
+                    vals.setdefault(field, enabled)
             if vals.get("target_month"):
                 target = fields.Date.to_date(vals["target_month"])
                 vals["target_month"] = target.replace(day=1)
@@ -178,23 +258,40 @@ class GroundliftKinoShiftCampaign(models.Model):
         return campaigns
 
     def write(self, vals):
-        should_regenerate_slots = bool(set(vals) & {"target_month", "day_mode"})
+        vals = dict(vals)
+        # Explicitly switching an existing plan to custom takes a NEW snapshot;
+        # simply changing the global settings never calls write on campaigns.
+        if vals.get("day_mode") == "custom":
+            for field, enabled in self.env["gl.kino.shift.settings"].get_default_weekdays().items():
+                vals.setdefault(field, enabled)
+        should_regenerate_slots = bool(set(vals) & ({"target_month", "day_mode"} | set(KINO_WEEKDAY_FIELDS)))
         if vals.get("target_month"):
             target = fields.Date.to_date(vals["target_month"])
             vals["target_month"] = target.replace(day=1)
         result = super().write(vals)
         if should_regenerate_slots:
-            # Beim Wechsel zwischen Donnerstag-Sonntag und Dienstag-Sonntag
-            # werden fehlende reguläre Tage ergänzt. Bestehende/manuelle Tage
-            # bleiben bewusst erhalten und werden nicht gelöscht.
+            # As before: add missing days only. Do not delete or change existing
+            # slots, people, priorities, or any other month's data.
             self.action_generate_slots(show_notification=False)
         return result
 
-    @api.depends("day_mode")
+    @api.constrains("day_mode", *KINO_WEEKDAY_FIELDS)
+    def _check_custom_weekdays(self):
+        for campaign in self:
+            if campaign.day_mode == "custom" and not any(campaign[field] for field in KINO_WEEKDAY_FIELDS):
+                raise UserError(_("Bitte mindestens einen regulären Kinotag auswählen."))
+
+    @api.depends("day_mode", *KINO_WEEKDAY_FIELDS)
     def _compute_day_mode_label(self):
         labels = dict(self._fields["day_mode"].selection)
         for campaign in self:
-            campaign.day_mode_label = labels.get(campaign.day_mode or "thu_sun", "Donnerstag bis Sonntag")
+            if campaign.day_mode == "custom":
+                campaign.day_mode_label = ", ".join(
+                    label for field, label in zip(KINO_WEEKDAY_FIELDS, KINO_WEEKDAY_LABELS)
+                    if campaign[field]
+                )
+            else:
+                campaign.day_mode_label = labels.get(campaign.day_mode or "thu_sun", "Donnerstag bis Sonntag")
 
     @api.depends("target_month")
     def _compute_name(self):
@@ -314,6 +411,8 @@ class GroundliftKinoShiftCampaign(models.Model):
 
     def _get_regular_weekdays(self):
         self.ensure_one()
+        if self.day_mode == "custom":
+            return tuple(index for index, field in enumerate(KINO_WEEKDAY_FIELDS) if self[field])
         return KINO_WEEKDAYS_BY_MODE.get(self.day_mode or "thu_sun", KINO_WEEKDAYS_BY_MODE["thu_sun"])
 
     def action_generate_slots(self, show_notification=True):
