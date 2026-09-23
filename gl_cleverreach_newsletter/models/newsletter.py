@@ -518,7 +518,17 @@ class CleverReachNewsletterConfig(models.Model):
                             updates.update({"state": "ready", "error_message": False})
                     if updates:
                         job.write(updates)
-                        job._create_or_update_calendar_event()
+                        # Calendar synchronisation is secondary: a broken calendar
+                        # event must never roll back an administrator's disable
+                        # action (which is also enforced at send time).
+                        try:
+                            with self.env.cr.savepoint():
+                                job._create_or_update_calendar_event()
+                        except Exception:
+                            _logger.exception(
+                                "Could not refresh calendar for newsletter job %s "
+                                "after config toggle; config change was saved", job.id,
+                            )
         return result
 
     @api.model
@@ -1148,6 +1158,60 @@ class CleverReachNewsletterConfig(models.Model):
     def action_open_global_settings(self):
         return self._action_open_config_menu_view("view_gl_cr_config_form", _("Einstellungen"))
 
+
+    def _set_newsletter_activation(self, field_name, enabled):
+        """Persist a single type directly, without relying on form checkbox edits.
+
+        All entry points are static object buttons. The return view is restricted
+        to module-owned views; always reopen *this* configuration, rather than
+        asking _default_menu_config() to choose a different active record.
+        """
+        self.ensure_one()
+        allowed_fields = {
+            "biweekly_enabled", "weekly_enabled", "spontaneous_enabled",
+        }
+        allowed_views = {
+            "view_gl_cr_config_form",
+            "view_gl_cr_config_biweekly_form",
+            "view_gl_cr_config_weekly_form",
+            "view_gl_cr_config_spontaneous_form",
+        }
+        if field_name not in allowed_fields:
+            raise UserError(_("Unbekannter Newsletter-Schalter."))
+        self.write({field_name: bool(enabled)})
+        view_name = self.env.context.get("gl_cr_return_view")
+        if view_name not in allowed_views:
+            view_name = "view_gl_cr_config_form"
+        view = self.env.ref("gl_cleverreach_newsletter.%s" % view_name)
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("CleverReach Newsletter"),
+            "res_model": self._name,
+            "res_id": self.id,
+            "views": [(view.id, "form")],
+            "view_mode": "form",
+            "target": "current",
+            "context": {},
+        }
+
+    def action_enable_biweekly(self):
+        return self._set_newsletter_activation("biweekly_enabled", True)
+
+    def action_disable_biweekly(self):
+        return self._set_newsletter_activation("biweekly_enabled", False)
+
+    def action_enable_weekly(self):
+        return self._set_newsletter_activation("weekly_enabled", True)
+
+    def action_disable_weekly(self):
+        return self._set_newsletter_activation("weekly_enabled", False)
+
+    def action_enable_spontaneous(self):
+        return self._set_newsletter_activation("spontaneous_enabled", True)
+
+    def action_disable_spontaneous(self):
+        return self._set_newsletter_activation("spontaneous_enabled", False)
+
     def action_open_planning_overview(self):
         self.ensure_one()
         self._refresh_planning_overview()
@@ -1173,7 +1237,8 @@ class CleverReachNewsletterConfig(models.Model):
     )
     def _compute_newsletter_previews(self):
         for rec in self:
-            rec._ensure_schedule_defaults()
+            # A compute on an open form must never write to the record while
+            # another setting (notably an activation checkbox) is being edited.
             rec.biweekly_preview_html = rec._safe_preview_html("biweekly")
             rec.weekly_preview_html = rec._safe_preview_html("weekly_this_week")
             rec.spontaneous_preview_html = rec._safe_preview_html("new_events")

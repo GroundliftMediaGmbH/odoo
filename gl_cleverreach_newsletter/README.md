@@ -1,3 +1,13 @@
+## Änderung 19.0.1.4.9 – Aktivierungsschalter zuverlässig speichern
+
+- In **Einstellungen** und in jedem der drei Newsletter-Bereiche wird der tatsächlich gespeicherte Aktivierungszustand angezeigt. Daneben gibt es **Aktivieren** bzw. **Deaktivieren**. Der Klick schreibt den Wert direkt in die *bestehende* CleverReach-Konfiguration und öffnet anschließend denselben Datensatz erneut. Ein bloßer Wechsel des Häkchens ohne Speichern ist damit ausgeschlossen.
+- Die drei Arten bleiben vollständig voneinander und vom globalen Hauptschalter unabhängig.
+- Die bisherige Migration, die „Spontan“ bei jedem dafür relevanten Upgrade wieder aktivieren konnte, wurde korrigiert: Nur beim Erst-Upgrade von einer Version *vor* 19.0.1.4.8 wird der neue Schalter initial eingeschaltet. Bereits gespeichertes `False` wird bei späteren Upgrades nicht überschrieben.
+- Die Vorschau-Berechnung schreibt beim bloßen Öffnen eines Formulars keine Konfigurationswerte mehr. Falls ein Kalendertermin nicht aktualisiert werden kann, bleibt die Änderung des Aktivierungsschalters gespeichert; der Sendeschutz gilt weiterhin.
+- Zum Testen: jeweils alle drei Arten deaktivieren, Menü wechseln, Einstellungen erneut aufrufen; anschließend einzeln aktivieren. Die globale Aktivierung muss unverändert bleiben.
+
+**Odoo.sh:** Modulordner im Repository ersetzen, pushen und die App **aktualisieren**; nicht deinstallieren. Nach der Aktualisierung die Oberfläche einmal neu laden.
+
 ## Änderung 19.0.1.4.8 – Newsletter-Arten unabhängig steuern
 
 - Unter **Einstellungen** sowie in den drei jeweiligen Newsletter-Menüpunkten besitzt jede automatische Art ihren eigenen Aktivierungsschalter und eine eigene CleverReach-Empfängerliste: **2-wöchig**, **Diese Woche bei Groundlift**, **Spontan / neue Events**.
