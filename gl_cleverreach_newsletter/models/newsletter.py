@@ -1247,7 +1247,12 @@ class CleverReachNewsletterConfig(models.Model):
         self.ensure_one()
         try:
             if newsletter_type == "biweekly":
-                reference_date = self._local_today()
+                # The settings preview should show the same event window as the
+                # next scheduled newsletter, not an earlier window starting now.
+                reference_date = self._advance_due_date(
+                    self.biweekly_next_due_date, 14, self.biweekly_weekday,
+                    self.biweekly_send_hour, self.biweekly_send_minute,
+                )
                 events, note = self._select_upcoming_events_for_biweekly(reference_date=reference_date, exclude_event_ids=self._weekly_events_to_exclude_for_biweekly(reference_date))
                 if not events:
                     return self._info_preview_html(_("2-wöchiger Newsletter"), _("Aktuell wurden keine passenden kommenden Veranstaltungen gefunden. Es wird kein Newsletter erzeugt."))
@@ -2424,9 +2429,69 @@ class CleverReachNewsletterJob(models.Model):
         })
         return str(mailing_id), create_response
 
+    def _refresh_periodic_content_before_send(self):
+        """Revalidate periodic mailings at actual release time (not preview time).
+
+        A saved Odoo HTML body, or a CleverReach draft prepared days earlier,
+        must never cause yesterday's event to be sent by the automatic flow.
+        Manually edited HTML cannot be reliably rewritten, so if its event set
+        has become stale, block the send for review instead of silently losing
+        the editor's changes or sending known-expired event information.
+        """
+        self.ensure_one()
+        if self.newsletter_type not in ("biweekly", "weekly_this_week"):
+            return True
+        config = self.config_id
+        reference_date = config._local_today()
+        if self.newsletter_type == "biweekly":
+            exclude_ids = config._weekly_events_to_exclude_for_biweekly(reference_date)
+            events, note = config._select_upcoming_events_for_biweekly(
+                reference_date=reference_date, exclude_event_ids=exclude_ids,
+            )
+        else:
+            events, _period_key, _start, _end = config._select_events_for_this_week(
+                reference_date=reference_date,
+            )
+            note = False
+        if not events:
+            raise UserError(_(
+                "Es sind zum tatsächlichen Versandzeitpunkt keine passenden "
+                "kommenden Veranstaltungen mehr vorhanden. Newsletter nicht versendet."
+            ))
+        selected_ids = set(events.ids)
+        previous_ids = set(self.event_ids.ids)
+        if self.html_manually_edited:
+            if selected_ids != previous_ids:
+                raise UserError(_(
+                    "Newsletter nicht versendet: Die Veranstaltungsauswahl hat "
+                    "sich seit der manuellen HTML-Bearbeitung verändert. Bitte "
+                    "den Newsletter prüfen und das HTML erneut freigeben."
+                ))
+            return True
+
+        fresh_html = config._render_newsletter_html(self.heading, events, note=note or "")
+        if selected_ids != previous_ids or fresh_html != (self.html_body or "") or (note or False) != (self.note or False):
+            # Never release a remote draft with old HTML. Its existing mailing
+            # remains an unreleased draft; the next step creates a fresh one.
+            self.with_context(gl_auto_render=True).write({
+                "event_ids": [(6, 0, events.ids)],
+                "note": note or False,
+                "html_body": fresh_html,
+                "cleverreach_mailing_id": False,
+                "cleverreach_response": False,
+                "content_key": config._content_key(
+                    self.newsletter_type, events,
+                    period_key=(reference_date.strftime("%Y-%m-%d") if self.newsletter_type == "biweekly" else None),
+                ),
+                "state": "ready",
+                "error_message": False,
+            })
+        return True
+
     def _send_to_cleverreach_now(self, update_planned_datetime=False):
         self.ensure_one()
         self.config_id._assert_newsletter_type_enabled(self.newsletter_type)
+        self._refresh_periodic_content_before_send()
         self._ensure_rendered_and_grouped()
         if update_planned_datetime:
             self.write({"scheduled_datetime": fields.Datetime.now()})

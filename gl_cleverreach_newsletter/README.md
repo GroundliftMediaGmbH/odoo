@@ -226,3 +226,10 @@ Zusätzlich wurde ein Duplikatschutz ergänzt:
 - Die technischen CleverReach-Aktionen Verbindung testen, Benutzer autorisieren, Listen importieren und Planungsübersicht öffnen liegen nun im Menüpunkt „Einstellungen“.
 - Der Header-Button „Manueller Konzert-Newsletter“ wurde aus der Einstellungs-Zwischenleiste entfernt; der Wizard bleibt über die Menüleiste erreichbar.
 - Die Newsletter-Funktionalität wurde nicht verändert.
+
+
+### 19.0.1.4.10 – Veranstaltungsdatum beim tatsächlichen Versand
+
+- Die Einstellungen-Vorschau des 2-wöchigen Newsletters verwendet jetzt den nächsten geplanten Sendetag statt immer das aktuelle Datum.
+- Unmittelbar vor jedem Versand eines 2-wöchigen oder Diese-Woche-Newsletters werden Veranstaltungen nach der tatsächlichen lokalen Versandzeit neu ausgewählt und automatisch generiertes HTML erneut gerendert. Ein bereits vorbereitetes CleverReach-Mailing mit veraltetem HTML wird nicht freigegeben; stattdessen wird bei Bedarf ein aktuelles Mailing erzeugt.
+- Wenn keine kommenden Veranstaltungen mehr vorhanden sind, wird nicht versendet. Bei manuell bearbeitetem HTML und inzwischen geänderter Eventauswahl wird der Versand zur manuellen Prüfung angehalten statt bearbeitetes HTML stillschweigend zu überschreiben.
