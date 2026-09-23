@@ -7,6 +7,7 @@
             <list string="Kino Social Posts" create="false">
                 <field name="gl_kino_issue_id"/>
                 <field name="gl_kino_social_type"/>
+                <field name="gl_kino_publish_format"/>
                 <field name="gl_kino_planned_date"/>
                 <field name="gl_kino_requires_approval"/>
                 <field name="gl_kino_approved"/>
@@ -30,6 +31,8 @@
                         <group string="Kino Automation">
                             <field name="gl_kino_issue_id"/>
                             <field name="gl_kino_social_type"/>
+                            <field name="gl_kino_publish_format" readonly="1"/>
+                            <field name="gl_kino_story_native_supported" invisible="1"/>
                             <field name="gl_kino_show_key"/>
                             <field name="gl_kino_planned_date"/>
                             <field name="gl_kino_requires_approval"/>
@@ -42,6 +45,9 @@
                             <field name="account_ids" widget="many2many_tags"/>
                         </group>
                     </group>
+                    <div class="alert alert-warning" role="alert" invisible="gl_kino_publish_format != 'story' or gl_kino_story_native_supported">
+                        Story-Format gewählt: Das installierte Odoo Social bietet keinen erkannten nativen Story-Veröffentlichungsweg. Dieser Eintrag bleibt als Entwurf erhalten; er wird nicht versehentlich als Feed-Post geplant.
+                    </div>
                     <group string="Post">
                         <field name="message" nolabel="1"/>
                     </group>

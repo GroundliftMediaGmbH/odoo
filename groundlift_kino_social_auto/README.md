@@ -28,3 +28,9 @@ Eigenständige Odoo SH 19 App für automatische Social-Media-Posts des Kinos Alt
 Standardmäßig ist die automatische Freigabe deaktiviert. Die App erzeugt dann Posts als freigabepflichtige Entwürfe. Erst mit `Kino freigeben & geplant lassen` oder mit aktivierter Auto-Freigabe werden die Posts in den geplanten Zustand gesetzt.
 
 Der Cron läuft alle 30 Minuten, erledigt die Montagsprüfung aber nur einmal pro Montag nach Erreichen der konfigurierten Uhrzeit.
+
+## Veröffentlichung als Story oder regulärer Post
+
+Unter `Kino Social Automation > Einstellungen` in den Reitern `Montag & Wochenpost` und `Tages-/Film-Posts` das **Standardformat Wochenpost** bzw. **Standardformat Tages-/Film-Posts** auf `Regulärer Post` oder `Story` einstellen und speichern, **bevor** neue Posts erzeugt werden. Bestehende Posts und gespeicherte Wochen werden dadurch nicht verändert. Beide Felder stehen nach dem Update standardmäßig auf `Regulärer Post` (bisheriges Verhalten). Jeder neue Social-Eintrag erhält sein Format als `gl_kino_publish_format`; bei unterstützten Story-Feldern der installierten Social-Erweiterung wird zusätzlich das native Format auf Story gesetzt.
+
+**Wichtig:** Odoos Feld `post_method` unterscheidet nur sofortige vs. zeitgesteuerte Veröffentlichung und ist KEIN Story-Schalter. Ob die installierte Odoo-Social-App Stories an Instagram/Facebook tatsächlich veröffentlichen kann, hängt von ihrem Story-Backend ab. Fehlt ein kompatibles natives Story-Feld, werden neue Storys **nur als Entwurf** angelegt, auch wenn die automatische Freigabe eingeschaltet ist. Das Freigeben als gewöhnlicher Feed-Post wird blockiert. Dies ist keine eigenständige Meta-Story-API-Integration; ohne Story-Backend findet keine Story-Veröffentlichung statt. Bitte den Story-Ablauf zunächst in Staging mit einem Testbeitrag überprüfen.

@@ -383,6 +383,10 @@ class GroundliftKinoSocialIssue(models.Model):
             'gl_kino_show_key': show_key or '',
             'gl_kino_auto_generated': True,
             'gl_kino_planned_date': planned_date,
+            'gl_kino_publish_format': (
+                config.weekly_publish_format if post_type == 'weekly_program'
+                else config.daily_publish_format
+            ) or 'post',
             'gl_kino_requires_approval': not config.auto_post_without_approval,
             'gl_kino_approved': bool(config.auto_post_without_approval),
         }
@@ -402,16 +406,32 @@ class GroundliftKinoSocialIssue(models.Model):
             scheduled_key = SocialPost._gl_kino_find_selection_key('post_method', ['scheduled', 'schedule', 'later', 'schedule_later'])
             if scheduled_key:
                 vals['post_method'] = scheduled_key
+        # Route Storys only through a real, supported native Story field.
+        # Never silently publish a selected Story as a feed post.
+        native_story_vals = SocialPost._gl_kino_native_story_values(vals['gl_kino_publish_format'])
+        vals.update(native_story_vals)
+        story_requires_manual_handling = vals['gl_kino_publish_format'] == 'story' and not native_story_vals
+        if story_requires_manual_handling:
+            vals.update({'gl_kino_requires_approval': True, 'gl_kino_approved': False})
+            # Keep only the Kino-side intended date: native scheduler fields must not
+            # accidentally release a Story through Odoo's regular feed pipeline.
+            vals.pop('scheduled_date', None)
+            vals.pop('post_method', None)
         if attachment:
             for image_field in ['image_ids', 'attachment_ids', 'media_ids']:
                 if image_field in post_fields and getattr(post_fields[image_field], 'type', '') in ['many2many', 'one2many']:
                     vals[image_field] = [(6, 0, [attachment.id])]
                     break
         post = SocialPost.create(vals)
-        if config.auto_post_without_approval:
+        if config.auto_post_without_approval and not story_requires_manual_handling:
             post.action_gl_kino_approve_and_schedule()
         else:
             post._gl_kino_force_draft_if_possible()
+        if story_requires_manual_handling:
+            _logger.warning(
+                'Kino Social Story %s remains a draft: no native Story publishing field '
+                'found on social.post. No feed post was scheduled.', post.id,
+            )
         return post
 
     def _render_weekly_message(self, config, shows, summary):
