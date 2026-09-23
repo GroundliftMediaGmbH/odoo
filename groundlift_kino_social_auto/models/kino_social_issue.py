@@ -211,7 +211,9 @@ class GroundliftKinoSocialIssue(models.Model):
             'type': 'ir.actions.act_window',
             'name': 'Kino Social Posts: %s' % self.name,
             'res_model': 'social.post',
-            'view_mode': 'list,form,calendar',
+            'view_mode': 'list,form',
+            'views': [(self.env.ref('groundlift_kino_social_auto.view_gl_kino_social_post_list').id, 'list'),
+                      (self.env.ref('groundlift_kino_social_auto.view_gl_kino_social_post_form').id, 'form')],
             'domain': [('gl_kino_issue_id', '=', self.id)],
             'context': {'default_gl_kino_issue_id': self.id},
         }
@@ -285,6 +287,52 @@ class GroundliftKinoSocialIssue(models.Model):
         if created:
             self.message_post(body=_('%s Kino Social Post(s) erzeugt.') % len(created))
         return created
+
+    def _gl_kino_sync_this_weeks_unpublished_formats(self, config):
+        """Manual regenerate: correct only Kino-owned, not-yet-published entries.
+
+        The generator intentionally deduplicates an existing week. Therefore
+        clicking 'Diese Woche jetzt erzeugen' used to keep stale/default Story
+        fields even after the settings were changed. This corrects the shared
+        Event Social fields and Kino field without creating duplicate posts.
+        Cron runs do not retroactively modify earlier records.
+        """
+        self.ensure_one()
+        repaired = 0
+        for post in self.social_post_ids.sudo():
+            if not post.gl_kino_auto_generated or post.gl_kino_social_type not in ('weekly_program', 'daily_show'):
+                continue
+            # Never touch published/partly published posts or arbitrary social.post records.
+            if 'state' in post._fields and post.state not in ('draft', 'scheduled'):
+                continue
+            live_field = post._fields.get('live_post_ids')
+            if live_field and post.live_post_ids and any(
+                lp.state in ('posted', 'published', 'done', 'success')
+                for lp in post.live_post_ids if 'state' in lp._fields
+            ):
+                continue
+            target = (config.weekly_publish_format if post.gl_kino_social_type == 'weekly_program'
+                      else config.daily_publish_format) or 'post'
+            bridge = post._gl_kino_publication_bridge_values(target)
+            desired = {'gl_kino_publish_format': target, **bridge}
+            changes = {name: value for name, value in desired.items() if post[name] != value}
+            if not changes:
+                continue
+            unsupported_story = target == 'story' and not post._gl_kino_native_story_values('story')
+            if unsupported_story:
+                changes.update({'gl_kino_requires_approval': True, 'gl_kino_approved': False})
+                if 'scheduled_date' in post._fields:
+                    changes['scheduled_date'] = False
+                if 'state' in post._fields and post.state == 'scheduled':
+                    changes['state'] = 'draft'
+            else:
+                changes.update(post._gl_kino_native_story_values(target))
+            post.with_context(gl_kino_skip_approval_hook=True).write(changes)
+            if (not unsupported_story and post.gl_kino_approved
+                    and not post.gl_kino_requires_approval):
+                post._gl_kino_safe_schedule_without_publish()
+            repaired += 1
+        return repaired
 
     def _create_weekly_social_post(self, config, accounts, shows):
         self.ensure_one()
@@ -406,6 +454,9 @@ class GroundliftKinoSocialIssue(models.Model):
             scheduled_key = SocialPost._gl_kino_find_selection_key('post_method', ['scheduled', 'schedule', 'later', 'schedule_later'])
             if scheduled_key:
                 vals['post_method'] = scheduled_key
+        # Keep Event Social's visible Ziel-Format / Feed checkbox in sync.
+        # Otherwise its default='story' wins in the shared form and image checks.
+        vals.update(SocialPost._gl_kino_publication_bridge_values(vals['gl_kino_publish_format']))
         # Route Storys only through a real, supported native Story field.
         # Never silently publish a selected Story as a feed post.
         native_story_vals = SocialPost._gl_kino_native_story_values(vals['gl_kino_publish_format'])

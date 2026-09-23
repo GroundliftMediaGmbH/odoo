@@ -39,6 +39,28 @@ class SocialPost(models.Model):
             post.gl_kino_story_native_supported = supported
 
     @api.model
+    def _gl_kino_publication_bridge_values(self, publish_format):
+        """Mirror the Kino choice into the existing Groundlift Event Social display/route.
+
+        Event Social defines gl_publication_kind='story' by default on *every*
+        social.post, including Kino posts. Without explicitly passing its fields,
+        Kino's 'post' setting is invisible in the shared form and the other
+        addon's image formatter continues to treat the post as a Story.
+        This bridge is optional: Kino still works if Event Social isn't installed.
+        """
+        target_kind = 'feed' if publish_format == 'post' else 'story'
+        values = {}
+        kind_field = self._fields.get('gl_publication_kind')
+        if kind_field and kind_field.type == 'selection':
+            selection = kind_field.selection
+            if isinstance(selection, (list, tuple)) and target_kind in dict(selection):
+                values['gl_publication_kind'] = target_kind
+        feed_field = self._fields.get('gl_publish_as_feed_post')
+        if feed_field and feed_field.type == 'boolean':
+            values['gl_publish_as_feed_post'] = publish_format == 'post'
+        return values
+
+    @api.model
     def _gl_kino_native_story_values(self, publish_format):
         # Use a genuine Story field only if provided by the installed social addon.
         # Odoo 19 post_method means schedule/now, NOT Story/feed.

@@ -188,7 +188,13 @@ class GroundliftKinoSocialConfig(models.Model):
         self.ensure_one()
         issue = self.env['gl.kino.social.issue']._get_or_create_current_issue(config=self)
         created = issue.action_fetch_and_create_posts()
-        return self._notification('Kino Social Automation', '%s Social Post(s) erzeugt/geprüft.' % len(created), 'success' if created else 'warning')
+        corrected = issue._gl_kino_sync_this_weeks_unpublished_formats(self)
+        return self._notification(
+            'Kino Social Automation',
+            '%s neue Social Post(s); %s bestehende, unveröffentlichte Posts an die Formatvorgaben angepasst.'
+            % (len(created), corrected),
+            'success' if created or corrected else 'warning',
+        )
 
     def _get_social_accounts(self, raise_on_error=False):
         self.ensure_one()

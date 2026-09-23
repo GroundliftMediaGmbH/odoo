@@ -2,7 +2,7 @@
 {
     'name': 'Groundlift Kino Social Automation',
     'summary': 'Automatische Facebook-/Instagram-Posts für das Kino Alte Brauerei Stegen aus der Cinetixx API.',
-    'version': '19.0.1.1.0',
+    'version': '19.0.1.2.0',
     'category': 'Marketing/Social Marketing',
     'author': 'Groundlift / ChatGPT',
     'website': 'https://groundlift.de',
