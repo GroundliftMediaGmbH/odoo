@@ -30,6 +30,6 @@ class ResConfigSettings(models.TransientModel):
             "name": "Hintergrundmusik – Einrichtung",
             "res_model": "res.config.settings",
             "view_mode": "form",
-            "target": "inline",
+            "target": "current",
             "context": {"module": "gl_background_music"},
         }
