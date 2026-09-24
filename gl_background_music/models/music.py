@@ -144,10 +144,13 @@ class MusicPlayer(models.AbstractModel):
         if not name:
             raise UserError(_("Zielgerät nicht eingerichtet. Admin: Einrichtung → Gerätename."))
         matches = [d for d in self._devices() if d.get("id") and d.get("name", "").casefold() == name.casefold()]
-        if len(matches) == 0:
-            raise UserError(_("Musik-PC '%s' ist in Spotify Connect offline. Auf dem Windows-PC 'Musik reparieren' anklicken.") % name)
+        if not matches:
+            raise UserError(_("Spotify meldet das Zielgerät '%s' nicht. Der Windows-Wächter kann trotzdem online sein. Als Administrator im Player unter 'Spotify-Gerät auswählen' den tatsächlichen Spotify-Connect-Namen festlegen.") % name)
+        pinned_id = self._get("device_id")
         if len(matches) > 1:
-            raise UserError(_("Gerätename '%s' ist nicht eindeutig. Wiedergaberechner umbenennen.") % name)
+            matches = [d for d in matches if d["id"] == pinned_id]
+            if len(matches) != 1:
+                raise UserError(_("Spotify meldet mehrere Geräte namens '%s'. Bitte im Player das Zielgerät neu auswählen.") % name)
         if matches[0].get("is_restricted"):
             raise UserError(_("Spotify erlaubt keine Fernsteuerung dieses Wiedergabegeräts."))
         return matches[0]
@@ -166,6 +169,7 @@ class MusicPlayer(models.AbstractModel):
         return {"playlists": playlists, "connected": bool(self._get("refresh_token")),
                 "target_name": self._get("device_name"), "agent_online": online,
                 "agent_pc": self._get("agent_pc"),
+                "agent_running": self._get("agent_running") == "1",
                 "is_admin": self.env.user.has_group("base.group_system"),
                 "configured": bool(self._get("client_id") and self._get("client_secret") and self._get("redirect_uri"))}
 
@@ -176,8 +180,15 @@ class MusicPlayer(models.AbstractModel):
         details.pop("playlists", None)
         if not details["connected"]:
             return dict(details, playing=False, track="", artist="", volume=0,
-                        shuffle=False, repeat="off", progress_ms=0, duration_ms=0)
+                        shuffle=False, repeat="off", progress_ms=0, duration_ms=0,
+                        target_available=False, active_device="", target_active=False)
         data = self._spotify("GET", "/me/player", params={"additional_types": "track,episode"})
+        # The Windows agent's hostname is NOT a Spotify Connect device name.
+        # Include Connect availability even when Spotify reports no active playback (HTTP 204).
+        devices = self._devices() if details["target_name"] else []
+        matching = [d for d in devices if d.get("id") and d.get("name", "").casefold() == details["target_name"].casefold()]
+        pinned_id = self._get("device_id")
+        target_available = bool(len(matching) == 1 or (pinned_id and any(d.get("id") == pinned_id for d in matching)))
         item = data.get("item") or {}
         device = data.get("device") or {}
         images = (item.get("album") or {}).get("images") or []
@@ -188,7 +199,9 @@ class MusicPlayer(models.AbstractModel):
                     image=images[0].get("url", "") if images else "",
                     track_url=(item.get("external_urls") or {}).get("spotify", ""),
                     active_device=device.get("name", ""),
-                    target_active=bool(device.get("name", "").casefold() == details["target_name"].casefold() and details["target_name"]),
+                    target_available=target_available,
+                    target_active=bool(target_available and device.get("name", "").casefold() == details["target_name"].casefold()
+                                       and (len(matching) == 1 or device.get("id") == pinned_id)),
                     volume=device.get("volume_percent", 0),
                     shuffle=bool(data.get("shuffle_state")), repeat=data.get("repeat_state", "off"),
                     progress_ms=data.get("progress_ms") or 0, duration_ms=item.get("duration_ms") or 0,
@@ -198,16 +211,20 @@ class MusicPlayer(models.AbstractModel):
     def available_devices(self):
         self._assert_admin()
         return [{"id": d.get("id"), "name": d.get("name"), "type": d.get("type"),
-                 "active": d.get("is_active", False)} for d in self._devices() if d.get("id")]
+                 "active": d.get("is_active", False), "restricted": d.get("is_restricted", False)}
+                for d in self._devices() if d.get("id")]
 
     @api.model
-    def set_target(self, name):
+    def set_target(self, device_id):
         self._assert_admin()
-        device = [d for d in self._devices() if d.get("name") == name]
-        if len(device) != 1:
-            raise UserError(_("Gerät nicht verfügbar oder Name mehrfach vorhanden."))
-        self._set("device_name", name)
-        return True
+        # Selection by the actual ID in the displayed list; name alone may be
+        # truncated by Spotify or collide with a different computer/phone.
+        device = [d for d in self._devices() if d.get("id") == device_id]
+        if len(device) != 1 or device[0].get("is_restricted"):
+            raise UserError(_("Dieses Spotify-Gerät ist nicht verfügbar oder nicht fernsteuerbar. Liste aktualisieren."))
+        self._set("device_name", device[0]["name"])
+        self._set("device_id", device_id)
+        return device[0]["name"]
 
     @api.model
     def owned_playlists(self):

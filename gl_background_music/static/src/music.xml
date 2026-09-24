@@ -15,16 +15,36 @@
         <div class="gl-status">
           <span t-att-class="'gl-dot ' + (state.agent_online ? 'on' : 'off')"/> Windows-Wächter: <strong t-esc="state.agent_online ? 'verbunden' : 'nicht erreichbar'"/>
           <span class="gl-sep">·</span> Spotify: <strong t-esc="state.connected ? 'verbunden' : 'nicht verbunden'"/>
-          <span class="gl-sep">·</span> Musikgerät: <strong t-esc="state.target_name || 'nicht festgelegt'"/>
+          <span class="gl-sep">·</span> Windows-PC: <strong t-esc="state.agent_pc || 'unbekannt'"/>
+          <span class="gl-sep">·</span> Spotify am Windows-PC: <strong t-esc="state.agent_running ? 'gestartet' : 'nicht gestartet / nicht gemeldet'"/>
+          <span class="gl-sep">·</span> Spotify-Zielgerät: <strong t-esc="state.target_name || 'nicht festgelegt'"/>
         </div>
         <div t-if="!state.configured || !state.connected || !state.target_name" class="gl-warning">
           <strong>Einrichtung noch nicht abgeschlossen.</strong> Spotify-App-Zugang, Spotify-Verbindung und Wiedergabegerät müssen von einem Administrator eingerichtet werden.
           <button t-if="state.is_admin" class="gl-secondary" t-on-click="openSettings">Einstellungen</button>
           <button t-if="state.is_admin &amp;&amp; state.configured &amp;&amp; !state.connected" class="gl-primary" t-on-click="connect">Mit Spotify verbinden</button>
         </div>
-        <div t-if="state.target_name &amp;&amp; state.active_device &amp;&amp; !state.target_active" class="gl-warning">
-          Spotify spielt momentan auf <b t-esc="state.active_device"/> statt auf dem Zielgerät. Alle neuen Befehle bleiben dennoch ausdrücklich auf den Musik-PC beschränkt.
+        <div t-if="state.connected &amp;&amp; state.target_name &amp;&amp; !state.target_available" class="gl-warning">
+          <strong>Spotify-Zielgerät nicht gefunden.</strong>
+          Der Windows-Wächter ist unabhängig von Spotify Connect. Der gespeicherte Gerätename <b t-esc="state.target_name"/> stimmt nicht mit einem aktuell gemeldeten Spotify-Gerät überein.
+          <button t-if="state.is_admin" class="gl-primary" t-on-click="loadDevices">Spotify-Gerät auswählen ↓</button>
+          <span t-if="!state.is_admin">Bitte einen Administrator das Spotify-Gerät im Player auswählen lassen.</span>
         </div>
+        <div t-if="state.target_available &amp;&amp; state.active_device &amp;&amp; !state.target_active" class="gl-warning">
+          Spotify spielt momentan auf <b t-esc="state.active_device"/> statt auf <b t-esc="state.target_name"/>. Ein Playlist-Start adressiert ausschließlich das gespeicherte Zielgerät.
+        </div>
+        <section t-if="state.is_admin" class="gl-panel gl-device-picker" id="gl-music-device-picker">
+          <div class="gl-section-header"><div><div class="gl-section-label">EINRICHTUNG · SPOTIFY CONNECT</div><h3>Spotify-Gerät auswählen</h3></div><button class="gl-secondary" t-on-click="loadDevices">↻ Geräte suchen</button></div>
+          <div class="gl-device-help">Windows-Rechner <strong t-esc="state.agent_pc || 'unbekannt'"/> (Wächter) und Spotify-Gerätename sind nicht zwingend identisch. Wähle unten genau den Spotify-Player auf diesem PC. Keine automatische Umschaltung auf andere Geräte.</div>
+          <div t-if="!state.showDevices" class="gl-muted">„Geräte suchen“ zeigt die Spotify-Connect-Geräte an.</div>
+          <div t-if="state.showDevices" class="gl-list">
+            <div t-if="!state.devices.length" class="gl-muted">Spotify zeigt gerade kein verfügbares Gerät. Auf dem Windows-PC Spotify öffnen und einen Titel kurz direkt abspielen, dann hier erneut suchen.</div>
+            <div t-foreach="state.devices" t-as="d" t-key="d.id" class="gl-list-row">
+              <div><strong t-esc="d.name"/> · <span t-esc="d.type"/><small t-if="d.active">Spotify: aktuell aktiv</small><small t-if="d.restricted">Nicht fernsteuerbar</small></div>
+              <button class="gl-primary" t-on-click="() => this.setTarget(d)" t-att-disabled="state.busy || d.restricted">Als Musik-PC festlegen</button>
+            </div>
+          </div>
+        </section>
         <div class="gl-columns">
           <section class="gl-panel gl-player">
             <div class="gl-section-label">JETZT LÄUFT</div>
@@ -37,17 +57,17 @@
               </div>
             </div>
             <div class="gl-progress">
-              <input type="range" min="0" t-att-max="state.duration_ms || 1" t-model.number="state.progressInput" t-on-change="() => this.run('seek', state.progressInput)" t-att-disabled="state.busy || !state.duration_ms"/>
+              <input type="range" min="0" t-att-max="state.duration_ms || 1" t-model.number="state.progressInput" t-on-change="() => this.run('seek', state.progressInput)" t-att-disabled="state.busy || !state.target_available || !state.duration_ms"/>
               <div class="gl-time" t-esc="timeLabel"/>
             </div>
             <div class="gl-transport">
-              <button t-att-class="state.shuffle ? 'gl-toggle selected' : 'gl-toggle'" t-on-click="() => this.run('shuffle', !state.shuffle)" t-att-disabled="state.busy" title="Zufall">⇄</button>
-              <button t-on-click="() => this.run('previous')" t-att-disabled="state.busy" title="Vorheriger Titel">|◀</button>
-              <button class="gl-play" t-on-click="() => this.run(state.playing &amp;&amp; state.target_active ? 'pause' : 'play')" t-att-disabled="state.busy" t-att-title="state.playing ? 'Pause / Fortsetzen' : 'Wiedergabe'" t-esc="state.playing &amp;&amp; state.target_active ? 'Ⅱ' : '▶'"/>
-              <button t-on-click="() => this.run('next')" t-att-disabled="state.busy" title="Nächster Titel">▶|</button>
-              <button t-att-class="state.repeat !== 'off' ? 'gl-toggle selected' : 'gl-toggle'" t-on-click="() => this.run('repeat', state.repeat === 'off' ? 'context' : state.repeat === 'context' ? 'track' : 'off')" t-att-disabled="state.busy" t-att-title="repeatLabel">↻</button>
+              <button t-att-class="state.shuffle ? 'gl-toggle selected' : 'gl-toggle'" t-on-click="() => this.run('shuffle', !state.shuffle)" t-att-disabled="state.busy || !state.target_available" title="Zufall">⇄</button>
+              <button t-on-click="() => this.run('previous')" t-att-disabled="state.busy || !state.target_available" title="Vorheriger Titel">|◀</button>
+              <button class="gl-play" t-on-click="() => this.run(state.playing &amp;&amp; state.target_active ? 'pause' : 'play')" t-att-disabled="state.busy || !state.target_available" t-att-title="state.playing ? 'Pause / Fortsetzen' : 'Wiedergabe'" t-esc="state.playing &amp;&amp; state.target_active ? 'Ⅱ' : '▶'"/>
+              <button t-on-click="() => this.run('next')" t-att-disabled="state.busy || !state.target_available" title="Nächster Titel">▶|</button>
+              <button t-att-class="state.repeat !== 'off' ? 'gl-toggle selected' : 'gl-toggle'" t-on-click="() => this.run('repeat', state.repeat === 'off' ? 'context' : state.repeat === 'context' ? 'track' : 'off')" t-att-disabled="state.busy || !state.target_available" t-att-title="repeatLabel">↻</button>
             </div>
-            <div class="gl-volume"><span>🔉 Lautstärke am Musik-PC</span><input type="range" min="0" max="100" t-model.number="state.volumeInput" t-on-change="() => this.run('volume', state.volumeInput)" t-att-disabled="state.busy"/><strong t-esc="state.volumeInput + '%'"/></div>
+            <div class="gl-volume"><span>🔉 Lautstärke am Musik-PC</span><input type="range" min="0" max="100" t-model.number="state.volumeInput" t-on-change="() => this.run('volume', state.volumeInput)" t-att-disabled="state.busy || !state.target_available"/><strong t-esc="state.volumeInput + '%'"/></div>
             <div class="gl-repair"><button class="gl-secondary" t-on-click="startWindows">Spotify auf Windows öffnen</button><span>Wenn der PC nicht verbunden ist: vor Ort auf „Musik reparieren“ klicken.</span></div>
           </section>
           <section class="gl-panel gl-playlists">
@@ -56,7 +76,7 @@
             <div class="gl-list">
               <div t-foreach="state.playlists" t-as="p" t-key="p.id" class="gl-list-row">
                 <div><strong t-esc="p.name"/><small>Gespeicherte Playlist</small></div>
-                <button class="gl-primary" t-on-click="() => this.playPlaylist(p.url)" t-att-disabled="state.busy">▶ Abspielen</button>
+                <button class="gl-primary" t-on-click="() => this.playPlaylist(p.url)" t-att-disabled="state.busy || !state.target_available">▶ Abspielen</button>
               </div>
             </div>
             <form class="gl-add" t-on-submit="savePlaylist"><h3>Playlist-Link hinzufügen</h3>
@@ -67,19 +87,14 @@
             <div class="gl-owned"><button class="gl-secondary" t-on-click="loadOwned">Meine Spotify-Playlists laden</button>
               <div t-if="state.showOwned" class="gl-list"><div t-if="!state.owned.length" class="gl-muted">Keine Playlists gefunden.</div>
                 <div t-foreach="state.owned" t-as="p" t-key="p.url" class="gl-list-row">
-                  <div><strong t-esc="p.name"/></div><button class="gl-primary" t-on-click="() => this.playPlaylist(p.url)" t-att-disabled="state.busy">▶</button>
+                  <div><strong t-esc="p.name"/></div><button class="gl-primary" t-on-click="() => this.playPlaylist(p.url)" t-att-disabled="state.busy || !state.target_available">▶</button>
                   <button class="gl-secondary" t-on-click="() => { state.playlistName = p.name; state.playlistUrl = p.url; }">Merken</button>
                 </div></div>
             </div>
           </section>
         </div>
         <section t-if="state.embedUrl" class="gl-panel gl-embed"><div class="gl-section-label">SPOTIFY-EINBETTUNG · TITELLISTE</div><p>Die eingebettete Vorschau gehört zum aktuellen Browser; mit „Abspielen“ oben wird der Windows-PC gesteuert.</p><iframe t-att-src="state.embedUrl" title="Spotify Playlist" loading="lazy" allow="encrypted-media; fullscreen" referrerpolicy="strict-origin-when-cross-origin"/></section>
-        <section t-if="state.is_admin" class="gl-panel gl-admin"><div class="gl-section-header"><h2>Admin · Spotify-Gerät auswählen</h2><button class="gl-secondary" t-on-click="loadDevices">Verfügbare Geräte suchen</button></div>
-          <div t-if="state.showDevices"><div t-if="!state.devices.length" class="gl-muted">Spotify am Musik-PC öffnen und kurz wiedergeben, dann neu suchen.</div>
-            <div t-foreach="state.devices" t-as="d" t-key="d.id" class="gl-list-row"><div><strong t-esc="d.name"/> · <span t-esc="d.type"/> <small t-if="d.active">(gerade aktiv)</small></div><button class="gl-primary" t-on-click="() => this.setTarget(d.name)">Als Musik-PC festlegen</button></div>
-          </div>
-          <button class="gl-secondary" t-on-click="connect">Spotify-Konto neu verbinden</button>
-        </section>
+        <section t-if="state.is_admin" class="gl-panel gl-admin"><button class="gl-secondary" t-on-click="connect">Spotify-Konto neu verbinden</button></section>
         <div class="gl-legal">Nur für rechtlich zulässige, nicht-kommerzielle Spotify-Nutzung. Spotify Premium ist keine Lizenz für öffentliche Hintergrundmusik in einem Betrieb.</div>
       </t>
     </div>

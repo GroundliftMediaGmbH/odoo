@@ -12,7 +12,7 @@ export class GroundliftMusic extends Component {
         this.notification = useService("notification");
         this.state = useState({
             ready: false, busy: false, is_admin: false, connected: false,
-            configured: false, agent_online: false, agent_pc: "", target_name: "",
+            configured: false, agent_online: false, agent_running: false, agent_pc: "", target_name: "", target_available: false,
             active_device: "", target_active: false, playing: false, track: "", artist: "",
             image: "", track_url: "", volume: 40, volumeInput: 40, shuffle: false,
             repeat: "off", progress_ms: 0, duration_ms: 0, progressInput: 0,
@@ -20,6 +20,8 @@ export class GroundliftMusic extends Component {
             playlistName: "", playlistUrl: "", embedUrl: "", currentUrl: "",
         });
         this.timer = null;
+        this.lastErrorMessage = "";
+        this.lastErrorAt = 0;
         onMounted(async () => {
             await this.initialize();
             this.timer = setInterval(() => this.refresh(false), 30000);
@@ -33,7 +35,12 @@ export class GroundliftMusic extends Component {
         return error?.data?.message || error?.data?.arguments?.[0] || error?.message || "Aktion fehlgeschlagen";
     }
     alert(error) {
-        this.notification.add(this.message(error), { type: "danger", sticky: true });
+        const message = this.message(error);
+        // Prevent several identical sticky errors obscuring the device selector.
+        if (message === this.lastErrorMessage && Date.now() - this.lastErrorAt < 8000) return;
+        this.lastErrorMessage = message;
+        this.lastErrorAt = Date.now();
+        this.notification.add(message, { type: "danger" });
     }
     async initialize() {
         try {
@@ -41,6 +48,9 @@ export class GroundliftMusic extends Component {
             Object.assign(this.state, data);
             this.state.ready = true;
             if (data.connected) await this.refresh(false);
+            if (this.state.is_admin && this.state.connected && !this.state.target_available) {
+                await this.loadDevices();
+            }
         } catch (error) {
             this.state.ready = true;
             this.alert(error);
@@ -107,17 +117,23 @@ export class GroundliftMusic extends Component {
         } catch (error) { this.alert(error); }
     }
     async loadDevices() {
+        this.state.showDevices = true;
         try {
             this.state.devices = await this.orm.call("gl.music.player", "available_devices", []);
-            this.state.showDevices = true;
         } catch (error) { this.alert(error); }
     }
-    async setTarget(name) {
+    async setTarget(device) {
+        if (!device || !device.id || device.restricted) return;
+        if (this.state.busy) return;
+        this.state.busy = true;
         try {
-            await this.orm.call("gl.music.player", "set_target", [name]);
-            this.state.target_name = name;
-            this.notification.add(`Musik-PC festgelegt: ${name}`, { type: "success" });
+            const actualName = await this.orm.call("gl.music.player", "set_target", [device.id]);
+            this.state.target_name = actualName;
+            this.notification.add(`Spotify-Zielgerät festgelegt: ${actualName}`, { type: "success" });
         } catch (error) { this.alert(error); }
+        finally { this.state.busy = false; }
+        await this.refresh(false);
+        await this.loadDevices();
     }
     async startWindows() {
         try {
