@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_event_form_gl_landingpage_html" model="ir.ui.view">
+        <field name="name">event.event.form.gl.landingpage.html</field>
+        <field name="model">event.event</field>
+        <field name="inherit_id" ref="event.view_event_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page name="gl_landingpage_html_page" string="Landingpage HTML">
+                    <group>
+                        <div colspan="2" class="text-muted">
+                            Der vorhandene Text wird bei der Installation übernommen. Änderungen
+                            an HTML werden als Klartext ins bisherige Feld zurückgeschrieben.
+                            Änderungen am bisherigen Text aktualisieren die HTML-Fassung.
+                        </div>
+                        <button name="action_gl_copy_plain_to_html"
+                                type="object" string="Bestehenden Text übernehmen (nur wenn HTML leer)"
+                                class="btn-secondary"/>
+                        <field name="gl_landingpage_html" widget="html" nolabel="1" colspan="2"
+                               placeholder="Hier lässt sich die Eventbeschreibung formatieren ..."/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

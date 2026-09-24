@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Odoo 19 standard event landing page. The t-field attribute makes this
+         an inline-editable model field in the standard Odoo website editor. -->
+    <template id="gl_landingpage_event_description_html"
+              name="Landingpage HTML event description"
+              inherit_id="website_event.event_description_full"
+              priority="30">
+        <xpath expr="//div[@t-field='event.description']" position="replace">
+            <div t-if="event.gl_landingpage_html or editable"
+                 class="mt-4 gl_landingpage_html"
+                 t-field="event.gl_landingpage_html"
+                 itemprop="description"
+                 placeholder="Eventbeschreibung bearbeiten ..."/>
+            <div t-else="" class="mt-4" t-field="event.description" itemprop="description"/>
+        </xpath>
+    </template>
+</odoo>
