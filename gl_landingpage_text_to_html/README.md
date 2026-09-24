@@ -1,127 +1,93 @@
-# Landingpage Text_to_HTML — Odoo 19 SH (Fix 19.0.1.1.0)
+# Landingpage Text_to_HTML — Groundlift / Odoo 19 SH
 
-## Was in Version 1.1 behoben ist
+## Fix 19.0.1.2.0: Fett-/Link-Formatierung von Backend zur Odoo-Eventseite
 
-In Version 1 war das neue `gl_landingpage_html` nur an **eine**
-Standard-Odoo-Vorlage gebunden. Andere Odoo-Eventansichten zeigen oft das
-native Feld `event.event.description`, und eine unabhängig gehostete
-Groundlift-PHP-Website verwendet ihre eigene Ausgabe. Deshalb wurde HTML im
-Backend gespeichert, ohne überall auf der Website sichtbar zu werden.
+Fehler in 1.1: Die Synchronisierung zur **nativen** Odoo-Webseitenbeschreibung
+`event.event.description` wurde zusammen mit dem optionalen Studio-Klartextfeld
+vollständig übersprungen, sobald dessen technischer Name nicht eindeutig erkannt
+wurde. Zudem verhinderte eine strikte Textvergleichslogik bei unterschiedlichen
+HTML-Absatzformaten das erstmalige automatische Verknüpfen.
 
-Version 1.1 verbindet `gl_landingpage_html` zusätzlich mit der nativen
-Odoo-Webseitenbeschreibung `event.event.description` und synchronisiert
-Website-Editor-Änderungen zurück. Das ursprüngliche Studio-Textfeld bleibt
-unverändert erhalten (selber technischer Name, Typ `text`). Ein API-Endpunkt
-stellt die formatierte HTML-Beschreibung einer **veröffentlichten** Veranstaltung
-für die externe PHP-Website bereit. Die PHP-Datei muss diesen Endpunkt explizit
-verwenden; das kann ein Odoo-Modul allein nicht automatisch tun.
+Die Version 1.2 koppelt das bestehende Rich-Text-Feld
+`event.event.gl_landingpage_html` mit dem nativen HTML-Feld
+`event.event.description` **unabhängig davon**, ob das Studio-Quellfeld erkannt
+wird. Bei einem reinen Fettschrift-Wechsel wird weiterhin das HTML mit
+`<strong>...</strong>` übernommen. Das alte Studio-Feld wird weder umbenannt
+noch im Datentyp geändert. Bestehende HTML-Formatierungen bleiben beim Upgrade
+erhalten.
 
-## Installation / UPDATE (nicht erneut als neues Modul installieren)
+Wenn sich die bisherige native Webseitenbeschreibung INHALTLICH vom
+Groundlift-HTML unterscheidet, wird sie aus Sicherheitsgründen nicht
+automatisch überschrieben. In der Veranstaltung im Reiter **Landingpage HTML**
+steht dafür nun immer (sofern HTML vorhanden) die Aktion
+**„HTML jetzt auf Odoo-Webseite übernehmen“** bereit. Die vorherige native
+Beschreibung wird vor dem ersten Ersetzen für Administratoren gesichert.
 
-1. Den ganzen bestehenden Ordner `gl_landingpage_text_to_html` in GitHub durch
-   den gleichnamigen Ordner aus diesem ZIP ersetzen. Er muss im Addons-Suchpfad
-   liegen; **nicht** beide Versionen gleichzeitig ablegen.
-2. Änderungen zuerst in den Odoo.sh-Staging-Branch pushen und Build abwarten.
-3. **Apps → App-Liste aktualisieren → Landingpage Text_to_HTML → Upgrade/Aktualisieren.**
-   Push/Server-Neustart allein führt die XML- und Daten-Migration nicht aus.
-4. Version `19.0.1.1.0` im Modul bestätigen.
-5. Event-Formular → `Landingpage HTML` öffnen, fett und Link testen. Auf der
-   **Odoo-gehosteten** `/event/...`-Seite auf `Bearbeiten` klicken, im Textbereich
-   formatieren, speichern, Backend gegenprüfen.
+### Installation
 
-Die Upgrade-Migration übernimmt bereits vorhandenes HTML und verknüpft die
-native Odoo-Beschreibung **nur**, wenn sie leer oder textlich identisch ist.
-Unabhängige vorhandene native Odoo-Beschreibungen werden NICHT überschrieben.
-In solchen Fällen steht im Reiter ein Button zum bewussten Sichern und Ersetzen.
+1. Das **vollständige Verzeichnis** `gl_landingpage_text_to_html` aus dem ZIP
+   über das bestehende Verzeichnis im GitHub-Repository kopieren.
+2. Staging-Branch pushen und grünen Odoo.sh-Build abwarten.
+3. Odoo: Apps → App-Liste aktualisieren → **Landingpage Text_to_HTML** →
+   **Aktualisieren (Upgrade)**. Ein bloßer Git-Push lädt die XML-/Migrationsdaten
+   nicht notwendigerweise neu.
+4. Veranstaltung Nr. **60** im Backend öffnen → Reiter **Landingpage HTML**.
+   Die Zeichenfolge `Charmante Erzählkunst, die berührt` muss im HTML-Feld
+   tatsächlich fett formatiert sein. **Website-Status** kontrollieren.
+5. Wenn der Status nicht „HTML und native Odoo-Webseitenbeschreibung sind
+   identisch“ lautet: den Button **HTML jetzt auf Odoo-Webseite übernehmen**
+   drücken. Der Button ist absichtlich AUCH bei bereits „verbundenen“
+   Datensätzen verfügbar, um auseinander gelaufene Inhalte reparieren zu können.
+6. Mit **Zur Website** die wirkliche Odoo-Eventseite öffnen, Browser neu laden
+   (bei Bedarf Strg+F5) und prüfen. Die Backend-URL
+   `/odoo/events/60/website` ist nicht zwingend die öffentlich gerenderte
+   Veranstaltungsvorlage.
+7. Website → **Bearbeiten** → markierten Text fett formatieren → **Speichern**;
+   danach im Backend prüfen, ob die Änderung im HTML-Feld übernommen wurde.
 
-## Synchronisierungsregel
+### Kontrollstelle für die native Odoo-Webseitenbeschreibung
 
-* HTML-Feld geändert → altes Studio-Textfeld erhält Klartext; die native
-  Webseitenbeschreibung erhält HTML, wenn verbunden.
-* Altes Studio-Textfeld geändert → HTML-Fassung wird aus Klartext neu gebaut.
-  Bereits hinzugefügte Formatierungen gehen dabei bewusst verloren.
-* Native Odoo-Webseitenbeschreibung **direkt auf der Website** geändert →
-  HTML-Fassung und Klartext werden aktualisiert, sofern verbunden.
-* Ist eine vorhandene native Beschreibung **anders**, bleibt sie zunächst
-  unabhängig. Im Reiter `Landingpage HTML` kann sie gesichert und ausdrücklich
-  durch den formatierten Text ersetzt werden. Die Sicherung steht Administratoren
-  dort zur Verfügung.
+Im technischen Feld `event.event.description` steht nach dem Abgleich
+beispielsweise:
 
-**Achtung:** Die native `event.description` ist ein vorhandenes Odoo-Feld;
-dieses Modul ändert seine Inhalte, wenn es verbunden ist. Ein Staging-Backup
-vor dem Upgrade ist wichtig.
-
-## Altes Textfeld erkennen
-
-Wie in Version 1: Systemparameter
-`gl_landingpage_text_to_html.source_field` = technischer Feldname des bereits
-vorhandenen **event.event**-Textfeldes (z. B. `x_studio_...`). Es wird nur
-getextet/geschrieben, niemals umbenannt oder umdefiniert. Ohne eindeutiges
-Feld bleibt die Synchronisation deaktiviert, statt ein fremdes Feld zu ändern.
-
-## Welche Website ist gemeint?
-
-### A. Odoo-gehostete `/event/...`-Seite
-
-Hier funktioniert das Odoo-Website-Frontend mit einem `t-field` und dem
-nativen HTML-Feld `event.description` nach Upgrade und erfolgreicher Verknüpfung.
-Andere individuell abgeänderte QWeb-Ansichten können zusätzliche Anpassungen
-brauchen, wenn sie weiterhin das alte Studio-Textfeld explizit ausgeben.
-
-### B. `groundlift.de` (PHP / anderer Webserver)
-
-**Nicht mit dem Odoo Website-Editor auf der PHP-Seite bearbeitbar.** Die
-Bearbeitung findet im Odoo-Backend oder auf der Odoo-gehosteten Eventseite
-statt. Die Darstellung auf `groundlift.de` muss aus HTML gespeist werden;
-dafür stellt dieses Modul einen öffentlichen, auf veröffentlichte Events
-beschränkten Fragment-Endpunkt bereit:
-
-    https://DEINE-ODOO-DOMAIN/gl/landingpage/event/60/description.html
-
-Er liefert *nur HTML*, keine ganze Seite. Unveröffentlichte Events → 404.
-
-PHP-Beispiel für eine eigene Event-Detailseite (nur als Vorlage, NICHT
-automatisch in die vorhandene Groundlift-Datei integriert):
-
-```php
-<?php
-$odooId = (int) $event['odoo_id']; // Feldname an eure Datenstruktur anpassen
-$url = 'https://DEINE-ODOO-DOMAIN/gl/landingpage/event/' . $odooId . '/description.html';
-$curl = curl_init($url);
-curl_setopt_array($curl, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_TIMEOUT => 5,
-    CURLOPT_CONNECTTIMEOUT => 2,
-]);
-$html = curl_exec($curl);
-$status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-curl_close($curl);
-if ($status === 200 && $html !== false) {
-    // Die Antwort ist Odoo-sanitisiertes HTML; NICHT htmlspecialchars($html).
-    echo '<div class="event-description">' . $html . '</div>';
-} else {
-    // Bestehendes Verhalten bei Netzwerk-/API-Fehlern beibehalten.
-    echo nl2br(htmlspecialchars($event['description'] ?? '', ENT_QUOTES, 'UTF-8'));
-}
-?>
+```html
+<p><strong>Charmante Erzählkunst, die berührt</strong></p>
 ```
 
-Eine bestehende PHP-Seite muss im Original geprüft werden, um ihren
-Event-ID-Abgleich, Caching und Fallback korrekt zu berücksichtigen.
-Insbesondere funktioniert dies nicht, wenn PHP den HTML-Fragmente-Text
-nachträglich mit `htmlspecialchars()` oder `strip_tags()` entformatiert.
+Die Ausgabe als HTML in der Standard-Eventvorlage erfolgt über `t-field`.
+Sichtbares `&lt;strong&gt;` würde auf einen separaten Renderer hinweisen, der HTML
+nochmals escaped. Fehlt `<strong>` im Seitenquelltext vollständig, verwendet
+die konkrete Seite höchstwahrscheinlich ein anderes Feld oder ein überschreibendes
+QWeb-/Studio-Template.
 
-## Abnahme auf Staging
+### Grenzen / wenn die Seite nach dem Upgrade weiterhin keine Fettung zeigt
 
-1. Bekanntes Event mit Quelltext/HTML öffnen; Fettschrift/Link im HTML-Feld
-   speichern. Das ursprüngliche Klartextfeld enthält weiter nur Text.
-2. Prüfen: `Mit Odoo-Webseitenbeschreibung verbunden` ist aktiv; andernfalls
-   den unabhängigen nativen Inhalt prüfen und bei Bedarf *bewusst* ersetzen.
-3. Odoo-Eventseite anzeigen; Fett und Link werden dargestellt.
-4. Auf der **Odoo-Eventseite** `Bearbeiten` → Text bearbeiten → speichern; das
-   Backend-HTML spiegelt die Änderung.
-5. Falls `groundlift.de` verwendet wird: Fragment-URL zuerst im Browser
-   testen; danach den PHP-Renderer ergänzen und erneut testen.
-6. Eine zweite Veranstaltung und unveröffentlichte Veranstaltung testen.
+Der genannte Odoo.sh-Link ist ein **anmeldepflichtiger Backend-Link** und kann
+von außen nicht untersucht werden. Die Modulansicht erbt die Standardvorlage
+`website_event.event_description_full`. Wurde die betroffene Detailseite
+bei Groundlift in einer **eigenen Website-/Studio-Ansicht** umgesetzt, die
+weiterhin `x_studio_…` (Klartext) statt `event.description` oder
+`event.gl_landingpage_html` rendert, kann dieses Modul deren individuelle
+XPath-Position nicht verlässlich erraten. In diesem Fall ist der **XML-Quelltext
+der aktiven Website-Ansicht** erforderlich; bitte keinesfalls eine automatische
+Manipulation aller gerenderten Seiten per JavaScript als Ersatz einsetzen.
 
-Nicht live auf Production ohne Freigabe aus Staging ausrollen.
+Die externe, PHP-gehostete Seite `groundlift.de` ist davon zu unterscheiden:
+Ihr PHP-Template muss weiterhin bewusst den HTML-Endpunkt aus diesem Modul
+aufrufen; ein Odoo-Modul kann keine externe PHP-Datei überschreiben.
+
+### Weitere technische Details
+
+- Zwei Eingänge: HTML im Backend und direkt die native Beschreibung im
+  Odoo-Webeditor. Das bestehende Studio-Textfeld bleibt als Klartext erhalten.
+- Änderung des alten Studio-Feldes: erzeugt wie bisher HTML aus Klartext neu;
+  bestehende Formatierung kann durch diese **ausdrückliche** Bearbeitung verloren
+  gehen.
+- Quellfeld ist nicht eindeutig: Website-HTML-Sync arbeitet trotzdem, nur
+  Rückschreiben des Klartextes bleibt deaktiviert (fail closed).
+- Der Migrationslauf 19.0.1.2.0 füllt **nur leere** Rich-Text-Felder aus Klartext
+  und verknüpft native Website-Felder nur bei Leere oder Textgleichheit.
+- Es gibt keinen Eingriff in bestehende andere Event-Apps oder den technischen
+  Namen bzw. Datentyp des Studio-Feldes.
+- Weitere Endpunkt- und Sicherungsdetails stehen im Vorgängermodul 1.1;
+  Controller und Sicherungsfeld bleiben in dieser ZIP vollständig erhalten.

@@ -20,13 +20,14 @@
                         <field name="gl_landingpage_html" widget="html" nolabel="1" colspan="2"
                                placeholder="Hier lässt sich die Eventbeschreibung formatieren ..."/>
                         <field name="gl_landingpage_native_linked" readonly="1"/>
+                        <field name="gl_landingpage_website_status" readonly="1"/>
                         <button name="action_gl_sync_native_if_safe" type="object"
                                 string="Mit Odoo-Webseite verbinden (ohne bestehende Inhalte zu überschreiben)"
                                 class="btn-secondary"/>
                         <button name="action_gl_force_native_link" type="object"
-                                string="Vorhandene Odoo-Webseitenbeschreibung sichern und ersetzen"
+                                string="HTML jetzt auf Odoo-Webseite übernehmen"
                                 class="btn-secondary" confirm="Die bisherige native Odoo-Eventbeschreibung wird gesichert und durch Landingpage HTML ersetzt. Fortfahren?"
-                                invisible="gl_landingpage_native_linked"/>
+                                invisible="not gl_landingpage_html"/>
                         <field name="gl_landingpage_native_backup" widget="html" readonly="1"
                                groups="base.group_system" invisible="not gl_landingpage_native_backup"/>
                     </group>
