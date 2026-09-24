@@ -240,6 +240,42 @@ class MusicPlayer(models.AbstractModel):
         return items
 
     @api.model
+    def search_playlists(self, query, offset=0):
+        """Find public Spotify playlists, also those not in our own library.
+
+        Keep search on explicit user action, with bounded result pages and input.
+        Spotify development-mode search permits only 10 hits per request.
+        """
+        self._assert_user()
+        if not isinstance(query, str):
+            raise UserError(_("Bitte einen Suchbegriff eingeben."))
+        query = query.strip()
+        if len(query) < 2 or len(query) > 100:
+            raise UserError(_("Suchbegriff muss 2 bis 100 Zeichen lang sein."))
+        try:
+            offset = int(offset)
+        except (TypeError, ValueError) as exc:
+            raise UserError(_("Ungültige Ergebnisseite.")) from exc
+        if offset < 0 or offset > 90 or offset % 10:
+            raise UserError(_("Ungültige Ergebnisseite."))
+        page = self._spotify("GET", "/search", params={
+            "q": query, "type": "playlist", "limit": 10, "offset": offset,
+        }).get("playlists") or {}
+        results = []
+        for item in page.get("items") or []:
+            if not isinstance(item, dict) or not PLAYLIST_ID.fullmatch(item.get("id") or ""):
+                continue
+            images = item.get("images") or []
+            results.append({
+                "id": item["id"],
+                "name": item.get("name") or "Playlist",
+                "owner": (item.get("owner") or {}).get("display_name") or "",
+                "image": images[0].get("url", "") if images else "",
+                "url": "https://open.spotify.com/playlist/" + item["id"],
+            })
+        return {"items": results, "next_offset": offset + 10 if page.get("next") and offset < 90 else None}
+
+    @api.model
     def play_playlist(self, url):
         self._assert_user()
         try:

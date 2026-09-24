@@ -45,3 +45,11 @@
 .gl-device-picker .gl-list-row .gl-primary{white-space:normal;max-width:100%;}
 .gl-device-picker .gl-device-help{color:#aebccd;margin:8px 0 14px;line-height:1.5;}
 .gl-music-root .gl-primary[disabled]{opacity:.45;}
+
+.gl-progress-hint {margin-top:6px;font-size:11px;text-align:right;}
+.gl-search{border-top:1px solid #343c48;margin-top:18px;padding-top:18px;}
+.gl-search-form{display:flex;gap:9px;align-items:stretch;margin-bottom:14px;}
+.gl-search-form input{min-width:0;flex:1;}
+.gl-result-row{flex-wrap:wrap;}
+.gl-result-cover{width:46px;height:46px;flex:0 0 46px;border-radius:7px;object-fit:cover;}
+@media(max-width:550px){.gl-search-form{flex-wrap:wrap;}.gl-search-form button{width:100%;}}

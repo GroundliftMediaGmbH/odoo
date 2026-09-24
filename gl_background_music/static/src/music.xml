@@ -7,6 +7,7 @@
         <div><div class="gl-kicker">GROUNDLIFT · AUDIO</div><h1>Hintergrundmusik</h1><div class="gl-subtitle">Die Musik läuft auf dem festgelegten Windows-PC, nicht in diesem Browser.</div></div>
         <div class="gl-header-actions">
           <button class="gl-secondary" t-on-click="() => this.refresh()">↻ Status</button>
+          <button class="gl-primary" t-on-click="openTablet">▣ Tablet-Ansicht ↗</button>
           <button t-if="state.is_admin" class="gl-secondary" t-on-click="openSettings">⚙ Einrichtung</button>
         </div>
       </header>
@@ -57,8 +58,8 @@
               </div>
             </div>
             <div class="gl-progress">
-              <input type="range" min="0" t-att-max="state.duration_ms || 1" t-model.number="state.progressInput" t-on-change="() => this.run('seek', state.progressInput)" t-att-disabled="state.busy || !state.target_available || !state.duration_ms"/>
-              <div class="gl-time" t-esc="timeLabel"/>
+              <input type="range" min="0" t-att-max="state.duration_ms || 1" t-att-value="state.progressInput" t-on-input="onProgressInput" t-on-change="commitSeek" t-att-disabled="state.busy || !state.target_available || !state.duration_ms"/>
+              <div class="gl-time" t-esc="timeLabel"/><div class="gl-muted gl-progress-hint">Fortschritt läuft sekündlich mit · Abgleich mit Spotify alle 30 Sekunden</div>
             </div>
             <div class="gl-transport">
               <button t-att-class="state.shuffle ? 'gl-toggle selected' : 'gl-toggle'" t-on-click="() => this.run('shuffle', !state.shuffle)" t-att-disabled="state.busy || !state.target_available" title="Zufall">⇄</button>
@@ -67,7 +68,7 @@
               <button t-on-click="() => this.run('next')" t-att-disabled="state.busy || !state.target_available" title="Nächster Titel">▶|</button>
               <button t-att-class="state.repeat !== 'off' ? 'gl-toggle selected' : 'gl-toggle'" t-on-click="() => this.run('repeat', state.repeat === 'off' ? 'context' : state.repeat === 'context' ? 'track' : 'off')" t-att-disabled="state.busy || !state.target_available" t-att-title="repeatLabel">↻</button>
             </div>
-            <div class="gl-volume"><span>🔉 Lautstärke am Musik-PC</span><input type="range" min="0" max="100" t-model.number="state.volumeInput" t-on-change="() => this.run('volume', state.volumeInput)" t-att-disabled="state.busy || !state.target_available"/><strong t-esc="state.volumeInput + '%'"/></div>
+            <div class="gl-volume"><span>🔉 Lautstärke am Musik-PC</span><input type="range" min="0" max="100" t-att-value="state.volumeInput" t-on-input="onVolumeInput" t-on-change="commitVolume" t-att-disabled="state.busy || !state.target_available"/><strong t-esc="state.volumeInput + '%'"/></div>
             <div class="gl-repair"><button class="gl-secondary" t-on-click="startWindows">Spotify auf Windows öffnen</button><span>Wenn der PC nicht verbunden ist: vor Ort auf „Musik reparieren“ klicken.</span></div>
           </section>
           <section class="gl-panel gl-playlists">
@@ -78,6 +79,25 @@
                 <div><strong t-esc="p.name"/><small>Gespeicherte Playlist</small></div>
                 <button class="gl-primary" t-on-click="() => this.playPlaylist(p.url)" t-att-disabled="state.busy || !state.target_available">▶ Abspielen</button>
               </div>
+            </div>
+            <div class="gl-search">
+              <div class="gl-section-label">SPONTAN ETWAS ANDERES SPIELEN</div>
+              <h3>Spotify-Playlists suchen</h3>
+              <form class="gl-search-form" t-on-submit="searchPlaylists">
+                <input type="search" placeholder="z. B. Jazz Lounge, Ambient, Dinner" t-model="state.searchQuery" maxlength="100" aria-label="Spotify-Playlists suchen"/>
+                <button type="submit" class="gl-primary" t-att-disabled="state.searchLoading || !state.connected">Suchen</button>
+              </form>
+              <div t-if="state.searchLoading" class="gl-muted">Spotify wird durchsucht …</div>
+              <div t-if="state.searchDone &amp;&amp; !state.searchItems.length" class="gl-muted">Keine Playlists gefunden. Anderen Begriff versuchen.</div>
+              <div class="gl-list" t-if="state.searchItems.length">
+                <div t-foreach="state.searchItems" t-as="p" t-key="p.id" class="gl-list-row gl-result-row">
+                  <img t-if="p.image" t-att-src="p.image" alt="Spotify Playlist Cover" loading="lazy" class="gl-result-cover"/>
+                  <div><strong t-esc="p.name"/><small t-esc="p.owner || 'Spotify-Playlist'"/></div>
+                  <button class="gl-primary" t-on-click="() => this.playPlaylist(p.url)" t-att-disabled="state.busy || !state.target_available">▶</button>
+                  <button class="gl-secondary" t-on-click="() => this.rememberSearch(p)">Merken</button>
+                </div>
+              </div>
+              <button t-if="state.searchNext !== null" class="gl-secondary" t-on-click="moreSearch" t-att-disabled="state.searchLoading">Weitere Playlists anzeigen</button>
             </div>
             <form class="gl-add" t-on-submit="savePlaylist"><h3>Playlist-Link hinzufügen</h3>
               <input placeholder="Name, z. B. Lounge entspannt" t-model="state.playlistName" required="required"/>

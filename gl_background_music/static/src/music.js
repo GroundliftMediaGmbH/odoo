@@ -18,16 +18,26 @@ export class GroundliftMusic extends Component {
             repeat: "off", progress_ms: 0, duration_ms: 0, progressInput: 0,
             playlists: [], owned: [], devices: [], showOwned: false, showDevices: false,
             playlistName: "", playlistUrl: "", embedUrl: "", currentUrl: "",
+            searchQuery: "", searchedQuery: "", searchItems: [], searchNext: null,
+            searchLoading: false, searchDone: false,
         });
         this.timer = null;
+        this.progressTimer = null;
+        this.refreshing = false;
+        this.seekDragging = false;
+        this.volumeDragging = false;
+        this.progressAnchorAt = Date.now();
+        this.progressAnchorValue = 0;
         this.lastErrorMessage = "";
         this.lastErrorAt = 0;
         onMounted(async () => {
             await this.initialize();
             this.timer = setInterval(() => this.refresh(false), 30000);
+            this.progressTimer = setInterval(() => this.advanceProgress(), 1000);
         });
         onWillUnmount(() => {
             if (this.timer) clearInterval(this.timer);
+            if (this.progressTimer) clearInterval(this.progressTimer);
         });
     }
 
@@ -57,15 +67,48 @@ export class GroundliftMusic extends Component {
         }
     }
     async refresh(showError = true) {
-        if (!this.state.connected || this.state.busy) return;
+        if (!this.state.connected || this.state.busy || this.refreshing) return;
+        this.refreshing = true;
         try {
             const data = await this.orm.call("gl.music.player", "status", []);
+            // Do not jump the seek thumb back while someone is dragging it.
+            const draggedPosition = this.state.progressInput;
             Object.assign(this.state, data);
-            this.state.volumeInput = this.state.volume || 0;
-            this.state.progressInput = this.state.progress_ms || 0;
+            if (!this.volumeDragging) this.state.volumeInput = this.state.volume || 0;
+            this.state.progressInput = this.seekDragging ? draggedPosition : (this.state.progress_ms || 0);
+            this.progressAnchorAt = Date.now();
+            this.progressAnchorValue = this.state.progress_ms || 0;
         } catch (error) {
             if (showError) this.alert(error);
+        } finally {
+            this.refreshing = false;
         }
+    }
+    advanceProgress() {
+        if (!this.state.playing || !this.state.target_active || this.seekDragging || !this.state.duration_ms) return;
+        const next = Math.min(this.state.duration_ms,
+            this.progressAnchorValue + Math.max(0, Date.now() - this.progressAnchorAt));
+        this.state.progress_ms = next;
+        this.state.progressInput = next;
+    }
+    onProgressInput(event) {
+        this.seekDragging = true;
+        this.state.progressInput = Number(event.target.value);
+    }
+    async commitSeek() {
+        const position = this.state.progressInput;
+        await this.run("seek", position);
+        this.seekDragging = false;
+        await this.refresh(false);
+    }
+    onVolumeInput(event) {
+        this.volumeDragging = true;
+        this.state.volumeInput = Number(event.target.value);
+    }
+    async commitVolume() {
+        const volume = this.state.volumeInput;
+        await this.run("volume", volume);
+        this.volumeDragging = false;
     }
     async run(command, value = null) {
         if (this.state.busy) return;
@@ -109,6 +152,46 @@ export class GroundliftMusic extends Component {
             this.state.playlists = data.playlists;
             this.notification.add("Playlist gespeichert", { type: "success" });
         } catch (error) { this.alert(error); }
+    }
+    async searchPlaylists(event) {
+        if (event) event.preventDefault();
+        const query = this.state.searchQuery.trim();
+        if (query.length < 2) {
+            this.notification.add("Bitte mindestens zwei Zeichen für die Playlist-Suche eingeben.", { type: "warning" });
+            return;
+        }
+        if (this.state.searchLoading) return;
+        this.state.searchLoading = true;
+        this.state.searchDone = false;
+        this.state.searchedQuery = query;
+        this.state.searchItems = [];
+        this.state.searchNext = null;
+        try {
+            const result = await this.orm.call("gl.music.player", "search_playlists", [query, 0]);
+            this.state.searchItems = result.items;
+            this.state.searchNext = result.next_offset;
+            this.state.searchDone = true;
+        } catch (error) { this.alert(error); }
+        finally { this.state.searchLoading = false; }
+    }
+    async moreSearch() {
+        if (this.state.searchLoading || this.state.searchNext == null) return;
+        this.state.searchLoading = true;
+        const offset = this.state.searchNext;
+        try {
+            const result = await this.orm.call("gl.music.player", "search_playlists", [this.state.searchedQuery, offset]);
+            this.state.searchItems = [...this.state.searchItems, ...result.items];
+            this.state.searchNext = result.next_offset;
+        } catch (error) { this.alert(error); }
+        finally { this.state.searchLoading = false; }
+    }
+    rememberSearch(item) {
+        this.state.playlistName = item.name;
+        this.state.playlistUrl = item.url;
+        this.notification.add("Name und Link eingetragen. Zum Merken unten 'Playlist speichern' wählen.", { type: "info" });
+    }
+    openTablet() {
+        this.action.doAction({ type: "ir.actions.act_url", url: "/hintergrundmusik", target: "new" });
     }
     async loadOwned() {
         try {
@@ -157,7 +240,7 @@ export class GroundliftMusic extends Component {
             const seconds = Math.floor((ms || 0) / 1000);
             return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
         };
-        return `${format(this.state.progress_ms)} / ${format(this.state.duration_ms)}`;
+        return `${format(this.state.progressInput)} / ${format(this.state.duration_ms)}`;
     }
 }
 registry.category("actions").add("gl_background_music.player", GroundliftMusic);

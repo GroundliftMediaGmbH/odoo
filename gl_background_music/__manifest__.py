@@ -1,7 +1,7 @@
 {
     "name": "Hintergrundmusik",
     "summary": "Spotify Connect Fernbedienung mit Windows-Wiedergaberechner",
-    "version": "19.0.1.0.2",
+    "version": "19.0.1.0.3",
     "category": "Productivity",
     "license": "LGPL-3",
     "author": "Groundlift",
@@ -11,6 +11,7 @@
         "security/ir.model.access.csv",
         "views/music_views.xml",
         "views/settings_views.xml",
+        "views/tablet_page.xml",
     ],
     "assets": {
         "web.assets_backend": [

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Spotify callback and authenticated, outbound-polling Windows bridge."""
 import hmac
+import json
 import logging
 import time
 
@@ -66,3 +67,56 @@ class MusicBridge(http.Controller):
         except Exception:
             _logger.exception("Windows music agent heartbeat failed")
             return request.make_json_response({"ok": False, "error": "Interner Fehler"}, status=500)
+
+
+class MusicTablet(http.Controller):
+    """Signed-in, group-gated touch controller. No public command endpoints.
+
+    The browser posts CSRF-protected form data; Spotify secrets always remain
+    server-side in ir.config_parameter and never reach the tablet page.
+    """
+
+    @http.route("/hintergrundmusik", type="http", auth="user", methods=["GET"])
+    def tablet_page(self, **kwargs):
+        if not (request.env.user.has_group("gl_background_music.group_music_user")
+                or request.env.user.has_group("base.group_system")):
+            return request.make_response("Keine Berechtigung für Hintergrundmusik.", status=403)
+        response = request.render("gl_background_music.tablet_page", {
+            "csrf_token": request.csrf_token(),
+        })
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Frame-Options"] = "DENY"
+        return response
+
+    @http.route("/hintergrundmusik/api", type="http", auth="user", methods=["POST"], csrf=True)
+    def tablet_api(self, **kwargs):
+        from odoo.exceptions import AccessError, UserError, ValidationError
+        player = request.env["gl.music.player"]
+        try:
+            player._assert_user()
+            action = request.params.get("action", "")
+            value = request.params.get("value", "")
+            if action == "bootstrap":
+                result = player.bootstrap()
+            elif action == "status":
+                result = player.status()
+            elif action == "search":
+                result = player.search_playlists(value, request.params.get("offset", "0"))
+            elif action == "play_playlist":
+                result = player.play_playlist(value)
+            elif action == "transport":
+                try:
+                    parsed_value = json.loads(value) if value else None
+                except (ValueError, TypeError):
+                    return request.make_json_response({"ok": False, "error": "Ungültiger Steuerungswert."}, status=400)
+                result = player.transport(request.params.get("command", ""), parsed_value)
+            elif action == "windows_start":
+                result = player.request_windows_start()
+            else:
+                return request.make_json_response({"ok": False, "error": "Unbekannte Aktion."}, status=400)
+            return request.make_json_response({"ok": True, "result": result}, headers=[("Cache-Control", "no-store")])
+        except (AccessError, UserError, ValidationError) as exc:
+            return request.make_json_response({"ok": False, "error": str(exc)}, status=403 if isinstance(exc, AccessError) else 400)
+        except Exception:
+            _logger.exception("Music tablet command failed")
+            return request.make_json_response({"ok": False, "error": "Interner Fehler. Später erneut versuchen."}, status=500)
