@@ -243,7 +243,7 @@ class MusicPlayer(models.AbstractModel):
     def search_playlists(self, query, offset=0):
         """Find public Spotify playlists, also those not in our own library.
 
-        Keep search on explicit user action, with bounded result pages and input.
+        The clients debounce typeahead and discard stale results. Bound result pages and input.
         Spotify development-mode search permits only 10 hits per request.
         """
         self._assert_user()

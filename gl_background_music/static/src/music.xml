@@ -68,7 +68,7 @@
               <button t-on-click="() => this.run('next')" t-att-disabled="state.busy || !state.target_available" title="Nächster Titel">▶|</button>
               <button t-att-class="state.repeat !== 'off' ? 'gl-toggle selected' : 'gl-toggle'" t-on-click="() => this.run('repeat', state.repeat === 'off' ? 'context' : state.repeat === 'context' ? 'track' : 'off')" t-att-disabled="state.busy || !state.target_available" t-att-title="repeatLabel">↻</button>
             </div>
-            <div class="gl-volume"><span>🔉 Lautstärke am Musik-PC</span><input type="range" min="0" max="100" t-att-value="state.volumeInput" t-on-input="onVolumeInput" t-on-change="commitVolume" t-att-disabled="state.busy || !state.target_available"/><strong t-esc="state.volumeInput + '%'"/></div>
+            <div class="gl-volume"><span>🔉 Lautstärke am Musik-PC · Fade</span><input type="range" min="0" max="100" t-att-value="state.volumeInput" t-on-input="onVolumeInput" t-on-change="commitVolume" t-att-disabled="state.busy || !state.target_available"/><strong t-esc="state.volumeInput + '%'"/></div>
             <div class="gl-repair"><button class="gl-secondary" t-on-click="startWindows">Spotify auf Windows öffnen</button><span>Wenn der PC nicht verbunden ist: vor Ort auf „Musik reparieren“ klicken.</span></div>
           </section>
           <section class="gl-panel gl-playlists">
@@ -82,12 +82,12 @@
             </div>
             <div class="gl-search">
               <div class="gl-section-label">SPONTAN ETWAS ANDERES SPIELEN</div>
-              <h3>Spotify-Playlists suchen</h3>
+              <h3>Spotify-Playlists suchen</h3><div class="gl-muted gl-live-hint">Während der Eingabe erscheinen passende Playlists automatisch.</div>
               <form class="gl-search-form" t-on-submit="searchPlaylists">
-                <input type="search" placeholder="z. B. Jazz Lounge, Ambient, Dinner" t-model="state.searchQuery" maxlength="100" aria-label="Spotify-Playlists suchen"/>
-                <button type="submit" class="gl-primary" t-att-disabled="state.searchLoading || !state.connected">Suchen</button>
+                <input type="search" placeholder="z. B. Jazz Lounge, Ambient, Dinner" t-model="state.searchQuery" t-on-input="onSearchInput" maxlength="100" aria-label="Spotify-Playlists suchen"/>
+                <button type="submit" class="gl-primary" t-att-disabled="!state.connected">Suchen</button>
               </form>
-              <div t-if="state.searchLoading" class="gl-muted">Spotify wird durchsucht …</div>
+              <div t-if="state.searchLoading" class="gl-muted">Passende Spotify-Playlists werden gesucht …</div>
               <div t-if="state.searchDone &amp;&amp; !state.searchItems.length" class="gl-muted">Keine Playlists gefunden. Anderen Begriff versuchen.</div>
               <div class="gl-list" t-if="state.searchItems.length">
                 <div t-foreach="state.searchItems" t-as="p" t-key="p.id" class="gl-list-row gl-result-row">

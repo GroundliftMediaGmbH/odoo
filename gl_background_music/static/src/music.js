@@ -26,6 +26,15 @@ export class GroundliftMusic extends Component {
         this.refreshing = false;
         this.seekDragging = false;
         this.volumeDragging = false;
+        this.volumeTimer = null;
+        this.volumeInFlight = false;
+        this.volumeWanted = null;
+        this.lastVolumeSentAt = 0;
+        this.lastVolumeSent = null;
+        this.volumeLocalUntil = 0;
+        this.searchTimer = null;
+        this.searchVersion = 0;
+        this.disposed = false;
         this.progressAnchorAt = Date.now();
         this.progressAnchorValue = 0;
         this.lastErrorMessage = "";
@@ -38,6 +47,10 @@ export class GroundliftMusic extends Component {
         onWillUnmount(() => {
             if (this.timer) clearInterval(this.timer);
             if (this.progressTimer) clearInterval(this.progressTimer);
+            if (this.volumeTimer) clearTimeout(this.volumeTimer);
+            if (this.searchTimer) clearTimeout(this.searchTimer);
+            this.disposed = true;
+            this.searchVersion++;
         });
     }
 
@@ -73,8 +86,15 @@ export class GroundliftMusic extends Component {
             const data = await this.orm.call("gl.music.player", "status", []);
             // Do not jump the seek thumb back while someone is dragging it.
             const draggedPosition = this.state.progressInput;
+            const desiredVolume = this.state.volumeInput;
+            const keepLocalVolume = this.volumeDragging || this.volumeInFlight || this.volumeWanted !== null || Date.now() < this.volumeLocalUntil;
             Object.assign(this.state, data);
-            if (!this.volumeDragging) this.state.volumeInput = this.state.volume || 0;
+            if (keepLocalVolume) {
+                this.state.volume = desiredVolume;
+                this.state.volumeInput = desiredVolume;
+            } else {
+                this.state.volumeInput = this.state.volume ?? 0;
+            }
             this.state.progressInput = this.seekDragging ? draggedPosition : (this.state.progress_ms || 0);
             this.progressAnchorAt = Date.now();
             this.progressAnchorValue = this.state.progress_ms || 0;
@@ -101,14 +121,53 @@ export class GroundliftMusic extends Component {
         this.seekDragging = false;
         await this.refresh(false);
     }
+    // Latest-value-wins queue: no overlapping volume requests or lost final fader value.
+    // Spotify's volume endpoint is rate-limited; at most ~4 calls/second per controller.
     onVolumeInput(event) {
+        if (!this.state.target_available) return;
+        const volume = Number(event.target.value);
+        if (!Number.isFinite(volume)) return;
         this.volumeDragging = true;
-        this.state.volumeInput = Number(event.target.value);
+        this.state.volumeInput = volume;
+        this.state.volume = volume; // Optimistic UI: no visible jump during a fade.
+        this.volumeLocalUntil = Date.now() + 2500;
+        this.volumeWanted = volume;
+        this.scheduleVolume();
     }
-    async commitVolume() {
-        const volume = this.state.volumeInput;
-        await this.run("volume", volume);
+    commitVolume() {
         this.volumeDragging = false;
+        this.volumeLocalUntil = Date.now() + 2500;
+        // A click or touch release must flush the final value, even if a request is running.
+        if (this.volumeWanted !== null) this.scheduleVolume(true);
+    }
+    scheduleVolume(final = false) {
+        if (this.disposed || this.volumeInFlight || this.volumeWanted === null) return;
+        if (this.volumeTimer) clearTimeout(this.volumeTimer);
+        const wait = final ? 0 : Math.max(0, 250 - (Date.now() - this.lastVolumeSentAt));
+        this.volumeTimer = setTimeout(() => {
+            this.volumeTimer = null;
+            void this.flushVolume();
+        }, wait);
+    }
+    async flushVolume() {
+        if (this.disposed || this.volumeInFlight || this.volumeWanted === null) return;
+        const volume = this.volumeWanted;
+        this.volumeWanted = null;
+        if (this.lastVolumeSent === volume && Date.now() - this.lastVolumeSentAt < 800) return;
+        this.volumeInFlight = true;
+        this.lastVolumeSentAt = Date.now();
+        try {
+            await this.orm.call("gl.music.player", "transport", ["volume", volume]);
+            this.lastVolumeSent = volume;
+            this.volumeLocalUntil = Date.now() + 2500;
+        } catch (error) {
+            this.volumeWanted = null; // Do not generate a retry storm on 429/offline.
+            this.lastVolumeSent = null;
+            if (!this.disposed) this.alert(error);
+        } finally {
+            this.volumeInFlight = false;
+            if (!this.disposed && this.volumeWanted !== null) this.scheduleVolume();
+        }
     }
     async run(command, value = null) {
         if (this.state.busy) return;
@@ -153,37 +212,58 @@ export class GroundliftMusic extends Component {
             this.notification.add("Playlist gespeichert", { type: "success" });
         } catch (error) { this.alert(error); }
     }
-    async searchPlaylists(event) {
-        if (event) event.preventDefault();
-        const query = this.state.searchQuery.trim();
-        if (query.length < 2) {
-            this.notification.add("Bitte mindestens zwei Zeichen für die Playlist-Suche eingeben.", { type: "warning" });
-            return;
-        }
-        if (this.state.searchLoading) return;
-        this.state.searchLoading = true;
-        this.state.searchDone = false;
-        this.state.searchedQuery = query;
+    // Debounced typeahead. Each new input invalidates older outstanding responses.
+    onSearchInput(event) {
+        const query = event.target.value;
+        this.state.searchQuery = query;
+        if (this.searchTimer) clearTimeout(this.searchTimer);
+        const version = ++this.searchVersion;
         this.state.searchItems = [];
         this.state.searchNext = null;
+        this.state.searchDone = false;
+        this.state.searchLoading = false;
+        this.state.searchedQuery = "";
+        if (query.trim().length < 2 || !this.state.connected) return;
+        this.searchTimer = setTimeout(() => {
+            this.searchTimer = null;
+            void this.fetchSearch(query.trim(), 0, version, false);
+        }, 400);
+    }
+    searchPlaylists(event) {
+        if (event) event.preventDefault();
+        if (this.searchTimer) clearTimeout(this.searchTimer);
+        this.searchTimer = null;
+        const query = this.state.searchQuery.trim();
+        const version = ++this.searchVersion;
+        this.state.searchItems = [];
+        this.state.searchNext = null;
+        this.state.searchDone = false;
+        this.state.searchLoading = false;
+        if (query.length < 2) {
+            this.notification.add("Bitte mindestens zwei Zeichen eingeben.", { type: "warning" });
+            return;
+        }
+        void this.fetchSearch(query, 0, version, false);
+    }
+    async fetchSearch(query, offset, version, append) {
+        if (version !== this.searchVersion || this.disposed) return;
+        this.state.searchLoading = true;
+        this.state.searchedQuery = query;
         try {
-            const result = await this.orm.call("gl.music.player", "search_playlists", [query, 0]);
-            this.state.searchItems = result.items;
+            const result = await this.orm.call("gl.music.player", "search_playlists", [query, offset]);
+            if (version !== this.searchVersion || this.disposed) return;
+            this.state.searchItems = append ? [...this.state.searchItems, ...result.items] : result.items;
             this.state.searchNext = result.next_offset;
             this.state.searchDone = true;
-        } catch (error) { this.alert(error); }
-        finally { this.state.searchLoading = false; }
+        } catch (error) {
+            if (version === this.searchVersion && !this.disposed) this.alert(error);
+        } finally {
+            if (version === this.searchVersion && !this.disposed) this.state.searchLoading = false;
+        }
     }
-    async moreSearch() {
+    moreSearch() {
         if (this.state.searchLoading || this.state.searchNext == null) return;
-        this.state.searchLoading = true;
-        const offset = this.state.searchNext;
-        try {
-            const result = await this.orm.call("gl.music.player", "search_playlists", [this.state.searchedQuery, offset]);
-            this.state.searchItems = [...this.state.searchItems, ...result.items];
-            this.state.searchNext = result.next_offset;
-        } catch (error) { this.alert(error); }
-        finally { this.state.searchLoading = false; }
+        void this.fetchSearch(this.state.searchedQuery, this.state.searchNext, this.searchVersion, true);
     }
     rememberSearch(item) {
         this.state.playlistName = item.name;

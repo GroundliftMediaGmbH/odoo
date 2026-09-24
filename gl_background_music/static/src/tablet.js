@@ -16,6 +16,14 @@
     let searchBusy = false;
     let searchQuery = "";
     let searchNext = null;
+    let searchVersion = 0;
+    let searchTimer = null;
+    let volumeTimer = null;
+    let volumeInFlight = false;
+    let volumeWanted = null;
+    let volumeLastSentAt = 0;
+    let volumeLastSent = null;
+    let volumeLocalUntil = 0;
 
     async function api(action, fields = {}) {
         const form = new URLSearchParams({ csrf_token: csrf, action, ...fields });
@@ -72,7 +80,9 @@
         for (const id of ["play", "previous", "next", "shuffle", "repeat", "position", "volume"])
             $(id).disabled = !available || busy;
         $("position").disabled = !available || busy || !state.duration_ms;
-        if (!changingVolume) $("volume").value = state.volume || 0;
+        const localVolume = changingVolume || volumeInFlight || volumeWanted !== null || Date.now() < volumeLocalUntil;
+        if (!localVolume) $("volume").value = state.volume ?? 0;
+        else state.volume = Number($("volume").value);
         $("volume-value").textContent = `${$("volume").value}%`;
         drawProgress();
         document.querySelectorAll("button[data-playlist]").forEach((button) => button.disabled = !available || busy);
@@ -130,23 +140,92 @@
             p.textContent="Noch keine festen Playlists gespeichert."; container.appendChild(p); return; }
         for (const item of items) container.appendChild(makeCard(item));
     }
-    async function search(more = false) {
-        if (searchBusy) return;
-        const query = more ? searchQuery : $("query").value.trim();
-        if (query.length < 2) { $("search-info").textContent = "Bitte mindestens zwei Zeichen eingeben."; return; }
-        if (!more) { searchQuery = query; searchNext = null; $("results").replaceChildren(); }
+    // Live search: debounce API calls, discard responses for older query versions.
+    function onSearchInput() {
+        if (searchTimer) clearTimeout(searchTimer);
+        const query = $("query").value.trim();
+        const version = ++searchVersion;
+        searchBusy = false;
+        searchNext = null;
+        $("more").hidden = true;
+        $("results").replaceChildren();
+        if (query.length < 2) {
+            $("search-info").textContent = "Ab zwei Zeichen erscheinen passende Playlists automatisch.";
+            return;
+        }
+        $("search-info").textContent = "Suche startet gleich …";
+        searchTimer = setTimeout(() => {
+            searchTimer = null;
+            void search(false, query, version);
+        }, 400);
+    }
+    async function search(more = false, typedQuery = null, typedVersion = null) {
+        if (more && (searchBusy || searchNext == null)) return;
+        if (searchTimer) clearTimeout(searchTimer);
+        searchTimer = null;
+        const query = more ? searchQuery : (typedQuery ?? $("query").value.trim());
+        if (query.length < 2) {
+            $("search-info").textContent = "Bitte mindestens zwei Zeichen eingeben.";
+            return;
+        }
+        const version = more ? searchVersion : (typedVersion ?? ++searchVersion);
+        if (!more) {
+            searchQuery = query;
+            searchNext = null;
+            $("results").replaceChildren();
+        }
         searchBusy = true;
-        $("search-button").disabled = true; $("more").disabled = true;
-        $("search-info").textContent = "Spotify-Playlists werden gesucht …";
+        $("more").disabled = true;
+        $("search-info").textContent = "Passende Spotify-Playlists werden gesucht …";
         try {
-            const page = await api("search", {value: searchQuery, offset: String(more ? searchNext : 0)});
+            const page = await api("search", {value: query, offset: String(more ? searchNext : 0)});
+            if (version !== searchVersion) return;
             for (const item of page.items) $("results").appendChild(makeCard(item));
             searchNext = page.next_offset;
             $("more").hidden = searchNext == null;
-            $("search-info").textContent = $("results").children.length ? "Playlist antippen, um sie am Musik-PC abzuspielen." : "Keine Playlists gefunden.";
+            $("search-info").textContent = $("results").children.length
+                ? "Playlist antippen, um sie am Musik-PC abzuspielen." : "Keine Playlists gefunden.";
             banner("");
-        } catch (error) { $("search-info").textContent = "Suche fehlgeschlagen."; banner(error.message); }
-        finally { searchBusy = false; $("search-button").disabled = false; $("more").disabled = false; }
+        } catch (error) {
+            if (version === searchVersion) {
+                $("search-info").textContent = "Suche fehlgeschlagen.";
+                banner(error.message);
+            }
+        } finally {
+            if (version === searchVersion) {searchBusy = false; $("more").disabled = false;}
+        }
+    }
+    // Ordered latest-value-wins queue. Sending on input enables actual fades,
+    // while a single in-flight request and a 250ms minimum gap protect API quota.
+    function scheduleVolume(final = false) {
+        if (volumeInFlight || volumeWanted === null) return;
+        if (volumeTimer) clearTimeout(volumeTimer);
+        const wait = final ? 0 : Math.max(0, 250 - (Date.now() - volumeLastSentAt));
+        volumeTimer = setTimeout(() => {
+            volumeTimer = null;
+            void flushVolume();
+        }, wait);
+    }
+    async function flushVolume() {
+        if (volumeInFlight || volumeWanted === null) return;
+        const volume = volumeWanted;
+        volumeWanted = null;
+        if (volume === volumeLastSent && Date.now() - volumeLastSentAt < 800) return;
+        volumeInFlight = true;
+        volumeLastSentAt = Date.now();
+        try {
+            await api("transport", {command: "volume", value: JSON.stringify(volume)});
+            volumeLastSent = volume;
+            volumeLocalUntil = Date.now() + 2500;
+            banner("");
+        } catch (error) {
+            volumeWanted = null; // Do not retry indefinitely on 429/offline.
+            volumeLastSent = null;
+            banner(error.message);
+        } finally {
+            volumeInFlight = false;
+            if (volumeWanted !== null) scheduleVolume();
+        }
     }
     async function boot() {
         try {
@@ -169,14 +248,24 @@
         await command("transport", {command: "seek", value: JSON.stringify(ms)});
         seeking = false; drawProgress();
     });
-    $("volume").addEventListener("input", () => { changingVolume=true; $("volume-value").textContent=`${$("volume").value}%`; });
-    $("volume").addEventListener("change", async () => {
-        const v = Number($("volume").value);
-        await command("transport", {command: "volume",value:JSON.stringify(v)});
-        changingVolume = false; draw();
+    $("volume").addEventListener("input", () => {
+        if (!state.target_available) return;
+        changingVolume = true;
+        const volume = Number($("volume").value);
+        $("volume-value").textContent = `${volume}%`;
+        state.volume = volume;
+        volumeLocalUntil = Date.now() + 2500;
+        volumeWanted = volume;
+        scheduleVolume();
     });
-    $("search-form").addEventListener("submit", (event) => {event.preventDefault(); search();});
-    $("more").addEventListener("click", () => search(true));
+    $("volume").addEventListener("change", () => {
+        changingVolume = false;
+        volumeLocalUntil = Date.now() + 2500;
+        if (volumeWanted !== null) scheduleVolume(true);
+    });
+    $("query").addEventListener("input", onSearchInput);
+    $("search-form").addEventListener("submit", (event) => {event.preventDefault(); void search();});
+    $("more").addEventListener("click", () => {void search(true);});
     document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
     setInterval(drawProgress, 1000);
     setInterval(refresh, 25000);

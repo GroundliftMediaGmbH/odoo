@@ -53,3 +53,6 @@
 .gl-result-row{flex-wrap:wrap;}
 .gl-result-cover{width:46px;height:46px;flex:0 0 46px;border-radius:7px;object-fit:cover;}
 @media(max-width:550px){.gl-search-form{flex-wrap:wrap;}.gl-search-form button{width:100%;}}
+
+.gl-live-hint{font-size:12px;margin:-5px 0 12px;}
+.gl-volume input[type=range]{touch-action:pan-y;cursor:ew-resize;}
