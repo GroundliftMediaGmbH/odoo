@@ -1,7 +1,7 @@
 {
     'name': 'Landingpage Text_to_HTML',
-    'version': '19.0.1.0.0',
-    'summary': 'Edit an event landing page as HTML while retaining the existing plain-text field',
+    'version': '19.0.1.1.0',
+    'summary': 'Editable HTML event landing page with safe standard website binding',
     'category': 'Website/Website',
     'author': 'Groundlift',
     'license': 'LGPL-3',
