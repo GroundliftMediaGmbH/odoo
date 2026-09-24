@@ -68,7 +68,19 @@
               <button t-on-click="() => this.run('next')" t-att-disabled="state.busy || !state.target_available" title="Nächster Titel">▶|</button>
               <button t-att-class="state.repeat !== 'off' ? 'gl-toggle selected' : 'gl-toggle'" t-on-click="() => this.run('repeat', state.repeat === 'off' ? 'context' : state.repeat === 'context' ? 'track' : 'off')" t-att-disabled="state.busy || !state.target_available" t-att-title="repeatLabel">↻</button>
             </div>
-            <div class="gl-volume"><span>🔉 Lautstärke am Musik-PC · Fade</span><input type="range" min="0" max="100" t-att-value="state.volumeInput" t-on-input="onVolumeInput" t-on-change="commitVolume" t-att-disabled="state.busy || !state.target_available"/><strong t-esc="state.volumeInput + '%'"/></div>
+            <div class="gl-volume-control" aria-label="Lautstärke am Musik-PC">
+              <div class="gl-volume-heading"><span>🔉 Lautstärke am Musik-PC</span><span t-if="state.fadeMode" class="gl-fade-status" t-esc="state.fadeMode === 'in' ? 'Fade In läuft …' : 'Fade Out läuft …'"/></div>
+              <div class="gl-volume-buttons">
+                <button type="button" class="gl-volume-step" t-on-click="() => this.changeVolume(-5)" t-att-disabled="state.busy || !state.target_available || state.volumeInput === 0" aria-label="Lautstärke um 5 Prozentpunkte senken">−</button>
+                <strong class="gl-volume-value" t-esc="state.volumeInput + '%'" aria-live="off"/>
+                <button type="button" class="gl-volume-step" t-on-click="() => this.changeVolume(5)" t-att-disabled="state.busy || !state.target_available || state.volumeInput === 100" aria-label="Lautstärke um 5 Prozentpunkte erhöhen">+</button>
+              </div>
+              <div class="gl-fade-buttons">
+                <button type="button" class="gl-fade-in" t-on-click="() => this.startFade('in')" t-att-disabled="state.busy || !state.target_available || !state.restore_volume">↗ Fade In · 3 s</button>
+                <button type="button" class="gl-fade-out" t-on-click="() => this.startFade('out')" t-att-disabled="state.busy || !state.target_available || state.volumeInput === 0">↘ Fade Out · 3 s</button>
+              </div>
+              <div class="gl-muted gl-fade-hint">Fade Out merkt sich den bisherigen Wert. Fade In stellt ihn wieder her. +/− unterbricht einen laufenden Fade.</div>
+            </div>
             <div class="gl-repair"><button class="gl-secondary" t-on-click="startWindows">Spotify auf Windows öffnen</button><span>Wenn der PC nicht verbunden ist: vor Ort auf „Musik reparieren“ klicken.</span></div>
           </section>
           <section class="gl-panel gl-playlists">

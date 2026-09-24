@@ -7,10 +7,9 @@
     const csrf = app.dataset.csrf;
     const $ = (id) => document.getElementById(id);
     let state = {playing: false, target_active: false, target_available: false,
-                 progress_ms: 0, duration_ms: 0, volume: 0, playlists: []};
+                 progress_ms: 0, duration_ms: 0, volume: 0, restore_volume: 0, playlists: []};
     let observedAt = Date.now();
     let seeking = false;
-    let changingVolume = false;
     let busy = false;
     let polling = false;
     let searchBusy = false;
@@ -24,6 +23,10 @@
     let volumeLastSentAt = 0;
     let volumeLastSent = null;
     let volumeLocalUntil = 0;
+    let fadeTimer = null;
+    let fadeGeneration = 0;
+    let fadeMode = "";
+    let nextFadeSendAt = 0;
 
     async function api(action, fields = {}) {
         const form = new URLSearchParams({ csrf_token: csrf, action, ...fields });
@@ -77,13 +80,10 @@
         $("shuffle").classList.toggle("active", Boolean(state.shuffle));
         $("repeat").classList.toggle("active", state.repeat !== "off");
         $("repeat").title = {off:"Wiederholen aus",context:"Playlist wiederholen",track:"Titel wiederholen"}[state.repeat] || "Wiederholen";
-        for (const id of ["play", "previous", "next", "shuffle", "repeat", "position", "volume"])
+        for (const id of ["play", "previous", "next", "shuffle", "repeat", "position"])
             $(id).disabled = !available || busy;
         $("position").disabled = !available || busy || !state.duration_ms;
-        const localVolume = changingVolume || volumeInFlight || volumeWanted !== null || Date.now() < volumeLocalUntil;
-        if (!localVolume) $("volume").value = state.volume ?? 0;
-        else state.volume = Number($("volume").value);
-        $("volume-value").textContent = `${$("volume").value}%`;
+        drawVolume();
         drawProgress();
         document.querySelectorAll("button[data-playlist]").forEach((button) => button.disabled = !available || busy);
     }
@@ -92,7 +92,10 @@
         polling = true;
         try {
             const next = await api("status");
+            const keepLocalVolume = fadeMode || volumeInFlight || volumeWanted !== null || Date.now() < volumeLocalUntil;
+            const localVolume = state.volume;
             state = {...state, ...next};
+            if (keepLocalVolume) state.volume = localVolume;
             observedAt = Date.now();
             draw();
             banner("");
@@ -195,12 +198,88 @@
             if (version === searchVersion) {searchBusy = false; $("more").disabled = false;}
         }
     }
-    // Ordered latest-value-wins queue. Sending on input enables actual fades,
-    // while a single in-flight request and a 250ms minimum gap protect API quota.
+    // Browser drives the short ramp; only the latest value is sent if the network lags.
+    function drawVolume() {
+        const volume = Math.min(100, Math.max(0, Number(state.volume) || 0));
+        $("volume-value").textContent = `${Math.round(volume)}%`;
+        $("volume-minus").disabled = !state.target_available || busy || volume <= 0;
+        $("volume-plus").disabled = !state.target_available || busy || volume >= 100;
+        $("fade-in").disabled = !state.target_available || busy || !state.restore_volume;
+        $("fade-out").disabled = !state.target_available || busy || volume <= 0;
+        $("fade-status").textContent = fadeMode ? `Fade ${fadeMode === "in" ? "In" : "Out"} läuft …` : "";
+    }
+    function stopFade() {
+        fadeGeneration++;
+        if (fadeTimer) clearInterval(fadeTimer);
+        fadeTimer = null;
+        fadeMode = "";
+        drawVolume();
+    }
+    function setLocalVolume(value, send = true, final = false) {
+        const volume = Math.min(100, Math.max(0, Math.round(value)));
+        state.volume = volume;
+        volumeLocalUntil = Date.now() + 3500;
+        drawVolume();
+        if (send && state.target_available) {
+            volumeWanted = volume;
+            scheduleVolume(final);
+        }
+    }
+    function changeVolume(delta) {
+        if (!state.target_available || busy) return;
+        stopFade();
+        setLocalVolume(state.volume + delta, true, true);
+    }
+    async function startFade(direction) {
+        if (!state.target_available || busy) return;
+        stopFade();
+        const generation = fadeGeneration;
+        const from = Math.min(100, Math.max(0, Number(state.volume) || 0));
+        let to;
+        if (direction === "out") {
+            if (from === 0) return;
+            fadeMode = "out"; drawVolume();
+            try {
+                const remembered = await api("remember_fade_volume", {value: String(from)});
+                if (generation !== fadeGeneration) return;
+                state.restore_volume = remembered;
+            } catch (error) {
+                if (generation === fadeGeneration) {stopFade(); banner(error.message);}
+                return;
+            }
+            to = 0;
+        } else {
+            to = Number(state.restore_volume) || 0;
+            if (!to) {
+                banner("Keine vorherige Lautstärke gespeichert. Erst mit +/- einstellen und Fade Out verwenden.");
+                return;
+            }
+            if (from === to) return;
+            fadeMode = "in"; drawVolume();
+        }
+        const started = Date.now();
+        nextFadeSendAt = started;
+        const tick = () => {
+            if (generation !== fadeGeneration) return;
+            const elapsed = Math.min(3000, Math.max(0, Date.now() - started));
+            const value = Math.round(from + (to - from) * elapsed / 3000);
+            const send = elapsed === 3000 || Date.now() >= nextFadeSendAt;
+            setLocalVolume(value, send, elapsed === 3000);
+            if (send) nextFadeSendAt = Date.now() + 350;
+            if (elapsed === 3000) {
+                if (fadeTimer) clearInterval(fadeTimer);
+                fadeTimer = null;
+                fadeMode = "";
+                drawVolume();
+            }
+        };
+        tick();
+        fadeTimer = setInterval(tick, 75);
+    }
     function scheduleVolume(final = false) {
         if (volumeInFlight || volumeWanted === null) return;
         if (volumeTimer) clearTimeout(volumeTimer);
-        const wait = final ? 0 : Math.max(0, 250 - (Date.now() - volumeLastSentAt));
+        const wait = final ? 0 : Math.max(0, 320 - (Date.now() - volumeLastSentAt));
         volumeTimer = setTimeout(() => {
             volumeTimer = null;
             void flushVolume();
@@ -221,7 +300,10 @@
         } catch (error) {
             volumeWanted = null; // Do not retry indefinitely on 429/offline.
             volumeLastSent = null;
+            stopFade();
+            volumeLocalUntil = 0;
             banner(error.message);
+            void refresh();
         } finally {
             volumeInFlight = false;
             if (volumeWanted !== null) scheduleVolume();
@@ -248,21 +330,10 @@
         await command("transport", {command: "seek", value: JSON.stringify(ms)});
         seeking = false; drawProgress();
     });
-    $("volume").addEventListener("input", () => {
-        if (!state.target_available) return;
-        changingVolume = true;
-        const volume = Number($("volume").value);
-        $("volume-value").textContent = `${volume}%`;
-        state.volume = volume;
-        volumeLocalUntil = Date.now() + 2500;
-        volumeWanted = volume;
-        scheduleVolume();
-    });
-    $("volume").addEventListener("change", () => {
-        changingVolume = false;
-        volumeLocalUntil = Date.now() + 2500;
-        if (volumeWanted !== null) scheduleVolume(true);
-    });
+    $("volume-minus").addEventListener("click", () => changeVolume(-5));
+    $("volume-plus").addEventListener("click", () => changeVolume(5));
+    $("fade-in").addEventListener("click", () => {void startFade("in");});
+    $("fade-out").addEventListener("click", () => {void startFade("out");});
     $("query").addEventListener("input", onSearchInput);
     $("search-form").addEventListener("submit", (event) => {event.preventDefault(); void search();});
     $("more").addEventListener("click", () => {void search(true);});

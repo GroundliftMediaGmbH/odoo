@@ -56,3 +56,17 @@
 
 .gl-live-hint{font-size:12px;margin:-5px 0 12px;}
 .gl-volume input[type=range]{touch-action:pan-y;cursor:ew-resize;}
+
+/* 1.0.5: touch-safe volume and time-based Spotify fades */
+.gl-volume-control{display:grid;gap:12px;margin-top:8px;padding:16px;border:1px solid #39485a;border-radius:12px;background:#202a35;}
+.gl-volume-heading{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;font-size:14px;font-weight:650;}
+.gl-fade-status{color:#57dfa8;font-size:12px;}
+.gl-volume-buttons{display:flex;align-items:center;justify-content:center;gap:16px;}
+.gl-music-root .gl-volume-step{font-size:27px;font-weight:700;width:62px;height:58px;background:#303f50;color:#f0f6fa;touch-action:manipulation;}
+.gl-volume-value{font-size:27px;min-width:84px;text-align:center;font-variant-numeric:tabular-nums;}
+.gl-fade-buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.gl-music-root .gl-fade-buttons button{min-height:48px;font-weight:650;touch-action:manipulation;}
+.gl-music-root .gl-fade-in{background:#205743;color:#d5ffeb;}
+.gl-music-root .gl-fade-out{background:#604137;color:#fff0d9;}
+.gl-fade-hint{font-size:12px;line-height:1.5;}
+@media(max-width:440px){.gl-fade-buttons{grid-template-columns:1fr}}

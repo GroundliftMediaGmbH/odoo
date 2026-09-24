@@ -170,6 +170,7 @@ class MusicPlayer(models.AbstractModel):
                 "target_name": self._get("device_name"), "agent_online": online,
                 "agent_pc": self._get("agent_pc"),
                 "agent_running": self._get("agent_running") == "1",
+                "restore_volume": int(self._get("fade_restore_volume") or 0),
                 "is_admin": self.env.user.has_group("base.group_system"),
                 "configured": bool(self._get("client_id") and self._get("client_secret") and self._get("redirect_uri"))}
 
@@ -188,7 +189,10 @@ class MusicPlayer(models.AbstractModel):
         devices = self._devices() if details["target_name"] else []
         matching = [d for d in devices if d.get("id") and d.get("name", "").casefold() == details["target_name"].casefold()]
         pinned_id = self._get("device_id")
-        target_available = bool(len(matching) == 1 or (pinned_id and any(d.get("id") == pinned_id for d in matching)))
+        target_device = next((d for d in matching if d.get("id") == pinned_id), None) if pinned_id else None
+        if not target_device and len(matching) == 1:
+            target_device = matching[0]
+        target_available = bool(target_device and not target_device.get("is_restricted"))
         item = data.get("item") or {}
         device = data.get("device") or {}
         images = (item.get("album") or {}).get("images") or []
@@ -202,7 +206,7 @@ class MusicPlayer(models.AbstractModel):
                     target_available=target_available,
                     target_active=bool(target_available and device.get("name", "").casefold() == details["target_name"].casefold()
                                        and (len(matching) == 1 or device.get("id") == pinned_id)),
-                    volume=device.get("volume_percent", 0),
+                    volume=(target_device or {}).get("volume_percent", device.get("volume_percent", 0)),
                     shuffle=bool(data.get("shuffle_state")), repeat=data.get("repeat_state", "off"),
                     progress_ms=data.get("progress_ms") or 0, duration_ms=item.get("duration_ms") or 0,
                     context_uri=(data.get("context") or {}).get("uri", ""))
@@ -291,6 +295,19 @@ class MusicPlayer(models.AbstractModel):
         self._spotify("PUT", "/me/player/play", data={"context_uri": "spotify:playlist:" + playlist_id},
                       params={"device_id": device["id"]})
         return True
+
+    @api.model
+    def remember_fade_volume(self, volume):
+        """Remember the audible volume for Fade In across tablet/desktop sessions."""
+        self._assert_user()
+        try:
+            volume = int(volume)
+        except (TypeError, ValueError) as exc:
+            raise UserError(_("Ungültige Fade-Ausgangslautstärke.")) from exc
+        if not 1 <= volume <= 100:
+            raise UserError(_("Fade Out benötigt eine Lautstärke zwischen 1 und 100 %."))
+        self._set("fade_restore_volume", str(volume))
+        return volume
 
     @api.model
     def transport(self, command, value=None):

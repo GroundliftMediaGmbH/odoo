@@ -104,6 +104,8 @@ class MusicTablet(http.Controller):
                 result = player.search_playlists(value, request.params.get("offset", "0"))
             elif action == "play_playlist":
                 result = player.play_playlist(value)
+            elif action == "remember_fade_volume":
+                result = player.remember_fade_volume(value)
             elif action == "transport":
                 try:
                     parsed_value = json.loads(value) if value else None

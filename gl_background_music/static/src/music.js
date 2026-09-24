@@ -14,7 +14,7 @@ export class GroundliftMusic extends Component {
             ready: false, busy: false, is_admin: false, connected: false,
             configured: false, agent_online: false, agent_running: false, agent_pc: "", target_name: "", target_available: false,
             active_device: "", target_active: false, playing: false, track: "", artist: "",
-            image: "", track_url: "", volume: 40, volumeInput: 40, shuffle: false,
+            image: "", track_url: "", volume: 40, volumeInput: 40, restore_volume: 0, fadeMode: "", shuffle: false,
             repeat: "off", progress_ms: 0, duration_ms: 0, progressInput: 0,
             playlists: [], owned: [], devices: [], showOwned: false, showDevices: false,
             playlistName: "", playlistUrl: "", embedUrl: "", currentUrl: "",
@@ -25,7 +25,9 @@ export class GroundliftMusic extends Component {
         this.progressTimer = null;
         this.refreshing = false;
         this.seekDragging = false;
-        this.volumeDragging = false;
+        this.fadeTimer = null;
+        this.fadeGeneration = 0;
+        this.nextFadeSendAt = 0;
         this.volumeTimer = null;
         this.volumeInFlight = false;
         this.volumeWanted = null;
@@ -47,6 +49,7 @@ export class GroundliftMusic extends Component {
         onWillUnmount(() => {
             if (this.timer) clearInterval(this.timer);
             if (this.progressTimer) clearInterval(this.progressTimer);
+            if (this.fadeTimer) clearInterval(this.fadeTimer);
             if (this.volumeTimer) clearTimeout(this.volumeTimer);
             if (this.searchTimer) clearTimeout(this.searchTimer);
             this.disposed = true;
@@ -87,7 +90,7 @@ export class GroundliftMusic extends Component {
             // Do not jump the seek thumb back while someone is dragging it.
             const draggedPosition = this.state.progressInput;
             const desiredVolume = this.state.volumeInput;
-            const keepLocalVolume = this.volumeDragging || this.volumeInFlight || this.volumeWanted !== null || Date.now() < this.volumeLocalUntil;
+            const keepLocalVolume = this.state.fadeMode || this.volumeInFlight || this.volumeWanted !== null || Date.now() < this.volumeLocalUntil;
             Object.assign(this.state, data);
             if (keepLocalVolume) {
                 this.state.volume = desiredVolume;
@@ -121,29 +124,81 @@ export class GroundliftMusic extends Component {
         this.seekDragging = false;
         await this.refresh(false);
     }
-    // Latest-value-wins queue: no overlapping volume requests or lost final fader value.
-    // Spotify's volume endpoint is rate-limited; at most ~4 calls/second per controller.
-    onVolumeInput(event) {
-        if (!this.state.target_available) return;
-        const volume = Number(event.target.value);
-        if (!Number.isFinite(volume)) return;
-        this.volumeDragging = true;
-        this.state.volumeInput = volume;
-        this.state.volume = volume; // Optimistic UI: no visible jump during a fade.
-        this.volumeLocalUntil = Date.now() + 2500;
-        this.volumeWanted = volume;
-        this.scheduleVolume();
+    // Volume control uses buttons; no pointer slider (unreliable inside Odoo/tablets).
+    stopFade() {
+        this.fadeGeneration++;
+        if (this.fadeTimer) clearInterval(this.fadeTimer);
+        this.fadeTimer = null;
+        this.state.fadeMode = "";
     }
-    commitVolume() {
-        this.volumeDragging = false;
-        this.volumeLocalUntil = Date.now() + 2500;
-        // A click or touch release must flush the final value, even if a request is running.
-        if (this.volumeWanted !== null) this.scheduleVolume(true);
+    setLocalVolume(value, send = true, final = false) {
+        const volume = Math.min(100, Math.max(0, Math.round(value)));
+        this.state.volumeInput = volume;
+        this.state.volume = volume;
+        this.volumeLocalUntil = Date.now() + 3500;
+        if (send && this.state.target_available) {
+            this.volumeWanted = volume;
+            this.scheduleVolume(final);
+        }
+    }
+    changeVolume(delta) {
+        if (!this.state.target_available || this.state.busy) return;
+        this.stopFade();
+        this.setLocalVolume(this.state.volumeInput + delta, true, true);
+    }
+    async startFade(direction) {
+        if (!this.state.target_available || this.state.busy) return;
+        this.stopFade();
+        const generation = this.fadeGeneration;
+        const from = Math.min(100, Math.max(0, Number(this.state.volumeInput) || 0));
+        let to;
+        if (direction === "out") {
+            if (from === 0) return;
+            this.state.fadeMode = "out";
+            try {
+                const remembered = await this.orm.call("gl.music.player", "remember_fade_volume", [from]);
+                if (generation !== this.fadeGeneration || this.disposed) return;
+                this.state.restore_volume = remembered;
+            } catch (error) {
+                if (generation === this.fadeGeneration) {
+                    this.stopFade();
+                    this.alert(error);
+                }
+                return;
+            }
+            to = 0;
+        } else {
+            to = Number(this.state.restore_volume) || 0;
+            if (!to) {
+                this.notification.add("Keine vorherige Lautstärke gespeichert. Erst Lautstärke mit +/- einstellen und Fade Out verwenden.", {type: "warning"});
+                return;
+            }
+            if (from === to) return;
+            this.state.fadeMode = "in";
+        }
+        const started = Date.now();
+        this.nextFadeSendAt = started;
+        const tick = () => {
+            if (generation !== this.fadeGeneration || this.disposed) return;
+            const elapsed = Math.min(3000, Math.max(0, Date.now() - started));
+            // Time-based ramp: slow network responses skip obsolete steps, not the end value.
+            const value = Math.round(from + (to - from) * elapsed / 3000);
+            const send = elapsed === 3000 || Date.now() >= this.nextFadeSendAt;
+            this.setLocalVolume(value, send, elapsed === 3000);
+            if (send) this.nextFadeSendAt = Date.now() + 350;
+            if (elapsed === 3000) {
+                if (this.fadeTimer) clearInterval(this.fadeTimer);
+                this.fadeTimer = null;
+                this.state.fadeMode = "";
+            }
+        };
+        tick();
+        this.fadeTimer = setInterval(tick, 75);
     }
     scheduleVolume(final = false) {
         if (this.disposed || this.volumeInFlight || this.volumeWanted === null) return;
         if (this.volumeTimer) clearTimeout(this.volumeTimer);
-        const wait = final ? 0 : Math.max(0, 250 - (Date.now() - this.lastVolumeSentAt));
+        const wait = final ? 0 : Math.max(0, 320 - (Date.now() - this.lastVolumeSentAt));
         this.volumeTimer = setTimeout(() => {
             this.volumeTimer = null;
             void this.flushVolume();
@@ -163,7 +218,10 @@ export class GroundliftMusic extends Component {
         } catch (error) {
             this.volumeWanted = null; // Do not generate a retry storm on 429/offline.
             this.lastVolumeSent = null;
+            this.stopFade();
+            this.volumeLocalUntil = 0;
             if (!this.disposed) this.alert(error);
+            void this.refresh(false);
         } finally {
             this.volumeInFlight = false;
             if (!this.disposed && this.volumeWanted !== null) this.scheduleVolume();
