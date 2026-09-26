@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_video_style_list" model="ir.ui.view">
+        <field name="name">gl.video.teaser.style.list</field>
+        <field name="model">gl.video.teaser.style</field>
+        <field name="arch" type="xml">
+            <list string="Video-Styles" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="active"/>
+                <field name="subtitle_effect"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_video_style_form" model="ir.ui.view">
+        <field name="name">gl.video.teaser.style.form</field>
+        <field name="model">gl.video.teaser.style</field>
+        <field name="arch" type="xml">
+            <form string="Video-Style">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="sequence"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="subtitle_effect"/>
+                            <field name="description"/>
+                        </group>
+                    </group>
+                    <group string="Creative Direction">
+                        <field name="director_prompt" placeholder="Dramaturgie, Schnittgefühl, Tonalität ..."/>
+                        <field name="runway_prompt_suffix" placeholder="Globale Bewegungs-/Kameraanweisung ..."/>
+                        <field name="music_prompt" placeholder="Musikalische Grundrichtung ..."/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>

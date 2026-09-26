@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_event_form_gl_ai_video" model="ir.ui.view">
+        <field name="name">event.event.form.gl.ai.video</field>
+        <field name="model">event.event</field>
+        <field name="inherit_id" ref="event.view_event_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_create_ai_video_teaser" type="object" string="AI Video-Teaser" class="btn-secondary" groups="event.group_event_user"/>
+            </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page string="AI Video" name="gl_ai_video">
+                    <group>
+                        <group string="Freigegebene Ausgaben">
+                            <field name="gl_video_latest_job_id" readonly="1"/>
+                            <field name="gl_video_teaser_16_9_url" widget="url" readonly="1"/>
+                            <field name="gl_video_teaser_9_16_url" widget="url" readonly="1"/>
+                        </group>
+                        <group string="Aktionen">
+                            <button name="action_create_ai_video_teaser" type="object" string="Neuen 20s-Teaser anlegen" class="btn-primary"/>
+                            <button name="action_view_ai_video_teasers" type="object" string="Alle Teaser öffnen"/>
+                            <field name="gl_video_job_count" readonly="1"/>
+                        </group>
+                    </group>
+                    <separator string="Assets · Priorität: echtes Video → Social-Grafik/Pressefoto → KI-B-Roll"/>
+                    <field name="gl_video_asset_ids" context="{'default_event_id': id}">
+                        <list editable="bottom" default_order="priority,id">
+                            <field name="priority" widget="handle"/>
+                            <field name="name"/>
+                            <field name="role"/>
+                            <field name="asset_type"/>
+                            <field name="source_type"/>
+                            <field name="filename" optional="show"/>
+                            <field name="external_url" optional="show"/>
+                            <field name="use_in_teaser"/>
+                            <field name="ai_motion_allowed"/>
+                        </list>
+                    </field>
+                    <separator string="Bisherige Teaser"/>
+                    <field name="gl_video_job_ids" readonly="1">
+                        <list>
+                            <field name="create_date"/>
+                            <field name="style_id"/>
+                            <field name="state" widget="badge"/>
+                            <field name="output_url_16_9" widget="url" optional="show"/>
+                            <field name="output_url_9_16" widget="url" optional="show"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

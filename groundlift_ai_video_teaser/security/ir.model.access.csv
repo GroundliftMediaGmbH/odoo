@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_gl_video_asset_user,gl.video.teaser.asset user,model_gl_video_teaser_asset,event.group_event_user,1,1,1,1
+access_gl_video_scene_user,gl.video.teaser.scene user,model_gl_video_teaser_scene,event.group_event_user,1,1,1,1
+access_gl_video_job_user,gl.video.teaser.job user,model_gl_video_teaser_job,event.group_event_user,1,1,1,1
+access_gl_video_style_user,gl.video.teaser.style user,model_gl_video_teaser_style,event.group_event_user,1,0,0,0
+access_gl_video_style_manager,gl.video.teaser.style manager,model_gl_video_teaser_style,event.group_event_manager,1,1,1,1

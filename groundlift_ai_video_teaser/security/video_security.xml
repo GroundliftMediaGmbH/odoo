@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="rule_gl_video_job_company" model="ir.rule">
+        <field name="name">AI Video Jobs: company</field>
+        <field name="model_id" ref="model_gl_video_teaser_job"/>
+        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+        <field name="groups" eval="[(4, ref('event.group_event_user'))]"/>
+    </record>
+
+    <record id="rule_gl_video_asset_company" model="ir.rule">
+        <field name="name">AI Video Assets: company</field>
+        <field name="model_id" ref="model_gl_video_teaser_asset"/>
+        <field name="domain_force">[('event_id.company_id', 'in', company_ids + [False])]</field>
+        <field name="groups" eval="[(4, ref('event.group_event_user'))]"/>
+    </record>
+
+    <record id="rule_gl_video_scene_company" model="ir.rule">
+        <field name="name">AI Video Scenes: company</field>
+        <field name="model_id" ref="model_gl_video_teaser_scene"/>
+        <field name="domain_force">[('job_id.company_id', 'in', company_ids + [False])]</field>
+        <field name="groups" eval="[(4, ref('event.group_event_user'))]"/>
+    </record>
+</odoo>

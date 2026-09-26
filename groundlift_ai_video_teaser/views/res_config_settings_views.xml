@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_gl_ai_video" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.gl.ai.video</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app string="Groundlift AI Video" name="groundlift_ai_video_teaser" groups="base.group_system">
+                    <block title="Provider" help="API-Zugänge und Modelle für Skript, KI-Bewegtbild, Voice/Musik und finales Rendering.">
+                        <setting string="OpenAI · Regie &amp; Skript" help="Structured Output für Voiceover, Szenenplan und Asset-Auswahl.">
+                            <div class="content-group">
+                                <div class="row mt16"><label for="gl_video_openai_api_key" class="col-lg-3 o_light_label"/><field name="gl_video_openai_api_key" password="True" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_openai_model" class="col-lg-3 o_light_label"/><field name="gl_video_openai_model" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_openai_reasoning" class="col-lg-3 o_light_label"/><field name="gl_video_openai_reasoning" class="col-lg-5"/></div>
+                            </div>
+                        </setting>
+                        <setting string="Runway · Bild → Video / B-Roll" help="Gen-4.5 oder ein kompatibles Modell. 9:16 und 16:9 können separat erzeugt werden.">
+                            <div class="content-group">
+                                <div class="row mt16"><label for="gl_video_runway_api_key" class="col-lg-3 o_light_label"/><field name="gl_video_runway_api_key" password="True" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_runway_model" class="col-lg-3 o_light_label"/><field name="gl_video_runway_model" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_runway_clip_duration" class="col-lg-3 o_light_label"/><field name="gl_video_runway_clip_duration" class="col-lg-2"/></div>
+                                <div class="row mt8"><label for="gl_video_runway_max_clips" class="col-lg-3 o_light_label"/><field name="gl_video_runway_max_clips" class="col-lg-2"/></div>
+                                <div class="row mt8"><label for="gl_video_runway_generate_both" class="col-lg-3 o_light_label"/><field name="gl_video_runway_generate_both"/></div>
+                            </div>
+                        </setting>
+                        <setting string="ElevenLabs · Voice &amp; Musik" help="Eine feste Groundlift-Stimme schafft Wiedererkennung; Musik kann pro Teaser generiert werden.">
+                            <div class="content-group">
+                                <div class="row mt16"><label for="gl_video_eleven_api_key" class="col-lg-3 o_light_label"/><field name="gl_video_eleven_api_key" password="True" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_eleven_voice_id" class="col-lg-3 o_light_label"/><field name="gl_video_eleven_voice_id" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_eleven_tts_model" class="col-lg-3 o_light_label"/><field name="gl_video_eleven_tts_model" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_generate_music" class="col-lg-3 o_light_label"/><field name="gl_video_generate_music"/></div>
+                                <div class="row mt8"><label for="gl_video_eleven_music_model" class="col-lg-3 o_light_label"/><field name="gl_video_eleven_music_model" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_music_volume" class="col-lg-3 o_light_label"/><field name="gl_video_music_volume" class="col-lg-2"/> %</div>
+                            </div>
+                        </setting>
+                        <setting string="Creatomate · Master-Rendering" help="Ohne Template-ID nutzt die App ein eingebautes RenderScript. Für maximale CI-Qualität zwei eigene Mastertemplates hinterlegen.">
+                            <div class="content-group">
+                                <div class="row mt16"><label for="gl_video_creatomate_api_key" class="col-lg-3 o_light_label"/><field name="gl_video_creatomate_api_key" password="True" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_use_templates" class="col-lg-3 o_light_label"/><field name="gl_video_use_templates"/></div>
+                                <div class="row mt8"><label for="gl_video_creatomate_template_16_9" class="col-lg-3 o_light_label"/><field name="gl_video_creatomate_template_16_9" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_creatomate_template_9_16" class="col-lg-3 o_light_label"/><field name="gl_video_creatomate_template_9_16" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_download_final" class="col-lg-3 o_light_label"/><field name="gl_video_download_final"/></div>
+                            </div>
+                        </setting>
+                        <setting string="Verbindungen prüfen">
+                            <button name="action_test_video_providers" type="object" string="Provider prüfen" class="btn-secondary"/>
+                        </setting>
+                    </block>
+
+                    <block title="Groundlift CI" help="Diese Werte bleiben deterministisch; die KI generiert weder Logo noch Datumstypografie.">
+                        <setting string="Branding">
+                            <div class="content-group">
+                                <div class="row mt16"><label for="gl_video_brand_name" class="col-lg-3 o_light_label"/><field name="gl_video_brand_name" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_outro_claim" class="col-lg-3 o_light_label"/><field name="gl_video_outro_claim" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_cta" class="col-lg-3 o_light_label"/><field name="gl_video_cta" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_footer" class="col-lg-3 o_light_label"/><field name="gl_video_footer" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_location_phrase" class="col-lg-3 o_light_label"/><field name="gl_video_location_phrase" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_hook_template" class="col-lg-3 o_light_label"/><field name="gl_video_hook_template" class="col-lg-5" placeholder="Am {date} {location} …"/></div>
+                            </div>
+                        </setting>
+                        <setting string="Farben">
+                            <div class="content-group">
+                                <div class="row mt16"><label for="gl_video_brand_bg" class="col-lg-3 o_light_label"/><field name="gl_video_brand_bg" class="col-lg-3"/></div>
+                                <div class="row mt8"><label for="gl_video_brand_fg" class="col-lg-3 o_light_label"/><field name="gl_video_brand_fg" class="col-lg-3"/></div>
+                                <div class="row mt8"><label for="gl_video_brand_accent" class="col-lg-3 o_light_label"/><field name="gl_video_brand_accent" class="col-lg-3"/></div>
+                            </div>
+                        </setting>
+                    </block>
+
+                    <block title="Odoo-Feldzuordnung &amp; Übergabe" help="Damit die App auch mit euren eigenen x_-Feldern und der Social-Automation funktioniert.">
+                        <setting string="Event-Felder">
+                            <div class="content-group">
+                                <div class="row mt16"><label for="gl_video_short_description_field" class="col-lg-3 o_light_label"/><field name="gl_video_short_description_field" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_category_field" class="col-lg-3 o_light_label"/><field name="gl_video_category_field" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_ticket_url_field" class="col-lg-3 o_light_label"/><field name="gl_video_ticket_url_field" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_event_image_field" class="col-lg-3 o_light_label"/><field name="gl_video_event_image_field" class="col-lg-5" placeholder="z. B. image_1920 oder x_social_image"/></div>
+                            </div>
+                        </setting>
+                        <setting string="Social-Automation / Webhook" help="Wird beim Freigeben mit Event-ID und beiden Video-URLs aufgerufen.">
+                            <field name="gl_video_approval_webhook_url" class="w-100" placeholder="https://..."/>
+                        </setting>
+                        <setting string="Job-Verarbeitung">
+                            <div class="row"><label for="gl_video_batch_size" class="col-lg-3 o_light_label"/><field name="gl_video_batch_size" class="col-lg-2"/></div>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>

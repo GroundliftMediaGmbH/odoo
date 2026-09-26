@@ -1,0 +1,23 @@
+{
+    'name': 'Groundlift AI Video Teaser',
+    'version': '19.0.1.0.0',
+    'category': 'Marketing/Events',
+    'summary': 'Automated AI video teasers for Odoo Events with OpenAI, Runway, ElevenLabs and Creatomate',
+    'author': 'Groundlift',
+    'license': 'LGPL-3',
+    'depends': ['event', 'website_event', 'mail'],
+    'data': [
+        'security/video_security.xml',
+        'security/ir.model.access.csv',
+        'data/video_style_data.xml',
+        'data/ir_cron_data.xml',
+        'views/video_asset_views.xml',
+        'views/video_style_views.xml',
+        'views/video_job_views.xml',
+        'views/event_event_views.xml',
+        'views/res_config_settings_views.xml',
+        'views/menus.xml',
+    ],
+    'installable': True,
+    'application': True,
+}

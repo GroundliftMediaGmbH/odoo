@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_gl_video_jobs" model="ir.actions.act_window">
+        <field name="name">AI Video-Teaser</field>
+        <field name="res_model">gl.video.teaser.job</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_gl_video_job_search"/>
+    </record>
+    <record id="action_gl_video_assets" model="ir.actions.act_window">
+        <field name="name">Assets</field>
+        <field name="res_model">gl.video.teaser.asset</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="action_gl_video_styles" model="ir.actions.act_window">
+        <field name="name">Styles</field>
+        <field name="res_model">gl.video.teaser.style</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_gl_video_root" name="AI Video" sequence="60" groups="event.group_event_user"/>
+    <menuitem id="menu_gl_video_jobs" name="Teaser" parent="menu_gl_video_root" action="action_gl_video_jobs" sequence="10"/>
+    <menuitem id="menu_gl_video_assets" name="Assets" parent="menu_gl_video_root" action="action_gl_video_assets" sequence="20"/>
+    <menuitem id="menu_gl_video_styles" name="Styles" parent="menu_gl_video_root" action="action_gl_video_styles" sequence="30" groups="event.group_event_manager"/>
+</odoo>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_video_asset_list" model="ir.ui.view">
+        <field name="name">gl.video.teaser.asset.list</field>
+        <field name="model">gl.video.teaser.asset</field>
+        <field name="arch" type="xml">
+            <list string="Video-Assets" default_order="event_id,priority,id">
+                <field name="event_id"/>
+                <field name="priority"/>
+                <field name="name"/>
+                <field name="role"/>
+                <field name="asset_type"/>
+                <field name="source_type"/>
+                <field name="use_in_teaser"/>
+                <field name="ai_motion_allowed"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_video_asset_form" model="ir.ui.view">
+        <field name="name">gl.video.teaser.asset.form</field>
+        <field name="model">gl.video.teaser.asset</field>
+        <field name="arch" type="xml">
+            <form string="Video-Asset">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="event_id"/>
+                            <field name="name"/>
+                            <field name="role"/>
+                            <field name="asset_type"/>
+                            <field name="priority"/>
+                        </group>
+                        <group>
+                            <field name="source_type"/>
+                            <field name="use_in_teaser"/>
+                            <field name="ai_motion_allowed"/>
+                            <field name="notes"/>
+                        </group>
+                    </group>
+                    <group string="Quelle">
+                        <field name="file_data" filename="filename" invisible="source_type != 'upload'"/>
+                        <field name="filename" invisible="source_type != 'upload'"/>
+                        <field name="external_url" widget="url" invisible="source_type != 'url'"/>
+                        <field name="public_url" widget="url" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>
