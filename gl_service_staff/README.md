@@ -42,3 +42,10 @@ Am 1. jedes Monats erhält jeder aktive Mitarbeiter mit E-Mail-Adresse eine Übe
 ## Hinweis zu Daten
 
 Es gibt keine Lösch-/Reset-Migration. Die bestehenden Modelle `gl.service.staff.member`, `gl.service.shift` und `gl.service.shift.line` sowie die bisherigen Zustände `accepted`, `declined`, `invited` bleiben erhalten. `accepted` + `role=desired` gilt im neuen Ablauf als **Gebucht**; ältere `accepted`-Reserveeinträge bleiben unangetastet und werden als Altbestand behandelt.
+
+## 19.0.2.0.2
+- E-Mail-Layouts auf robuste, table-basierte HTML-Mails mit festem hellem Hintergrund und expliziten Textfarben umgestellt; dadurch bleiben sie auch in Odoo-Darkmode, Outlook, Gmail, Apple Mail und mobilen Clients lesbar.
+- Verfügbarkeitsmails verwenden vor dem Rendern immer den aktuellen Service-Zeitraum aus der Quelle. Bei Veranstaltungen werden die globalen bzw. individuellen Zusatzstunden vor Beginn und nach Ende berücksichtigt.
+- Legacy-Schichten werden bei einer neuen Verfügbarkeitsanfrage auf den korrekten Standard-Zeitraum aktualisiert, ohne bereits fest gebuchte Mitarbeiter oder bewusst individualisierte Personalzeiten zu verändern.
+- Datum/Uhrzeit in Mails wird kompakt als `TT.MM.JJJJ HH:MM Uhr` ausgegeben.
+

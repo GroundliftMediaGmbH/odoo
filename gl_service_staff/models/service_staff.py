@@ -289,9 +289,9 @@ class GLServiceStaffMember(models.Model):
                 for line in lines:
                     rows.append(
                         '<tr>'
-                        '<td style="padding:8px 12px;border-bottom:1px solid #ddd;">%s</td>'
-                        '<td style="padding:8px 12px;border-bottom:1px solid #ddd;">%s</td>'
-                        '<td style="padding:8px 12px;border-bottom:1px solid #ddd;">%s</td>'
+                        '<td style="padding:10px 12px;border-bottom:1px solid #e2e6ec;background-color:#ffffff;color:#111827;font-size:14px;line-height:1.4;">%s</td>'
+                        '<td style="padding:10px 12px;border-bottom:1px solid #e2e6ec;background-color:#ffffff;color:#111827;font-size:14px;line-height:1.4;">%s</td>'
+                        '<td style="padding:10px 12px;border-bottom:1px solid #e2e6ec;background-color:#ffffff;color:#111827;font-size:14px;line-height:1.4;">%s</td>'
                         '</tr>' % (
                             escape(line.shift_id.name or ''),
                             escape(member._format_datetime_for_mail(line.planned_start_datetime)),
@@ -299,24 +299,31 @@ class GLServiceStaffMember(models.Model):
                         )
                     )
                 schedule_html = (
-                    '<table style="border-collapse:collapse;width:100%;max-width:760px;">'
+                    '<table role="presentation" width="100%%" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="width:100%%;border-collapse:collapse;background-color:#ffffff;color:#111827;border:1px solid #e2e6ec;">'
                     '<thead><tr>'
-                    '<th style="text-align:left;padding:8px 12px;border-bottom:2px solid #bbb;">Einsatz</th>'
-                    '<th style="text-align:left;padding:8px 12px;border-bottom:2px solid #bbb;">Beginn</th>'
-                    '<th style="text-align:left;padding:8px 12px;border-bottom:2px solid #bbb;">Ende</th>'
+                    '<th style="text-align:left;padding:10px 12px;background-color:#f7f8fa;color:#5b6472;border-bottom:1px solid #d9dee7;font-size:13px;">Einsatz</th>'
+                    '<th style="text-align:left;padding:10px 12px;background-color:#f7f8fa;color:#5b6472;border-bottom:1px solid #d9dee7;font-size:13px;">Beginn</th>'
+                    '<th style="text-align:left;padding:10px 12px;background-color:#f7f8fa;color:#5b6472;border-bottom:1px solid #d9dee7;font-size:13px;">Ende</th>'
                     '</tr></thead><tbody>%s</tbody></table>' % ''.join(rows)
                 )
             else:
-                schedule_html = '<p>Für diesen Monat sind aktuell keine Service-Einsätze fest gebucht.</p>'
+                schedule_html = (
+                    '<p style="margin:0;color:#111827;font-size:15px;line-height:1.5;">'
+                    'Für diesen Monat sind aktuell keine Service-Einsätze fest gebucht.</p>'
+                )
 
             body = (
-                '<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#222;">'
-                '<p>Hallo %s,</p>'
-                '<p>hier kommt deine Übersicht der aktuell fest gebuchten Service-Einsätze für %s.</p>'
+                '<table role="presentation" width="100%%" cellspacing="0" cellpadding="0" border="0" bgcolor="#eef1f5" style="width:100%%;margin:0;padding:0;border-collapse:collapse;background-color:#eef1f5;color:#111827;font-family:Arial,Helvetica,sans-serif;">'
+                '<tbody><tr><td align="center" style="padding:24px 12px;color:#111827;">'
+                '<table role="presentation" width="700" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="width:100%%;max-width:700px;border-collapse:separate;background-color:#ffffff;color:#111827;border:1px solid #d9dee7;border-radius:12px;">'
+                '<tbody><tr><td style="padding:28px;background-color:#ffffff;color:#111827;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.55;">'
+                '<p style="margin:0 0 16px 0;color:#111827;">Hallo <strong style="color:#111827;">%s</strong>,</p>'
+                '<p style="margin:0 0 20px 0;color:#111827;">hier kommt deine Übersicht der aktuell fest gebuchten Service-Einsätze für <strong style="color:#111827;">%s</strong>.</p>'
                 '%s'
-                '<p style="margin-top:24px;color:#666;font-size:13px;">'
+                '<p style="margin:24px 0 0 0;color:#5b6472;font-size:13px;line-height:1.5;">'
                 'Du möchtest diese monatliche Übersicht nicht mehr erhalten? '
-                '<a href="%s">Monatsmail abbestellen</a>.</p></div>'
+                '<a href="%s" style="color:#2563eb;text-decoration:underline;">Monatsmail abbestellen</a>.</p>'
+                '</td></tr></tbody></table></td></tr></tbody></table>'
             ) % (
                 escape(member.name or ''), escape(month_name), schedule_html,
                 escape(member.monthly_unsubscribe_url or '#'),
@@ -528,8 +535,76 @@ class GLServiceShift(models.Model):
     def action_send_availability_request(self):
         return self._send_availability_request(auto=False)
 
+    def _refresh_source_times_for_availability(self):
+        """Refresh the service window before an availability request is rendered.
+
+        Existing/legacy shifts intentionally keep ``managed_source_times=False`` after the
+        rework so an upgrade cannot silently move already booked staff.  Availability
+        requests, however, must always use the current service window from their source:
+
+        * events: event start minus configured before-hours / event end plus after-hours
+        * projects: Homeautomation start/end including the configured project offsets
+
+        The shift standard is refreshed, but already *fixed booked* people keep their
+        individual planned times.  For everybody else only lines that still used the old
+        shift standard (or had no individual time) are moved.  Explicitly individualized
+        line times therefore remain untouched.
+        """
+        for shift in self:
+            new_start = new_end = new_date = False
+            legacy_start = legacy_end = False
+
+            if shift.source_model == 'event.event' and shift.event_id and shift.event_id.exists():
+                event = shift.event_id
+                if event.date_begin:
+                    before_h, after_h = event._gl_service_get_time_offsets()
+                    legacy_start = event.date_begin
+                    legacy_end = event.date_end or event.date_begin
+                    new_start = legacy_start - timedelta(hours=before_h)
+                    new_end = legacy_end + timedelta(hours=after_h)
+                    new_date = fields.Date.to_date(new_start)
+
+            elif shift.source_model == 'project.project' and shift.project_id and shift.project_id.exists():
+                new_start, new_end = shift.project_id._gl_service_get_automation_datetimes()
+                if new_start:
+                    new_date = fields.Date.to_date(new_start)
+
+            if not new_start or not new_end:
+                continue
+
+            old_start, old_end = shift.start_datetime, shift.end_datetime
+            vals = {
+                'start_datetime': new_start,
+                'end_datetime': new_end,
+            }
+            if new_date:
+                vals['shift_date'] = new_date
+            shift.with_context(gl_source_time_sync=True).write(vals)
+
+            for line in shift.line_ids:
+                # Bestandsschutz: Bereits fest gebuchtes Personal wird durch eine neue
+                # Verfügbarkeitsrunde weder zeitlich verändert noch erneut angefragt.
+                if line.state == 'accepted' and line.role == 'desired':
+                    continue
+                line_vals = {}
+                start_follow_values = (False, old_start, legacy_start)
+                end_follow_values = (False, old_end, legacy_end)
+                if line.planned_start_datetime in start_follow_values and line.planned_start_datetime != new_start:
+                    line_vals['planned_start_datetime'] = new_start
+                if line.planned_end_datetime in end_follow_values and line.planned_end_datetime != new_end:
+                    line_vals['planned_end_datetime'] = new_end
+                if line_vals:
+                    line.with_context(
+                        skip_time_change_confirmation=True,
+                        skip_service_role_balance=True,
+                    ).write(line_vals)
+        return True
+
     def _send_availability_request(self, auto=False):
         """Ask every active, not-yet-booked/available employee for availability."""
+        # This also fixes legacy shifts whose old standard used the raw event times
+        # without the configured service hours before/after the event.
+        self._refresh_source_times_for_availability()
         for shift in self:
             if shift.required_count <= 0:
                 raise UserError(_('Für diese Schicht ist „Anzahl Servicepersonal“ 0. Bitte zuerst den Bedarf eintragen.'))
@@ -755,6 +830,33 @@ class GLServiceShiftLine(models.Model):
         'hr.employee', string='Mitarbeiter', related='member_id.employee_id', store=True, readonly=True
     )
     email = fields.Char(string='E-Mail', related='member_id.email', readonly=True)
+    mail_date_display = fields.Char(string='Datum (Mail)', compute='_compute_mail_time_display')
+    mail_start_display = fields.Char(string='Beginn (Mail)', compute='_compute_mail_time_display')
+    mail_end_display = fields.Char(string='Ende (Mail)', compute='_compute_mail_time_display')
+
+    def _format_datetime_for_mail(self, value):
+        """Recipient-friendly local time without seconds for all service mails."""
+        self.ensure_one()
+        if not value:
+            return _('noch offen')
+        if self.member_id:
+            return self.member_id._format_datetime_for_mail(value)
+        localized = fields.Datetime.context_timestamp(self, value)
+        return localized.strftime('%d.%m.%Y %H:%M Uhr')
+
+    def _format_date_for_mail(self, value):
+        self.ensure_one()
+        if not value:
+            return _('noch offen')
+        date_value = fields.Date.to_date(value)
+        return date_value.strftime('%d.%m.%Y') if date_value else _('noch offen')
+
+    @api.depends('planned_start_datetime', 'planned_end_datetime', 'shift_id.shift_date', 'member_id')
+    def _compute_mail_time_display(self):
+        for line in self:
+            line.mail_date_display = line._format_date_for_mail(line.shift_id.shift_date)
+            line.mail_start_display = line._format_datetime_for_mail(line.planned_start_datetime)
+            line.mail_end_display = line._format_datetime_for_mail(line.planned_end_datetime)
 
     # Role remains for backwards compatibility with existing cost/reporting extensions.
     role = fields.Selection([

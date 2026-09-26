@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!--
+        All service mails deliberately use old-school table based HTML + inline styles.
+        This keeps them readable in Odoo's dark backend preview as well as Outlook,
+        Gmail, Apple Mail and mobile clients that apply their own dark-mode rules.
+    -->
     <record id="mail_template_service_availability" model="mail.template">
         <field name="name">Servicepersonal: Verfügbarkeit anfragen</field>
         <field name="model_id" ref="model_gl_service_shift_line"/>
@@ -8,21 +13,45 @@
         <field name="email_to">{{ object.email }}</field>
         <field name="auto_delete" eval="False"/>
         <field name="body_html" type="html">
-            <div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#222;">
-                <p>Hallo <t t-out="object.member_id.name"/>,</p>
-                <p>wir planen den Service für folgenden Einsatz und möchten wissen, ob du in diesem Zeitraum verfügbar bist:</p>
-                <p>
-                    <strong><t t-out="object.shift_id.name"/></strong><br/>
-                    Datum: <t t-out="object.shift_id.shift_date"/><br/>
-                    Zeitraum: <t t-out="format_datetime(object.planned_start_datetime) if object.planned_start_datetime else 'noch offen'"/>
-                    bis <t t-out="format_datetime(object.planned_end_datetime) if object.planned_end_datetime else 'noch offen'"/>
-                </p>
-                <p style="margin:24px 0;">
-                    <a t-att-href="object.accept_url" style="background:#1f8f3a;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;margin-right:8px;">Ich bin verfügbar</a>
-                    <a t-att-href="object.decline_url" style="background:#8f1f1f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;">Ich bin nicht verfügbar</a>
-                </p>
-                <p style="color:#666;font-size:13px;">Deine Verfügbarkeitsmeldung ist noch keine feste Buchung. Wenn du eingeplant wirst, erhältst du anschließend eine Buchungsbestätigung.</p>
-            </div>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#eef1f5" style="width:100%;margin:0;padding:0;border-collapse:collapse;background-color:#eef1f5;color:#111827;font-family:Arial,Helvetica,sans-serif;">
+                <tbody><tr><td align="center" style="padding:24px 12px;color:#111827;">
+                    <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:640px;border-collapse:separate;background-color:#ffffff;color:#111827;border:1px solid #d9dee7;border-radius:12px;">
+                        <tbody><tr><td style="padding:28px 28px 10px 28px;background-color:#ffffff;color:#111827;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.55;">
+                            <p style="margin:0 0 16px 0;color:#111827;font-size:16px;line-height:1.55;">Hallo <strong style="color:#111827;"><t t-out="object.member_id.name"/></strong>,</p>
+                            <p style="margin:0 0 20px 0;color:#111827;font-size:16px;line-height:1.55;">wir planen den Service für folgenden Einsatz und möchten wissen, ob du in diesem Zeitraum verfügbar bist:</p>
+
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f7f8fa" style="width:100%;border-collapse:collapse;background-color:#f7f8fa;border:1px solid #e2e6ec;border-radius:8px;">
+                                <tbody>
+                                    <tr><td colspan="2" style="padding:16px 16px 10px 16px;background-color:#f7f8fa;color:#111827;font-size:18px;font-weight:bold;line-height:1.35;"><t t-out="object.shift_id.name"/></td></tr>
+                                    <tr>
+                                        <td width="120" valign="top" style="padding:6px 8px 6px 16px;background-color:#f7f8fa;color:#5b6472;font-size:14px;font-weight:bold;line-height:1.45;">Datum</td>
+                                        <td valign="top" style="padding:6px 16px 6px 8px;background-color:#f7f8fa;color:#111827;font-size:15px;line-height:1.45;"><t t-out="object.mail_date_display"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td width="120" valign="top" style="padding:6px 8px 16px 16px;background-color:#f7f8fa;color:#5b6472;font-size:14px;font-weight:bold;line-height:1.45;">Service-Zeit</td>
+                                        <td valign="top" style="padding:6px 16px 16px 8px;background-color:#f7f8fa;color:#111827;font-size:15px;line-height:1.45;"><strong style="color:#111827;"><t t-out="object.mail_start_display"/></strong><br/>bis <strong style="color:#111827;"><t t-out="object.mail_end_display"/></strong></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <p style="margin:12px 0 22px 0;color:#5b6472;font-size:13px;line-height:1.5;">Die angegebene Service-Zeit enthält bereits die für diesen Einsatz hinterlegten Vor- und Nachlaufzeiten.</p>
+
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;">
+                                <tbody><tr><td bgcolor="#18864b" align="center" style="padding:0;background-color:#18864b;border-radius:8px;">
+                                    <a t-att-href="object.accept_url" target="_blank" style="display:block;padding:14px 16px;color:#ffffff !important;text-decoration:none;font-size:16px;font-weight:bold;line-height:1.25;background-color:#18864b;border-radius:8px;">Ich bin verfügbar</a>
+                                </td></tr></tbody>
+                            </table>
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;margin-top:10px;">
+                                <tbody><tr><td bgcolor="#b4232c" align="center" style="padding:0;background-color:#b4232c;border-radius:8px;">
+                                    <a t-att-href="object.decline_url" target="_blank" style="display:block;padding:14px 16px;color:#ffffff !important;text-decoration:none;font-size:16px;font-weight:bold;line-height:1.25;background-color:#b4232c;border-radius:8px;">Ich bin nicht verfügbar</a>
+                                </td></tr></tbody>
+                            </table>
+
+                            <p style="margin:22px 0 0 0;color:#5b6472;font-size:13px;line-height:1.5;">Deine Verfügbarkeitsmeldung ist noch keine feste Buchung. Wenn du eingeplant wirst, erhältst du anschließend eine Buchungsbestätigung.</p>
+                        </td></tr><tr><td style="height:18px;background-color:#ffffff;color:#111827;">&#160;</td></tr></tbody>
+                    </table>
+                </td></tr></tbody>
+            </table>
         </field>
     </record>
 
@@ -34,17 +63,24 @@
         <field name="email_to">{{ object.email }}</field>
         <field name="auto_delete" eval="False"/>
         <field name="body_html" type="html">
-            <div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#222;">
-                <p>Hallo <t t-out="object.member_id.name"/>,</p>
-                <p>vielen Dank für deine Rückmeldung. Du bist für folgenden Service-Einsatz <strong>fest gebucht</strong>:</p>
-                <p>
-                    <strong><t t-out="object.shift_id.name"/></strong><br/>
-                    Datum: <t t-out="object.shift_id.shift_date"/><br/>
-                    Arbeitszeit: <t t-out="format_datetime(object.planned_start_datetime) if object.planned_start_datetime else 'noch offen'"/>
-                    bis <t t-out="format_datetime(object.planned_end_datetime) if object.planned_end_datetime else 'noch offen'"/>
-                </p>
-                <p>Der Einsatz erscheint ab jetzt in deiner Servicepersonal-Übersicht als „Gebucht“.</p>
-            </div>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#eef1f5" style="width:100%;margin:0;padding:0;border-collapse:collapse;background-color:#eef1f5;color:#111827;font-family:Arial,Helvetica,sans-serif;">
+                <tbody><tr><td align="center" style="padding:24px 12px;color:#111827;">
+                    <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:640px;border-collapse:separate;background-color:#ffffff;color:#111827;border:1px solid #d9dee7;border-radius:12px;">
+                        <tbody><tr><td style="padding:28px;background-color:#ffffff;color:#111827;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.55;">
+                            <p style="margin:0 0 16px 0;color:#111827;">Hallo <strong style="color:#111827;"><t t-out="object.member_id.name"/></strong>,</p>
+                            <p style="margin:0 0 20px 0;color:#111827;">vielen Dank für deine Rückmeldung. Du bist für folgenden Service-Einsatz <strong style="color:#111827;">fest gebucht</strong>:</p>
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f7f8fa" style="width:100%;border-collapse:collapse;background-color:#f7f8fa;border:1px solid #e2e6ec;border-radius:8px;">
+                                <tbody>
+                                    <tr><td colspan="2" style="padding:16px 16px 10px 16px;background-color:#f7f8fa;color:#111827;font-size:18px;font-weight:bold;"><t t-out="object.shift_id.name"/></td></tr>
+                                    <tr><td width="120" style="padding:6px 8px 6px 16px;background-color:#f7f8fa;color:#5b6472;font-size:14px;font-weight:bold;">Datum</td><td style="padding:6px 16px 6px 8px;background-color:#f7f8fa;color:#111827;"><t t-out="object.mail_date_display"/></td></tr>
+                                    <tr><td width="120" valign="top" style="padding:6px 8px 16px 16px;background-color:#f7f8fa;color:#5b6472;font-size:14px;font-weight:bold;">Arbeitszeit</td><td style="padding:6px 16px 16px 8px;background-color:#f7f8fa;color:#111827;"><strong style="color:#111827;"><t t-out="object.mail_start_display"/></strong><br/>bis <strong style="color:#111827;"><t t-out="object.mail_end_display"/></strong></td></tr>
+                                </tbody>
+                            </table>
+                            <p style="margin:20px 0 0 0;color:#111827;">Der Einsatz erscheint ab jetzt in deiner Servicepersonal-Übersicht als „Gebucht“.</p>
+                        </td></tr></tbody>
+                    </table>
+                </td></tr></tbody>
+            </table>
         </field>
     </record>
 
@@ -56,17 +92,24 @@
         <field name="email_to">{{ object.email }}</field>
         <field name="auto_delete" eval="False"/>
         <field name="body_html" type="html">
-            <div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#222;">
-                <p>Hallo <t t-out="object.member_id.name"/>,</p>
-                <p>hier kommt deine Erinnerung für die morgige Service-Schicht:</p>
-                <p>
-                    <strong><t t-out="object.shift_id.name"/></strong><br/>
-                    Datum: <t t-out="object.shift_id.shift_date"/><br/>
-                    Arbeitszeit: <t t-out="format_datetime(object.planned_start_datetime) if object.planned_start_datetime else 'noch offen'"/>
-                    bis <t t-out="format_datetime(object.planned_end_datetime) if object.planned_end_datetime else 'noch offen'"/>
-                </p>
-                <p>Vielen Dank und bis morgen!</p>
-            </div>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#eef1f5" style="width:100%;margin:0;padding:0;border-collapse:collapse;background-color:#eef1f5;color:#111827;font-family:Arial,Helvetica,sans-serif;">
+                <tbody><tr><td align="center" style="padding:24px 12px;color:#111827;">
+                    <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:640px;border-collapse:separate;background-color:#ffffff;color:#111827;border:1px solid #d9dee7;border-radius:12px;">
+                        <tbody><tr><td style="padding:28px;background-color:#ffffff;color:#111827;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.55;">
+                            <p style="margin:0 0 16px 0;color:#111827;">Hallo <strong style="color:#111827;"><t t-out="object.member_id.name"/></strong>,</p>
+                            <p style="margin:0 0 20px 0;color:#111827;">hier kommt deine Erinnerung für die morgige Service-Schicht:</p>
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f7f8fa" style="width:100%;border-collapse:collapse;background-color:#f7f8fa;border:1px solid #e2e6ec;border-radius:8px;">
+                                <tbody>
+                                    <tr><td colspan="2" style="padding:16px 16px 10px 16px;background-color:#f7f8fa;color:#111827;font-size:18px;font-weight:bold;"><t t-out="object.shift_id.name"/></td></tr>
+                                    <tr><td width="120" style="padding:6px 8px 6px 16px;background-color:#f7f8fa;color:#5b6472;font-size:14px;font-weight:bold;">Datum</td><td style="padding:6px 16px 6px 8px;background-color:#f7f8fa;color:#111827;"><t t-out="object.mail_date_display"/></td></tr>
+                                    <tr><td width="120" valign="top" style="padding:6px 8px 16px 16px;background-color:#f7f8fa;color:#5b6472;font-size:14px;font-weight:bold;">Arbeitszeit</td><td style="padding:6px 16px 16px 8px;background-color:#f7f8fa;color:#111827;"><strong style="color:#111827;"><t t-out="object.mail_start_display"/></strong><br/>bis <strong style="color:#111827;"><t t-out="object.mail_end_display"/></strong></td></tr>
+                                </tbody>
+                            </table>
+                            <p style="margin:20px 0 0 0;color:#111827;">Vielen Dank und bis morgen!</p>
+                        </td></tr></tbody>
+                    </table>
+                </td></tr></tbody>
+            </table>
         </field>
     </record>
 
@@ -78,24 +121,28 @@
         <field name="email_to">{{ object.email }}</field>
         <field name="auto_delete" eval="False"/>
         <field name="body_html" type="html">
-            <div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#222;">
-                <p>Hallo <t t-out="object.member_id.name"/>,</p>
-                <p>bei deinem bereits fest gebuchten Service-Einsatz hat sich die Arbeitszeit geändert. Bitte bestätige kurz, ob die neue Zeit für dich passt.</p>
-                <p>
-                    <strong><t t-out="object.shift_id.name"/></strong><br/>
-                    Neue Arbeitszeit: <t t-out="format_datetime(object.planned_start_datetime) if object.planned_start_datetime else 'noch offen'"/>
-                    bis <t t-out="format_datetime(object.planned_end_datetime) if object.planned_end_datetime else 'noch offen'"/>
-                </p>
-                <p style="margin:24px 0;">
-                    <a t-att-href="object.accept_url" style="background:#1f8f3a;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;margin-right:8px;">Geänderte Zeit passt</a>
-                    <a t-att-href="object.decline_url" style="background:#8f1f1f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;">Geänderte Zeit passt nicht</a>
-                </p>
-            </div>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#eef1f5" style="width:100%;margin:0;padding:0;border-collapse:collapse;background-color:#eef1f5;color:#111827;font-family:Arial,Helvetica,sans-serif;">
+                <tbody><tr><td align="center" style="padding:24px 12px;color:#111827;">
+                    <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:640px;border-collapse:separate;background-color:#ffffff;color:#111827;border:1px solid #d9dee7;border-radius:12px;">
+                        <tbody><tr><td style="padding:28px;background-color:#ffffff;color:#111827;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.55;">
+                            <p style="margin:0 0 16px 0;color:#111827;">Hallo <strong style="color:#111827;"><t t-out="object.member_id.name"/></strong>,</p>
+                            <p style="margin:0 0 20px 0;color:#111827;">bei deinem bereits fest gebuchten Service-Einsatz hat sich die Arbeitszeit geändert. Bitte bestätige kurz, ob die neue Zeit für dich passt.</p>
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f7f8fa" style="width:100%;border-collapse:collapse;background-color:#f7f8fa;border:1px solid #e2e6ec;border-radius:8px;">
+                                <tbody>
+                                    <tr><td colspan="2" style="padding:16px 16px 10px 16px;background-color:#f7f8fa;color:#111827;font-size:18px;font-weight:bold;"><t t-out="object.shift_id.name"/></td></tr>
+                                    <tr><td width="120" valign="top" style="padding:6px 8px 16px 16px;background-color:#f7f8fa;color:#5b6472;font-size:14px;font-weight:bold;">Neue Zeit</td><td style="padding:6px 16px 16px 8px;background-color:#f7f8fa;color:#111827;"><strong style="color:#111827;"><t t-out="object.mail_start_display"/></strong><br/>bis <strong style="color:#111827;"><t t-out="object.mail_end_display"/></strong></td></tr>
+                                </tbody>
+                            </table>
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;margin-top:20px;"><tbody><tr><td bgcolor="#18864b" align="center" style="background-color:#18864b;border-radius:8px;"><a t-att-href="object.accept_url" target="_blank" style="display:block;padding:14px 16px;color:#ffffff !important;text-decoration:none;font-size:16px;font-weight:bold;background-color:#18864b;border-radius:8px;">Geänderte Zeit passt</a></td></tr></tbody></table>
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;margin-top:10px;"><tbody><tr><td bgcolor="#b4232c" align="center" style="background-color:#b4232c;border-radius:8px;"><a t-att-href="object.decline_url" target="_blank" style="display:block;padding:14px 16px;color:#ffffff !important;text-decoration:none;font-size:16px;font-weight:bold;background-color:#b4232c;border-radius:8px;">Geänderte Zeit passt nicht</a></td></tr></tbody></table>
+                        </td></tr></tbody>
+                    </table>
+                </td></tr></tbody>
+            </table>
         </field>
     </record>
 
-    <!-- Legacy XML-ID aktualisieren, damit externe Aufrufe der alten Einladung ebenfalls
-         nur eine Verfügbarkeitsabfrage und keine direkte Buchung kommunizieren. -->
+    <!-- Legacy XML-ID: bleibt absichtlich erhalten, damit alte externe Aufrufe nicht brechen. -->
     <record id="mail_template_service_invitation" model="mail.template">
         <field name="name">Servicepersonal: Verfügbarkeit anfragen (Legacy-ID)</field>
         <field name="model_id" ref="model_gl_service_shift_line"/>
@@ -104,18 +151,24 @@
         <field name="email_to">{{ object.email }}</field>
         <field name="auto_delete" eval="False"/>
         <field name="body_html" type="html">
-            <div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#222;">
-                <p>Hallo <t t-out="object.member_id.name"/>,</p>
-                <p>bist du für folgenden Service-Einsatz verfügbar?</p>
-                <p><strong><t t-out="object.shift_id.name"/></strong><br/>
-                <t t-out="format_datetime(object.planned_start_datetime) if object.planned_start_datetime else 'noch offen'"/> bis
-                <t t-out="format_datetime(object.planned_end_datetime) if object.planned_end_datetime else 'noch offen'"/></p>
-                <p style="margin:24px 0;">
-                    <a t-att-href="object.accept_url" style="background:#1f8f3a;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;margin-right:8px;">Ich bin verfügbar</a>
-                    <a t-att-href="object.decline_url" style="background:#8f1f1f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;">Ich bin nicht verfügbar</a>
-                </p>
-                <p style="color:#666;font-size:13px;">Eine feste Buchung wird separat bestätigt.</p>
-            </div>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#eef1f5" style="width:100%;margin:0;padding:0;border-collapse:collapse;background-color:#eef1f5;color:#111827;font-family:Arial,Helvetica,sans-serif;">
+                <tbody><tr><td align="center" style="padding:24px 12px;color:#111827;">
+                    <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:640px;border-collapse:separate;background-color:#ffffff;color:#111827;border:1px solid #d9dee7;border-radius:12px;">
+                        <tbody><tr><td style="padding:28px;background-color:#ffffff;color:#111827;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.55;">
+                            <p style="margin:0 0 16px 0;color:#111827;">Hallo <strong style="color:#111827;"><t t-out="object.member_id.name"/></strong>,</p>
+                            <p style="margin:0 0 20px 0;color:#111827;">bist du für folgenden Service-Einsatz verfügbar?</p>
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f7f8fa" style="width:100%;border-collapse:collapse;background-color:#f7f8fa;border:1px solid #e2e6ec;border-radius:8px;"><tbody>
+                                <tr><td colspan="2" style="padding:16px 16px 10px 16px;background-color:#f7f8fa;color:#111827;font-size:18px;font-weight:bold;"><t t-out="object.shift_id.name"/></td></tr>
+                                <tr><td width="120" style="padding:6px 8px 6px 16px;background-color:#f7f8fa;color:#5b6472;font-size:14px;font-weight:bold;">Datum</td><td style="padding:6px 16px 6px 8px;background-color:#f7f8fa;color:#111827;"><t t-out="object.mail_date_display"/></td></tr>
+                                <tr><td width="120" valign="top" style="padding:6px 8px 16px 16px;background-color:#f7f8fa;color:#5b6472;font-size:14px;font-weight:bold;">Service-Zeit</td><td style="padding:6px 16px 16px 8px;background-color:#f7f8fa;color:#111827;"><strong style="color:#111827;"><t t-out="object.mail_start_display"/></strong><br/>bis <strong style="color:#111827;"><t t-out="object.mail_end_display"/></strong></td></tr>
+                            </tbody></table>
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;margin-top:20px;"><tbody><tr><td bgcolor="#18864b" align="center" style="background-color:#18864b;border-radius:8px;"><a t-att-href="object.accept_url" target="_blank" style="display:block;padding:14px 16px;color:#ffffff !important;text-decoration:none;font-size:16px;font-weight:bold;background-color:#18864b;border-radius:8px;">Ich bin verfügbar</a></td></tr></tbody></table>
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;margin-top:10px;"><tbody><tr><td bgcolor="#b4232c" align="center" style="background-color:#b4232c;border-radius:8px;"><a t-att-href="object.decline_url" target="_blank" style="display:block;padding:14px 16px;color:#ffffff !important;text-decoration:none;font-size:16px;font-weight:bold;background-color:#b4232c;border-radius:8px;">Ich bin nicht verfügbar</a></td></tr></tbody></table>
+                            <p style="margin:22px 0 0 0;color:#5b6472;font-size:13px;line-height:1.5;">Eine feste Buchung wird separat bestätigt.</p>
+                        </td></tr></tbody>
+                    </table>
+                </td></tr></tbody>
+            </table>
         </field>
     </record>
 </odoo>
