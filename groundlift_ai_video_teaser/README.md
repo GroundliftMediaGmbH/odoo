@@ -148,3 +148,9 @@ Hinweis: Kein Client kann das sehr kleine Ausfallfenster vollständig ausschlie�
 - `Voiceover-Untertitel` und `Szenen-Texteinblendungen` sind jetzt getrennte Optionen. Voiceover-Untertitel sind bei neuen Jobs standardmäßig aus; Szenen-Overlays bleiben separat steuerbar.
 - Bei Custom-Creatomate-Templates wird ein Element mit dem Namen `Subtitles` entfernt, wenn Voiceover-Untertitel deaktiviert sind.
 - Regie-Prompt verbessert: echtes Action-/Live-Material möglichst in den ersten 2 Sekunden, keine direkt wiederholten Assets, echtes Material vor KI-B-Roll, KI-B-Roll nur als Lückenfüller.
+
+
+## 19.0.1.0.7
+- Odoo-19-Fix für editierbare Lang-Prompts in den AI-Video-Einstellungen.
+- `Identity-Guard Prompt`, `Referenz-Blueprint`, `Voiceover-Regie` und `Musik-Startvorgabe` werden beim Öffnen der Einstellungen nun über `default_get()` aus `ir.config_parameter` geladen.
+- Änderungen werden weiterhin explizit über `set_values()` gespeichert. Dadurch bleiben manuell editierte Prompttexte nach Schließen/Neuladen der Einstellungen erhalten.

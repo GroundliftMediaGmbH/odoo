@@ -72,10 +72,17 @@ class ResConfigSettings(models.TransientModel):
     gl_video_reference_blueprint = fields.Text(string='Referenz-Blueprint')
 
     @api.model
-    def get_values(self):
-        res = super().get_values()
+    def default_get(self, fields_list):
+        """Load long prompt fields explicitly on Odoo 19.
+
+        Odoo 19 loads res.config.settings through default_get().  Text fields cannot
+        use config_parameter directly, so they are read from ir.config_parameter
+        here and written back in set_values().
+        """
+        res = super().default_get(fields_list)
         icp = self.env['ir.config_parameter'].sudo()
-        res.update({
+
+        defaults = {
             'gl_video_identity_guard_prompt': icp.get_param('gl_ai_video.identity_guard_prompt') or (
                 'When a source image or video shows a real person, preserve that person exactly. Do not change face, body shape, age, hairstyle, skin tone, clothing identity, or proportions. Only add subtle camera motion, depth, lighting atmosphere, or gentle environmental movement. Never morph, swap, beautify, lip-sync, or re-cast a person.'
             ),
@@ -88,7 +95,10 @@ class ResConfigSettings(models.TransientModel):
             'gl_video_music_start_prompt': icp.get_param('gl_ai_video.music_start_prompt') or (
                 'Music must be clearly audible from frame 0. Start immediately with the beat and musical bed at 0.00 seconds. No silence, no ambient pre-roll, no slow intro, no fade-in. Keep energy under the voice but present from the first frame.'
             ),
-        })
+        }
+        for field_name, value in defaults.items():
+            if field_name in fields_list:
+                res[field_name] = value
         return res
 
     def set_values(self):
@@ -115,7 +125,7 @@ class ResConfigSettings(models.TransientModel):
             'tag': 'display_notification',
             'params': {
                 'title': _('AI Video Einstellungen'),
-                'message': _('Die Einstellungen und API-Keys wurden gespeichert.'),
+                'message': _('Die Einstellungen, API-Keys und Prompttexte wurden gespeichert.'),
                 'type': 'success',
                 'sticky': False,
             },
