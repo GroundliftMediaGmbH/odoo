@@ -15,7 +15,7 @@ Version **19.0.2.0.0** ist ein Rework der bestehenden Servicepersonal-App. Beste
 - Veranstaltung standardmäßig: **2 h vor Beginn bis 1 h nach Ende**.
 - Die beiden Event-Zusatzzeiten sind global in `Servicepersonal → Einstellungen` editierbar und können pro Veranstaltung überschrieben werden.
 - Projekt: Homeautomation-`Startzeit` minus 1 h bis Homeautomation-`Endzeit` plus 1 h.
-- Die Projektfelder `Startzeit` und `Endzeit` werden automatisch anhand ihrer Datetime-Feldbezeichnung erkannt. Falls eure technischen Feldnamen anders heißen, können sie in den App-Einstellungen explizit hinterlegt werden.
+- Die Groundlift-Homeautomation verwendet auf `project.project` die technischen Felder `ha_start_at` (Startzeit) und `ha_end_at` (Endzeit). Diese sind jetzt die Standardfelder der Servicepersonal-App; die Feldnamen bleiben in den Einstellungen überschreibbar.
 - Neu automatisch erzeugte Schichten bleiben an ihre Quellzeit gekoppelt, bis die Standard-Anfangs- oder Endzeit in der Schicht manuell geändert wird. Bestehende Schichten bleiben unverändert.
 
 ## Bestandsschutz
@@ -36,7 +36,7 @@ Am 1. jedes Monats erhält jeder aktive Mitarbeiter mit E-Mail-Adresse eine Übe
 2. Auf Odoo SH pushen und Build abwarten.
 3. App `Groundlift Servicepersonal` aktualisieren.
 4. `Servicepersonal → Einstellungen` öffnen und mindestens **Verantwortliche Person** sowie **Technische Leitung** setzen.
-5. Prüfen, ob die Projektfelder `Startzeit`/`Endzeit` automatisch erkannt werden. Falls nicht, die technischen Feldnamen in den Einstellungen eintragen.
+5. Die Projektfelder stehen standardmäßig auf `ha_start_at` / `ha_end_at`; bei abweichenden Homeautomation-Feldern können sie in den Einstellungen überschrieben werden.
 6. Für bestehende unbesetzte Schichten die Verfügbarkeitsanfrage manuell versenden.
 
 ## Hinweis zu Daten

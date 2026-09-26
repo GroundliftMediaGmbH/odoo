@@ -433,9 +433,9 @@
                             <div class="text-muted">Standard: 2 Stunden vor Beginn bis 1 Stunde nach Veranstaltungsende. Pro Veranstaltung überschreibbar.</div>
                         </group>
                         <group string="Projekte / Homeautomation">
-                            <field name="project_start_field" placeholder="z. B. x_studio_startzeit"/>
-                            <field name="project_end_field" placeholder="z. B. x_studio_endzeit"/>
-                            <div class="text-muted">Die Projektzeiten werden jeweils um 1 Stunde nach vorne bzw. hinten erweitert. Leer lassen, wenn die Felder „Startzeit“ und „Endzeit“ automatisch erkannt werden.</div>
+                            <field name="project_start_field" placeholder="ha_start_at"/>
+                            <field name="project_end_field" placeholder="ha_end_at"/>
+                            <div class="text-muted">Homeautomation-Felder: Beginn = ha_start_at, Ende = ha_end_at. Die Servicezeit wird jeweils um 1 Stunde nach vorne bzw. hinten erweitert.</div>
                         </group>
                     </group>
                     <group string="Mailvorlagen">

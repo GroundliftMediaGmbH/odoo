@@ -756,6 +756,70 @@ class GLServiceShift(models.Model):
         return updated
 
     @api.model
+    def _recalculate_existing_project_shift_times(self, future_only=True):
+        """Recalculate existing project shifts from Homeautomation times, mail-silent.
+
+        Groundlift Homeassistant stores the project usage window on ``project.project``
+        in ``ha_start_at`` / ``ha_end_at``.  The service window is exactly one hour
+        before/after that usage window. Existing bookings and availability states are
+        preserved; employee line times move only when they still followed the old
+        shift standard or the raw Homeautomation time.
+        """
+        Shift = self.sudo()
+        shifts = Shift.search([('project_id', '!=', False)])
+        now = fields.Datetime.now()
+        updated = 0
+
+        for shift in shifts:
+            project = shift.project_id.exists()
+            if not project:
+                continue
+            new_start, new_end = project._gl_service_get_automation_datetimes()
+            if not new_start or not new_end:
+                continue
+            if future_only and new_end < now:
+                continue
+
+            start_name = project._gl_service_configured_datetime_field(
+                'gl_service_staff.project_start_field', 'start'
+            )
+            end_name = project._gl_service_configured_datetime_field(
+                'gl_service_staff.project_end_field', 'end'
+            )
+            raw_start = project[start_name] if start_name else False
+            raw_end = project[end_name] if end_name else False
+            old_start, old_end = shift.start_datetime, shift.end_datetime
+
+            for line in shift.line_ids:
+                line_vals = {}
+                if line.planned_start_datetime in (False, old_start, raw_start):
+                    if line.planned_start_datetime != new_start:
+                        line_vals['planned_start_datetime'] = new_start
+                if line.planned_end_datetime in (False, old_end, raw_end):
+                    if line.planned_end_datetime != new_end:
+                        line_vals['planned_end_datetime'] = new_end
+                if line_vals:
+                    line.with_context(
+                        skip_time_change_confirmation=True,
+                        skip_service_role_balance=True,
+                    ).write(line_vals)
+
+            shift.with_context(gl_source_time_sync=True).write({
+                'source_model': 'project.project',
+                'source_ref': self._source_ref('project.project', project.id),
+                'project_id': project.id,
+                'name': project.display_name or project.name,
+                'shift_date': fields.Date.to_date(new_start),
+                'start_datetime': new_start,
+                'end_datetime': new_end,
+                'required_count': max(0, project.gl_service_staff_count or 0),
+                'managed_source_times': True,
+            })
+            updated += 1
+
+        return updated
+
+    @api.model
     def _sync_from_project(self, project):
         if not project or not project.exists():
             return False
@@ -834,6 +898,9 @@ class GLServiceShift(models.Model):
             if project._gl_service_is_relevant_project():
                 self._sync_from_project(project)
                 count += 1
+        # Legacy project shifts are recalculated explicitly from the Homeautomation
+        # fields as well, without sending mails or changing booking states.
+        self._recalculate_existing_project_shift_times(future_only=True)
         if 'date_begin' in Event._fields:
             relevant_events = Event.search([('date_begin', '!=', False)]).filtered(
                 lambda event: event._gl_service_is_relevant_event()
@@ -1326,94 +1393,85 @@ class GLServiceMailQueue(models.Model):
 
 class GLServiceStaffSettings(models.TransientModel):
     _name = 'gl.service.staff.settings'
+    _inherit = ['res.config.settings']
     _description = 'Servicepersonal Einstellungen'
 
     responsible_user_id = fields.Many2one(
-        'res.users', string='Verantwortliche Person', domain=[('share', '=', False)]
+        'res.users', string='Verantwortliche Person', domain=[('share', '=', False)],
+        config_parameter='gl_service_staff.responsible_user_id',
     )
     technical_manager_user_id = fields.Many2one(
-        'res.users', string='Technische Leitung', domain=[('share', '=', False)]
+        'res.users', string='Technische Leitung', domain=[('share', '=', False)],
+        config_parameter='gl_service_staff.technical_manager_user_id',
     )
     mail_debugging = fields.Boolean(
         string='Mail debugging', default=True,
+        config_parameter='gl_service_staff.mail_debugging',
         help=(
             'Wenn aktiv, werden alle von dieser App erzeugten E-Mails zunächst '
             'in die Freigabe-Warteschlange gestellt.'
         ),
     )
-    event_before_hours = fields.Float(string='Veranstaltung: Stunden vor Beginn', default=2.0)
-    event_after_hours = fields.Float(string='Veranstaltung: Stunden nach Ende', default=1.0)
+    event_before_hours = fields.Float(
+        string='Veranstaltung: Stunden vor Beginn', default=2.0,
+        config_parameter='gl_service_staff.event_before_hours',
+    )
+    event_after_hours = fields.Float(
+        string='Veranstaltung: Stunden nach Ende', default=1.0,
+        config_parameter='gl_service_staff.event_after_hours',
+    )
     project_start_field = fields.Char(
         string='Projekt Startzeit – technischer Feldname',
-        help='Optional. Leer lassen für automatische Erkennung eines Datetime-Feldes mit Bezeichnung „Startzeit“.',
+        default='ha_start_at',
+        config_parameter='gl_service_staff.project_start_field',
+        help=(
+            'Technisches Datetime-Feld auf project.project. In der Groundlift '
+            'Homeautomation ist dies „ha_start_at“.'
+        ),
     )
     project_end_field = fields.Char(
         string='Projekt Endzeit – technischer Feldname',
-        help='Optional. Leer lassen für automatische Erkennung eines Datetime-Feldes mit Bezeichnung „Endzeit“.',
+        default='ha_end_at',
+        config_parameter='gl_service_staff.project_end_field',
+        help=(
+            'Technisches Datetime-Feld auf project.project. In der Groundlift '
+            'Homeautomation ist dies „ha_end_at“.'
+        ),
     )
     availability_template_id = fields.Many2one(
         'mail.template', string='Mailvorlage Verfügbarkeitsanfrage',
         domain="[('model', '=', 'gl.service.shift.line')]",
+        default=lambda self: (self.env.ref(
+            'gl_service_staff.mail_template_service_availability', raise_if_not_found=False
+        ) or self.env['mail.template']).id,
+        config_parameter='gl_service_staff.availability_template_id',
     )
     booking_template_id = fields.Many2one(
         'mail.template', string='Mailvorlage Buchungsbestätigung',
         domain="[('model', '=', 'gl.service.shift.line')]",
+        default=lambda self: (self.env.ref(
+            'gl_service_staff.mail_template_service_booking_confirmation', raise_if_not_found=False
+        ) or self.env['mail.template']).id,
+        config_parameter='gl_service_staff.booking_template_id',
     )
     day_before_template_id = fields.Many2one(
         'mail.template', string='Mailvorlage Vortagserinnerung',
         domain="[('model', '=', 'gl.service.shift.line')]",
+        default=lambda self: (self.env.ref(
+            'gl_service_staff.mail_template_service_day_before', raise_if_not_found=False
+        ) or self.env['mail.template']).id,
+        config_parameter='gl_service_staff.day_before_template_id',
     )
     time_change_template_id = fields.Many2one(
         'mail.template', string='Mailvorlage Zeitänderung',
         domain="[('model', '=', 'gl.service.shift.line')]",
+        default=lambda self: (self.env.ref(
+            'gl_service_staff.mail_template_service_time_change', raise_if_not_found=False
+        ) or self.env['mail.template']).id,
+        config_parameter='gl_service_staff.time_change_template_id',
     )
     pending_mail_count = fields.Integer(string='Mails zur Freigabe', compute='_compute_pending_mail_count')
     can_manage_debug = fields.Boolean(compute='_compute_can_manage_debug')
-
-    @api.model
-    def default_get(self, field_names):
-        vals = super().default_get(field_names)
-        ICP = self.env['ir.config_parameter'].sudo()
-
-        def _int_param(key):
-            try:
-                return int(ICP.get_param(key) or 0) or False
-            except (TypeError, ValueError):
-                return False
-
-        def _float_param(key, default):
-            try:
-                return float(ICP.get_param(key, str(default)) or default)
-            except (TypeError, ValueError):
-                return float(default)
-
-        debug_raw = ICP.get_param('gl_service_staff.mail_debugging', '1')
-        vals.update({
-            'responsible_user_id': _int_param('gl_service_staff.responsible_user_id'),
-            'technical_manager_user_id': _int_param('gl_service_staff.technical_manager_user_id'),
-            'mail_debugging': str(debug_raw).lower() not in ('0', 'false', 'no', ''),
-            'event_before_hours': _float_param('gl_service_staff.event_before_hours', 2.0),
-            'event_after_hours': _float_param('gl_service_staff.event_after_hours', 1.0),
-            'project_start_field': ICP.get_param('gl_service_staff.project_start_field') or False,
-            'project_end_field': ICP.get_param('gl_service_staff.project_end_field') or False,
-            'availability_template_id': _int_param('gl_service_staff.availability_template_id') or (
-                self.env.ref('gl_service_staff.mail_template_service_availability', raise_if_not_found=False).id
-                if self.env.ref('gl_service_staff.mail_template_service_availability', raise_if_not_found=False) else False
-            ),
-            'booking_template_id': _int_param('gl_service_staff.booking_template_id') or (
-                self.env.ref('gl_service_staff.mail_template_service_booking_confirmation', raise_if_not_found=False).id
-                if self.env.ref('gl_service_staff.mail_template_service_booking_confirmation', raise_if_not_found=False) else False
-            ),
-            'day_before_template_id': _int_param('gl_service_staff.day_before_template_id') or (
-                self.env.ref('gl_service_staff.mail_template_service_day_before', raise_if_not_found=False).id
-                if self.env.ref('gl_service_staff.mail_template_service_day_before', raise_if_not_found=False) else False
-            ),
-            'time_change_template_id': _int_param('gl_service_staff.time_change_template_id') or (
-                self.env.ref('gl_service_staff.mail_template_service_time_change', raise_if_not_found=False).id
-                if self.env.ref('gl_service_staff.mail_template_service_time_change', raise_if_not_found=False) else False
-            ),
-        })
-        return {k: v for k, v in vals.items() if k in field_names}
 
     def _compute_pending_mail_count(self):
         count = self.env['gl.service.mail.queue'].sudo().search_count([
@@ -1438,7 +1496,14 @@ class GLServiceStaffSettings(models.TransientModel):
             if rec.event_before_hours < 0 or rec.event_after_hours < 0:
                 raise ValidationError(_('Die Zusatzstunden dürfen nicht negativ sein.'))
 
-    def action_save(self):
+    def set_values(self):
+        """Persist only the Servicepersonal settings.
+
+        The wizard now inherits Odoo's ``res.config.settings`` so fields with a
+        ``config_parameter`` are restored reliably when the menu is opened again.
+        We intentionally persist only this module's fields here instead of calling
+        the global settings implementation, because this is a dedicated app page.
+        """
         self.ensure_one()
         ICP = self.env['ir.config_parameter'].sudo()
         old_before = float(ICP.get_param('gl_service_staff.event_before_hours', '2') or 2)
@@ -1458,17 +1523,19 @@ class GLServiceStaffSettings(models.TransientModel):
         if self.mail_debugging != old_debug and not can_manage_technical:
             raise AccessError(_('Nur die technische Leitung oder ein Administrator darf „Mail debugging“ ändern.'))
 
-        ICP.set_param('gl_service_staff.responsible_user_id', self.responsible_user_id.id or '')
-        ICP.set_param('gl_service_staff.technical_manager_user_id', self.technical_manager_user_id.id or '')
-        ICP.set_param('gl_service_staff.mail_debugging', '1' if self.mail_debugging else '0')
-        ICP.set_param('gl_service_staff.event_before_hours', self.event_before_hours)
-        ICP.set_param('gl_service_staff.event_after_hours', self.event_after_hours)
-        ICP.set_param('gl_service_staff.project_start_field', self.project_start_field or '')
-        ICP.set_param('gl_service_staff.project_end_field', self.project_end_field or '')
-        ICP.set_param('gl_service_staff.availability_template_id', self.availability_template_id.id or '')
-        ICP.set_param('gl_service_staff.booking_template_id', self.booking_template_id.id or '')
-        ICP.set_param('gl_service_staff.day_before_template_id', self.day_before_template_id.id or '')
-        ICP.set_param('gl_service_staff.time_change_template_id', self.time_change_template_id.id or '')
+        # Store explicit scalar values.  Many2one values are stored as record IDs,
+        # matching Odoo 19's native res.config.settings implementation.
+        ICP.set_param('gl_service_staff.responsible_user_id', self.responsible_user_id.id or False)
+        ICP.set_param('gl_service_staff.technical_manager_user_id', self.technical_manager_user_id.id or False)
+        ICP.set_param('gl_service_staff.mail_debugging', bool(self.mail_debugging))
+        ICP.set_param('gl_service_staff.event_before_hours', repr(self.event_before_hours or 0.0))
+        ICP.set_param('gl_service_staff.event_after_hours', repr(self.event_after_hours or 0.0))
+        ICP.set_param('gl_service_staff.project_start_field', (self.project_start_field or 'ha_start_at').strip())
+        ICP.set_param('gl_service_staff.project_end_field', (self.project_end_field or 'ha_end_at').strip())
+        ICP.set_param('gl_service_staff.availability_template_id', self.availability_template_id.id or False)
+        ICP.set_param('gl_service_staff.booking_template_id', self.booking_template_id.id or False)
+        ICP.set_param('gl_service_staff.day_before_template_id', self.day_before_template_id.id or False)
+        ICP.set_param('gl_service_staff.time_change_template_id', self.time_change_template_id.id or False)
 
         group = self.env.ref('gl_service_staff.group_gl_service_mail_debug_manager', raise_if_not_found=False)
         if group:
@@ -1489,16 +1556,21 @@ class GLServiceStaffSettings(models.TransientModel):
             ])
             for shift in shifts:
                 self.env['gl.service.shift'].sudo()._sync_from_event(shift.event_id)
+        return True
 
+    def action_save(self):
+        self.ensure_one()
+        self.set_values()
+        # Re-open a fresh wizard record. This proves the displayed values come from
+        # persisted configuration and avoids leaving a stale transient record open.
         return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': _('Servicepersonal'),
-                'message': _('Einstellungen gespeichert.'),
-                'type': 'success',
-                'sticky': False,
-                'next': {'type': 'ir.actions.act_window_close'},
+            'type': 'ir.actions.act_window',
+            'name': _('Einstellungen'),
+            'res_model': 'gl.service.staff.settings',
+            'view_mode': 'form',
+            'target': 'current',
+            'context': {
+                'service_settings_saved': True,
             },
         }
 
