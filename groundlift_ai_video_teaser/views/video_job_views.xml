@@ -40,7 +40,7 @@
         <field name="arch" type="xml">
             <form string="AI Video-Teaser">
                 <header>
-                    <button name="action_queue" type="object" string="Teaser generieren" class="btn-primary" invisible="state not in ('draft','error')"/>
+                    <button name="action_queue" type="object" string="Teaser generieren" class="btn-primary" invisible="state != 'draft'"/>
                     <button name="action_process_now" type="object" string="Nächsten Schritt jetzt ausführen" groups="event.group_event_manager" invisible="state not in ('queued','planning','assets','rendering')"/>
                     <button name="action_approve" type="object" string="Freigeben" class="btn-primary" invisible="state != 'done'"/>
                     <button name="action_retry" type="object" string="Erneut versuchen" invisible="state != 'error'"/>
@@ -65,6 +65,7 @@
                             <field name="subtitles"/>
                             <field name="started_at" readonly="1"/>
                             <field name="finished_at" readonly="1"/>
+                            <field name="checkpoint" readonly="1"/>
                             <field name="approved_by" readonly="1"/>
                         </group>
                     </group>

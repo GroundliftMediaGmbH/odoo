@@ -159,6 +159,7 @@ class GlVideoTeaserJob(models.Model):
     approved_by = fields.Many2one('res.users', copy=False)
     error_message = fields.Text(copy=False)
     log_text = fields.Text(copy=False)
+    checkpoint = fields.Char(copy=False, tracking=True)
 
     @api.depends('event_id.name', 'create_date')
     def _compute_name(self):
@@ -237,8 +238,12 @@ class GlVideoTeaserJob(models.Model):
         return True
 
     def action_retry(self):
+        """Resume from the last durable checkpoint instead of starting the job from scratch."""
         for rec in self:
-            rec.write({'state': 'queued', 'error_message': False})
+            rec._reset_failed_provider_handles()
+            resume_state = rec._resume_state_from_checkpoint()
+            rec.write({'state': resume_state, 'error_message': False})
+            rec._append_log(_('Wiederaufnahme ab gespeichertem Checkpoint (%s).') % (rec.checkpoint or resume_state))
         return True
 
     def action_cancel(self):
@@ -289,40 +294,256 @@ class GlVideoTeaserJob(models.Model):
         return True
 
     def _process_one_step(self):
+        """Process at most one chargeable external operation per transaction.
+
+        This is intentional: Odoo can safely commit each successful provider result before
+        the next provider is contacted. A later failure therefore does not discard already
+        purchased/generated assets and retries can continue from the durable checkpoint.
+        """
         self.ensure_one()
         if self.state == 'queued':
             self.write({'state': 'planning'})
             self._generate_plan()
             self._append_log('Regieplan und Voiceover erzeugt.')
-            self.write({'state': 'assets'})
+            self.write({'state': 'assets', 'checkpoint': 'Regieplan gespeichert'})
             return
 
         if self.state == 'planning':
+            # A plan saved by an earlier successful call must never be generated again.
+            if self.plan_json and self.scene_ids and self.voiceover_text:
+                self.write({'state': 'assets', 'checkpoint': self.checkpoint or 'Regieplan gespeichert'})
+                return
             self._generate_plan()
-            self.write({'state': 'assets'})
+            self._append_log('Regieplan und Voiceover erzeugt.')
+            self.write({'state': 'assets', 'checkpoint': 'Regieplan gespeichert'})
             return
 
         if self.state == 'assets':
+            # One paid/provider operation per invocation. The surrounding request/cron then commits it.
             if not self.voice_file:
                 self._generate_voice()
-                self._append_log('Voiceover erzeugt.')
+                self._append_log('Voiceover erzeugt und als Checkpoint gespeichert.')
+                self.write({'checkpoint': 'Voiceover gespeichert'})
+                return
+
             if self.generate_music and not self.music_file:
                 self._generate_music()
-                self._append_log('Musikbett erzeugt.')
+                self._append_log('Musikbett erzeugt und als Checkpoint gespeichert.')
+                self.write({'checkpoint': 'Musik gespeichert'})
+                return
+
             if self.use_runway:
-                self._ensure_runway_tasks()
-                if not self._poll_runway_tasks():
+                if not self._process_one_runway_checkpoint():
                     return
-            self._start_creatomate_renders()
-            self.write({'state': 'rendering'})
+
+            if not self._start_one_creatomate_render_checkpoint():
+                return
+
+            self.write({'state': 'rendering', 'checkpoint': 'Alle Render-Aufträge gespeichert'})
             return
 
         if self.state == 'rendering':
-            if self._poll_creatomate_renders():
-                self.write({'state': 'done', 'finished_at': fields.Datetime.now()})
+            if self._poll_one_creatomate_checkpoint():
+                self.write({
+                    'state': 'done',
+                    'finished_at': fields.Datetime.now(),
+                    'checkpoint': 'Finale Videos gespeichert',
+                })
                 self._append_log('Finales Rendering abgeschlossen.')
                 self.message_post(body=_('Der Video-Teaser ist fertig gerendert.'))
             return
+
+    def _resume_state_from_checkpoint(self):
+        """Derive the cheapest safe restart point from data already persisted in Odoo."""
+        self.ensure_one()
+        requested = []
+        if self.generate_16_9:
+            requested.append('16_9')
+        if self.generate_9_16:
+            requested.append('9_16')
+
+        if requested and all(getattr(self, f'output_{fmt}') or getattr(self, f'creatomate_url_{fmt}') for fmt in requested):
+            return 'done'
+        if requested and all(getattr(self, f'creatomate_id_{fmt}') for fmt in requested):
+            return 'rendering'
+        if self.plan_json and self.scene_ids and self.voiceover_text:
+            return 'assets'
+        return 'queued'
+
+    def _reset_failed_provider_handles(self):
+        """Clear only provider jobs known to have failed; keep every successful checkpoint."""
+        self.ensure_one()
+        failed_states = {'FAILED', 'CANCELED', 'CANCELLED', 'ERROR'}
+        for scene in self.scene_ids:
+            vals = {}
+            for fmt in ('16_9', '9_16'):
+                state = (getattr(scene, f'runway_state_{fmt}') or '').upper()
+                if state in failed_states and not getattr(scene, f'runway_file_{fmt}'):
+                    vals[f'runway_task_{fmt}'] = False
+                    vals[f'runway_state_{fmt}'] = False
+            if vals:
+                scene.write(vals)
+
+        for fmt in ('16_9', '9_16'):
+            state = (getattr(self, f'creatomate_state_{fmt}') or '').lower()
+            if state in ('failed', 'error', 'canceled', 'cancelled') and not getattr(self, f'output_{fmt}'):
+                self.write({
+                    f'creatomate_id_{fmt}': False,
+                    f'creatomate_state_{fmt}': False,
+                    f'creatomate_url_{fmt}': False,
+                })
+
+    def _runway_candidates(self):
+        self.ensure_one()
+        icp = self.env['ir.config_parameter'].sudo()
+        max_clips = max(0, _as_int(icp.get_param('gl_ai_video.runway_max_clips'), 3))
+        all_motion = self.scene_ids.filtered(lambda s: s.source_kind in ('image_motion', 'ai_broll')).sorted('sequence')
+        candidates = all_motion[:max_clips]
+        # Image-motion can safely fall back to the source still when over budget.
+        for scene in all_motion[max_clips:]:
+            if scene.source_kind == 'image_motion':
+                scene.source_kind = 'static_image'
+        return candidates
+
+    def _process_one_runway_checkpoint(self):
+        """Start or poll exactly one Runway task, persisting its task id/file before moving on."""
+        self.ensure_one()
+        icp = self.env['ir.config_parameter'].sudo()
+        key = icp.get_param('gl_ai_video.runway_api_key')
+        if not key:
+            for scene in self.scene_ids.filtered(lambda s: s.source_kind == 'image_motion'):
+                scene.source_kind = 'static_image'
+            if self.scene_ids.filtered(lambda s: s.source_kind == 'ai_broll'):
+                raise UserError(_('Runway API-Key fehlt; KI-B-Roll kann nicht erzeugt werden.'))
+            return True
+
+        candidates = self._runway_candidates()
+        both = _as_bool(icp.get_param('gl_ai_video.runway_generate_both'), True)
+        wanted_formats = []
+        if self.generate_16_9:
+            wanted_formats.append(('16_9', '1280:720'))
+        if self.generate_9_16 and (both or not self.generate_16_9):
+            wanted_formats.append(('9_16', '720:1280'))
+
+        headers = {'Authorization': f'Bearer {key}', 'X-Runway-Version': '2024-11-06'}
+        for scene in candidates:
+            for fmt, ratio in wanted_formats:
+                file_value = getattr(scene, f'runway_file_{fmt}')
+                task_id = getattr(scene, f'runway_task_{fmt}')
+                if file_value:
+                    continue
+
+                if not task_id:
+                    task_id = self._start_runway_task(scene, ratio)
+                    scene.write({f'runway_task_{fmt}': task_id, f'runway_state_{fmt}': 'PENDING'})
+                    self.write({'checkpoint': _('Runway Auftrag Szene %s %s gespeichert') % (scene.sequence, fmt.replace('_', ':'))})
+                    self._append_log(_('Runway-Task %s für Szene %s (%s) angelegt.') % (task_id, scene.sequence, fmt))
+                    return False
+
+                data = self._json_request('GET', f'{RUNWAY_BASE}/tasks/{task_id}', headers=headers, timeout=30)
+                status = (data.get('status') or '').upper()
+                scene.write({f'runway_state_{fmt}': status})
+                if status == 'SUCCEEDED':
+                    outputs = data.get('output') or []
+                    if not outputs:
+                        self._fail(_('Runway-Task %s war erfolgreich, lieferte aber keine Datei.') % task_id)
+                        return False
+                    binary = self._download_binary(outputs[0], 'Runway output', timeout=120)
+                    scene.write({
+                        f'runway_file_{fmt}': base64.b64encode(binary),
+                        f'runway_filename_{fmt}': f'runway_scene_{scene.id}_{fmt}.mp4',
+                    })
+                    self.write({'checkpoint': _('Runway Clip Szene %s %s gespeichert') % (scene.sequence, fmt.replace('_', ':'))})
+                    self._append_log(_('Runway-Clip für Szene %s (%s) gespeichert.') % (scene.sequence, fmt))
+                    return False
+                if status in ('FAILED', 'CANCELED', 'CANCELLED'):
+                    reason = data.get('failure') or data.get('failureCode') or status
+                    self._fail(_('Runway-Task fehlgeschlagen: %s') % reason)
+                    return False
+
+                # Pending/running: persist the current provider state and wait for the next cron tick.
+                self.write({'checkpoint': _('Runway wartet: Szene %s %s') % (scene.sequence, fmt.replace('_', ':'))})
+                return False
+
+        return True
+
+    def _start_one_creatomate_render_checkpoint(self):
+        """Create at most one Creatomate render per transaction."""
+        self.ensure_one()
+        icp = self.env['ir.config_parameter'].sudo()
+        key = icp.get_param('gl_ai_video.creatomate_api_key')
+        if not key:
+            raise UserError(_('Creatomate API-Key fehlt in den Einstellungen.'))
+        use_templates = _as_bool(icp.get_param('gl_ai_video.use_templates'), False)
+        headers = {'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'}
+
+        for fmt, enabled in (('16_9', self.generate_16_9), ('9_16', self.generate_9_16)):
+            if not enabled or getattr(self, f'creatomate_id_{fmt}'):
+                continue
+            payload = self._creatomate_payload(fmt, use_templates)
+            data = self._json_request('POST', f'{CREATOMATE_BASE}/renders', headers=headers, payload=payload, timeout=60)
+            render = data[0] if isinstance(data, list) and data else data
+            render_id = render.get('id') if isinstance(render, dict) else False
+            if not render_id:
+                raise UserError(_('Creatomate lieferte keine Render-ID für %s.') % fmt.replace('_', ':'))
+            self.write({
+                f'creatomate_id_{fmt}': render_id,
+                f'creatomate_state_{fmt}': render.get('status', 'planned'),
+                'checkpoint': _('Creatomate Auftrag %s gespeichert') % fmt.replace('_', ':'),
+            })
+            self._append_log(_('Creatomate-Render %s (%s) angelegt.') % (render_id, fmt))
+            return False
+        return True
+
+    def _poll_one_creatomate_checkpoint(self):
+        """Poll/download one final format at a time so completed renders remain durable."""
+        self.ensure_one()
+        icp = self.env['ir.config_parameter'].sudo()
+        key = icp.get_param('gl_ai_video.creatomate_api_key')
+        if not key:
+            raise UserError(_('Creatomate API-Key fehlt in den Einstellungen.'))
+        headers = {'Authorization': f'Bearer {key}'}
+
+        for fmt, enabled in (('16_9', self.generate_16_9), ('9_16', self.generate_9_16)):
+            if not enabled:
+                continue
+            if getattr(self, f'output_{fmt}') or getattr(self, f'creatomate_url_{fmt}'):
+                continue
+            render_id = getattr(self, f'creatomate_id_{fmt}')
+            if not render_id:
+                return False
+
+            data = self._json_request('GET', f'{CREATOMATE_BASE}/renders/{render_id}', headers=headers, timeout=30)
+            if isinstance(data, list):
+                data = data[0] if data else {}
+            status = (data.get('status') or '').lower()
+            self.write({f'creatomate_state_{fmt}': status})
+            if status in ('succeeded', 'completed'):
+                url = data.get('url')
+                if not url:
+                    self._fail(_('Creatomate-Render %s ist fertig, hat aber keine URL.') % render_id)
+                    return False
+                vals = {
+                    f'creatomate_url_{fmt}': url,
+                    'checkpoint': _('Finales Video %s gespeichert') % fmt.replace('_', ':'),
+                }
+                if _as_bool(icp.get_param('gl_ai_video.download_final'), True) and not getattr(self, f'output_{fmt}'):
+                    binary = self._download_binary(url, 'Creatomate output', timeout=180)
+                    vals.update({
+                        f'output_{fmt}': base64.b64encode(binary),
+                        f'output_filename_{fmt}': f'{self._safe_filename(self.event_id.name)}_{fmt}.mp4',
+                    })
+                self.write(vals)
+                self._append_log(_('Finales %s-Video gespeichert.') % fmt.replace('_', ':'))
+                return False
+            if status in ('failed', 'error', 'canceled', 'cancelled'):
+                self._fail(_('Creatomate-Render fehlgeschlagen: %s') % (data.get('error_message') or data.get('error') or status))
+                return False
+
+            self.write({'checkpoint': _('Creatomate %s: %s') % (fmt.replace('_', ':'), status or 'wartet')})
+            return False
+
+        return True
 
     def _generate_plan(self):
         self.ensure_one()
@@ -559,8 +780,6 @@ Runway-Prompts beschreiben nur Bewegung/Kamera/Licht und dürfen Identität/Gesi
     def _generate_music(self):
         self.ensure_one()
         icp = self.env['ir.config_parameter'].sudo()
-        if not _as_bool(icp.get_param('gl_ai_video.generate_music'), True):
-            return
         key = icp.get_param('gl_ai_video.eleven_api_key')
         if not key:
             raise UserError(_('ElevenLabs API-Key fehlt in den Einstellungen.'))

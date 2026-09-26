@@ -120,3 +120,12 @@ Das Paket wurde statisch auf Python-Syntax und XML-Wohlgeformtheit geprüft. Ein
 - Dedizierte Konfigurationsseite für OpenAI, Runway, ElevenLabs, Creatomate, Groundlift-CI und Odoo/Social-Integration.
 - Einstellungen bleiben zusätzlich in den allgemeinen Odoo-Einstellungen verfügbar.
 - Deutsche, lesbare Feldbezeichnungen ergänzt.
+
+
+## Kosten-/Checkpoint-Schutz (v1.0.4)
+
+Die Pipeline führt pro Odoo-Transaktion höchstens einen kostenpflichtigen Provider-Schritt aus. Nach jedem erfolgreichen Schritt werden Ergebnis bzw. externe Task-ID dauerhaft in Odoo gespeichert. Ein Retry setzt den Job nicht mehr auf den Anfang zurück, sondern ermittelt den letzten gespeicherten Checkpoint und setzt dort fort.
+
+Gespeichert und wiederverwendet werden insbesondere Regieplan, ElevenLabs-Voiceover, ElevenLabs-Musik, jede Runway-Task-ID und jeder fertige Runway-Clip sowie beide Creatomate-Render-IDs und fertigen Endvideos. Nur ein nachweislich fehlgeschlagener Provider-Task wird beim Retry zurückgesetzt; erfolgreiche Formate bleiben erhalten.
+
+Hinweis: Kein Client kann das sehr kleine Ausfallfenster vollständig ausschließen, in dem ein externer Provider einen Auftrag bereits akzeptiert hat, Odoo aber vor dem Speichern der zurückgegebenen Task-ID hart beendet wird. Für normale API-Fehler, Timeouts nach bereits gespeicherten Checkpoints und Fehler in späteren Pipeline-Stufen verhindert die Checkpoint-Logik jedoch die erneute Erzeugung bereits vorhandener Ergebnisse.
