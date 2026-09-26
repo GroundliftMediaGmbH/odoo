@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Groundlift Servicepersonal',
-    'version': '19.0.1.4.0',
+    'version': '19.0.2.0.3',
     'category': 'Human Resources/Planning',
-    'summary': 'Servicepersonal für Projekte und Veranstaltungen disponieren, einladen und bestätigen lassen.',
+    'summary': 'Servicepersonal-Verfügbarkeit, feste Buchung, Monatsübersichten und Mail-Freigabe.',
     'author': 'Groundlift Media GmbH',
     'website': 'https://www.groundlift.de',
     'license': 'LGPL-3',
@@ -16,6 +16,7 @@
         'website',
     ],
     'data': [
+        'security/security.xml',
         'security/ir.model.access.csv',
         'data/mail_templates.xml',
         'data/ir_cron.xml',
