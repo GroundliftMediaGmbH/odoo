@@ -154,3 +154,9 @@ Hinweis: Kein Client kann das sehr kleine Ausfallfenster vollständig ausschlie�
 - Odoo-19-Fix für editierbare Lang-Prompts in den AI-Video-Einstellungen.
 - `Identity-Guard Prompt`, `Referenz-Blueprint`, `Voiceover-Regie` und `Musik-Startvorgabe` werden beim Öffnen der Einstellungen nun über `default_get()` aus `ir.config_parameter` geladen.
 - Änderungen werden weiterhin explizit über `set_values()` gespeichert. Dadurch bleiben manuell editierte Prompttexte nach Schließen/Neuladen der Einstellungen erhalten.
+
+## 19.0.1.0.8
+- Persistenz der langen Promptfelder grundlegend umgestellt: Identity-Guard, Referenz-Blueprint, Voiceover-Regie und Musik-Startvorgabe werden nun direkt auf `res.company` gespeichert.
+- Die `res.config.settings`-Felder sind schreibbare Related-Textfelder auf das Unternehmen; dadurch bleiben mehrzeilige Promptänderungen zuverlässig erhalten.
+- Die Pipeline liest diese vier Prompts jetzt ebenfalls direkt aus `res.company`, sodass es nur noch eine eindeutige Datenquelle gibt.
+- Der Speichern-Button schreibt die Promptfelder zusätzlich explizit auf das Unternehmen, bevor die übrigen `config_parameter`-Einstellungen gespeichert werden.

@@ -556,7 +556,7 @@ class GlVideoTeaserJob(models.Model):
         self.ensure_one()
         return (
             self.style_id.reference_structure
-            or self.env['ir.config_parameter'].sudo().get_param('gl_ai_video.reference_blueprint')
+            or self.company_id.gl_video_reference_blueprint
             or '0-2 s hook, 2-6 s protagonist or event reveal, 6-12 s quick montage, 12-17 s event promise and date, final 3 s deterministic outro.'
         )
 
@@ -566,7 +566,7 @@ class GlVideoTeaserJob(models.Model):
             return ''
         return (
             self.style_id.identity_prompt
-            or self.env['ir.config_parameter'].sudo().get_param('gl_ai_video.identity_guard_prompt')
+            or self.company_id.gl_video_identity_guard_prompt
             or 'When a source image or video shows a real person, preserve that person exactly. Do not change face, body shape, age, hairstyle, skin tone, clothing identity, or proportions. Only add subtle camera motion, depth, lighting atmosphere, or gentle environmental movement.'
         )
 
@@ -597,7 +597,7 @@ class GlVideoTeaserJob(models.Model):
         target_scene_count, min_duration, max_duration = self._style_scene_defaults()
         reference_blueprint = self._default_reference_blueprint()
         identity_guard = self._default_identity_guard()
-        voice_direction = icp.get_param('gl_ai_video.voice_direction') or 'Energetisch, direkt, modern, kurze Sätze und aktive Verben.'
+        voice_direction = self.company_id.gl_video_voice_direction or 'Energetisch, direkt, modern, kurze Sätze und aktive Verben.'
 
         system_prompt = (
             "Du bist Creative Director und Trailer-Editor für hochwertige Kultur-, Konzert-, Talk- und Comedy-Veranstaltungen. "
@@ -878,7 +878,7 @@ Wenn Szenen-Texteinblendungen deaktiviert sind, müssen overlay_headline und ove
         base_prompt = self.music_prompt or self.style_id.music_prompt or (
             'Modern premium instrumental event trailer music, elegant, energetic build, no vocals, strong clean ending hit.'
         )
-        start_prompt = icp.get_param('gl_ai_video.music_start_prompt') or (
+        start_prompt = self.company_id.gl_video_music_start_prompt or (
             'Music must be clearly audible from frame 0. Start immediately with the beat and musical bed at 0.00 seconds. '
             'No silence, no ambient pre-roll, no slow intro, no fade-in.'
         )

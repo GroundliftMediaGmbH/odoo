@@ -45,10 +45,10 @@ class ResConfigSettings(models.TransientModel):
     gl_video_eleven_stability = fields.Float(string='Voice Stability', config_parameter='gl_ai_video.eleven_stability', default=0.30)
     gl_video_eleven_similarity = fields.Float(string='Voice Similarity', config_parameter='gl_ai_video.eleven_similarity', default=0.78)
     gl_video_eleven_style = fields.Float(string='Voice Style', config_parameter='gl_ai_video.eleven_style', default=0.48)
-    gl_video_voice_direction = fields.Text(string='Voiceover-Regie')
+    gl_video_voice_direction = fields.Text(string='Voiceover-Regie', related='company_id.gl_video_voice_direction', readonly=False)
     gl_video_generate_music = fields.Boolean(string='Musik automatisch erzeugen', config_parameter='gl_ai_video.generate_music', default=True)
     gl_video_eleven_music_model = fields.Char(string='Musik-Modell', config_parameter='gl_ai_video.eleven_music_model', default='music_v2_5')
-    gl_video_music_start_prompt = fields.Text(string='Musik-Startvorgabe')
+    gl_video_music_start_prompt = fields.Text(string='Musik-Startvorgabe', related='company_id.gl_video_music_start_prompt', readonly=False)
     gl_video_music_volume = fields.Float(string='Musiklautstärke (%)', config_parameter='gl_ai_video.music_volume', default=18.0)
 
     # Creatomate
@@ -68,57 +68,22 @@ class ResConfigSettings(models.TransientModel):
 
     # Creative guardrails / reference editing blueprint
     gl_video_preserve_identity = fields.Boolean(string='Gesichter/Identität strikt bewahren', config_parameter='gl_ai_video.preserve_identity', default=True)
-    gl_video_identity_guard_prompt = fields.Text(string='Identity-Guard Prompt')
-    gl_video_reference_blueprint = fields.Text(string='Referenz-Blueprint')
+    gl_video_identity_guard_prompt = fields.Text(string='Identity-Guard Prompt', related='company_id.gl_video_identity_guard_prompt', readonly=False)
+    gl_video_reference_blueprint = fields.Text(string='Referenz-Blueprint', related='company_id.gl_video_reference_blueprint', readonly=False)
 
-    @api.model
-    def default_get(self, fields_list):
-        """Load long prompt fields explicitly on Odoo 19.
-
-        Odoo 19 loads res.config.settings through default_get().  Text fields cannot
-        use config_parameter directly, so they are read from ir.config_parameter
-        here and written back in set_values().
-        """
-        res = super().default_get(fields_list)
-        icp = self.env['ir.config_parameter'].sudo()
-
-        defaults = {
-            'gl_video_identity_guard_prompt': icp.get_param('gl_ai_video.identity_guard_prompt') or (
-                'When a source image or video shows a real person, preserve that person exactly. Do not change face, body shape, age, hairstyle, skin tone, clothing identity, or proportions. Only add subtle camera motion, depth, lighting atmosphere, or gentle environmental movement. Never morph, swap, beautify, lip-sync, or re-cast a person.'
-            ),
-            'gl_video_reference_blueprint': icp.get_param('gl_ai_video.reference_blueprint') or (
-                'Reference structure inspired by Groundlift sample teasers: 0-2 s real action hook whenever available; 2-6 s protagonist or act reveal; 6-12 s varied montage of performers, venue and atmosphere without repeating the same motif; 12-17 s key event promise plus date/location; final 3 s deterministic Groundlift CTA/outro.'
-            ),
-            'gl_video_voice_direction': icp.get_param('gl_ai_video.voice_direction') or (
-                'Energetisch, direkt, modern und ticketverkaufsorientiert. Kurze Sätze, aktive Verben, keine behäbigen Pausen, keine langen Aufzählungen. Der Sprecher soll pushen, ohne nach klassischer Radiowerbung zu klingen.'
-            ),
-            'gl_video_music_start_prompt': icp.get_param('gl_ai_video.music_start_prompt') or (
-                'Music must be clearly audible from frame 0. Start immediately with the beat and musical bed at 0.00 seconds. No silence, no ambient pre-roll, no slow intro, no fade-in. Keep energy under the voice but present from the first frame.'
-            ),
-        }
-        for field_name, value in defaults.items():
-            if field_name in fields_list:
-                res[field_name] = value
-        return res
-
-    def set_values(self):
-        super().set_values()
+    def _persist_company_prompt_fields(self):
         self.ensure_one()
-        icp = self.env['ir.config_parameter'].sudo()
-        icp.set_param('gl_ai_video.identity_guard_prompt', self.gl_video_identity_guard_prompt or '')
-        icp.set_param('gl_ai_video.reference_blueprint', self.gl_video_reference_blueprint or '')
-        icp.set_param('gl_ai_video.voice_direction', self.gl_video_voice_direction or '')
-        icp.set_param('gl_ai_video.music_start_prompt', self.gl_video_music_start_prompt or '')
+        self.company_id.sudo().write({
+            'gl_video_identity_guard_prompt': self.gl_video_identity_guard_prompt or '',
+            'gl_video_reference_blueprint': self.gl_video_reference_blueprint or '',
+            'gl_video_voice_direction': self.gl_video_voice_direction or '',
+            'gl_video_music_start_prompt': self.gl_video_music_start_prompt or '',
+        })
 
     def action_save_video_settings(self):
-        """Persist the dedicated AI-video settings form without leaving the app.
-
-        res.config.settings is transient.  Odoo's generic execute() does persist
-        config_parameter fields, but using an explicit action here makes the
-        dedicated settings screen independent from the global Settings app and
-        gives the user a clear success message.
-        """
+        """Persist provider settings and long company-level prompt texts."""
         self.ensure_one()
+        self._persist_company_prompt_fields()
         self.set_values()
         return {
             'type': 'ir.actions.client',
@@ -136,6 +101,7 @@ class ResConfigSettings(models.TransientModel):
         # Persist the form first.  Do not raise an exception afterwards: an
         # exception would roll back this transaction and therefore also discard
         # freshly entered API keys.
+        self._persist_company_prompt_fields()
         self.set_values()
         icp = self.env['ir.config_parameter'].sudo()
         results = []
