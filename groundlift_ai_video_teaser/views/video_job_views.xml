@@ -76,6 +76,7 @@
                             <group>
                                 <field name="hook_text"/>
                                 <field name="voiceover_text" placeholder="Wird durch OpenAI erzeugt und kann vor dem Rendering noch bearbeitet werden."/>
+                                <field name="voice_duration" readonly="1" invisible="not voice_file"/>
                                 <field name="cta_text"/>
                                 <field name="music_prompt"/>
                             </group>

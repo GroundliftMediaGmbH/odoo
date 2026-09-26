@@ -168,3 +168,11 @@ Hinweis: Kein Client kann das sehr kleine Ausfallfenster vollständig ausschlie�
 - Dadurch werden insbesondere Voice Speed, Stability, Similarity, Style, Musiklautstärke, Runway-Limits, Provider-Modelle, Template-IDs, Feldzuordnungen und Booleans zuverlässig gespeichert.
 - Wertebereiche für ElevenLabs, Musiklautstärke, Runway-Clipdauer und Cron-Batchgröße werden vor dem Speichern validiert.
 - Alle sichtbaren Felder der dedizierten Einstellungsseite wurden gegen einen dauerhaften Speicherort geprüft.
+
+## 19.0.1.0.10
+
+- Speichert alle globalen Teaser-Einstellungen explizit in `ir.config_parameter`, insbesondere die ElevenLabs-Sprechgeschwindigkeit.
+- Passt die geplante Voiceover-Textmenge an die konfigurierte Sprechgeschwindigkeit an.
+- Misst nach der TTS-Erzeugung die echte MP3-Dauer und verhindert dadurch abgeschnittene Sprechertexte.
+- Verlängert bei Bedarf Render-Timeline, Szenen und Musik; das feste 3-Sekunden-Outro bleibt am tatsächlichen Videoende.
+- Gilt zentral für alle Teaser-Styles sowie für 16:9 und 9:16.

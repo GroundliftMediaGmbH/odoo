@@ -12,6 +12,39 @@ _logger = logging.getLogger(__name__)
 class ResConfigSettings(models.TransientModel):
     _inherit = 'res.config.settings'
 
+    _CONFIG_PARAMETER_FIELDS = {
+        'gl_video_openai_api_key': 'gl_ai_video.openai_api_key',
+        'gl_video_openai_model': 'gl_ai_video.openai_model',
+        'gl_video_openai_reasoning': 'gl_ai_video.openai_reasoning',
+        'gl_video_runway_api_key': 'gl_ai_video.runway_api_key',
+        'gl_video_runway_model': 'gl_ai_video.runway_model',
+        'gl_video_runway_clip_duration': 'gl_ai_video.runway_clip_duration',
+        'gl_video_runway_max_clips': 'gl_ai_video.runway_max_clips',
+        'gl_video_runway_generate_both': 'gl_ai_video.runway_generate_both',
+        'gl_video_eleven_api_key': 'gl_ai_video.eleven_api_key',
+        'gl_video_eleven_voice_id': 'gl_ai_video.eleven_voice_id',
+        'gl_video_eleven_tts_model': 'gl_ai_video.eleven_tts_model',
+        'gl_video_eleven_speed': 'gl_ai_video.eleven_speed',
+        'gl_video_eleven_stability': 'gl_ai_video.eleven_stability',
+        'gl_video_eleven_similarity': 'gl_ai_video.eleven_similarity',
+        'gl_video_eleven_style': 'gl_ai_video.eleven_style',
+        'gl_video_generate_music': 'gl_ai_video.generate_music',
+        'gl_video_eleven_music_model': 'gl_ai_video.eleven_music_model',
+        'gl_video_music_volume': 'gl_ai_video.music_volume',
+        'gl_video_creatomate_api_key': 'gl_ai_video.creatomate_api_key',
+        'gl_video_creatomate_template_16_9': 'gl_ai_video.creatomate_template_16_9',
+        'gl_video_creatomate_template_9_16': 'gl_ai_video.creatomate_template_9_16',
+        'gl_video_use_templates': 'gl_ai_video.use_templates',
+        'gl_video_download_final': 'gl_ai_video.download_final',
+        'gl_video_short_description_field': 'gl_ai_video.short_description_field',
+        'gl_video_category_field': 'gl_ai_video.category_field',
+        'gl_video_ticket_url_field': 'gl_ai_video.ticket_url_field',
+        'gl_video_event_image_field': 'gl_ai_video.event_image_field',
+        'gl_video_approval_webhook_url': 'gl_ai_video.approval_webhook_url',
+        'gl_video_batch_size': 'gl_ai_video.batch_size',
+        'gl_video_preserve_identity': 'gl_ai_video.preserve_identity',
+    }
+
     # Branding: stored on company so multi-company setups remain clean.
     gl_video_brand_name = fields.Char(string='Markenname', related='company_id.gl_video_brand_name', readonly=False)
     gl_video_outro_claim = fields.Char(string='Outro-Claim', related='company_id.gl_video_outro_claim', readonly=False)
@@ -118,18 +151,37 @@ class ResConfigSettings(models.TransientModel):
         if self.gl_video_batch_size < 1 or self.gl_video_batch_size > 20:
             raise ValidationError(_('Jobs pro Cron-Lauf muss zwischen 1 und 20 liegen.'))
 
-    def set_values(self):
-        """Use Odoo 19's native settings persistence for *all* settings.
+    def _persist_config_parameters_explicitly(self):
+        """Persist every global setting deterministically.
 
-        ``super().set_values()`` stores every supported ``config_parameter``
-        field (including Float/Boolean/Integer), while company-scoped values
-        are written explicitly above. This is the same mechanism used by
-        Odoo's normal Settings application.
+        Odoo normally persists ``config_parameter`` fields through
+        ``res.config.settings`` automatically.  The teaser app also exposes a
+        dedicated settings form, and older cached/custom settings flows have
+        shown inconsistent persistence for numeric values (notably the
+        ElevenLabs speech speed).  Writing the complete map explicitly keeps
+        Float, Integer and Boolean settings stable across both settings views.
         """
+        self.ensure_one()
+        icp = self.env['ir.config_parameter'].sudo()
+        for field_name, parameter in self._CONFIG_PARAMETER_FIELDS.items():
+            value = self[field_name]
+            field = self._fields[field_name]
+            if field.type == 'boolean':
+                stored = 'True' if bool(value) else 'False'
+            elif value in (False, None):
+                stored = ''
+            else:
+                stored = str(value)
+            icp.set_param(parameter, stored)
+
+    def set_values(self):
+        """Persist native Odoo settings and then enforce the teaser values."""
         self.ensure_one()
         self._validate_video_settings()
         self._persist_company_fields()
-        return super().set_values()
+        result = super().set_values()
+        self._persist_config_parameters_explicitly()
+        return result
 
     def action_save_video_settings(self):
         """Compatibility action for older cached views; use native execute()."""

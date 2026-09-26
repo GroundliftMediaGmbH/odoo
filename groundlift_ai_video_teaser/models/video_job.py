@@ -42,6 +42,80 @@ def _as_float(value, default=0.0):
         return default
 
 
+def _mp3_duration_seconds(data):
+    """Return MP3 duration without ffprobe or optional Python packages.
+
+    ElevenLabs returns MPEG audio.  Parsing frame headers gives us the actual
+    spoken duration, including VBR files, so the final video timeline can be
+    extended before it reaches Creatomate.
+    """
+    if not data or len(data) < 4:
+        return 0.0
+
+    pos = 0
+    size = len(data)
+    # Skip ID3v2 metadata (10 byte header + synchsafe payload size).
+    if size >= 10 and data[:3] == b'ID3':
+        tag_size = ((data[6] & 0x7f) << 21) | ((data[7] & 0x7f) << 14) | ((data[8] & 0x7f) << 7) | (data[9] & 0x7f)
+        pos = min(size, 10 + tag_size)
+    audio_start = pos
+
+    bitrate_v1_l3 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0]
+    bitrate_v2_l3 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0]
+    sample_rates = {
+        3: (44100, 48000, 32000),   # MPEG-1
+        2: (22050, 24000, 16000),   # MPEG-2
+        0: (11025, 12000, 8000),    # MPEG-2.5
+    }
+    duration = 0.0
+    frames = 0
+
+    while pos + 4 <= size:
+        b1, b2, b3, _b4 = data[pos:pos + 4]
+        if b1 != 0xff or (b2 & 0xe0) != 0xe0:
+            pos += 1
+            continue
+
+        version = (b2 >> 3) & 0x03
+        layer = (b2 >> 1) & 0x03
+        bitrate_index = (b3 >> 4) & 0x0f
+        sample_index = (b3 >> 2) & 0x03
+        padding = (b3 >> 1) & 0x01
+        # We only expect Layer III; reserved/invalid headers are skipped.
+        if version == 1 or layer != 1 or bitrate_index in (0, 15) or sample_index == 3:
+            pos += 1
+            continue
+
+        sample_rate = sample_rates[version][sample_index]
+        bitrate_kbps = (bitrate_v1_l3 if version == 3 else bitrate_v2_l3)[bitrate_index]
+        if not sample_rate or not bitrate_kbps:
+            pos += 1
+            continue
+
+        if version == 3:
+            samples_per_frame = 1152
+            frame_length = int((144000 * bitrate_kbps) / sample_rate + padding)
+        else:
+            samples_per_frame = 576
+            frame_length = int((72000 * bitrate_kbps) / sample_rate + padding)
+        if frame_length < 4 or pos + frame_length > size + 4:
+            pos += 1
+            continue
+
+        duration += samples_per_frame / sample_rate
+        frames += 1
+        pos += frame_length
+
+    if frames:
+        return round(duration, 3)
+
+    # ElevenLabs' requested mp3_44100_128 output is normally 128 kbit/s CBR.
+    # This fallback is deliberately conservative and is used only if no frame
+    # header could be parsed.
+    payload_bytes = max(0, size - audio_start)
+    return round((payload_bytes * 8.0) / 128000.0, 3) if payload_bytes else 0.0
+
+
 class GlVideoTeaserScene(models.Model):
     _name = 'gl.video.teaser.scene'
     _description = 'Groundlift Video Teaser Scene'
@@ -135,6 +209,7 @@ class GlVideoTeaserJob(models.Model):
 
     voice_file = fields.Binary(attachment=True, copy=False)
     voice_filename = fields.Char(copy=False)
+    voice_duration = fields.Float(string='Voiceover-Dauer (Sek.)', copy=False, readonly=True)
     music_file = fields.Binary(attachment=True, copy=False)
     music_filename = fields.Char(copy=False)
     media_token = fields.Char(default=lambda self: uuid.uuid4().hex, copy=False, required=True)
@@ -594,6 +669,12 @@ class GlVideoTeaserJob(models.Model):
             for a in assets
         ]
         content_duration = max(7, self.duration - 3)
+        voice_speed = max(0.7, min(_as_float(icp.get_param('gl_ai_video.eleven_speed'), 1.12), 1.2))
+        # Word targets scale with the configured TTS speed.  This keeps slower
+        # voices from routinely producing scripts that cannot fit the teaser.
+        speed_factor = voice_speed / 1.12
+        voice_words_low = max(20, int(content_duration * 2.8 * speed_factor))
+        voice_words_high = max(24, int(content_duration * 3.3 * speed_factor))
         target_scene_count, min_duration, max_duration = self._style_scene_defaults()
         reference_blueprint = self._default_reference_blueprint()
         identity_guard = self._default_identity_guard()
@@ -638,7 +719,7 @@ Bei real_video, image_motion oder static_image muss asset_id eine tatsächlich o
 Overlay-Texte sehr kurz halten. Keine erfundenen Zitate, Pressestimmen, Preise oder Auszeichnungen.
 VOICEOVER-REGIE:
 {voice_direction}
-Schreibe für ein zügiges Social-Voiceover mit etwa 2,8 bis 3,3 gesprochenen Wörtern pro Sekunde Nutzzeit. Ziel sind ca. {max(28, int(content_duration * 2.8))} bis {max(34, int(content_duration * 3.3))} deutsche Wörter.
+Die aktuell konfigurierte ElevenLabs-Sprechgeschwindigkeit beträgt {voice_speed:.2f}. Passe die Textmenge daran an. Ziel sind ca. {voice_words_low} bis {voice_words_high} deutsche Wörter, damit der Sprechertext in die geplante Nutzzeit passt.
 Erster Satz maximal 8 bis 10 Wörter und sofort als Hook verständlich. Danach kurze, aktive Sätze oder Satzfragmente. Keine Ellipsen, keine langen Komma-Ketten, keine behäbigen Erklärsätze. Der CTA steht am Ende und muss unmittelbar zum Ticketkauf motivieren.
 Nutze die Klammer aus hook_template als natürlichen Einstieg; ersetze {{date}} und {{location}} mit den Eventdaten und glätte die Formulierung sprachlich.
 Wenn mindestens zwei echte Video-Assets vorhanden sind, soll die Mehrheit der Inhaltszeit aus real_video bestehen. Keine abstrakte KI-B-Roll als Eröffnung, wenn echtes bewegtes Material existiert. Verwende dasselbe Asset nicht in direkt aufeinanderfolgenden Szenen.
@@ -831,6 +912,47 @@ Wenn Szenen-Texteinblendungen deaktiviert sind, müssen overlay_headline und ove
             return ('image_motion' if image.ai_motion_allowed else 'static_image'), image
         return 'ai_broll', None
 
+    def _voice_duration_seconds(self):
+        self.ensure_one()
+        if self.voice_duration and self.voice_duration > 0:
+            return float(self.voice_duration)
+        if not self.voice_file:
+            return 0.0
+        try:
+            raw = base64.b64decode(self.voice_file)
+        except Exception:
+            return 0.0
+        return _mp3_duration_seconds(raw)
+
+    def _effective_render_duration(self):
+        """Never let the requested video duration cut off the generated voice."""
+        self.ensure_one()
+        voice_duration = self._voice_duration_seconds()
+        # A short safety tail prevents encoder rounding from clipping the last
+        # phoneme.  We do not change the user's configured speaking speed.
+        required = voice_duration + 0.35 if voice_duration else 0.0
+        return round(max(float(self.duration), required), 2)
+
+    def _render_scene_durations(self, render_duration):
+        """Scale scene timing non-destructively to fill the pre-outro timeline."""
+        self.ensure_one()
+        scenes = self.scene_ids.sorted('sequence')
+        if not scenes:
+            return []
+        target = max(0.5, float(render_duration) - 3.0)
+        source_total = sum(max(0.1, float(scene.duration or 0.0)) for scene in scenes) or 1.0
+        factor = target / source_total
+        durations = []
+        running = 0.0
+        for index, scene in enumerate(scenes):
+            if index == len(scenes) - 1:
+                duration = max(0.1, target - running)
+            else:
+                duration = max(0.1, float(scene.duration or 0.1) * factor)
+                running += duration
+            durations.append(round(duration, 2))
+        return durations
+
     def _generate_voice(self):
         self.ensure_one()
         icp = self.env['ir.config_parameter'].sudo()
@@ -863,10 +985,17 @@ Wenn Szenen-Texteinblendungen deaktiviert sind, müssen overlay_headline und ove
             },
         }, timeout=120)
         self._raise_for_response(response, 'ElevenLabs TTS')
+        voice_duration = _mp3_duration_seconds(response.content)
         self.write({
             'voice_file': base64.b64encode(response.content),
             'voice_filename': f'voiceover_{self.id}.mp3',
+            'voice_duration': voice_duration,
         })
+        if voice_duration > self.duration:
+            self._append_log(
+                _('Voiceover ist %.2f s lang; die Render-Timeline wird automatisch verlängert, damit nichts abgeschnitten wird.')
+                % voice_duration
+            )
 
     def _generate_music(self):
         self.ensure_one()
@@ -889,7 +1018,7 @@ Wenn Szenen-Texteinblendungen deaktiviert sind, müssen overlay_headline und ove
             'Accept': 'audio/mpeg',
         }, json={
             'prompt': prompt,
-            'music_length_ms': self.duration * 1000,
+            'music_length_ms': int(math.ceil(self._effective_render_duration() * 1000)),
             'model_id': model,
             'force_instrumental': True,
         }, timeout=180)
@@ -1045,6 +1174,8 @@ Wenn Szenen-Texteinblendungen deaktiviert sind, müssen overlay_headline und ove
         Voiceover, Music, Scene-1 .. Scene-5 and Scene-1-Headline / -Subline.
         """
         values = self._event_payload_for_ai()
+        render_duration = self._effective_render_duration()
+        voice_duration = self._voice_duration_seconds()
         mods = {
             'Event-Title': self.event_id.name or '',
             'Event-Date': values.get('date_label') or '',
@@ -1054,12 +1185,19 @@ Wenn Szenen-Texteinblendungen deaktiviert sind, müssen overlay_headline und ove
             'Brand': self.company_id.gl_video_brand_name or self.company_id.name or '',
             'Claim': self.company_id.gl_video_outro_claim or '',
             'Voiceover': self.voice_public_url or '',
+            # Creatomate allows top-level template properties to be overridden
+            # through modifications. This prevents a fixed template duration
+            # from truncating a longer generated voiceover.
+            'duration': render_duration,
         }
+        if voice_duration:
+            mods['Voiceover.duration'] = round(min(render_duration, voice_duration + 0.15), 2)
         logo_url = self._company_logo_url()
         if logo_url:
             mods['Logo'] = logo_url
         if self.music_public_url:
             mods['Music'] = self.music_public_url
+            mods['Music.duration'] = render_duration
         # Groundlift template contract: a subtitle element named ``Subtitles`` is
         # removed completely when voiceover captions are disabled. Creatomate
         # supports deleting an element through an empty-object modification.
@@ -1080,8 +1218,11 @@ Wenn Szenen-Texteinblendungen deaktiviert sind, müssen overlay_headline und ove
         width, height = ((1920, 1080) if landscape else (1080, 1920))
         elements = []
         t = 0.0
+        render_duration = self._effective_render_duration()
+        voice_duration = self._voice_duration_seconds()
         scenes = self.scene_ids.sorted('sequence')
-        for idx, scene in enumerate(scenes, start=1):
+        scene_durations = self._render_scene_durations(render_duration)
+        for idx, (scene, scene_duration) in enumerate(zip(scenes, scene_durations), start=1):
             media_url = self._scene_media_url(scene, fmt)
             if not media_url:
                 continue
@@ -1089,7 +1230,7 @@ Wenn Szenen-Texteinblendungen deaktiviert sind, müssen overlay_headline und ove
                 'name': f'Scene-{idx}',
                 'track': 1,
                 'time': round(t, 2),
-                'duration': round(scene.duration, 2),
+                'duration': round(scene_duration, 2),
                 'source': media_url,
                 'fit': 'cover',
             }
@@ -1103,22 +1244,22 @@ Wenn Szenen-Texteinblendungen deaktiviert sind, müssen overlay_headline und ove
 
             if self.scene_text_overlays and scene.overlay_headline:
                 elements.append(self._text_element(
-                    f'Scene-{idx}-Headline', scene.overlay_headline, t + 0.18, min(scene.duration - 0.25, 2.7),
+                    f'Scene-{idx}-Headline', scene.overlay_headline, t + 0.18, min(scene_duration - 0.25, 2.7),
                     y='72%' if landscape else '68%', font='5.6 vmin' if landscape else '7.2 vmin', weight='700'
                 ))
             if self.scene_text_overlays and scene.overlay_subline:
                 elements.append(self._text_element(
-                    f'Scene-{idx}-Subline', scene.overlay_subline, t + 0.35, min(scene.duration - 0.4, 2.4),
+                    f'Scene-{idx}-Subline', scene.overlay_subline, t + 0.35, min(scene_duration - 0.4, 2.4),
                     y='82%' if landscape else '76%', font='2.8 vmin' if landscape else '4.0 vmin', weight='500'
                 ))
-            t += scene.duration
+            t += scene_duration
 
         # Deterministic date/location chip: factual information never depends on generated pixels.
         event_values = self._event_payload_for_ai()
         date_chip = event_values.get('date_label') or ''
         if date_chip:
             date_el = self._text_element(
-                'Event-Date', date_chip, 0.12, min(2.8, max(1.0, self.duration - 3.2)),
+                'Event-Date', date_chip, 0.12, min(2.8, max(1.0, render_duration - 3.2)),
                 y='10%' if landscape else '9%', font='2.7 vmin' if landscape else '4.0 vmin', weight='700'
             )
             date_el.update({
@@ -1135,13 +1276,14 @@ Wenn Szenen-Texteinblendungen deaktiviert sind, müssen overlay_headline und ove
         if self.voice_public_url:
             elements.append({
                 'name': 'Voiceover', 'type': 'audio', 'track': 10, 'time': 0,
-                'duration': min(self.duration - 0.3, self.duration), 'source': self.voice_public_url,
-                'volume': '100%', 'audio_fade_out': 0.2,
+                'duration': round(min(render_duration, (voice_duration or render_duration) + 0.15), 2),
+                'source': self.voice_public_url,
+                'volume': '100%',
             })
             if self.subtitles:
                 elements.append({
                     'name': 'Subtitles', 'type': 'text', 'track': 11, 'time': 0,
-                    'duration': max(1, self.duration - 3.2), 'y': '88%' if landscape else '84%',
+                    'duration': max(1, min(render_duration, (voice_duration or render_duration) + 0.1)), 'y': '88%' if landscape else '84%',
                     'width': '86%', 'height': '18%', 'x_alignment': '50%', 'y_alignment': '50%',
                     'fill_color': self.company_id.gl_video_brand_fg or '#FFFFFF',
                     'stroke_color': '#000000', 'stroke_width': '0.8 vmin',
@@ -1154,12 +1296,12 @@ Wenn Szenen-Texteinblendungen deaktiviert sind, müssen overlay_headline und ove
         if self.music_public_url:
             volume = max(0.0, min(_as_float(self.env['ir.config_parameter'].sudo().get_param('gl_ai_video.music_volume'), 18.0), 100.0))
             elements.append({
-                'name': 'Music', 'type': 'audio', 'track': 9, 'time': 0, 'duration': self.duration,
+                'name': 'Music', 'type': 'audio', 'track': 9, 'time': 0, 'duration': render_duration,
                 'source': self.music_public_url, 'volume': f'{volume:.0f}%', 'audio_fade_out': 0.8,
             })
 
         # Fixed 3-second brand outro. Text remains deterministic and CI-safe.
-        outro_start = max(0, self.duration - 3)
+        outro_start = max(0, render_duration - 3)
         elements.append({
             'name': 'Outro-BG', 'type': 'shape', 'track': 19, 'time': outro_start, 'duration': 3,
             'x': '50%', 'y': '50%', 'width': '100%', 'height': '100%',
@@ -1192,7 +1334,7 @@ Wenn Szenen-Texteinblendungen deaktiviert sind, müssen overlay_headline und ove
             'width': width,
             'height': height,
             'frame_rate': 30,
-            'duration': self.duration,
+            'duration': render_duration,
             'elements': elements,
             'metadata': f'odoo_job:{self.id}:{fmt}',
         }
