@@ -65,3 +65,7 @@ veranstaltungsgebundenen Serviceschichten einmalig neu berechnet:
 Nach der Korrektur folgen diese Veranstaltungsschichten wieder automatisch der Quelle.
 Eine spätere manuelle Änderung der Schicht-Anfangs- oder Endzeit löst die Kopplung wie gewohnt.
 
+
+
+## 19.0.2.0.5
+- Fix: `Mail debugging` speichert nun explizit `1`/`0` in `ir.config_parameter`, damit ein deaktivierter Haken nicht durch den Standardwert wieder aktiviert wird.

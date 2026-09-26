@@ -1527,7 +1527,12 @@ class GLServiceStaffSettings(models.TransientModel):
         # matching Odoo 19's native res.config.settings implementation.
         ICP.set_param('gl_service_staff.responsible_user_id', self.responsible_user_id.id or False)
         ICP.set_param('gl_service_staff.technical_manager_user_id', self.technical_manager_user_id.id or False)
-        ICP.set_param('gl_service_staff.mail_debugging', bool(self.mail_debugging))
+        # IMPORTANT: ir.config_parameter removes a key when False is passed.
+        # For this Boolean that would make a deliberately disabled setting look
+        # like "not configured" and our default ('1') would turn debugging
+        # back on when the settings page is opened again. Persist an explicit
+        # string value instead so both states survive a save/reload cycle.
+        ICP.set_param('gl_service_staff.mail_debugging', '1' if self.mail_debugging else '0')
         ICP.set_param('gl_service_staff.event_before_hours', repr(self.event_before_hours or 0.0))
         ICP.set_param('gl_service_staff.event_after_hours', repr(self.event_after_hours or 0.0))
         ICP.set_param('gl_service_staff.project_start_field', (self.project_start_field or 'ha_start_at').strip())
