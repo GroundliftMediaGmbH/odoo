@@ -129,3 +129,12 @@ Die Pipeline führt pro Odoo-Transaktion höchstens einen kostenpflichtigen Prov
 Gespeichert und wiederverwendet werden insbesondere Regieplan, ElevenLabs-Voiceover, ElevenLabs-Musik, jede Runway-Task-ID und jeder fertige Runway-Clip sowie beide Creatomate-Render-IDs und fertigen Endvideos. Nur ein nachweislich fehlgeschlagener Provider-Task wird beim Retry zurückgesetzt; erfolgreiche Formate bleiben erhalten.
 
 Hinweis: Kein Client kann das sehr kleine Ausfallfenster vollständig ausschließen, in dem ein externer Provider einen Auftrag bereits akzeptiert hat, Odoo aber vor dem Speichern der zurückgegebenen Task-ID hart beendet wird. Für normale API-Fehler, Timeouts nach bereits gespeicherten Checkpoints und Fehler in späteren Pipeline-Stufen verhindert die Checkpoint-Logik jedoch die erneute Erzeugung bereits vorhandener Ergebnisse.
+
+## 19.0.1.0.5
+- Referenzbasierter Groundlift-Default-Style **Groundlift Reference Promo** hinzugefügt (orientiert an den hochgeladenen Beispielteasern).
+- Neue konfigurierbare Guardrails in den Einstellungen: **Gesichter/Identität strikt bewahren**, **Identity-Guard Prompt** und **Referenz-Blueprint**.
+- Styles besitzen jetzt editierbare Blueprint-Felder für Template-Art, Pacing-Profil, Ziel-Szenenanzahl sowie minimale/maximale Szenendauer.
+- Assets können jetzt markieren, ob sie **Personen/Gesichter** zeigen und ob ihre **Identität strikt bewahrt** werden muss.
+- Szenen besitzen jetzt editierbare Felder für **Pace**, **Motion-Intensity** und **Transition-Hint**.
+- OpenAI-Regieplanung berücksichtigt jetzt die Groundlift-Referenzstruktur und liefert zusätzlich Pace/Motion/Transition pro Szene.
+- Runway-Prompts werden jetzt automatisch mit Identitätsschutz, Bewegungsintensität, Schnittenergie und Übergangshinweisen angereichert.

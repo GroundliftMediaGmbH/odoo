@@ -32,6 +32,8 @@
                             <field name="source_type"/>
                             <field name="filename" optional="show"/>
                             <field name="external_url" optional="show"/>
+                            <field name="contains_people" optional="show"/>
+                            <field name="identity_lock" optional="show"/>
                             <field name="use_in_teaser"/>
                             <field name="ai_motion_allowed"/>
                         </list>

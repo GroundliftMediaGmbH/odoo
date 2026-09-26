@@ -87,6 +87,9 @@
                                     <field name="duration"/>
                                     <field name="source_kind"/>
                                     <field name="asset_id"/>
+                                    <field name="pace" optional="show"/>
+                                    <field name="motion_intensity" optional="show"/>
+                                    <field name="transition_hint" optional="show"/>
                                     <field name="overlay_headline"/>
                                     <field name="overlay_subline"/>
                                     <field name="runway_state_16_9" optional="hide"/>
@@ -101,9 +104,14 @@
                                             <field name="asset_id"/>
                                         </group>
                                         <group>
-                                            <field name="overlay_headline"/>
-                                            <field name="overlay_subline"/>
+                                            <field name="pace"/>
+                                            <field name="motion_intensity"/>
+                                            <field name="transition_hint"/>
                                         </group>
+                                    </group>
+                                    <group>
+                                        <field name="overlay_headline"/>
+                                        <field name="overlay_subline"/>
                                     </group>
                                     <field name="runway_prompt"/>
                                     <group string="Runway">

@@ -11,6 +11,8 @@
                 <field name="role"/>
                 <field name="asset_type"/>
                 <field name="source_type"/>
+                <field name="contains_people"/>
+                <field name="identity_lock"/>
                 <field name="use_in_teaser"/>
                 <field name="ai_motion_allowed"/>
             </list>
@@ -35,6 +37,8 @@
                             <field name="source_type"/>
                             <field name="use_in_teaser"/>
                             <field name="ai_motion_allowed"/>
+                            <field name="contains_people"/>
+                            <field name="identity_lock"/>
                             <field name="notes"/>
                         </group>
                     </group>

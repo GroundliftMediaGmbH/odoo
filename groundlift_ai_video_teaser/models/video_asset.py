@@ -30,6 +30,8 @@ class GlVideoTeaserAsset(models.Model):
     external_url = fields.Char()
     use_in_teaser = fields.Boolean(default=True)
     ai_motion_allowed = fields.Boolean(default=True)
+    contains_people = fields.Boolean(string='Zeigt Personen / Gesichter', default=False)
+    identity_lock = fields.Boolean(string='Identität strikt bewahren', default=True)
     notes = fields.Char()
     public_token = fields.Char(default=lambda self: uuid.uuid4().hex, copy=False, required=True)
     public_url = fields.Char(compute='_compute_public_url')

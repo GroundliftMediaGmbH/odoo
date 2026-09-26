@@ -8,14 +8,14 @@
             <xpath expr="//form" position="inside">
                 <app string="Groundlift AI Video" name="groundlift_ai_video_teaser" groups="base.group_system">
                     <block title="Provider" help="API-Zugänge und Modelle für Skript, KI-Bewegtbild, Voice/Musik und finales Rendering.">
-                        <setting string="OpenAI · Regie &amp; Skript" help="Structured Output für Voiceover, Szenenplan und Asset-Auswahl.">
+                        <setting string="OpenAI · Regie &amp; Skript">
                             <div class="content-group">
                                 <div class="row mt16"><label for="gl_video_openai_api_key" class="col-lg-3 o_light_label"/><field name="gl_video_openai_api_key" password="True" class="col-lg-5"/></div>
                                 <div class="row mt8"><label for="gl_video_openai_model" class="col-lg-3 o_light_label"/><field name="gl_video_openai_model" class="col-lg-5"/></div>
                                 <div class="row mt8"><label for="gl_video_openai_reasoning" class="col-lg-3 o_light_label"/><field name="gl_video_openai_reasoning" class="col-lg-5"/></div>
                             </div>
                         </setting>
-                        <setting string="Runway · Bild → Video / B-Roll" help="Gen-4.5 oder ein kompatibles Modell. 9:16 und 16:9 können separat erzeugt werden.">
+                        <setting string="Runway · Bild → Video / B-Roll">
                             <div class="content-group">
                                 <div class="row mt16"><label for="gl_video_runway_api_key" class="col-lg-3 o_light_label"/><field name="gl_video_runway_api_key" password="True" class="col-lg-5"/></div>
                                 <div class="row mt8"><label for="gl_video_runway_model" class="col-lg-3 o_light_label"/><field name="gl_video_runway_model" class="col-lg-5"/></div>
@@ -24,7 +24,7 @@
                                 <div class="row mt8"><label for="gl_video_runway_generate_both" class="col-lg-3 o_light_label"/><field name="gl_video_runway_generate_both"/></div>
                             </div>
                         </setting>
-                        <setting string="ElevenLabs · Voice &amp; Musik" help="Eine feste Groundlift-Stimme schafft Wiedererkennung; Musik kann pro Teaser generiert werden.">
+                        <setting string="ElevenLabs · Voice &amp; Musik">
                             <div class="content-group">
                                 <div class="row mt16"><label for="gl_video_eleven_api_key" class="col-lg-3 o_light_label"/><field name="gl_video_eleven_api_key" password="True" class="col-lg-5"/></div>
                                 <div class="row mt8"><label for="gl_video_eleven_voice_id" class="col-lg-3 o_light_label"/><field name="gl_video_eleven_voice_id" class="col-lg-5"/></div>
@@ -34,7 +34,7 @@
                                 <div class="row mt8"><label for="gl_video_music_volume" class="col-lg-3 o_light_label"/><field name="gl_video_music_volume" class="col-lg-2"/> %</div>
                             </div>
                         </setting>
-                        <setting string="Creatomate · Master-Rendering" help="Ohne Template-ID nutzt die App ein eingebautes RenderScript. Für maximale CI-Qualität zwei eigene Mastertemplates hinterlegen.">
+                        <setting string="Creatomate · Master-Rendering">
                             <div class="content-group">
                                 <div class="row mt16"><label for="gl_video_creatomate_api_key" class="col-lg-3 o_light_label"/><field name="gl_video_creatomate_api_key" password="True" class="col-lg-5"/></div>
                                 <div class="row mt8"><label for="gl_video_use_templates" class="col-lg-3 o_light_label"/><field name="gl_video_use_templates"/></div>
@@ -45,6 +45,18 @@
                         </setting>
                         <setting string="Verbindungen prüfen">
                             <button name="action_test_video_providers" type="object" string="Provider prüfen" class="btn-secondary"/>
+                        </setting>
+                    </block>
+
+                    <block title="Creative Guardrails" help="Vorgaben aus euren Referenz-Teasern plus Schutzregeln für echte Personen.">
+                        <setting string="Identitätsschutz">
+                            <div class="content-group">
+                                <div class="row mt16"><label for="gl_video_preserve_identity" class="col-lg-3 o_light_label"/><field name="gl_video_preserve_identity"/></div>
+                                <div class="row mt8"><label for="gl_video_identity_guard_prompt" class="col-lg-3 o_light_label"/><field name="gl_video_identity_guard_prompt" class="col-lg-8" widget="text"/></div>
+                            </div>
+                        </setting>
+                        <setting string="Referenz-Blueprint" help="Zerlegt die gewünschte Dramaturgie, Schnittgeschwindigkeit und Informationshierarchie der Groundlift-Beispielvideos.">
+                            <field name="gl_video_reference_blueprint" class="w-100" widget="text"/>
                         </setting>
                     </block>
 
@@ -77,7 +89,7 @@
                                 <div class="row mt8"><label for="gl_video_event_image_field" class="col-lg-3 o_light_label"/><field name="gl_video_event_image_field" class="col-lg-5" placeholder="z. B. image_1920 oder x_social_image"/></div>
                             </div>
                         </setting>
-                        <setting string="Social-Automation / Webhook" help="Wird beim Freigeben mit Event-ID und beiden Video-URLs aufgerufen.">
+                        <setting string="Social-Automation / Webhook">
                             <field name="gl_video_approval_webhook_url" class="w-100" placeholder="https://..."/>
                         </setting>
                         <setting string="Job-Verarbeitung">
@@ -89,9 +101,6 @@
         </field>
     </record>
 
-
-    <!-- Dedicated settings screen for the AI Video app. This avoids hiding the
-         configuration only inside Odoo's global Settings application. -->
     <record id="view_gl_video_settings_form" model="ir.ui.view">
         <field name="name">gl.video.settings.form</field>
         <field name="model">res.config.settings</field>
@@ -100,7 +109,7 @@
                 <sheet>
                     <div class="oe_title">
                         <h1>Groundlift AI Video</h1>
-                        <p class="text-muted">Provider, CI, Odoo-Feldzuordnung und Social-Übergabe konfigurieren.</p>
+                        <p class="text-muted">Provider, CI, Prompts, Identitätsschutz und Social-Übergabe konfigurieren.</p>
                     </div>
                     <field name="company_id" invisible="1"/>
                     <notebook>
@@ -122,18 +131,27 @@
                                 <field name="gl_video_eleven_voice_id"/>
                                 <field name="gl_video_eleven_tts_model"/>
                                 <field name="gl_video_generate_music"/>
-                                <field name="gl_video_eleven_music_model" invisible="not gl_video_generate_music"/>
-                                <field name="gl_video_music_volume" invisible="not gl_video_generate_music"/>
+                                <field name="gl_video_eleven_music_model"/>
+                                <field name="gl_video_music_volume"/>
                             </group>
                             <group string="Creatomate · Master-Rendering">
                                 <field name="gl_video_creatomate_api_key" password="True"/>
                                 <field name="gl_video_use_templates"/>
-                                <field name="gl_video_creatomate_template_16_9" invisible="not gl_video_use_templates"/>
-                                <field name="gl_video_creatomate_template_9_16" invisible="not gl_video_use_templates"/>
+                                <field name="gl_video_creatomate_template_16_9"/>
+                                <field name="gl_video_creatomate_template_9_16"/>
                                 <field name="gl_video_download_final"/>
                             </group>
                             <group string="Verbindungstest">
                                 <button name="action_test_video_providers" type="object" string="Provider jetzt prüfen" class="btn-secondary" icon="fa-plug"/>
+                            </group>
+                        </page>
+                        <page string="Prompting &amp; Guardrails" name="guardrails">
+                            <group string="Identitätsschutz">
+                                <field name="gl_video_preserve_identity"/>
+                                <field name="gl_video_identity_guard_prompt" widget="text"/>
+                            </group>
+                            <group string="Referenz-Blueprint">
+                                <field name="gl_video_reference_blueprint" widget="text"/>
                             </group>
                         </page>
                         <page string="Groundlift CI" name="branding">
@@ -149,10 +167,6 @@
                                 <field name="gl_video_brand_bg"/>
                                 <field name="gl_video_brand_fg"/>
                                 <field name="gl_video_brand_accent"/>
-                            </group>
-                            <group string="Logo">
-                                <field name="company_id" string="Unternehmen" groups="base.group_multi_company" invisible="0"/>
-                                <div class="text-muted">Für das Outro wird automatisch das in Odoo hinterlegte Firmenlogo des ausgewählten Unternehmens verwendet.</div>
                             </group>
                         </page>
                         <page string="Odoo &amp; Social" name="integration">
@@ -187,5 +201,4 @@
         <field name="target">current</field>
         <field name="context">{'active_test': False}</field>
     </record>
-
 </odoo>

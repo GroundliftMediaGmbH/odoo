@@ -60,6 +60,11 @@ class ResConfigSettings(models.TransientModel):
     gl_video_approval_webhook_url = fields.Char(string='Freigabe-Webhook URL', config_parameter='gl_ai_video.approval_webhook_url')
     gl_video_batch_size = fields.Integer(string='Jobs pro Cron-Lauf', config_parameter='gl_ai_video.batch_size', default=4)
 
+    # Creative guardrails / reference editing blueprint
+    gl_video_preserve_identity = fields.Boolean(string='Gesichter/Identität strikt bewahren', config_parameter='gl_ai_video.preserve_identity', default=True)
+    gl_video_identity_guard_prompt = fields.Text(string='Identity-Guard Prompt', config_parameter='gl_ai_video.identity_guard_prompt', default='When a source image or video shows a real person, preserve that person exactly. Do not change face, body shape, age, hairstyle, skin tone, clothing identity, or proportions. Only add subtle camera motion, depth, lighting atmosphere, or gentle environmental movement. Never morph, swap, beautify, lip-sync, or re-cast a person.')
+    gl_video_reference_blueprint = fields.Text(string='Referenz-Blueprint', config_parameter='gl_ai_video.reference_blueprint', default='Reference structure inspired by Groundlift sample teasers: 0-2 s strong hook or hero shot; 2-6 s protagonist / act reveal; 6-12 s quick montage of performers, venue or category highlights; 12-17 s key event promise plus date/location; final 3 s deterministic Groundlift CTA/outro. Text on screen remains short. Cuts feel modern and rhythmic, with sparse overlays and a clean final information card.')
+
     def action_save_video_settings(self):
         """Persist the dedicated AI-video settings form without leaving the app.
 

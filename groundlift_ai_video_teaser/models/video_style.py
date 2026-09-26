@@ -20,6 +20,21 @@ class GlVideoTeaserStyle(models.Model):
         ('current_word', 'Current word'),
     ], default='highlight')
 
+    template_kind = fields.Selection([
+        ('performer_trailer', 'Performer / Einzel-Event'),
+        ('multi_event_overview', 'Mehrere Veranstaltungen / Übersicht'),
+    ], default='performer_trailer', required=True)
+    pacing_profile = fields.Selection([
+        ('fast', 'Schnell'),
+        ('mixed', 'Gemischt'),
+        ('calm', 'Ruhig'),
+    ], default='mixed', required=True)
+    target_scene_count = fields.Integer(default=4)
+    min_scene_duration = fields.Float(default=1.5)
+    max_scene_duration = fields.Float(default=6.0)
+    reference_structure = fields.Text()
+    identity_prompt = fields.Text()
+
     _sql_constraints = [
         ('gl_video_style_code_uniq', 'unique(code)', 'Der Style-Code muss eindeutig sein.'),
     ]
