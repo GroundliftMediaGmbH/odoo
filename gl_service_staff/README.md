@@ -49,3 +49,19 @@ Es gibt keine Lösch-/Reset-Migration. Die bestehenden Modelle `gl.service.staff
 - Legacy-Schichten werden bei einer neuen Verfügbarkeitsanfrage auf den korrekten Standard-Zeitraum aktualisiert, ohne bereits fest gebuchte Mitarbeiter oder bewusst individualisierte Personalzeiten zu verändern.
 - Datum/Uhrzeit in Mails wird kompakt als `TT.MM.JJJJ HH:MM Uhr` ausgegeben.
 
+## Upgrade 19.0.2.0.3 – bestehende Veranstaltungszeiten
+
+Beim Update auf 19.0.2.0.3 werden alle bestehenden, noch nicht beendeten
+veranstaltungsgebundenen Serviceschichten einmalig neu berechnet:
+
+- Anfang = Veranstaltungsbeginn minus konfigurierte Vorlaufstunden
+- Ende = Veranstaltungsende plus konfigurierte Nachlaufstunden
+- individuelle Zusatzstunden einer Veranstaltung haben Vorrang vor den globalen Werten
+- Mitarbeiterzeiten, die noch dem bisherigen Standard entsprachen, werden mitgezogen
+- individuell abweichende Mitarbeiterzeiten bleiben unverändert
+- bestehende Buchungs-/Verfügbarkeitsstatus bleiben unverändert
+- durch diese Upgrade-Korrektur werden keine E-Mails erzeugt
+
+Nach der Korrektur folgen diese Veranstaltungsschichten wieder automatisch der Quelle.
+Eine spätere manuelle Änderung der Schicht-Anfangs- oder Endzeit löst die Kopplung wie gewohnt.
+
