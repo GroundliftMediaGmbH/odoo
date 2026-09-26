@@ -172,7 +172,7 @@
                     </notebook>
                 </sheet>
                 <footer>
-                    <button name="execute" type="object" string="Speichern" class="btn-primary" data-hotkey="s"/>
+                    <button name="action_save_video_settings" type="object" string="Speichern" class="btn-primary" data-hotkey="s"/>
                     <button string="Verwerfen" special="cancel" class="btn-secondary" data-hotkey="x"/>
                 </footer>
             </form>

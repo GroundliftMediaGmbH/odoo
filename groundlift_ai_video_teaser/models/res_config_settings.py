@@ -4,7 +4,6 @@ import logging
 import requests
 
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -61,8 +60,32 @@ class ResConfigSettings(models.TransientModel):
     gl_video_approval_webhook_url = fields.Char(string='Freigabe-Webhook URL', config_parameter='gl_ai_video.approval_webhook_url')
     gl_video_batch_size = fields.Integer(string='Jobs pro Cron-Lauf', config_parameter='gl_ai_video.batch_size', default=4)
 
+    def action_save_video_settings(self):
+        """Persist the dedicated AI-video settings form without leaving the app.
+
+        res.config.settings is transient.  Odoo's generic execute() does persist
+        config_parameter fields, but using an explicit action here makes the
+        dedicated settings screen independent from the global Settings app and
+        gives the user a clear success message.
+        """
+        self.ensure_one()
+        self.set_values()
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('AI Video Einstellungen'),
+                'message': _('Die Einstellungen und API-Keys wurden gespeichert.'),
+                'type': 'success',
+                'sticky': False,
+            },
+        }
+
     def action_test_video_providers(self):
         self.ensure_one()
+        # Persist the form first.  Do not raise an exception afterwards: an
+        # exception would roll back this transaction and therefore also discard
+        # freshly entered API keys.
         self.set_values()
         icp = self.env['ir.config_parameter'].sudo()
         results = []
@@ -99,5 +122,18 @@ class ResConfigSettings(models.TransientModel):
         runway_key = icp.get_param('gl_ai_video.runway_api_key')
         results.append('Runway: API-Key hinterlegt' if runway_key else 'Runway: kein API-Key')
 
-        raise UserError('\n'.join(results))
+        has_error = any(
+            ('Fehler' in result) or ('fehlgeschlagen' in result) or ('kein API-Key' in result)
+            for result in results
+        )
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('Provider-Prüfung'),
+                'message': '\n'.join(results),
+                'type': 'warning' if has_error else 'success',
+                'sticky': True,
+            },
+        }
 
