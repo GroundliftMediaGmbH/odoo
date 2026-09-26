@@ -1,88 +1,44 @@
-# Groundlift Servicepersonal für Odoo 19 SH
+# Groundlift Servicepersonal – Odoo 19 SH
 
-Dieses Modul legt eine neue Odoo-App **Servicepersonal** an.
+Version **19.0.2.0.0** ist ein Rework der bestehenden Servicepersonal-App. Bestehende Schichten und bereits gebuchtes Personal werden nicht gelöscht oder neu verteilt.
 
-## Enthaltene Funktionen
+## Neuer Ablauf
 
+- **Veranstaltungen:** Beim erstmaligen Wechsel in die Phase `Angekündigt` wird eine Serviceschicht erzeugt und an alle aktiven Service-Mitarbeiter eine Verfügbarkeitsanfrage vorbereitet/versendet. Eine Anfrage kann zusätzlich manuell über die Veranstaltung oder die Schicht ausgelöst werden.
+- **Projekte:** Neues Feld `Anzahl Servicepersonal`. Beim erstmaligen Wechsel in `Vorbereitung` und Bedarf > 0 wird eine Serviceschicht angelegt und die Verfügbarkeit angefragt.
+- **Antwort „Ich bin verfügbar“:** setzt nur den Status `Verfügbar`; es ist noch keine Buchung.
+- **Feste Buchung:** Die in den Einstellungen hinterlegte verantwortliche Person wählt verfügbare Mitarbeiter aus und bucht sie fest. Erst dann wird der bisherige technische Status `accepted` gesetzt, damit bestehende Groundlift-Kosten-/Auswertungslogik kompatibel bleibt.
+- **Sternebewertung:** aus Mitarbeiter-, Schicht- und Portaloberflächen entfernt; technische Legacy-Felder bleiben nur zur Upgrade-Kompatibilität in der Datenbank/Registry.
 
-### Update 19.0.1.4.0
+## Zeiten
 
-- Mitarbeiterportal zeigt die Arbeitszeit nun kompakt als `TT.MM.JJJJ HH:MM Uhr bis TT.MM.JJJJ HH:MM Uhr`, ohne doppelte Datumszeile.
-- Die Servicepersonal-Web-Übersicht zeigt bei jeder Person zusätzlich die individuell gebuchte Arbeitszeit.
-- Wenn bei bereits zugesagtem Servicepersonal die individuelle Anfangs- oder Endzeit geändert wird, wird automatisch eine Bestätigungsmail für die Zeitänderung versendet.
-- Bestätigung einer Zeitänderung zeigt öffentlich: „Danke für deine Flexibilität.“
-- Ablehnung einer Zeitänderung zeigt öffentlich: „Vielen Dank für Deine Rückmeldung.“
-- Nicht bestätigte oder abgelehnte Zeitänderungen werden im Backend in der Zuteilung sichtbar als Warnung markiert.
+- Veranstaltung standardmäßig: **2 h vor Beginn bis 1 h nach Ende**.
+- Die beiden Event-Zusatzzeiten sind global in `Servicepersonal → Einstellungen` editierbar und können pro Veranstaltung überschrieben werden.
+- Projekt: Homeautomation-`Startzeit` minus 1 h bis Homeautomation-`Endzeit` plus 1 h.
+- Die Projektfelder `Startzeit` und `Endzeit` werden automatisch anhand ihrer Datetime-Feldbezeichnung erkannt. Falls eure technischen Feldnamen anders heißen, können sie in den App-Einstellungen explizit hinterlegt werden.
+- Neu automatisch erzeugte Schichten bleiben an ihre Quellzeit gekoppelt, bis die Standard-Anfangs- oder Endzeit in der Schicht manuell geändert wird. Bestehende Schichten bleiben unverändert.
 
-### Update 19.0.1.3.0
+## Bestandsschutz
 
-- Auf den Mitarbeiter-Homepages werden keine internen Bewertungen, Sterne-Wertungen oder Reserve-/Wunschpersonal-Einteilungen mehr angezeigt.
-- Die öffentliche Übersicht bleibt wertungsfrei und zeigt weiterhin nur die relevanten Schichtinformationen.
+Für Schichten, die vor dem Rework bereits existieren, wird **keine automatische Verfügbarkeitsmail** ausgelöst. Bereits als Wunschpersonal (`role=desired`) zugesagte/gebuchte Mitarbeiter bleiben gebucht. Alte Zusagen im Reserve-Status bleiben als Altbestand erhalten und werden nicht als feste Buchung gezählt. Die neue Verfügbarkeitsanfrage für solche Schichten wird bewusst manuell ausgelöst.
 
-### Update 19.0.1.2.0
+## Monatsmail
 
-- Spontane Schichten innerhalb der 3-Wochen-Frist verwenden jetzt eine eigene Erst-Anfrage mit passender Tonalität statt „Letzte Rückfrage“.
-- Bei spontanen Schichten werden automatisch `Benötigtes Servicepersonal + 2` Personen aus dem Ranking angefragt. Die zusätzlichen Personen bleiben Reservepersonal.
-- Automatisch erzeugte Schichtnamen enthalten keinen Präfix „Veranstaltung:“ oder „Projekt:“ mehr.
-- Sternebewertungen werden in der Oberfläche per Dropdown ausgewählt.
+Am 1. jedes Monats erhält jeder aktive Mitarbeiter mit E-Mail-Adresse eine Übersicht seiner für den aktuellen Monat **fest gebuchten** Einsätze. Der Mitarbeiter kann die Monatsmail über einen persönlichen Link abbestellen. Verfügbarkeitsanfragen und Buchungsbestätigungen werden dadurch nicht abbestellt.
 
-### Update 19.0.1.1.0
+## Mail debugging
 
-- Button-Reihenfolge in Schichten geändert: **Personalliste erzeugen** vor **Servicepersonal buchen**.
-- Der Button **Nach Sternen zuteilen** wurde aus der Oberfläche entfernt; die Bewertung bleibt die Standardlogik.
-- Im Schichtformular gibt es unten nur noch den Tab **Servicekräfte**.
-- **Personalliste erzeugen** erzeugt alle aktiven Servicekräfte und setzt exakt `Benötigtes Servicepersonal` als Wunschpersonal; alle übrigen bleiben Reservepersonal.
-- Bei Absage oder Fristablauf wird die bisherige Person wieder Reservepersonal und der nächste Kandidat wird Wunschpersonal/Nachrücker.
-- Mitarbeiter-Webseiten sind im Backend über **Servicepersonal → Mitarbeiter → Webseite öffnen** erreichbar.
-- Die allgemeine Web-Übersicht ist im Backend über **Servicepersonal → Web-Übersicht** erreichbar.
+`Mail debugging` ist standardmäßig aktiv, solange kein anderer Wert gespeichert wurde. Ist es aktiv, werden **alle von dieser App erzeugten Mails** in `Servicepersonal → Einstellungen → Mail-Freigaben` zurückgehalten. Die konfigurierte technische Leitung kann Betreff, Empfänger und gerenderten HTML-Inhalt prüfen und die Mail anschließend freigeben oder verwerfen.
 
+## Upgrade
 
-- Servicepersonal-Liste auf Basis von `hr.employee` mit 1–5-Sterne-Bewertung und PIN-Code.
-- Automatische Schichterzeugung für:
-  - `project.project`, wenn `stage_id.name == "In Bearbeitung"` und `date_start` gesetzt ist.
-  - `event.event`, wenn `stage_id.name == "Angekündigt"` und `date_begin` gesetzt ist.
-- Manuelles Einholen bereits bestehender passender Projekte/Veranstaltungen über Menüpunkt und Button.
-- Pro Schicht:
-  - benötigte Anzahl Servicepersonal,
-  - Standard-Anfangs-/Endzeit,
-  - individuelle Anfangs-/Endzeit pro Person,
-  - Wunschpersonal / Reservepersonal,
-  - schichtbezogene Sternebewertung als Override,
-  - manuelles Tauschen, Eintragen und Austragen über Odoo.
-- Button **Servicepersonal buchen** zum Versenden von Einladungen.
-- E-Mail-Buttons:
-  - **Ich bin gerne dabei**
-  - **Ich kann leider nicht**
-- Automatische Statuslogik mit grünem Haken, sobald genügend Personen zugesagt haben.
-- Automatischer Cron stündlich:
-  - 4 Wochen vorher Erinnerung,
-  - 3 Wochen vorher letzte Erinnerung mit 6h-Frist,
-  - automatische Nachrücker bei Absage oder Fristversäumnis,
-  - Nachrücker wegen 6h-Frist erhalten 3 Tage Antwortfrist,
-  - Vortagserinnerung mit Arbeitszeiten.
-- Mitarbeiterportal unter `/servicepersonal` mit PIN-Login.
-- Öffentliche Gesamtübersicht unter `/servicepersonal/overview`.
+1. Ordner `gl_service_staff` auf GitHub durch diese Version ersetzen.
+2. Auf Odoo SH pushen und Build abwarten.
+3. App `Groundlift Servicepersonal` aktualisieren.
+4. `Servicepersonal → Einstellungen` öffnen und mindestens **Verantwortliche Person** sowie **Technische Leitung** setzen.
+5. Prüfen, ob die Projektfelder `Startzeit`/`Endzeit` automatisch erkannt werden. Falls nicht, die technischen Feldnamen in den Einstellungen eintragen.
+6. Für bestehende unbesetzte Schichten die Verfügbarkeitsanfrage manuell versenden.
 
-## Installation auf Odoo SH
+## Hinweis zu Daten
 
-1. Ordner `gl_service_staff` in das Custom-Addons-Repository kopieren.
-2. Auf den gewünschten Odoo-SH-Branch committen und pushen.
-3. Odoo SH bauen lassen.
-4. Apps-Liste aktualisieren.
-5. App **Groundlift Servicepersonal** installieren.
-6. Unter **Servicepersonal → Mitarbeiter** die Servicekräfte aus `hr.employee` auswählen und bewerten.
-7. Unter **Servicepersonal → Bestehende Events/Projekte einholen** vorhandene Projekte/Events synchronisieren.
-
-## Technische Felder
-
-- Projekte: `project.project.date_start`
-- Veranstaltungen: `event.event.date_begin`
-
-## Hinweis
-
-Die automatische Synchronisierung reagiert auf `create()` und `write()` von `project.project` und `event.event`, wenn die Stage oder das Datum geändert wird. Die Stage-Namen müssen exakt zu den deutschen Bezeichnungen passen:
-
-- Projekt: `In Bearbeitung`
-- Veranstaltung: `Angekündigt`
-
-Falls eure Stage intern anders heißt, müssen die beiden Methoden in `models/project_project.py` und `models/event_event.py` angepasst werden.
+Es gibt keine Lösch-/Reset-Migration. Die bestehenden Modelle `gl.service.staff.member`, `gl.service.shift` und `gl.service.shift.line` sowie die bisherigen Zustände `accepted`, `declined`, `invited` bleiben erhalten. `accepted` + `role=desired` gilt im neuen Ablauf als **Gebucht**; ältere `accepted`-Reserveeinträge bleiben unangetastet und werden als Altbestand behandelt.
