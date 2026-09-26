@@ -113,3 +113,10 @@ Das Paket wurde statisch auf Python-Syntax und XML-Wohlgeformtheit geprüft. Ein
 
 ## 19.0.1.0.1
 - Odoo-19-Kompatibilitätsfix für die Search-View `gl.video.teaser.job.search`: Das `group`-Element enthält keine in Odoo 19 unzulässigen `expand`-/`string`-Attribute mehr.
+
+
+## 19.0.1.0.2
+- Eigener Menüpunkt **AI Video → Einstellungen** hinzugefügt.
+- Dedizierte Konfigurationsseite für OpenAI, Runway, ElevenLabs, Creatomate, Groundlift-CI und Odoo/Social-Integration.
+- Einstellungen bleiben zusätzlich in den allgemeinen Odoo-Einstellungen verfügbar.
+- Deutsche, lesbare Feldbezeichnungen ergänzt.

@@ -21,4 +21,5 @@
     <menuitem id="menu_gl_video_jobs" name="Teaser" parent="menu_gl_video_root" action="action_gl_video_jobs" sequence="10"/>
     <menuitem id="menu_gl_video_assets" name="Assets" parent="menu_gl_video_root" action="action_gl_video_assets" sequence="20"/>
     <menuitem id="menu_gl_video_styles" name="Styles" parent="menu_gl_video_root" action="action_gl_video_styles" sequence="30" groups="event.group_event_manager"/>
+    <menuitem id="menu_gl_video_settings" name="Einstellungen" parent="menu_gl_video_root" action="action_gl_video_settings" sequence="90" groups="base.group_system"/>
 </odoo>
