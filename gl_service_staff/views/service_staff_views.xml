@@ -188,7 +188,7 @@
         <field name="name">gl.service.shift.list</field>
         <field name="model">gl.service.shift</field>
         <field name="arch" type="xml">
-            <list string="Schichten" editable="bottom"
+            <list string="Schichten"
                   decoration-success="coverage_state == 'complete'"
                   decoration-warning="coverage_state == 'partial'"
                   decoration-danger="coverage_state == 'missing'">

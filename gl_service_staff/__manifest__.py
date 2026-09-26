@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Groundlift Servicepersonal',
-    'version': '19.0.2.0.0',
+    'version': '19.0.2.0.1',
     'category': 'Human Resources/Planning',
     'summary': 'Servicepersonal-Verfügbarkeit, feste Buchung, Monatsübersichten und Mail-Freigabe.',
     'author': 'Groundlift Media GmbH',
