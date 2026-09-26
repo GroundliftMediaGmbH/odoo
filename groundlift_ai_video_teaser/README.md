@@ -160,3 +160,11 @@ Hinweis: Kein Client kann das sehr kleine Ausfallfenster vollständig ausschlie�
 - Die `res.config.settings`-Felder sind schreibbare Related-Textfelder auf das Unternehmen; dadurch bleiben mehrzeilige Promptänderungen zuverlässig erhalten.
 - Die Pipeline liest diese vier Prompts jetzt ebenfalls direkt aus `res.company`, sodass es nur noch eine eindeutige Datenquelle gibt.
 - Der Speichern-Button schreibt die Promptfelder zusätzlich explizit auf das Unternehmen, bevor die übrigen `config_parameter`-Einstellungen gespeichert werden.
+
+
+## 19.0.1.0.9
+- Die dedizierte Einstellungsseite verwendet jetzt Odoos nativen `res.config.settings.execute()`-Speicherweg.
+- `set_values()` wurde überschrieben und speichert alle Company-Felder explizit sowie alle `config_parameter`-Felder über Odoos Standardmechanismus.
+- Dadurch werden insbesondere Voice Speed, Stability, Similarity, Style, Musiklautstärke, Runway-Limits, Provider-Modelle, Template-IDs, Feldzuordnungen und Booleans zuverlässig gespeichert.
+- Wertebereiche für ElevenLabs, Musiklautstärke, Runway-Clipdauer und Cron-Batchgröße werden vor dem Speichern validiert.
+- Alle sichtbaren Felder der dedizierten Einstellungsseite wurden gegen einen dauerhaften Speicherort geprüft.

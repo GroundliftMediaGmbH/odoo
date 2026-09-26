@@ -4,6 +4,7 @@ import logging
 import requests
 
 from odoo import _, api, fields, models
+from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -71,37 +72,75 @@ class ResConfigSettings(models.TransientModel):
     gl_video_identity_guard_prompt = fields.Text(string='Identity-Guard Prompt', related='company_id.gl_video_identity_guard_prompt', readonly=False)
     gl_video_reference_blueprint = fields.Text(string='Referenz-Blueprint', related='company_id.gl_video_reference_blueprint', readonly=False)
 
-    def _persist_company_prompt_fields(self):
+    def _persist_company_fields(self):
+        """Persist every company-scoped setting explicitly.
+
+        The dedicated settings screen is a custom res.config.settings form.
+        Writing all company-related fields in one operation makes persistence
+        independent from inverse timing of related fields and keeps multi-company
+        values deterministic.
+        """
         self.ensure_one()
         self.company_id.sudo().write({
+            'gl_video_brand_name': self.gl_video_brand_name or '',
+            'gl_video_outro_claim': self.gl_video_outro_claim or '',
+            'gl_video_cta': self.gl_video_cta or '',
+            'gl_video_footer': self.gl_video_footer or '',
+            'gl_video_location_phrase': self.gl_video_location_phrase or '',
+            'gl_video_hook_template': self.gl_video_hook_template or '',
+            'gl_video_brand_bg': self.gl_video_brand_bg or '',
+            'gl_video_brand_fg': self.gl_video_brand_fg or '',
+            'gl_video_brand_accent': self.gl_video_brand_accent or '',
             'gl_video_identity_guard_prompt': self.gl_video_identity_guard_prompt or '',
             'gl_video_reference_blueprint': self.gl_video_reference_blueprint or '',
             'gl_video_voice_direction': self.gl_video_voice_direction or '',
             'gl_video_music_start_prompt': self.gl_video_music_start_prompt or '',
         })
 
-    def action_save_video_settings(self):
-        """Persist provider settings and long company-level prompt texts."""
+    def _validate_video_settings(self):
         self.ensure_one()
-        self._persist_company_prompt_fields()
-        self.set_values()
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': _('AI Video Einstellungen'),
-                'message': _('Die Einstellungen, API-Keys und Prompttexte wurden gespeichert.'),
-                'type': 'success',
-                'sticky': False,
-            },
-        }
+        if not 0.7 <= self.gl_video_eleven_speed <= 1.2:
+            raise ValidationError(_('Voice Speed muss zwischen 0,70 und 1,20 liegen.'))
+        for field_name, label in (
+            ('gl_video_eleven_stability', _('Voice Stability')),
+            ('gl_video_eleven_similarity', _('Voice Similarity')),
+            ('gl_video_eleven_style', _('Voice Style')),
+        ):
+            value = self[field_name]
+            if not 0.0 <= value <= 1.0:
+                raise ValidationError(_('%s muss zwischen 0,00 und 1,00 liegen.') % label)
+        if not 0.0 <= self.gl_video_music_volume <= 100.0:
+            raise ValidationError(_('Musiklautstärke muss zwischen 0 und 100 Prozent liegen.'))
+        if self.gl_video_runway_clip_duration < 2 or self.gl_video_runway_clip_duration > 10:
+            raise ValidationError(_('Runway Clip-Dauer muss zwischen 2 und 10 Sekunden liegen.'))
+        if self.gl_video_runway_max_clips < 0:
+            raise ValidationError(_('Max. KI-Clips darf nicht negativ sein.'))
+        if self.gl_video_batch_size < 1 or self.gl_video_batch_size > 20:
+            raise ValidationError(_('Jobs pro Cron-Lauf muss zwischen 1 und 20 liegen.'))
+
+    def set_values(self):
+        """Use Odoo 19's native settings persistence for *all* settings.
+
+        ``super().set_values()`` stores every supported ``config_parameter``
+        field (including Float/Boolean/Integer), while company-scoped values
+        are written explicitly above. This is the same mechanism used by
+        Odoo's normal Settings application.
+        """
+        self.ensure_one()
+        self._validate_video_settings()
+        self._persist_company_fields()
+        return super().set_values()
+
+    def action_save_video_settings(self):
+        """Compatibility action for older cached views; use native execute()."""
+        self.ensure_one()
+        return self.execute()
 
     def action_test_video_providers(self):
         self.ensure_one()
         # Persist the form first.  Do not raise an exception afterwards: an
         # exception would roll back this transaction and therefore also discard
         # freshly entered API keys.
-        self._persist_company_prompt_fields()
         self.set_values()
         icp = self.env['ir.config_parameter'].sudo()
         results = []
