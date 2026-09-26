@@ -110,3 +110,6 @@ Auf einer Odoo-SH-Staging-Domain mit vorgeschaltetem Login/HTTP-Schutz können e
 ## Technische Validierung
 
 Das Paket wurde statisch auf Python-Syntax und XML-Wohlgeformtheit geprüft. Ein echter Install-/Render-Test benötigt eine laufende Odoo-19-SH-Datenbank plus die vier Provider-Zugänge.
+
+## 19.0.1.0.1
+- Odoo-19-Kompatibilitätsfix für die Search-View `gl.video.teaser.job.search`: Das `group`-Element enthält keine in Odoo 19 unzulässigen `expand`-/`string`-Attribute mehr.

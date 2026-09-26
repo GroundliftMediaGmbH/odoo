@@ -26,7 +26,7 @@
                 <field name="state"/>
                 <filter string="Fehler" name="error" domain="[('state','=','error')]"/>
                 <filter string="Freigegeben" name="approved" domain="[('state','=','approved')]"/>
-                <group expand="0" string="Gruppieren">
+                <group>
                     <filter string="Status" name="group_state" context="{'group_by':'state'}"/>
                     <filter string="Event" name="group_event" context="{'group_by':'event_id'}"/>
                 </group>
