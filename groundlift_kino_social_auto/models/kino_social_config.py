@@ -65,6 +65,12 @@ class GroundliftKinoSocialConfig(models.Model):
 
     create_weekly_post = fields.Boolean(string='Wochenpost erzeugen', default=True)
     weekly_title = fields.Char(string='Wochenpost Überschrift', default='Unser Kinoprogramm der Woche')
+    weekly_publish_format = fields.Selection([
+        ('post', 'Regulärer Post'),
+        ('story', 'Story'),
+    ], string='Standardformat Wochenpost', default='post', required=True,
+        help='Wird bei der Erstellung neuer Wochenposts übernommen. Vorhandene Posts bleiben unverändert. '
+             'Die tatsächliche Story-Veröffentlichung setzt Story-Unterstützung durch Odoo Social voraus.')
     weekly_post_hour = fields.Integer(string='Wochenpost Uhrzeit', default=14)
     weekly_post_minute = fields.Integer(string='Wochenpost Minute', default=0)
     weekly_footer = fields.Text(
@@ -83,6 +89,12 @@ class GroundliftKinoSocialConfig(models.Model):
     standard_image_filename = fields.Char(string='Standardbild Dateiname', default='kino_wochenprogramm.jpg')
 
     create_daily_posts = fields.Boolean(string='Tages-/Film-Posts erzeugen', default=True)
+    daily_publish_format = fields.Selection([
+        ('post', 'Regulärer Post'),
+        ('story', 'Story'),
+    ], string='Standardformat Tages-/Film-Posts', default='post', required=True,
+        help='Wird bei der Erstellung neuer Tages-/Film-Posts übernommen. Vorhandene Posts bleiben unverändert. '
+             'Die tatsächliche Story-Veröffentlichung setzt Story-Unterstützung durch Odoo Social voraus.')
     daily_first_hour = fields.Integer(string='Tagesposts ab Uhrzeit', default=10)
     daily_first_minute = fields.Integer(string='Tagesposts ab Minute', default=0)
     daily_interval_minutes = fields.Integer(string='Abstand zwischen Tagesposts in Minuten', default=5)
@@ -119,6 +131,17 @@ class GroundliftKinoSocialConfig(models.Model):
     notes = fields.Html(string='Hinweise')
     last_run_at = fields.Datetime(string='Letzte Montagsprüfung', readonly=True, copy=False)
     last_run_message = fields.Text(string='Letzte Meldung', readonly=True, copy=False)
+
+    story_native_supported = fields.Boolean(
+        string='Story-Veröffentlichung über Odoo unterstützt',
+        compute='_compute_story_native_supported',
+    )
+
+    @api.depends('weekly_publish_format', 'daily_publish_format')
+    def _compute_story_native_supported(self):
+        supported = bool(self.env['social.post']._gl_kino_native_story_values('story'))
+        for config in self:
+            config.story_native_supported = supported
 
     @api.model
     def _selection_timezones(self):
@@ -165,7 +188,13 @@ class GroundliftKinoSocialConfig(models.Model):
         self.ensure_one()
         issue = self.env['gl.kino.social.issue']._get_or_create_current_issue(config=self)
         created = issue.action_fetch_and_create_posts()
-        return self._notification('Kino Social Automation', '%s Social Post(s) erzeugt/geprüft.' % len(created), 'success' if created else 'warning')
+        corrected = issue._gl_kino_sync_this_weeks_unpublished_formats(self)
+        return self._notification(
+            'Kino Social Automation',
+            '%s neue Social Post(s); %s bestehende, unveröffentlichte Posts an die Formatvorgaben angepasst.'
+            % (len(created), corrected),
+            'success' if created or corrected else 'warning',
+        )
 
     def _get_social_accounts(self, raise_on_error=False):
         self.ensure_one()

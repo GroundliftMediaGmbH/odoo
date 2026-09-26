@@ -45,6 +45,40 @@ class InboxFilterSettings(models.Model):
         default=True,
         help="Wenn aktiv, wird jeder neu in CRM Neu eingehende Datensatz sofort automatisch analysiert und einsortiert.",
     )
+    rate_limit_tpm = fields.Integer(
+        string="TPM-Limit (Fallback)",
+        default=200000,
+        help="Fallback für Tokens pro Minute, bis OpenAI ein tatsächliches Limit über Response-Header meldet.",
+    )
+    rate_safety_percent = fields.Integer(
+        string="TPM Sicherheitsreserve (%)",
+        default=85,
+        help="Es wird nur dieser Anteil des bekannten TPM-Limits verplant. 85 % lässt Reserve für parallele API-Nutzung.",
+    )
+    min_request_interval = fields.Float(
+        string="Mindestabstand API-Anfragen (Sek.)",
+        default=1.5,
+        help="Verhindert kurze Request-Spitzen, da Rate-Limits auch in kürzeren Zeitfenstern greifen können.",
+    )
+    classification_max_completion_tokens = fields.Integer(
+        string="Max. Ausgabe-Tokens Klassifizierung",
+        default=1200,
+        help="Begrenzt die reservierte Ausgabegröße bei Klassifizierungen und reduziert TPM-Spitzen.",
+    )
+    error_retry_enabled = fields.Boolean(
+        string="Fehler automatisch erneut prüfen",
+        default=True,
+        help="Fehlerhafte, nicht als perfekt erkannte Einsortierungen werden regelmäßig erneut versucht.",
+    )
+
+    # Laufzeitstatus des lokalen Rate-Limit-Wächters. Diese Felder werden nicht in ir.config_parameter gespiegelt.
+    rate_window_started_at = fields.Datetime(readonly=True)
+    rate_window_tokens = fields.Integer(readonly=True, default=0)
+    rate_last_request_at = fields.Datetime(readonly=True)
+    rate_blocked_until = fields.Datetime(string="API pausiert bis", readonly=True)
+    rate_observed_limit_tokens = fields.Integer(string="Von OpenAI erkanntes TPM-Limit", readonly=True)
+    rate_remaining_tokens = fields.Integer(string="Zuletzt gemeldete verbleibende Tokens", readonly=True)
+    rate_reset_at = fields.Datetime(string="Token-Limit Reset", readonly=True)
 
     @api.depends("openai_api_key")
     def _compute_openai_api_key_status(self):
@@ -60,7 +94,8 @@ class InboxFilterSettings(models.Model):
 
     def write(self, vals):
         res = super().write(vals)
-        self._sync_to_ir_config_parameter()
+        if not self.env.context.get("inbox_filter_skip_param_sync"):
+            self._sync_to_ir_config_parameter()
         return res
 
     @api.model
@@ -76,6 +111,11 @@ class InboxFilterSettings(models.Model):
                 "customer_care_email": (params.get_param("inbox_filter.customer_care_email", "customer-care@groundlift.odoo.com") or "customer-care@groundlift.odoo.com").strip(),
                 "limit": int(params.get_param("inbox_filter.limit", "50") or 50),
                 "auto_sort_enabled": (params.get_param("inbox_filter.auto_sort_enabled", "1") or "1") not in ("0", "False", "false"),
+                "rate_limit_tpm": int(params.get_param("inbox_filter.rate_limit_tpm", "200000") or 200000),
+                "rate_safety_percent": int(params.get_param("inbox_filter.rate_safety_percent", "85") or 85),
+                "min_request_interval": float(params.get_param("inbox_filter.min_request_interval", "1.5") or 1.5),
+                "classification_max_completion_tokens": int(params.get_param("inbox_filter.classification_max_completion_tokens", "1200") or 1200),
+                "error_retry_enabled": (params.get_param("inbox_filter.error_retry_enabled", "1") or "1") not in ("0", "False", "false"),
             })
         return record
 
@@ -126,6 +166,11 @@ class InboxFilterSettings(models.Model):
             params.set_param("inbox_filter.customer_care_email", (record.customer_care_email or "customer-care@groundlift.odoo.com").strip())
             params.set_param("inbox_filter.limit", str(record.limit or 0))
             params.set_param("inbox_filter.auto_sort_enabled", "1" if record.auto_sort_enabled else "0")
+            params.set_param("inbox_filter.rate_limit_tpm", str(record.rate_limit_tpm or 200000))
+            params.set_param("inbox_filter.rate_safety_percent", str(record.rate_safety_percent or 85))
+            params.set_param("inbox_filter.min_request_interval", str(record.min_request_interval or 1.5))
+            params.set_param("inbox_filter.classification_max_completion_tokens", str(record.classification_max_completion_tokens or 1200))
+            params.set_param("inbox_filter.error_retry_enabled", "1" if record.error_retry_enabled else "0")
 
     @api.model
     def _mask_token(self, token):

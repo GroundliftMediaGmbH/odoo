@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="music_action" model="ir.actions.client">
+        <field name="name">Hintergrundmusik</field>
+        <field name="tag">gl_background_music.player</field>
+    </record>
+    <record id="music_playlist_list" model="ir.ui.view">
+        <field name="name">gl.music.playlist.list</field>
+        <field name="model">gl.music.playlist</field>
+        <field name="arch" type="xml">
+            <list string="Gespeicherte Playlists">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="url"/>
+            </list>
+        </field>
+    </record>
+    <record id="music_playlist_form" model="ir.ui.view">
+        <field name="name">gl.music.playlist.form</field>
+        <field name="model">gl.music.playlist</field>
+        <field name="arch" type="xml">
+            <form string="Playlist">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="url" placeholder="https://open.spotify.com/playlist/..."/>
+                        <field name="sequence"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="music_playlist_action" model="ir.actions.act_window">
+        <field name="name">Playlists verwalten</field>
+        <field name="res_model">gl.music.playlist</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="music_settings_action" model="ir.actions.act_window">
+        <field name="name">Hintergrundmusik – Einstellungen</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'module': 'gl_background_music'}</field>
+    </record>
+    <menuitem id="music_menu_root" name="Hintergrundmusik" sequence="60" groups="gl_background_music.group_music_user,base.group_system" web_icon="gl_background_music,static/description/icon.png"/>
+    <menuitem id="music_menu_player" name="Player" parent="music_menu_root" action="music_action" sequence="10" groups="gl_background_music.group_music_user,base.group_system"/>
+    <menuitem id="music_menu_playlists" name="Playlists verwalten" parent="music_menu_root" action="music_playlist_action" sequence="20" groups="gl_background_music.group_music_user,base.group_system"/>
+    <menuitem id="music_menu_settings" name="Einrichtung" parent="music_menu_root" action="music_settings_action" sequence="30" groups="base.group_system"/>
+</odoo>

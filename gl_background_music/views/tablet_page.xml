@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="tablet_page" name="Hintergrundmusik – Tablet-Fernbedienung">
+        <html lang="de">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+                <meta name="robots" content="noindex,nofollow"/>
+                <meta name="theme-color" content="#11141a"/>
+                <title>GROUNDLIFT · Hintergrundmusik</title>
+                <link rel="stylesheet" href="/gl_background_music/static/src/tablet.css"/>
+                <script src="/gl_background_music/static/src/tablet.js" defer="defer"></script>
+            </head>
+            <body>
+                <main class="app" id="gl-tablet" t-att-data-csrf="csrf_token">
+                    <header class="header">
+                        <div><div class="kicker">GROUNDLIFT · AUDIO</div><h1>Hintergrundmusik</h1><p>Fernbedienung für den festgelegten Wiedergabe-PC</p></div>
+                        <div class="header-actions"><span id="connection" role="status" aria-live="polite">Verbinde …</span><button id="refresh" type="button" class="secondary">↻ Aktualisieren</button></div>
+                    </header>
+                    <div id="banner" class="banner" role="alert" hidden="hidden"></div>
+                    <div id="device" class="device">Spotify-Gerät wird geprüft …</div>
+                    <div class="grid">
+                        <section class="panel player">
+                            <div class="section-label">JETZT LÄUFT</div>
+                            <div class="now"><img id="cover" alt="Spotify Albumcover" hidden="hidden"/><div id="cover-placeholder" class="cover-placeholder">♫</div><div class="track"><h2 id="title">Keine Wiedergabe</h2><p id="artist">Spotify Connect</p><a id="spotify-link" href="https://open.spotify.com/" target="_blank" rel="noopener noreferrer" hidden="hidden">In Spotify öffnen ↗</a></div></div>
+                            <div class="progress"><input id="position" type="range" min="0" max="1" value="0" aria-label="Wiedergabeposition"/><div id="time" class="time">0:00 / 0:00</div></div>
+                            <div class="transport"><button id="shuffle" type="button" aria-label="Zufallswiedergabe" title="Zufall">⇄</button><button id="previous" type="button" aria-label="Vorheriger Titel" title="Zurück">|◀</button><button id="play" type="button" class="play" aria-label="Wiedergabe / Pause">▶</button><button id="next" type="button" aria-label="Nächster Titel" title="Weiter">▶|</button><button id="repeat" type="button" aria-label="Wiederholung" title="Wiederholen">↻</button></div>
+                            <div class="volume-control" aria-label="Lautstärke am Musik-PC">
+                                <div class="volume-heading"><strong>🔉 Lautstärke am Musik-PC</strong><span id="fade-status" aria-live="polite"></span></div>
+                                <div class="volume-buttons">
+                                    <button id="volume-minus" type="button" aria-label="Lautstärke um 5 Prozentpunkte senken">−</button>
+                                    <strong id="volume-value" aria-live="off">–</strong>
+                                    <button id="volume-plus" type="button" aria-label="Lautstärke um 5 Prozentpunkte erhöhen">+</button>
+                                </div>
+                                <div class="fade-buttons">
+                                    <button id="fade-in" type="button">↗ Fade In · 3 s</button>
+                                    <button id="fade-out" type="button">↘ Fade Out · 3 s</button>
+                                </div>
+                                <p class="muted volume-hint">Fade Out merkt sich den Wert. Fade In kehrt zu ihm zurück. +/− unterbricht den Fade.</p>
+                            </div>
+                            <button id="open-spotify" class="secondary repair" type="button">Spotify auf Windows öffnen</button>
+                        </section>
+                        <section class="panel playlist-panel">
+                            <div class="section-label">MUSIK AUSWÄHLEN</div><h2>Playlists</h2>
+                            <div id="saved" class="playlist-list"><p class="muted">Gespeicherte Playlists werden geladen …</p></div>
+                            <div class="search"><h3>Spotify-Playlists suchen</h3><form id="search-form"><input id="query" type="search" minlength="2" maxlength="100" placeholder="z. B. Jazz Lounge, Ambient" aria-label="Spotify-Playlists suchen"/><button class="primary" type="submit" id="search-button">Suchen</button></form><p id="search-info" class="muted">Ab zwei Zeichen erscheinen passende Playlists automatisch.</p><div id="results" class="playlist-list"></div><button id="more" class="secondary" type="button" hidden="hidden">Weitere Playlists</button></div>
+                        </section>
+                    </div>
+                    <footer>Die Wiedergabe erfolgt auf dem ausgewählten Spotify-Connect-PC, nicht auf diesem Tablet. Spotify Premium ersetzt keine gewerbliche Lizenz für öffentliche Hintergrundmusik.</footer>
+                </main>
+            </body>
+        </html>
+    </template>
+</odoo>

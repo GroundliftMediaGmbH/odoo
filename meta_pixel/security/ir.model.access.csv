@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_meta_pixel_config_manager,meta.pixel.config manager,model_meta_pixel_config,event.group_event_manager,1,1,1,1
+access_meta_pixel_config_user,meta.pixel.config user,model_meta_pixel_config,event.group_event_user,1,0,0,0
+access_meta_pixel_log_manager,meta.pixel.log manager,model_meta_pixel_log,event.group_event_manager,1,1,1,1
+access_meta_pixel_log_user,meta.pixel.log user,model_meta_pixel_log,event.group_event_user,1,0,0,0

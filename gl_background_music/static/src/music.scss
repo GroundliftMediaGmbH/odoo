@@ -1,0 +1,72 @@
+/* Client actions live inside Odoo's overflow-hidden action manager. Give
+   THIS action its own bounded scroll viewport rather than relying on body. */
+.o_action_manager:has(.gl-music-root) {position:relative;min-height:0;overflow:hidden;}
+.gl-music-root {position:absolute;inset:0;min-height:0;height:auto;background:#11141a;color:#e8ebf1;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;font-family:inherit;}
+.gl-music-layout {max-width:1450px;margin:auto;padding:32px 28px 60px;}
+.gl-music-header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:20px;}
+.gl-kicker,.gl-section-label{letter-spacing:.16em;color:#a5b0c3;font-size:11px;font-weight:800;margin-bottom:9px;}
+.gl-music-root h1{font-size:38px;font-weight:750;letter-spacing:-.035em;margin:0 0 6px;}
+.gl-music-root h2{font-size:22px;font-weight:700;margin:0 0 8px;}
+.gl-music-root h3{font-size:16px;font-weight:700;margin:0 0 12px;}
+.gl-subtitle,.gl-muted,.gl-legal{color:#a4afbe;}
+.gl-header-actions{display:flex;gap:9px;flex-wrap:wrap;}
+.gl-status{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 16px;background:#202733;border:1px solid #303948;border-radius:10px;margin:0 0 18px;}
+.gl-dot{display:inline-block;height:9px;width:9px;border-radius:100%;}.gl-dot.on{background:#42cf97}.gl-dot.off{background:#ffac72}
+.gl-sep{color:#778395}.gl-warning{background:#3b301f;border:1px solid #9d7436;border-radius:10px;padding:15px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.gl-columns{display:grid;grid-template-columns:minmax(350px,1.05fr) minmax(350px,1fr);gap:18px;align-items:start;}
+.gl-panel{background:#1b2029;border:1px solid #303947;border-radius:15px;padding:24px;margin-bottom:18px;min-width:0;}
+.gl-now{display:flex;gap:18px;align-items:center;min-width:0;margin:20px 0;}
+.gl-cover{height:130px;width:130px;flex-shrink:0;object-fit:cover;border-radius:9px;background:#2e3948;}
+.gl-cover-fallback{display:flex;align-items:center;justify-content:center;font-size:64px;color:#45d5a0;}
+.gl-track-text{min-width:0;overflow:hidden;}.gl-track-text h2{overflow-wrap:anywhere;}.gl-track-text a{color:#72e7c2;display:block;margin-top:10px;}.gl-device{font-size:12px;color:#abb6c7;margin-top:12px;}
+.gl-progress input,.gl-volume input{width:100%;accent-color:#46d99c;}.gl-time{text-align:right;color:#a5b0c3;font-variant-numeric:tabular-nums;font-size:12px;}
+.gl-transport{display:flex;justify-content:center;align-items:center;gap:10px;margin:19px 0 25px;flex-wrap:wrap;}
+.gl-music-root button{border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font:inherit;transition:filter .12s;background:#303846;color:#fff;}
+.gl-music-root button:hover{filter:brightness(1.17)}.gl-music-root button:disabled{opacity:.45;cursor:not-allowed;}
+.gl-music-root .gl-play{border-radius:100%;width:66px;height:66px;font-size:28px;background:#44d59c;color:#11251d;}
+.gl-music-root .gl-primary{background:#42d499;color:#102820;font-weight:700;}
+.gl-music-root .gl-secondary{background:#2b3542;color:#dde6ef;}
+.gl-music-root .gl-toggle.selected{color:#55efb0;box-shadow:inset 0 0 0 1px #55efb0;}
+.gl-volume{display:flex;align-items:center;gap:12px;}.gl-volume input{flex:1;min-width:70px;}.gl-volume strong{font-size:14px;min-width:44px;text-align:right;}
+.gl-repair{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:27px;padding-top:16px;border-top:1px solid #38414e;color:#a9b3c1;font-size:12px;}
+.gl-section-header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+.gl-list{display:grid;gap:7px;max-height:320px;overflow:auto;margin:12px 0;}
+.gl-list-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #343d4b;background:#232a35;border-radius:9px;padding:10px 12px;}
+.gl-list-row div:first-child{min-width:0;flex:1;overflow-wrap:anywhere;}.gl-list-row small{display:block;color:#9ba9b9;margin-top:3px;}
+.gl-add{border-top:1px solid #343c48;margin-top:18px;padding-top:18px;display:grid;gap:9px;}
+.gl-music-root input:not([type=range]){background:#131821;color:#e9edf2;border:1px solid #455263;border-radius:9px;padding:11px;width:100%;}
+.gl-owned{border-top:1px solid #343c48;margin-top:17px;padding-top:16px;}
+.gl-embed iframe{border:0;width:100%;height:360px;border-radius:12px;}.gl-embed p{color:#aab5c5;}.gl-legal{font-size:12px;padding:6px 0;}
+.gl-admin .gl-list-row{margin:7px 0;}
+@media(max-width:900px){.gl-columns{grid-template-columns:1fr}.gl-music-layout{padding:19px 14px}.gl-music-root h1{font-size:29px}.gl-music-header{flex-direction:column}.gl-now{align-items:flex-start}.gl-cover{height:90px;width:90px}.gl-volume{flex-wrap:wrap}}
+
+.gl-device-picker{margin:0 0 18px;border-color:#4b735d;}
+.gl-device-picker .gl-list-row{flex-wrap:wrap;}
+.gl-device-picker .gl-list-row .gl-primary{white-space:normal;max-width:100%;}
+.gl-device-picker .gl-device-help{color:#aebccd;margin:8px 0 14px;line-height:1.5;}
+.gl-music-root .gl-primary[disabled]{opacity:.45;}
+
+.gl-progress-hint {margin-top:6px;font-size:11px;text-align:right;}
+.gl-search{border-top:1px solid #343c48;margin-top:18px;padding-top:18px;}
+.gl-search-form{display:flex;gap:9px;align-items:stretch;margin-bottom:14px;}
+.gl-search-form input{min-width:0;flex:1;}
+.gl-result-row{flex-wrap:wrap;}
+.gl-result-cover{width:46px;height:46px;flex:0 0 46px;border-radius:7px;object-fit:cover;}
+@media(max-width:550px){.gl-search-form{flex-wrap:wrap;}.gl-search-form button{width:100%;}}
+
+.gl-live-hint{font-size:12px;margin:-5px 0 12px;}
+.gl-volume input[type=range]{touch-action:pan-y;cursor:ew-resize;}
+
+/* 1.0.5: touch-safe volume and time-based Spotify fades */
+.gl-volume-control{display:grid;gap:12px;margin-top:8px;padding:16px;border:1px solid #39485a;border-radius:12px;background:#202a35;}
+.gl-volume-heading{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;font-size:14px;font-weight:650;}
+.gl-fade-status{color:#57dfa8;font-size:12px;}
+.gl-volume-buttons{display:flex;align-items:center;justify-content:center;gap:16px;}
+.gl-music-root .gl-volume-step{font-size:27px;font-weight:700;width:62px;height:58px;background:#303f50;color:#f0f6fa;touch-action:manipulation;}
+.gl-volume-value{font-size:27px;min-width:84px;text-align:center;font-variant-numeric:tabular-nums;}
+.gl-fade-buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.gl-music-root .gl-fade-buttons button{min-height:48px;font-weight:650;touch-action:manipulation;}
+.gl-music-root .gl-fade-in{background:#205743;color:#d5ffeb;}
+.gl-music-root .gl-fade-out{background:#604137;color:#fff0d9;}
+.gl-fade-hint{font-size:12px;line-height:1.5;}
+@media(max-width:440px){.gl-fade-buttons{grid-template-columns:1fr}}

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <odoo>
     <record id="view_gl_cr_config_list" model="ir.ui.view">
         <field name="name">gl.cleverreach.newsletter.config.list</field>
@@ -32,6 +32,23 @@
                             <field name="recipient_group_id" domain="[('config_id', '=', id)]"/>
                             <field name="newsletter_template_id"/>
                             <field name="auto_push_to_cleverreach"/>
+                        </group>
+                    </group>
+
+                    <separator string="Newsletter-Arten: Aktivierung und Empfänger"/>
+                    <div class="text-muted">Ohne eigene Empfängerliste wird die globale CleverReach-Empfängerliste verwendet. Die Schalter stoppen auch bereits geplante automatische Newsletter dieser Art.</div>
+                    <group>
+                        <group string="2-wöchiger Newsletter">
+                            <field name="biweekly_enabled" readonly="1" widget="boolean_toggle"/>
+                            <button name="action_disable_biweekly" type="object" string="Deaktivieren" class="btn-secondary" invisible="biweekly_enabled == False" context="{'gl_cr_return_view': 'view_gl_cr_config_form'}"/><button name="action_enable_biweekly" type="object" string="Aktivieren" class="btn-secondary" invisible="biweekly_enabled == True" context="{'gl_cr_return_view': 'view_gl_cr_config_form'}"/><field name="biweekly_recipient_group_id" domain="[('config_id', '=', id)]"/>
+                        </group>
+                        <group string="Diese Woche bei Groundlift">
+                            <field name="weekly_enabled" readonly="1" widget="boolean_toggle"/>
+                            <button name="action_disable_weekly" type="object" string="Deaktivieren" class="btn-secondary" invisible="weekly_enabled == False" context="{'gl_cr_return_view': 'view_gl_cr_config_form'}"/><button name="action_enable_weekly" type="object" string="Aktivieren" class="btn-secondary" invisible="weekly_enabled == True" context="{'gl_cr_return_view': 'view_gl_cr_config_form'}"/><field name="weekly_recipient_group_id" domain="[('config_id', '=', id)]"/>
+                        </group>
+                        <group string="Spontane Newsletter">
+                            <field name="spontaneous_enabled" readonly="1" widget="boolean_toggle"/>
+                            <button name="action_disable_spontaneous" type="object" string="Deaktivieren" class="btn-secondary" invisible="spontaneous_enabled == False" context="{'gl_cr_return_view': 'view_gl_cr_config_form'}"/><button name="action_enable_spontaneous" type="object" string="Aktivieren" class="btn-secondary" invisible="spontaneous_enabled == True" context="{'gl_cr_return_view': 'view_gl_cr_config_form'}"/><field name="spontaneous_recipient_group_id" domain="[('config_id', '=', id)]"/>
                         </group>
                     </group>
 
@@ -110,14 +127,16 @@
                     <group string="Grunddaten">
                         <group>
                             <field name="name"/>
-                            <field name="active"/>
+                            <field name="active" string="CleverReach insgesamt aktiv"/>
+                            <field name="biweekly_enabled" readonly="1" widget="boolean_toggle"/>
+                            <button name="action_disable_biweekly" type="object" string="Deaktivieren" class="btn-secondary" invisible="biweekly_enabled == False" context="{'gl_cr_return_view': 'view_gl_cr_config_biweekly_form'}"/><button name="action_enable_biweekly" type="object" string="Aktivieren" class="btn-secondary" invisible="biweekly_enabled == True" context="{'gl_cr_return_view': 'view_gl_cr_config_biweekly_form'}"/><field name="biweekly_recipient_group_id" domain="[('config_id', '=', id)]"/>
+                            <div class="text-muted">Leer = globale CleverReach-Empfängerliste</div>
                             <field name="recipient_group_id" domain="[('config_id', '=', id)]"/>
                             <field name="newsletter_template_id"/>
                         </group>
                     </group>
                     <group>
                         <group string="Sendeplan">
-                            <field name="biweekly_enabled"/>
                             <field name="biweekly_weekday"/>
                             <field name="biweekly_send_hour"/>
                             <field name="biweekly_send_minute"/>
@@ -145,14 +164,16 @@
                     <group string="Grunddaten">
                         <group>
                             <field name="name"/>
-                            <field name="active"/>
+                            <field name="active" string="CleverReach insgesamt aktiv"/>
+                            <field name="weekly_enabled" readonly="1" widget="boolean_toggle"/>
+                            <button name="action_disable_weekly" type="object" string="Deaktivieren" class="btn-secondary" invisible="weekly_enabled == False" context="{'gl_cr_return_view': 'view_gl_cr_config_weekly_form'}"/><button name="action_enable_weekly" type="object" string="Aktivieren" class="btn-secondary" invisible="weekly_enabled == True" context="{'gl_cr_return_view': 'view_gl_cr_config_weekly_form'}"/><field name="weekly_recipient_group_id" domain="[('config_id', '=', id)]"/>
+                            <div class="text-muted">Leer = globale CleverReach-Empfängerliste</div>
                             <field name="recipient_group_id" domain="[('config_id', '=', id)]"/>
                             <field name="newsletter_template_id"/>
                         </group>
                     </group>
                     <group>
                         <group string="Sendeplan">
-                            <field name="weekly_enabled"/>
                             <field name="weekly_weekday"/>
                             <field name="weekly_send_hour"/>
                             <field name="weekly_send_minute"/>
@@ -179,7 +200,10 @@
                     <group string="Grunddaten">
                         <group>
                             <field name="name"/>
-                            <field name="active"/>
+                            <field name="active" string="CleverReach insgesamt aktiv"/>
+                            <field name="spontaneous_enabled" readonly="1" widget="boolean_toggle"/>
+                            <button name="action_disable_spontaneous" type="object" string="Deaktivieren" class="btn-secondary" invisible="spontaneous_enabled == False" context="{'gl_cr_return_view': 'view_gl_cr_config_spontaneous_form'}"/><button name="action_enable_spontaneous" type="object" string="Aktivieren" class="btn-secondary" invisible="spontaneous_enabled == True" context="{'gl_cr_return_view': 'view_gl_cr_config_spontaneous_form'}"/><field name="spontaneous_recipient_group_id" domain="[('config_id', '=', id)]"/>
+                            <div class="text-muted">Leer = globale CleverReach-Empfängerliste</div>
                             <field name="recipient_group_id" domain="[('config_id', '=', id)]"/>
                             <field name="newsletter_template_id"/>
                         </group>

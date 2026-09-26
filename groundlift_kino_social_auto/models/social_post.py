@@ -3,7 +3,8 @@
 import logging
 from datetime import timedelta
 
-from odoo import fields, models
+from odoo import api, fields, models
+from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -21,8 +22,84 @@ class SocialPost(models.Model):
     gl_kino_approved = fields.Boolean(string='Kino freigegeben', default=False)
     gl_kino_planned_date = fields.Datetime(string='Kino geplanter Zeitpunkt')
     gl_kino_auto_generated = fields.Boolean(string='Automatisch aus Kino-Programm erzeugt', default=False, index=True)
+    gl_kino_publish_format = fields.Selection([
+        ('post', 'Regulärer Post'),
+        ('story', 'Story'),
+    ], string='Veröffentlichungsformat', default='post', required=True, index=True,
+        help='Bei Erstellung aus der jeweiligen Wochen- bzw. Tages-Voreinstellung übernommen.')
+    gl_kino_story_native_supported = fields.Boolean(
+        string='Story-Veröffentlichung über Odoo unterstützt',
+        compute='_compute_gl_kino_story_native_supported',
+    )
+
+    @api.depends('gl_kino_publish_format')
+    def _compute_gl_kino_story_native_supported(self):
+        supported = bool(self._gl_kino_native_story_values('story'))
+        for post in self:
+            post.gl_kino_story_native_supported = supported
+
+    @api.model
+    def _gl_kino_publication_bridge_values(self, publish_format):
+        """Mirror the Kino choice into the existing Groundlift Event Social display/route.
+
+        Event Social defines gl_publication_kind='story' by default on *every*
+        social.post, including Kino posts. Without explicitly passing its fields,
+        Kino's 'post' setting is invisible in the shared form and the other
+        addon's image formatter continues to treat the post as a Story.
+        This bridge is optional: Kino still works if Event Social isn't installed.
+        """
+        target_kind = 'feed' if publish_format == 'post' else 'story'
+        values = {}
+        kind_field = self._fields.get('gl_publication_kind')
+        if kind_field and kind_field.type == 'selection':
+            selection = kind_field.selection
+            if isinstance(selection, (list, tuple)) and target_kind in dict(selection):
+                values['gl_publication_kind'] = target_kind
+        feed_field = self._fields.get('gl_publish_as_feed_post')
+        if feed_field and feed_field.type == 'boolean':
+            values['gl_publish_as_feed_post'] = publish_format == 'post'
+        return values
+
+    @api.model
+    def _gl_kino_native_story_values(self, publish_format):
+        # Use a genuine Story field only if provided by the installed social addon.
+        # Odoo 19 post_method means schedule/now, NOT Story/feed.
+        # Enterprise and third-party social addons expose different optional fields.
+        # Unsupported addons must leave the post as a draft, not publish a feed post.
+        if publish_format != 'story':
+            return {}
+        values = {}
+        for field_name in ('instagram_post_type', 'instagram_media_type',
+                           'facebook_post_type', 'publication_type',
+                           'content_type', 'post_type'):
+            field = self._fields.get(field_name)
+            if not field or field.type != 'selection' or (getattr(field, 'compute', None) and not getattr(field, 'inverse', None)):
+                continue
+            selection = field.selection
+            if callable(selection):
+                selection = selection(self)
+            elif isinstance(selection, str):
+                selection = getattr(self, selection)()
+            keys = {item[0] for item in (selection or [])}
+            if 'story' in keys:
+                values[field_name] = 'story'
+        for field_name in ('is_story', 'instagram_is_story', 'is_instagram_story'):
+            field = self._fields.get(field_name)
+            if field and field.type == 'boolean' and not (getattr(field, 'compute', None) and not getattr(field, 'inverse', None)):
+                values[field_name] = True
+        return values
+
+    def _gl_kino_check_story_route(self):
+        if any(post.gl_kino_auto_generated and post.gl_kino_publish_format == 'story'
+               for post in self) and not self._gl_kino_native_story_values('story'):
+            raise UserError(
+                'Dieser Kino-Eintrag ist als Story vorgesehen, aber die installierte '
+                'Odoo-Social-App stellt keinen kompatiblen Story-Veröffentlichungsweg bereit. '
+                'Er bleibt als Entwurf erhalten und darf nicht als regulärer Post gesendet werden.'
+            )
 
     def action_gl_kino_approve_and_schedule(self):
+        self._gl_kino_check_story_route()
         for post in self:
             post._gl_kino_safe_schedule_without_publish(mark_approved=True)
         return True
@@ -55,6 +132,7 @@ class SocialPost(models.Model):
         "Freigeben und planen" button cannot immediately publish a future post.
         """
         self.ensure_one()
+        self._gl_kino_check_story_route()
         vals = {}
         if mark_approved:
             vals.update({
@@ -102,6 +180,7 @@ class SocialPost(models.Model):
         return planned > (fields.Datetime.now() + timedelta(minutes=2))
 
     def _gl_kino_intercept_native_publish_action(self, method_name):
+        self._gl_kino_check_story_route()
         future_posts = self.filtered(lambda post: post._gl_kino_is_future_scheduled_post())
         if future_posts:
             for post in future_posts:
@@ -143,6 +222,9 @@ class SocialPost(models.Model):
         return False
 
     def write(self, vals):
+        # Do not let a mass approval bypass the unsupported-Story safeguard.
+        if vals.get('gl_kino_approved') is True:
+            self._gl_kino_check_story_route()
         result = super().write(vals)
         if not self.env.context.get('gl_kino_skip_approval_hook') and vals.get('gl_kino_approved') is True:
             posts_to_schedule = self.filtered(lambda post: post.gl_kino_auto_generated and post.gl_kino_approved)
