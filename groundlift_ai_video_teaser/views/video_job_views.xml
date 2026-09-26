@@ -63,6 +63,7 @@
                             <field name="use_runway"/>
                             <field name="generate_music"/>
                             <field name="subtitles"/>
+                            <field name="scene_text_overlays"/>
                             <field name="started_at" readonly="1"/>
                             <field name="finished_at" readonly="1"/>
                             <field name="checkpoint" readonly="1"/>

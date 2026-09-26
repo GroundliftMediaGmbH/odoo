@@ -138,3 +138,13 @@ Hinweis: Kein Client kann das sehr kleine Ausfallfenster vollständig ausschlie�
 - Szenen besitzen jetzt editierbare Felder für **Pace**, **Motion-Intensity** und **Transition-Hint**.
 - OpenAI-Regieplanung berücksichtigt jetzt die Groundlift-Referenzstruktur und liefert zusätzlich Pace/Motion/Transition pro Szene.
 - Runway-Prompts werden jetzt automatisch mit Identitätsschutz, Bewegungsintensität, Schnittenergie und Übergangshinweisen angereichert.
+
+
+## 19.0.1.0.6
+- Odoo-19-Fix: lange Prompt-Felder (`Identity-Guard`, Referenz-Blueprint, Voiceover-Regie, Musik-Startvorgabe) werden als normale Textfelder geführt und manuell über `get_values`/`set_values` in `ir.config_parameter` gespeichert. Dadurch öffnet die Einstellungen-Seite wieder korrekt.
+- ElevenLabs-Voice ist jetzt konfigurierbar: Speed, Stability, Similarity und Style. Default für Groundlift: Speed 1.12, Stability 0.30, Similarity 0.78, Style 0.48.
+- Voiceover-Regie wurde auf schnelleres, aktiveres Social-Pacing umgestellt; die OpenAI-Regie plant jetzt ca. 2,8–3,3 Wörter pro Sekunde Nutzzeit, kurze Hooks und weniger Pausen.
+- Musik-Prompt erzwingt einen hörbaren Start bei 0.00 s: kein Silence-Pre-Roll, kein Ambient-Intro und kein Fade-in.
+- `Voiceover-Untertitel` und `Szenen-Texteinblendungen` sind jetzt getrennte Optionen. Voiceover-Untertitel sind bei neuen Jobs standardmäßig aus; Szenen-Overlays bleiben separat steuerbar.
+- Bei Custom-Creatomate-Templates wird ein Element mit dem Namen `Subtitles` entfernt, wenn Voiceover-Untertitel deaktiviert sind.
+- Regie-Prompt verbessert: echtes Action-/Live-Material möglichst in den ersten 2 Sekunden, keine direkt wiederholten Assets, echtes Material vor KI-B-Roll, KI-B-Roll nur als Lückenfüller.

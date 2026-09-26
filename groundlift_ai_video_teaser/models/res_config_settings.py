@@ -41,8 +41,14 @@ class ResConfigSettings(models.TransientModel):
     gl_video_eleven_api_key = fields.Char(string='ElevenLabs API-Key', config_parameter='gl_ai_video.eleven_api_key')
     gl_video_eleven_voice_id = fields.Char(string='Voice-ID', config_parameter='gl_ai_video.eleven_voice_id')
     gl_video_eleven_tts_model = fields.Char(string='TTS-Modell', config_parameter='gl_ai_video.eleven_tts_model', default='eleven_multilingual_v2')
+    gl_video_eleven_speed = fields.Float(string='Voice Speed', config_parameter='gl_ai_video.eleven_speed', default=1.12)
+    gl_video_eleven_stability = fields.Float(string='Voice Stability', config_parameter='gl_ai_video.eleven_stability', default=0.30)
+    gl_video_eleven_similarity = fields.Float(string='Voice Similarity', config_parameter='gl_ai_video.eleven_similarity', default=0.78)
+    gl_video_eleven_style = fields.Float(string='Voice Style', config_parameter='gl_ai_video.eleven_style', default=0.48)
+    gl_video_voice_direction = fields.Text(string='Voiceover-Regie')
     gl_video_generate_music = fields.Boolean(string='Musik automatisch erzeugen', config_parameter='gl_ai_video.generate_music', default=True)
     gl_video_eleven_music_model = fields.Char(string='Musik-Modell', config_parameter='gl_ai_video.eleven_music_model', default='music_v2_5')
+    gl_video_music_start_prompt = fields.Text(string='Musik-Startvorgabe')
     gl_video_music_volume = fields.Float(string='Musiklautstärke (%)', config_parameter='gl_ai_video.music_volume', default=18.0)
 
     # Creatomate
@@ -62,8 +68,37 @@ class ResConfigSettings(models.TransientModel):
 
     # Creative guardrails / reference editing blueprint
     gl_video_preserve_identity = fields.Boolean(string='Gesichter/Identität strikt bewahren', config_parameter='gl_ai_video.preserve_identity', default=True)
-    gl_video_identity_guard_prompt = fields.Text(string='Identity-Guard Prompt', config_parameter='gl_ai_video.identity_guard_prompt', default='When a source image or video shows a real person, preserve that person exactly. Do not change face, body shape, age, hairstyle, skin tone, clothing identity, or proportions. Only add subtle camera motion, depth, lighting atmosphere, or gentle environmental movement. Never morph, swap, beautify, lip-sync, or re-cast a person.')
-    gl_video_reference_blueprint = fields.Text(string='Referenz-Blueprint', config_parameter='gl_ai_video.reference_blueprint', default='Reference structure inspired by Groundlift sample teasers: 0-2 s strong hook or hero shot; 2-6 s protagonist / act reveal; 6-12 s quick montage of performers, venue or category highlights; 12-17 s key event promise plus date/location; final 3 s deterministic Groundlift CTA/outro. Text on screen remains short. Cuts feel modern and rhythmic, with sparse overlays and a clean final information card.')
+    gl_video_identity_guard_prompt = fields.Text(string='Identity-Guard Prompt')
+    gl_video_reference_blueprint = fields.Text(string='Referenz-Blueprint')
+
+    @api.model
+    def get_values(self):
+        res = super().get_values()
+        icp = self.env['ir.config_parameter'].sudo()
+        res.update({
+            'gl_video_identity_guard_prompt': icp.get_param('gl_ai_video.identity_guard_prompt') or (
+                'When a source image or video shows a real person, preserve that person exactly. Do not change face, body shape, age, hairstyle, skin tone, clothing identity, or proportions. Only add subtle camera motion, depth, lighting atmosphere, or gentle environmental movement. Never morph, swap, beautify, lip-sync, or re-cast a person.'
+            ),
+            'gl_video_reference_blueprint': icp.get_param('gl_ai_video.reference_blueprint') or (
+                'Reference structure inspired by Groundlift sample teasers: 0-2 s real action hook whenever available; 2-6 s protagonist or act reveal; 6-12 s varied montage of performers, venue and atmosphere without repeating the same motif; 12-17 s key event promise plus date/location; final 3 s deterministic Groundlift CTA/outro.'
+            ),
+            'gl_video_voice_direction': icp.get_param('gl_ai_video.voice_direction') or (
+                'Energetisch, direkt, modern und ticketverkaufsorientiert. Kurze Sätze, aktive Verben, keine behäbigen Pausen, keine langen Aufzählungen. Der Sprecher soll pushen, ohne nach klassischer Radiowerbung zu klingen.'
+            ),
+            'gl_video_music_start_prompt': icp.get_param('gl_ai_video.music_start_prompt') or (
+                'Music must be clearly audible from frame 0. Start immediately with the beat and musical bed at 0.00 seconds. No silence, no ambient pre-roll, no slow intro, no fade-in. Keep energy under the voice but present from the first frame.'
+            ),
+        })
+        return res
+
+    def set_values(self):
+        super().set_values()
+        self.ensure_one()
+        icp = self.env['ir.config_parameter'].sudo()
+        icp.set_param('gl_ai_video.identity_guard_prompt', self.gl_video_identity_guard_prompt or '')
+        icp.set_param('gl_ai_video.reference_blueprint', self.gl_video_reference_blueprint or '')
+        icp.set_param('gl_ai_video.voice_direction', self.gl_video_voice_direction or '')
+        icp.set_param('gl_ai_video.music_start_prompt', self.gl_video_music_start_prompt or '')
 
     def action_save_video_settings(self):
         """Persist the dedicated AI-video settings form without leaving the app.

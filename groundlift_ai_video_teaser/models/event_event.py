@@ -34,7 +34,8 @@ class EventEvent(models.Model):
             'generate_9_16': True,
             'generate_music': _as_bool(icp.get_param('gl_ai_video.generate_music'), True),
             'use_runway': True,
-            'subtitles': True,
+            'subtitles': False,
+            'scene_text_overlays': True,
         })
         return {
             'type': 'ir.actions.act_window',

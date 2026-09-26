@@ -29,8 +29,14 @@
                                 <div class="row mt16"><label for="gl_video_eleven_api_key" class="col-lg-3 o_light_label"/><field name="gl_video_eleven_api_key" password="True" class="col-lg-5"/></div>
                                 <div class="row mt8"><label for="gl_video_eleven_voice_id" class="col-lg-3 o_light_label"/><field name="gl_video_eleven_voice_id" class="col-lg-5"/></div>
                                 <div class="row mt8"><label for="gl_video_eleven_tts_model" class="col-lg-3 o_light_label"/><field name="gl_video_eleven_tts_model" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_eleven_speed" class="col-lg-3 o_light_label"/><field name="gl_video_eleven_speed" class="col-lg-2"/></div>
+                                <div class="row mt8"><label for="gl_video_eleven_stability" class="col-lg-3 o_light_label"/><field name="gl_video_eleven_stability" class="col-lg-2"/></div>
+                                <div class="row mt8"><label for="gl_video_eleven_similarity" class="col-lg-3 o_light_label"/><field name="gl_video_eleven_similarity" class="col-lg-2"/></div>
+                                <div class="row mt8"><label for="gl_video_eleven_style" class="col-lg-3 o_light_label"/><field name="gl_video_eleven_style" class="col-lg-2"/></div>
+                                <div class="row mt8"><label for="gl_video_voice_direction" class="col-lg-3 o_light_label"/><field name="gl_video_voice_direction" class="col-lg-8"/></div>
                                 <div class="row mt8"><label for="gl_video_generate_music" class="col-lg-3 o_light_label"/><field name="gl_video_generate_music"/></div>
                                 <div class="row mt8"><label for="gl_video_eleven_music_model" class="col-lg-3 o_light_label"/><field name="gl_video_eleven_music_model" class="col-lg-5"/></div>
+                                <div class="row mt8"><label for="gl_video_music_start_prompt" class="col-lg-3 o_light_label"/><field name="gl_video_music_start_prompt" class="col-lg-8"/></div>
                                 <div class="row mt8"><label for="gl_video_music_volume" class="col-lg-3 o_light_label"/><field name="gl_video_music_volume" class="col-lg-2"/> %</div>
                             </div>
                         </setting>
@@ -130,8 +136,14 @@
                                 <field name="gl_video_eleven_api_key" password="True"/>
                                 <field name="gl_video_eleven_voice_id"/>
                                 <field name="gl_video_eleven_tts_model"/>
+                                <field name="gl_video_eleven_speed"/>
+                                <field name="gl_video_eleven_stability"/>
+                                <field name="gl_video_eleven_similarity"/>
+                                <field name="gl_video_eleven_style"/>
+                                <field name="gl_video_voice_direction"/>
                                 <field name="gl_video_generate_music"/>
                                 <field name="gl_video_eleven_music_model"/>
+                                <field name="gl_video_music_start_prompt"/>
                                 <field name="gl_video_music_volume"/>
                             </group>
                             <group string="Creatomate · Master-Rendering">
