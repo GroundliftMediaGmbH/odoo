@@ -1,6 +1,6 @@
 {
     "name": "Groundlift Event Location Label",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.0.1",
     "category": "Website/Website",
     "summary": "Replace the technical event timezone label with 'Inning am Ammersee'",
     "description": """

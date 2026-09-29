@@ -1,44 +1,26 @@
 # Groundlift Event Location Label – Odoo 19
 
-Small Odoo 19 module for Groundlift.
+Kleines Odoo-19-Modul für die Groundlift Event-Landingpages.
 
-## What it does
+## Funktion
 
-On public Odoo event pages, the technical timezone label such as:
+Ersetzt ausschließlich die **sichtbare technische Zeitzonen-Bezeichnung**
+`Europe/Berlin` in `website_event.event_description_dates` durch:
 
-`Europe/Berlin`
+**Inning am Ammersee**
 
-is replaced by:
+Die tatsächliche Zeitzone (`event.date_tz`) wird **nicht verändert**. Damit
+bleiben Uhrzeitberechnung, Sommer-/Winterzeit und Kalenderlinks unverändert.
 
-`Inning am Ammersee`
+## Version 19.0.1.0.1
 
-This applies to:
+Fix für einen Installationsfehler bei mehrtägigen Veranstaltungen. Die beiden
+Zeitzonenfelder im Start-/Ende-Block werden nun strukturell eindeutig adressiert,
+statt nacheinander per `[1]` und `[2]` ersetzt zu werden.
 
-- normal one-day events
-- multi-day events
-- multi-slot events
-- desktop and mobile event pages
-- all website languages
+## Installation / Update
 
-## Important
-
-The module changes **only the visible label**. It does **not** change the
-configured event timezone (`event.date_tz`). Odoo therefore still uses the
-correct timezone for event times and calendar links.
-
-## Installation on Odoo.sh
-
-1. Copy the folder `groundlift_event_location_label` into your Git repository.
-2. Commit and push it to the desired Odoo.sh branch.
-3. In Odoo, update the Apps list.
-4. Search for **Groundlift Event Location Label**.
-5. Install the module.
-6. Hard-refresh an event page if the browser still shows cached content.
-
-## Change the displayed text later
-
-Edit `views/event_templates.xml` and replace every occurrence of:
-
-`Inning am Ammersee`
-
-with the desired label, then upgrade the module.
+1. Ordner `groundlift_event_location_label` ins Odoo.sh-Repository legen.
+2. Commit + Push.
+3. In Odoo die App-Liste aktualisieren.
+4. Modul installieren bzw. bei bestehender Installation aktualisieren.
