@@ -169,6 +169,13 @@ Hinweis: Kein Client kann das sehr kleine Ausfallfenster vollständig ausschlie�
 - Wertebereiche für ElevenLabs, Musiklautstärke, Runway-Clipdauer und Cron-Batchgröße werden vor dem Speichern validiert.
 - Alle sichtbaren Felder der dedizierten Einstellungsseite wurden gegen einen dauerhaften Speicherort geprüft.
 
+## 19.0.1.0.11
+
+- Fix: The standard Odoo **Settings** app is no longer hijacked by the AI Video Teaser settings form.
+- The legacy standalone `res.config.settings` form is deactivated during module upgrade.
+- **AI Video → Einstellungen** now opens Odoo's native settings shell and focuses the **Groundlift AI Video** section.
+- Existing teaser settings and persistence logic are unchanged.
+
 ## 19.0.1.0.10
 
 - Speichert alle globalen Teaser-Einstellungen explizit in `ir.config_parameter`, insbesondere die ElevenLabs-Sprechgeschwindigkeit.

@@ -107,9 +107,14 @@
         </field>
     </record>
 
+    <!-- Legacy standalone settings form from <= 19.0.1.0.10.
+         It must stay inactive: a primary res.config.settings form can otherwise
+         be selected by Odoo's normal Settings action and hide all other apps. -->
     <record id="view_gl_video_settings_form" model="ir.ui.view">
-        <field name="name">gl.video.settings.form</field>
+        <field name="name">gl.video.settings.form.legacy</field>
         <field name="model">res.config.settings</field>
+        <field name="active" eval="False"/>
+        <field name="priority" eval="99"/>
         <field name="arch" type="xml">
             <form string="Groundlift AI Video Einstellungen">
                 <sheet>
@@ -209,8 +214,11 @@
         <field name="name">AI Video Einstellungen</field>
         <field name="res_model">res.config.settings</field>
         <field name="view_mode">form</field>
-        <field name="view_id" ref="view_gl_video_settings_form"/>
+        <!-- Explicitly clear the legacy dedicated view on module upgrades. -->
+        <field name="view_id" eval="False"/>
         <field name="target">current</field>
-        <field name="context">{'active_test': False}</field>
+        <!-- Use Odoo's native Settings view and focus our <app> section.
+             Do not bind a standalone res.config.settings view here. -->
+        <field name="context">{'module': 'groundlift_ai_video_teaser', 'bin_size': False}</field>
     </record>
 </odoo>
