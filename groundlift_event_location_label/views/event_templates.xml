@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Odoo 19 renders the event timezone as a technical IANA name
+        (e.g. Europe/Berlin) inside website_event.event_description_dates.
+
+        We replace only the VISIBLE label. The event.date_tz value itself
+        remains untouched and is still used by Odoo for date/time conversion
+        and calendar links.
+    -->
+    <template id="event_description_dates_location_label"
+              inherit_id="website_event.event_description_dates"
+              name="Groundlift: Event Location Label"
+              priority="90">
+
+        <!-- Multi-slot events: timezone shown next to "Next Dates" -->
+        <xpath expr="//span[@t-out='event.date_tz' and contains(@class, 'text-truncate')]" position="replace">
+            <span class="text-truncate small fw-normal" t-translation="off">Inning am Ammersee</span>
+        </xpath>
+
+        <!-- Normal one-day event: timezone shown below the start/end time -->
+        <xpath expr="//span[@t-out='event.date_tz' and contains(@class, 'd-block')]" position="replace">
+            <span class="d-block lh-1" t-translation="off">Inning am Ammersee</span>
+        </xpath>
+
+        <!-- Multi-day event: start block -->
+        <xpath expr="(//small[@t-out='event.date_tz' and contains(@class, 'd-block')])[1]" position="replace">
+            <small class="d-block lh-1" t-translation="off">Inning am Ammersee</small>
+        </xpath>
+
+        <!-- Multi-day event: end block -->
+        <xpath expr="(//small[@t-out='event.date_tz' and contains(@class, 'd-block')])[2]" position="replace">
+            <small class="d-block lh-1" t-translation="off">Inning am Ammersee</small>
+        </xpath>
+
+    </template>
+</odoo>
