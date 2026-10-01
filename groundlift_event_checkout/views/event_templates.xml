@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="groundlift_inline_ticket_selector" inherit_id="website_event.registration_template" name="Groundlift Inline Ticket Selector">
+        <xpath expr="//a[@t-if='event_page and event.event_registrations_open']" position="before">
+            <form t-if="event.event_registrations_open and not event.is_multi_slots"
+                  t-att-action="'/groundlift/event/%s/add_to_cart' % slug(event)"
+                  method="post" class="gl_event_ticket_selector card border-0 bg-transparent">
+                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                <div class="d-flex flex-column gap-2">
+                    <t t-foreach="event.event_ticket_ids" t-as="ticket">
+                        <div t-if="ticket.is_launched and not ticket.is_expired" class="gl_ticket_row d-flex align-items-center justify-content-between gap-2 py-2 border-bottom">
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold" t-out="ticket.name"/>
+                                <div class="small text-muted">
+                                    <span t-if="ticket.price_reduce_taxinc"
+                                          t-out="ticket.price_reduce_taxinc"
+                                          t-options="{'widget': 'monetary', 'display_currency': website.currency_id}"/>
+                                    <span t-else="">Kostenlos</span>
+                                </div>
+                            </div>
+                            <input t-if="ticket.sale_available" type="number" min="0" max="20" value="0"
+                                   class="form-control gl_ticket_qty" style="width: 76px"
+                                   t-att-name="'ticket_%s' % ticket.id"
+                                   t-att-data-ticket-id="ticket.id"
+                                   t-att-data-price="ticket.price_reduce_taxinc or 0"/>
+                            <span t-else="" class="badge text-bg-secondary">Ausverkauft</span>
+                        </div>
+                    </t>
+                </div>
+                <div t-if="request.params.get('ticket_error')" class="alert alert-warning small mt-3 mb-0">
+                    Bitte wähle mindestens ein verfügbares Ticket aus.
+                </div>
+                <button type="submit" class="btn btn-primary w-100 mt-3 gl_add_tickets_btn">
+                    <i class="fa fa-shopping-cart me-2"/>In den Warenkorb legen
+                </button>
+            </form>
+        </xpath>
+        <xpath expr="//a[@t-if='event_page and event.event_registrations_open']" position="attributes">
+            <attribute name="t-if">event_page and event.event_registrations_open and event.is_multi_slots</attribute>
+        </xpath>
+        <xpath expr="//button[@t-elif='event.event_registrations_open']" position="attributes">
+            <attribute name="t-elif">event.event_registrations_open and event.is_multi_slots</attribute>
+        </xpath>
+    </template>
+</odoo>

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="one_page_checkout" name="Groundlift One-Page Checkout">
+        <t t-call="website.layout">
+            <t t-set="pageName" t-value="'groundlift_event_checkout'"/>
+            <div id="wrap" class="oe_structure gl_checkout_page" data-gl-groundlift-checkout="1">
+                <section class="container py-5">
+                    <div class="row g-4 justify-content-center">
+                        <div class="col-lg-7">
+                            <h1 class="h3 mb-4">Tickets kaufen</h1>
+                            <div id="gl_customer_error" class="alert alert-danger d-none" role="alert"/>
+                            <div class="card mb-4">
+                                <div class="card-body p-4">
+                                    <h2 class="h5 mb-3">Persönliche Daten</h2>
+                                    <form id="gl_customer_form" novalidate="novalidate">
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label" for="gl_first_name">Vorname *</label>
+                                                <input id="gl_first_name" name="first_name" type="text" class="form-control" required="required"
+                                                       t-att-value="order.meta_first_name or (gl_partner.name.split(' ')[0] if gl_partner and gl_partner.name else '')"/>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label" for="gl_last_name">Nachname *</label>
+                                                <input id="gl_last_name" name="last_name" type="text" class="form-control" required="required"
+                                                       t-att-value="order.meta_last_name or (' '.join(gl_partner.name.split(' ')[1:]) if gl_partner and gl_partner.name and len(gl_partner.name.split(' ')) &gt; 1 else '')"/>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label" for="gl_email">E-Mail *</label>
+                                                <input id="gl_email" name="email" type="email" class="form-control" required="required" t-att-value="gl_partner.email or ''"/>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label" for="gl_phone">Telefon *</label>
+                                                <input id="gl_phone" name="phone" type="tel" class="form-control" required="required" t-att-value="gl_partner.phone or gl_partner.mobile or ''"/>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label" for="gl_zip">PLZ *</label>
+                                                <input id="gl_zip" name="zip" type="text" class="form-control" required="required" inputmode="numeric" t-att-value="gl_partner.zip or ''"/>
+                                            </div>
+                                            <div class="col-md-8">
+                                                <label class="form-label" for="gl_city">Ort *</label>
+                                                <input id="gl_city" name="city" type="text" class="form-control" required="required" t-att-value="gl_partner.city or ''"/>
+                                            </div>
+                                        </div>
+                                        <div class="form-text mt-3">Die Daten werden für Bestellung, Ticketabwicklung und – bei erteilter Cookie-Einwilligung – für die Messung des Kaufvorgangs verwendet.</div>
+                                    </form>
+                                </div>
+                            </div>
+                            <div class="card">
+                                <div class="card-body p-4">
+                                    <h2 class="h5 mb-3">Zahlungsart</h2>
+                                    <t t-if="order.amount_total">
+                                        <t t-call="payment.form"/>
+                                    </t>
+                                    <t t-else="">
+                                        <form id="gl_free_confirm_form" action="/groundlift/checkout/free_confirm" method="post">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <button type="submit" class="btn btn-primary w-100" id="gl_free_confirm_button">Kostenlos anmelden</button>
+                                        </form>
+                                    </t>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="card sticky-lg-top" style="top: 1rem">
+                                <div class="card-body p-4">
+                                    <h2 class="h5 mb-3">Deine Bestellung</h2>
+                                    <t t-foreach="order.order_line.filtered(lambda l: not l.display_type)" t-as="line">
+                                        <div class="d-flex justify-content-between gap-3 py-2 border-bottom">
+                                            <div>
+                                                <div class="fw-semibold" t-out="line.event_id.name or line.name"/>
+                                                <div class="small text-muted"><span t-out="line.product_uom_qty"/> × <span t-out="line.event_ticket_id.name or line.product_id.name"/></div>
+                                            </div>
+                                            <span class="text-nowrap" t-out="line.price_total" t-options="{'widget': 'monetary', 'display_currency': order.currency_id}"/>
+                                        </div>
+                                    </t>
+                                    <div class="d-flex justify-content-between fw-bold fs-5 pt-3">
+                                        <span>Gesamt</span>
+                                        <span t-out="order.amount_total" t-options="{'widget': 'monetary', 'display_currency': order.currency_id}"/>
+                                    </div>
+                                    <a href="/shop/cart" class="btn btn-link px-0 mt-2">Warenkorb bearbeiten</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </t>
+    </template>
+</odoo>
