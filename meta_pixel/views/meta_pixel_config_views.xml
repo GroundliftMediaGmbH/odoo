@@ -38,6 +38,9 @@
                             <field name="test_event_code" invisible="not capi_enabled" groups="base.group_system"/>
                         </group>
                     </group>
+                    <div class="alert alert-info" role="alert">
+                        Der Browser-Pixel benötigt nur die Pixel-/Dataset-ID. Die Conversions API ist optional und kann Purchase zusätzlich serverseitig senden. Bei Browser + CAPI sorgt die App über dieselbe Event-ID für Deduplication.
+                    </div>
                     <group><field name="notes" placeholder="Interne Notizen, Ansprechpartner, Kampagnenhinweise …"/></group>
                 </sheet>
             </form>

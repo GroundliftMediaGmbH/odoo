@@ -31,7 +31,7 @@
                 <field name="source"/>
                 <field name="status"/>
                 <field name="is_test"/>
-                <field name="value" sum="Umsatz"/>
+                <field name="value" sum="Transportwert (nicht dedupliziert)"/>
                 <field name="currency_id" column_invisible="True"/>
                 <field name="sale_order_id" optional="show"/>
                 <field name="config_id" optional="hide"/>
