@@ -2,7 +2,7 @@
 <odoo>
     <template id="groundlift_inline_ticket_selector" inherit_id="website_event.registration_template" name="Groundlift Inline Ticket Selector">
         <xpath expr="//a[@t-if='event_page and event.event_registrations_open']" position="before">
-            <form t-if="event.event_registrations_open and not event.is_multi_slots"
+            <form t-if="request.website.groundlift_event_checkout_enabled and event.event_registrations_open and not event.is_multi_slots"
                   t-att-action="'/groundlift/event/%s/add_to_cart' % slug(event)"
                   method="post" class="gl_event_ticket_selector card border-0 bg-transparent">
                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
@@ -45,10 +45,10 @@
             </form>
         </xpath>
         <xpath expr="//a[@t-if='event_page and event.event_registrations_open']" position="attributes">
-            <attribute name="t-if">event_page and event.event_registrations_open and event.is_multi_slots</attribute>
+            <attribute name="t-if">event_page and event.event_registrations_open and (not request.website.groundlift_event_checkout_enabled or event.is_multi_slots)</attribute>
         </xpath>
         <xpath expr="//button[@t-elif='event.event_registrations_open']" position="attributes">
-            <attribute name="t-elif">event.event_registrations_open and event.is_multi_slots</attribute>
+            <attribute name="t-elif">event.event_registrations_open and (not request.website.groundlift_event_checkout_enabled or event.is_multi_slots)</attribute>
         </xpath>
     </template>
 </odoo>

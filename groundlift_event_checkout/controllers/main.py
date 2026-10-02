@@ -8,6 +8,9 @@ from odoo.addons.website_sale.controllers.main import WebsiteSale
 
 class GroundliftEventCheckout(WebsiteSale):
 
+    def _groundlift_checkout_enabled(self):
+        return bool(request.website.groundlift_event_checkout_enabled)
+
     def _current_cart(self):
         return request.cart
 
@@ -47,6 +50,8 @@ class GroundliftEventCheckout(WebsiteSale):
         type="http", auth="public", website=True, methods=["POST"], csrf=True, sitemap=False,
     )
     def groundlift_event_add_to_cart(self, event, **post):
+        if not self._groundlift_checkout_enabled():
+            return request.redirect(event.website_url or "/event")
         if not event.exists() or not event.is_published or not event.event_registrations_open:
             return request.redirect(event.website_url or "/event")
         if event.is_multi_slots:
@@ -87,6 +92,8 @@ class GroundliftEventCheckout(WebsiteSale):
 
     @http.route('/groundlift/checkout', type="http", auth="public", website=True, sitemap=False)
     def groundlift_checkout(self, **kwargs):
+        if not self._groundlift_checkout_enabled():
+            return request.redirect("/shop/checkout")
         order, redirection = self._event_checkout_order_or_redirect()
         if redirection:
             return redirection
@@ -117,6 +124,8 @@ class GroundliftEventCheckout(WebsiteSale):
 
     @http.route('/groundlift/checkout/customer', type="jsonrpc", auth="public", website=True, csrf=False)
     def groundlift_checkout_customer(self, **data):
+        if not self._groundlift_checkout_enabled():
+            return {"ok": False, "error": _("Der Groundlift Checkout ist deaktiviert."), "redirect": "/shop/checkout"}
         order = request.cart
         if not order or order.state != "draft":
             return {"ok": False, "error": _("Der Warenkorb ist nicht mehr verfügbar.")}
@@ -187,6 +196,8 @@ class GroundliftEventCheckout(WebsiteSale):
     @http.route('/groundlift/checkout/line', type="http", auth="public", website=True,
                 methods=["POST"], csrf=True, sitemap=False)
     def groundlift_checkout_line(self, line_id=None, action=None, **post):
+        if not self._groundlift_checkout_enabled():
+            return request.redirect("/shop/cart")
         order = request.cart
         if not order or order.state != "draft":
             return request.redirect("/groundlift/checkout")
@@ -228,6 +239,8 @@ class GroundliftEventCheckout(WebsiteSale):
     @http.route('/groundlift/checkout/coupon', type="http", auth="public", website=True,
                 methods=["POST"], csrf=True, sitemap=False)
     def groundlift_checkout_coupon(self, coupon_code=None, **post):
+        if not self._groundlift_checkout_enabled():
+            return request.redirect("/shop/cart")
         code = (coupon_code or post.get("promo") or "").strip()
         if not code:
             return request.redirect("/groundlift/checkout")
@@ -236,6 +249,8 @@ class GroundliftEventCheckout(WebsiteSale):
     @http.route('/groundlift/checkout/free_confirm', type="http", auth="public", website=True,
                 methods=["POST"], csrf=True, sitemap=False)
     def groundlift_checkout_free_confirm(self, **post):
+        if not self._groundlift_checkout_enabled():
+            return request.redirect("/shop/checkout")
         order, redirection = self._event_checkout_order_or_redirect()
         if redirection:
             return redirection
