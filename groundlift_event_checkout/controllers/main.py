@@ -94,36 +94,8 @@ class GroundliftEventCheckout(WebsiteSale):
         if any(not self._is_supported_checkout_line(line) for line in order.order_line.filtered(lambda l: not l.display_type)):
             return request.redirect("/shop/checkout")
 
-        # Odoo 19 does not initialize the payment form for an anonymous cart.
-        # Its native flow runs _check_addresses() first and sends anonymous carts
-        # through customer/address creation before _get_shop_payment_values().
-        #
-        # Keep the Groundlift UI on one checkout URL, but follow the same state
-        # transition: render customer/cart first, save the real customer through
-        # our JSON-RPC route, then reload this page and only initialize payment
-        # providers once the cart is no longer anonymous.  This is especially
-        # important for a brand-new/incognito session.
-        gl_is_anonymous = order._is_anonymous_cart()
-        gl_payment_ready = not gl_is_anonymous
-
-        if gl_payment_ready:
-            order._recompute_cart()
-
-        if gl_payment_ready and order.amount_total:
-            values = self._get_shop_payment_values(order, **kwargs)
-        else:
-            # Minimal context for the first (anonymous) render and for free orders.
-            # payment.form must not be rendered unless _get_shop_payment_values()
-            # has supplied its complete context.
-            values = {
-                "sale_order": order,
-                "website_sale_order": order,
-                "partner": order.partner_invoice_id,
-                "order": order,
-                "errors": [],
-                "display_submit_button": False,
-            }
-
+        order._recompute_cart()
+        values = self._get_shop_payment_values(order, **kwargs)
         values.update(request.website._get_checkout_step_values())
         event_lines, reward_lines = self._get_checkout_line_groups(order)
         gl_has_newsletter_optin = "gl_cr_newsletter_optin" in order._fields
@@ -131,11 +103,10 @@ class GroundliftEventCheckout(WebsiteSale):
             "website_sale_order": order,
             "order": order,
             "only_services": True,
-            "display_submit_button": gl_payment_ready and bool(order.amount_total),
+            "display_submit_button": True,
             "submit_button_label": _("Jetzt zahlen"),
-            "gl_partner": order.partner_id if not gl_is_anonymous else request.env["res.partner"],
-            "gl_is_anonymous": gl_is_anonymous,
-            "gl_payment_ready": gl_payment_ready,
+            "gl_partner": order.partner_id if not order._is_anonymous_cart() else False,
+            "gl_is_anonymous": order._is_anonymous_cart(),
             "gl_country": order.partner_id.country_id or request.env.ref("base.de", raise_if_not_found=False),
             "gl_order_lines": event_lines,
             "gl_reward_lines": reward_lines,

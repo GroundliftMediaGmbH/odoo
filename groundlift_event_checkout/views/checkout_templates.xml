@@ -26,19 +26,19 @@
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label" for="gl_email">E-Mail *</label>
-                                                <input id="gl_email" name="email" type="email" class="form-control" required="required" t-att-value="gl_partner.email or ''"/>
+                                                <input id="gl_email" name="email" type="email" class="form-control" required="required" t-att-value="gl_partner.email if gl_partner else ''"/>
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label" for="gl_phone">Telefon *</label>
-                                                <input id="gl_phone" name="phone" type="tel" class="form-control" required="required" t-att-value="gl_partner.phone or gl_partner.mobile or ''"/>
+                                                <input id="gl_phone" name="phone" type="tel" class="form-control" required="required" t-att-value="(gl_partner.phone or gl_partner.mobile) if gl_partner else ''"/>
                                             </div>
                                             <div class="col-md-4">
                                                 <label class="form-label" for="gl_zip">PLZ *</label>
-                                                <input id="gl_zip" name="zip" type="text" class="form-control" required="required" inputmode="numeric" t-att-value="gl_partner.zip or ''"/>
+                                                <input id="gl_zip" name="zip" type="text" class="form-control" required="required" inputmode="numeric" t-att-value="gl_partner.zip if gl_partner else ''"/>
                                             </div>
                                             <div class="col-md-8">
                                                 <label class="form-label" for="gl_city">Ort *</label>
-                                                <input id="gl_city" name="city" type="text" class="form-control" required="required" t-att-value="gl_partner.city or ''"/>
+                                                <input id="gl_city" name="city" type="text" class="form-control" required="required" t-att-value="gl_partner.city if gl_partner else ''"/>
                                             </div>
                                             <div class="col-12" t-if="gl_has_newsletter_optin">
                                                 <div class="form-check mt-2">
@@ -58,18 +58,10 @@
                                     </form>
                                 </div>
                             </div>
-                            <div class="card gl_payment_block" id="gl_payment">
+                            <div class="card gl_payment_block">
                                 <div class="card-body p-4">
                                     <h2 class="h5 mb-3">Zahlungsart</h2>
-                                    <t t-if="not gl_payment_ready">
-                                        <p class="text-muted mb-3">
-                                            Bitte fülle zuerst deine persönlichen Daten aus. Danach werden die verfügbaren Zahlungsarten geladen.
-                                        </p>
-                                        <button type="button" class="btn btn-primary w-100" id="gl_continue_to_payment">
-                                            Weiter zur Zahlung
-                                        </button>
-                                    </t>
-                                    <t t-elif="order.amount_total">
+                                    <t t-if="order.amount_total">
                                         <t t-call="payment.form"/>
                                     </t>
                                     <t t-else="">
