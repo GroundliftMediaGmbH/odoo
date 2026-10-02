@@ -21,57 +21,6 @@ class GroundliftEventCheckout(WebsiteSale):
     def _is_checked(value):
         return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
-    def _ensure_checkout_partner(self, order):
-        """Ensure payment providers never receive Odoo's anonymous public partner.
-
-        Odoo's standard checkout creates/assigns a customer before rendering the
-        payment step.  Our one-page checkout intentionally renders payment methods
-        on the same page as the customer form, so a brand-new browser session can
-        otherwise reach payment-provider compatibility code with the website public
-        partner.  Some providers/integrations do not support that state and can
-        raise a 500.
-
-        Create one lightweight provisional partner per anonymous cart.  The existing
-        customer-save RPC updates this exact partner with the entered customer data,
-        so there is no second contact and the visible one-page flow stays unchanged.
-        """
-        if not order or not request.env.user._is_public() or not order._is_anonymous_cart():
-            return order.partner_id
-
-        country = request.env.ref("base.de", raise_if_not_found=False)
-        partner_vals = {
-            "name": _("Online-Ticketkunde"),
-            "type": "contact",
-            "company_id": order.website_id.company_id.id,
-            "user_id": order.website_id.salesperson_id.id,
-        }
-        if country:
-            partner_vals["country_id"] = country.id
-
-        partner = request.env["res.partner"].sudo().with_context(
-            tracking_disable=True,
-            mail_create_nosubscribe=True,
-        ).create(partner_vals)
-
-        # Keep the cart's already selected website pricelist stable while replacing
-        # the public website partner with the provisional checkout partner.
-        with request.env.protecting([order._fields["pricelist_id"]], order):
-            order.sudo().write({
-                "partner_id": partner.id,
-                "partner_invoice_id": partner.id,
-                "partner_shipping_id": partner.id,
-            })
-        order.message_unsubscribe(order.website_id.partner_id.ids)
-        request.session["groundlift_checkout_provisional_partner_id"] = partner.id
-        return partner
-
-    def _is_provisional_checkout_partner(self, order):
-        try:
-            partner_id = int(request.session.get("groundlift_checkout_provisional_partner_id") or 0)
-        except (TypeError, ValueError):
-            partner_id = 0
-        return bool(order and partner_id and order.partner_id.id == partner_id)
-
     def _is_supported_checkout_line(self, line):
         if line.display_type:
             return True
@@ -133,9 +82,6 @@ class GroundliftEventCheckout(WebsiteSale):
         if not added_any:
             return request.redirect(f"{event.website_url}?ticket_error=unavailable")
 
-        # Odoo's native flow assigns a real checkout partner before the payment
-        # step.  Do the same here so fresh/incognito sessions are safe as well.
-        self._ensure_checkout_partner(order)
         order.sudo().write({"meta_source_url": event.website_url})
         return request.redirect("/groundlift/checkout?added=1")
 
@@ -148,36 +94,48 @@ class GroundliftEventCheckout(WebsiteSale):
         if any(not self._is_supported_checkout_line(line) for line in order.order_line.filtered(lambda l: not l.display_type)):
             return request.redirect("/shop/checkout")
 
-        # Also heals carts created with an older module version that are still
-        # anonymous when this page is opened.
-        self._ensure_checkout_partner(order)
-        order._recompute_cart()
+        # Odoo 19 does not initialize the payment form for an anonymous cart.
+        # Its native flow runs _check_addresses() first and sends anonymous carts
+        # through customer/address creation before _get_shop_payment_values().
+        #
+        # Keep the Groundlift UI on one checkout URL, but follow the same state
+        # transition: render customer/cart first, save the real customer through
+        # our JSON-RPC route, then reload this page and only initialize payment
+        # providers once the cart is no longer anonymous.  This is especially
+        # important for a brand-new/incognito session.
+        gl_is_anonymous = order._is_anonymous_cart()
+        gl_payment_ready = not gl_is_anonymous
 
-        # Only initialize payment providers for paid carts.  Free registrations do
-        # not need payment-provider compatibility checks at all.
-        if order.amount_total:
+        if gl_payment_ready:
+            order._recompute_cart()
+
+        if gl_payment_ready and order.amount_total:
             values = self._get_shop_payment_values(order, **kwargs)
         else:
+            # Minimal context for the first (anonymous) render and for free orders.
+            # payment.form must not be rendered unless _get_shop_payment_values()
+            # has supplied its complete context.
             values = {
                 "sale_order": order,
                 "website_sale_order": order,
                 "partner": order.partner_invoice_id,
                 "order": order,
                 "errors": [],
+                "display_submit_button": False,
             }
+
         values.update(request.website._get_checkout_step_values())
         event_lines, reward_lines = self._get_checkout_line_groups(order)
         gl_has_newsletter_optin = "gl_cr_newsletter_optin" in order._fields
-        gl_is_provisional = self._is_provisional_checkout_partner(order)
         values.update({
             "website_sale_order": order,
             "order": order,
             "only_services": True,
-            "display_submit_button": True,
+            "display_submit_button": gl_payment_ready and bool(order.amount_total),
             "submit_button_label": _("Jetzt zahlen"),
-            # Do not prefill the visible form with the internal placeholder name.
-            "gl_partner": request.env["res.partner"] if gl_is_provisional else order.partner_id,
-            "gl_is_anonymous": order._is_anonymous_cart() or gl_is_provisional,
+            "gl_partner": order.partner_id if not gl_is_anonymous else request.env["res.partner"],
+            "gl_is_anonymous": gl_is_anonymous,
+            "gl_payment_ready": gl_payment_ready,
             "gl_country": order.partner_id.country_id or request.env.ref("base.de", raise_if_not_found=False),
             "gl_order_lines": event_lines,
             "gl_reward_lines": reward_lines,
@@ -220,17 +178,13 @@ class GroundliftEventCheckout(WebsiteSale):
         if country:
             partner_vals["country_id"] = country.id
 
-        provisional_partner = self._is_provisional_checkout_partner(order)
         if order._is_anonymous_cart():
             partner_vals.update({
                 "type": "contact",
                 "company_id": order.website_id.company_id.id,
                 "user_id": order.website_id.salesperson_id.id,
             })
-            partner = request.env["res.partner"].sudo().with_context(
-                tracking_disable=True,
-                mail_create_nosubscribe=True,
-            ).create(partner_vals)
+            partner = request.env["res.partner"].sudo().with_context(tracking_disable=True).create(partner_vals)
             with request.env.protecting([order._fields["pricelist_id"]], order):
                 order.sudo().write({
                     "partner_id": partner.id,
@@ -239,17 +193,12 @@ class GroundliftEventCheckout(WebsiteSale):
                 })
             order.message_unsubscribe(order.website_id.partner_id.ids)
         else:
-            # Includes the provisional partner created for fresh/incognito carts.
-            # Reusing it avoids duplicate contacts.
             partner = order.partner_id.sudo()
             partner.write(partner_vals)
             order.sudo().write({
                 "partner_invoice_id": partner.id,
                 "partner_shipping_id": partner.id,
             })
-
-        if provisional_partner:
-            request.session.pop("groundlift_checkout_provisional_partner_id", None)
 
         order_vals = {
             "meta_first_name": first_name,
@@ -301,7 +250,6 @@ class GroundliftEventCheckout(WebsiteSale):
         order._recompute_cart()
         remaining_tickets = order.order_line.filtered(lambda l: not l.display_type and l.event_ticket_id)
         if not remaining_tickets:
-            request.session.pop("groundlift_checkout_provisional_partner_id", None)
             request.website.sale_reset()
             return request.redirect("/event")
         return request.redirect("/groundlift/checkout")

@@ -97,6 +97,26 @@ function boot() {
     if (!document.querySelector("[data-gl-groundlift-checkout='1']")) return;
     bindResponsiveCheckoutOrder();
 
+    const continueToPayment = document.getElementById("gl_continue_to_payment");
+    if (continueToPayment) {
+        continueToPayment.addEventListener("click", async () => {
+            if (continueToPayment.disabled) return;
+            continueToPayment.disabled = true;
+            const originalLabel = continueToPayment.textContent;
+            continueToPayment.textContent = "Zahlungsarten werden geladen …";
+            const ok = await saveCustomer();
+            if (!ok) {
+                continueToPayment.disabled = false;
+                continueToPayment.textContent = originalLabel;
+                return;
+            }
+            // The JSON-RPC call has now replaced Odoo's anonymous public
+            // partner with the real checkout customer. Reload the same checkout
+            // URL so payment.form is rendered with a valid partner context.
+            window.location.assign("/groundlift/checkout?customer_saved=1#gl_payment");
+        });
+    }
+
     document.addEventListener("click", async (ev) => {
         const button = ev.target.closest("#o_payment_submit_button, button[name='o_payment_submit_button'], .o_payment_submit_button");
         if (!button || button.dataset.glCustomerReleased === "1") return;

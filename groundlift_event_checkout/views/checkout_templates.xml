@@ -58,10 +58,18 @@
                                     </form>
                                 </div>
                             </div>
-                            <div class="card gl_payment_block">
+                            <div class="card gl_payment_block" id="gl_payment">
                                 <div class="card-body p-4">
                                     <h2 class="h5 mb-3">Zahlungsart</h2>
-                                    <t t-if="order.amount_total">
+                                    <t t-if="not gl_payment_ready">
+                                        <p class="text-muted mb-3">
+                                            Bitte fülle zuerst deine persönlichen Daten aus. Danach werden die verfügbaren Zahlungsarten geladen.
+                                        </p>
+                                        <button type="button" class="btn btn-primary w-100" id="gl_continue_to_payment">
+                                            Weiter zur Zahlung
+                                        </button>
+                                    </t>
+                                    <t t-elif="order.amount_total">
                                         <t t-call="payment.form"/>
                                     </t>
                                     <t t-else="">
