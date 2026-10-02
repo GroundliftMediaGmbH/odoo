@@ -1,6 +1,6 @@
 {
     "name": "Meta Pixel",
-    "version": "19.0.1.0.5",
+    "version": "19.0.2.0.0",
     "summary": "Event-specific Meta Pixel and Conversions API tracking with reporting",
     "category": "Marketing/Events",
     "author": "Groundlift",
