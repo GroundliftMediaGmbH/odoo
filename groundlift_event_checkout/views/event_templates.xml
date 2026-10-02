@@ -8,7 +8,7 @@
                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                 <div class="d-flex flex-column gap-2">
                     <t t-foreach="event.event_ticket_ids" t-as="ticket">
-                        <div t-if="ticket.is_launched and not ticket.is_expired" class="gl_ticket_row d-flex align-items-center justify-content-between gap-2 py-2 border-bottom">
+                        <div t-if="ticket.is_launched and not ticket.is_expired" class="gl_ticket_row d-flex align-items-center justify-content-between gap-3 py-2 border-bottom">
                             <div class="flex-grow-1">
                                 <div class="fw-semibold" t-out="ticket.name"/>
                                 <div class="small text-muted">
@@ -18,11 +18,20 @@
                                     <span t-else="">Kostenlos</span>
                                 </div>
                             </div>
-                            <input t-if="ticket.sale_available" type="number" min="0" max="20" value="0"
-                                   class="form-control gl_ticket_qty" style="width: 76px"
-                                   t-att-name="'ticket_%s' % ticket.id"
-                                   t-att-data-ticket-id="ticket.id"
-                                   t-att-data-price="ticket.price_reduce_taxinc or 0"/>
+                            <div t-if="ticket.sale_available" class="gl_qty_picker input-group flex-nowrap" style="width: 140px;">
+                                <button type="button" class="btn btn-outline-secondary gl-qty-minus" aria-label="Anzahl verringern">
+                                    <i class="fa fa-minus"/>
+                                </button>
+                                <input type="number" min="0" max="20" step="1" value="0"
+                                       class="form-control text-center gl_ticket_qty"
+                                       inputmode="numeric"
+                                       t-att-name="'ticket_%s' % ticket.id"
+                                       t-att-data-ticket-id="ticket.id"
+                                       t-att-data-price="ticket.price_reduce_taxinc or 0"/>
+                                <button type="button" class="btn btn-outline-secondary gl-qty-plus" aria-label="Anzahl erhöhen">
+                                    <i class="fa fa-plus"/>
+                                </button>
+                            </div>
                             <span t-else="" class="badge text-bg-secondary">Ausverkauft</span>
                         </div>
                     </t>

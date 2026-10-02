@@ -17,6 +17,23 @@ function errorBox(message) {
     }
 }
 
+function bindQtyButtons() {
+    document.addEventListener("click", (ev) => {
+        const minus = ev.target.closest(".gl-qty-minus");
+        const plus = ev.target.closest(".gl-qty-plus");
+        if (!minus && !plus) return;
+        const wrap = (minus || plus).closest(".gl_qty_picker");
+        const input = wrap?.querySelector("input.gl_ticket_qty");
+        if (!input) return;
+        const min = Number(input.min || 0);
+        const max = Number(input.max || 999);
+        const current = Number(input.value || 0);
+        const next = minus ? Math.max(min, current - 1) : Math.min(max, current + 1);
+        input.value = String(next);
+        input.dispatchEvent(new Event("change", {bubbles: true}));
+    });
+}
+
 async function saveCustomer() {
     if (saving) return saving;
     saving = (async () => {
@@ -47,9 +64,9 @@ async function saveCustomer() {
 window.glGroundliftSaveCustomer = saveCustomer;
 
 function boot() {
+    bindQtyButtons();
     if (!document.querySelector("[data-gl-groundlift-checkout='1']")) return;
 
-    // Always persist customer data before Odoo's payment interaction creates a transaction.
     document.addEventListener("click", async (ev) => {
         const button = ev.target.closest("#o_payment_submit_button, button[name='o_payment_submit_button'], .o_payment_submit_button");
         if (!button || button.dataset.glCustomerReleased === "1") return;

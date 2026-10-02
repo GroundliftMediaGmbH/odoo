@@ -1,4 +1,4 @@
-import json
+from urllib.parse import quote
 
 from odoo import http, _
 from odoo.exceptions import UserError, ValidationError
@@ -17,6 +17,31 @@ class GroundliftEventCheckout(WebsiteSale):
             return order, request.redirect("/shop/cart")
         return order, None
 
+    @staticmethod
+    def _is_checked(value):
+        return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+    def _is_supported_checkout_line(self, line):
+        if line.display_type:
+            return True
+        if line.event_ticket_id:
+            return True
+        if getattr(line, "is_reward_line", False):
+            return True
+        if getattr(line, "reward_id", False):
+            return True
+        if getattr(line, "coupon_id", False):
+            return True
+        if line.price_total <= 0:
+            return True
+        return False
+
+    def _get_checkout_line_groups(self, order):
+        visible_lines = order.order_line.filtered(lambda l: not l.display_type)
+        event_lines = visible_lines.filtered(lambda l: l.event_ticket_id)
+        reward_lines = visible_lines - event_lines
+        return event_lines, reward_lines
+
     @http.route(
         '/groundlift/event/<model("event.event"):event>/add_to_cart',
         type="http", auth="public", website=True, methods=["POST"], csrf=True, sitemap=False,
@@ -25,15 +50,13 @@ class GroundliftEventCheckout(WebsiteSale):
         if not event.exists() or not event.is_published or not event.event_registrations_open:
             return request.redirect(event.website_url or "/event")
         if event.is_multi_slots:
-            # Multi-slot events keep Odoo's standard registration flow because a slot
-            # is an additional required cart dimension.
             return request.redirect(f"/event/{request.env['ir.http']._slug(event)}/register")
 
         quantities = []
         for ticket in event.event_ticket_ids.sudo():
             raw = post.get(f"ticket_{ticket.id}", "0")
             try:
-                qty = max(0, min(int(raw or 0), 20))
+                qty = max(0, min(int(float(raw or 0)), 20))
             except (TypeError, ValueError):
                 qty = 0
             if qty:
@@ -45,8 +68,6 @@ class GroundliftEventCheckout(WebsiteSale):
         order = request.cart or request.website._create_cart()
         added_any = False
         for ticket, qty in quantities:
-            # _cart_add/_verify_updated_quantity remains the authority for current
-            # seat availability and prevents overselling.
             if ticket.event_id != event or not ticket.is_launched or ticket.is_expired:
                 continue
             result = order._cart_add(
@@ -61,7 +82,6 @@ class GroundliftEventCheckout(WebsiteSale):
         if not added_any:
             return request.redirect(f"{event.website_url}?ticket_error=unavailable")
 
-        # Keep context for a clean back-link and for Meta/CAPI event_source_url.
         order.sudo().write({"meta_source_url": event.website_url})
         return request.redirect("/groundlift/checkout?added=1")
 
@@ -71,15 +91,14 @@ class GroundliftEventCheckout(WebsiteSale):
         if redirection:
             return redirection
 
-        # This module is intended for event tickets. If another product was mixed
-        # into the cart, fall back to Odoo's standard flow rather than bypassing
-        # delivery/address logic for physical goods.
-        if any(not line.event_ticket_id for line in order.order_line.filtered(lambda l: not l.display_type)):
+        if any(not self._is_supported_checkout_line(line) for line in order.order_line.filtered(lambda l: not l.display_type)):
             return request.redirect("/shop/checkout")
 
         order._recompute_cart()
         values = self._get_shop_payment_values(order, **kwargs)
         values.update(request.website._get_checkout_step_values())
+        event_lines, reward_lines = self._get_checkout_line_groups(order)
+        gl_has_newsletter_optin = "gl_cr_newsletter_optin" in order._fields
         values.update({
             "website_sale_order": order,
             "order": order,
@@ -89,6 +108,10 @@ class GroundliftEventCheckout(WebsiteSale):
             "gl_partner": order.partner_id if not order._is_anonymous_cart() else request.env["res.partner"],
             "gl_is_anonymous": order._is_anonymous_cart(),
             "gl_country": order.partner_id.country_id or request.env.ref("base.de", raise_if_not_found=False),
+            "gl_order_lines": event_lines,
+            "gl_reward_lines": reward_lines,
+            "gl_has_newsletter_optin": gl_has_newsletter_optin,
+            "gl_newsletter_optin": bool(getattr(order, "gl_cr_newsletter_optin", False)) if gl_has_newsletter_optin else False,
         })
         return request.render("groundlift_event_checkout.one_page_checkout", values)
 
@@ -104,6 +127,7 @@ class GroundliftEventCheckout(WebsiteSale):
         phone = (data.get("phone") or "").strip()
         zip_code = (data.get("zip") or "").strip()
         city = (data.get("city") or "").strip()
+        newsletter_optin = self._is_checked(data.get("gl_cr_newsletter_optin"))
         missing = [label for value, label in [
             (first_name, _("Vorname")), (last_name, _("Nachname")),
             (email, _("E-Mail")), (phone, _("Telefon")),
@@ -132,7 +156,6 @@ class GroundliftEventCheckout(WebsiteSale):
                 "user_id": order.website_id.salesperson_id.id,
             })
             partner = request.env["res.partner"].sudo().with_context(tracking_disable=True).create(partner_vals)
-            # Protect the already accepted website pricelist while changing the public partner.
             with request.env.protecting([order._fields["pricelist_id"]], order):
                 order.sudo().write({
                     "partner_id": partner.id,
@@ -142,20 +165,64 @@ class GroundliftEventCheckout(WebsiteSale):
             order.message_unsubscribe(order.website_id.partner_id.ids)
         else:
             partner = order.partner_id.sudo()
-            # The customer entered these values explicitly in this checkout. Keep
-            # the order contact current; this is also the source for Meta matching.
             partner.write(partner_vals)
             order.sudo().write({
                 "partner_invoice_id": partner.id,
                 "partner_shipping_id": partner.id,
             })
 
-        order.sudo().write({
+        order_vals = {
             "meta_first_name": first_name,
             "meta_last_name": last_name,
-        })
+        }
+        if "gl_cr_newsletter_optin" in order._fields:
+            order_vals.update({
+                "gl_cr_newsletter_optin": newsletter_optin,
+                "gl_cr_newsletter_optin_source": "groundlift_event_checkout",
+            })
+        order.sudo().write(order_vals)
         request.session["sale_last_order_id"] = order.id
         return {"ok": True, "partner_id": partner.id}
+
+    @http.route('/groundlift/checkout/line', type="http", auth="public", website=True,
+                methods=["POST"], csrf=True, sitemap=False)
+    def groundlift_checkout_line(self, line_id=None, action=None, **post):
+        order = request.cart
+        if not order or order.state != "draft":
+            return request.redirect("/groundlift/checkout")
+        try:
+            line_id = int(line_id or 0)
+        except (TypeError, ValueError):
+            line_id = 0
+        line = order.order_line.filtered(lambda l: l.id == line_id)[:1]
+        if not line:
+            return request.redirect("/groundlift/checkout")
+
+        current_qty = int(round(line.product_uom_qty or 0))
+        if action == "plus":
+            new_qty = min(current_qty + 1, 99)
+        elif action == "minus":
+            new_qty = max(current_qty - 1, 0)
+        elif action == "remove":
+            new_qty = 0
+        else:
+            return request.redirect("/groundlift/checkout")
+
+        order._cart_update(line_id=line.id, set_qty=new_qty)
+        order._recompute_cart()
+        remaining_tickets = order.order_line.filtered(lambda l: not l.display_type and l.event_ticket_id)
+        if not remaining_tickets:
+            request.website.sale_reset()
+            return request.redirect("/event")
+        return request.redirect("/groundlift/checkout")
+
+    @http.route('/groundlift/checkout/coupon', type="http", auth="public", website=True,
+                methods=["POST"], csrf=True, sitemap=False)
+    def groundlift_checkout_coupon(self, coupon_code=None, **post):
+        code = (coupon_code or post.get("promo") or "").strip()
+        if not code:
+            return request.redirect("/groundlift/checkout")
+        return request.redirect(f"/coupon/{quote(code, safe='')}?r=/groundlift/checkout")
 
     @http.route('/groundlift/checkout/free_confirm', type="http", auth="public", website=True,
                 methods=["POST"], csrf=True, sitemap=False)

@@ -40,8 +40,21 @@
                                                 <label class="form-label" for="gl_city">Ort *</label>
                                                 <input id="gl_city" name="city" type="text" class="form-control" required="required" t-att-value="gl_partner.city or ''"/>
                                             </div>
+                                            <div class="col-12" t-if="gl_has_newsletter_optin">
+                                                <div class="form-check mt-2">
+                                                    <input class="form-check-input"
+                                                           type="checkbox"
+                                                           id="gl_cr_newsletter_optin_checkout"
+                                                           name="gl_cr_newsletter_optin"
+                                                           value="1"
+                                                           t-att-checked="'checked' if gl_newsletter_optin else None"/>
+                                                    <label class="form-check-label" for="gl_cr_newsletter_optin_checkout">
+                                                        Ich möchte auch über andere Veranstaltungen informiert werden - Friendly Newsletter: Nervt nicht, informiert!
+                                                    </label>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div class="form-text mt-3">Die Daten werden für Bestellung, Ticketabwicklung und – bei erteilter Cookie-Einwilligung – für die Messung des Kaufvorgangs verwendet.</div>
+                                        <div class="form-text mt-3">Die Daten werden für Bestellung, Ticketabwicklung und – bei erteilter Cookie-Einwilligung – für die Nachvollziebarkeit des Kaufvorgangs verwendet.</div>
                                     </form>
                                 </div>
                             </div>
@@ -64,20 +77,65 @@
                             <div class="card sticky-lg-top" style="top: 1rem">
                                 <div class="card-body p-4">
                                     <h2 class="h5 mb-3">Deine Bestellung</h2>
-                                    <t t-foreach="order.order_line.filtered(lambda l: not l.display_type)" t-as="line">
-                                        <div class="d-flex justify-content-between gap-3 py-2 border-bottom">
-                                            <div>
+                                    <t t-foreach="gl_order_lines" t-as="line">
+                                        <t t-set="qty_label" t-value="'{:g}'.format(line.product_uom_qty)"/>
+                                        <div class="d-flex justify-content-between gap-3 py-3 border-bottom">
+                                            <div class="flex-grow-1">
                                                 <div class="fw-semibold" t-out="line.event_id.name or line.name"/>
-                                                <div class="small text-muted"><span t-out="line.product_uom_qty"/> × <span t-out="line.event_ticket_id.name or line.product_id.name"/></div>
+                                                <div class="small text-muted">
+                                                    <span t-out="qty_label"/> x <span t-out="line.event_ticket_id.name or line.product_id.display_name or line.name"/>
+                                                </div>
+                                                <div t-if="line.event_ticket_id" class="gl_line_actions mt-2 d-flex align-items-center gap-2 flex-wrap">
+                                                    <form action="/groundlift/checkout/line" method="post" class="m-0">
+                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                        <input type="hidden" name="line_id" t-att-value="line.id"/>
+                                                        <input type="hidden" name="action" value="minus"/>
+                                                        <button type="submit" class="btn btn-outline-secondary btn-sm" aria-label="Anzahl verringern">
+                                                            <i class="fa fa-minus"/>
+                                                        </button>
+                                                    </form>
+                                                    <span class="gl_line_qty_badge badge rounded-pill text-bg-light" t-out="qty_label"/>
+                                                    <form action="/groundlift/checkout/line" method="post" class="m-0">
+                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                        <input type="hidden" name="line_id" t-att-value="line.id"/>
+                                                        <input type="hidden" name="action" value="plus"/>
+                                                        <button type="submit" class="btn btn-outline-secondary btn-sm" aria-label="Anzahl erhöhen">
+                                                            <i class="fa fa-plus"/>
+                                                        </button>
+                                                    </form>
+                                                    <form action="/groundlift/checkout/line" method="post" class="m-0">
+                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                        <input type="hidden" name="line_id" t-att-value="line.id"/>
+                                                        <input type="hidden" name="action" value="remove"/>
+                                                        <button type="submit" class="btn btn-outline-danger btn-sm" aria-label="Ticket entfernen">
+                                                            <i class="fa fa-trash"/>
+                                                        </button>
+                                                    </form>
+                                                </div>
                                             </div>
-                                            <span class="text-nowrap" t-out="line.price_total" t-options="{'widget': 'monetary', 'display_currency': order.currency_id}"/>
+                                            <span class="text-nowrap fw-semibold" t-out="line.price_total" t-options="{'widget': 'monetary', 'display_currency': order.currency_id}"/>
                                         </div>
                                     </t>
-                                    <div class="d-flex justify-content-between fw-bold fs-5 pt-3">
+                                    <t t-if="gl_reward_lines">
+                                        <t t-foreach="gl_reward_lines" t-as="line">
+                                            <div class="d-flex justify-content-between gap-3 py-2 border-bottom small">
+                                                <span t-out="line.name"/>
+                                                <span class="text-nowrap" t-out="line.price_total" t-options="{'widget': 'monetary', 'display_currency': order.currency_id}"/>
+                                            </div>
+                                        </t>
+                                    </t>
+                                    <div class="gl_coupon_box pt-3">
+                                        <label class="form-label small fw-semibold mb-2" for="gl_coupon_code">Gutscheincode</label>
+                                        <form action="/groundlift/checkout/coupon" method="post" class="d-flex gap-2">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <input id="gl_coupon_code" name="coupon_code" type="text" class="form-control" placeholder="Code eingeben"/>
+                                            <button type="submit" class="btn btn-outline-primary text-nowrap">Einlösen</button>
+                                        </form>
+                                    </div>
+                                    <div class="d-flex justify-content-between fw-bold fs-5 pt-3 border-top mt-3">
                                         <span>Gesamt</span>
                                         <span t-out="order.amount_total" t-options="{'widget': 'monetary', 'display_currency': order.currency_id}"/>
                                     </div>
-                                    <a href="/shop/cart" class="btn btn-link px-0 mt-2">Warenkorb bearbeiten</a>
                                 </div>
                             </div>
                         </div>
