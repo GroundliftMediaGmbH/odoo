@@ -1,6 +1,6 @@
 {
     "name": "Groundlift Event One-Page Checkout",
-    "version": "19.0.1.1.2",
+    "version": "19.0.1.1.3",
     "summary": "Direct ticket selection and one-page customer/payment checkout for Groundlift events",
     "category": "Website/eCommerce",
     "author": "Groundlift",

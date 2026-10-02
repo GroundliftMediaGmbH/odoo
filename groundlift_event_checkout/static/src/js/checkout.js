@@ -63,9 +63,39 @@ async function saveCustomer() {
 
 window.glGroundliftSaveCustomer = saveCustomer;
 
+function arrangeMobileCheckout() {
+    const main = document.querySelector(".gl_checkout_main");
+    const paymentBlock = document.querySelector(".gl_payment_block");
+    const cartColumn = document.querySelector(".gl_cart_column");
+    const cartBlock = document.querySelector(".gl_cart_block");
+    if (!main || !paymentBlock || !cartColumn || !cartBlock) return;
+
+    const isMobile = window.matchMedia("(max-width: 991.98px)").matches;
+    if (isMobile) {
+        // Mobile only: customer data -> editable cart -> payment.
+        if (cartBlock.parentElement !== main) {
+            main.insertBefore(cartBlock, paymentBlock);
+        }
+    } else if (cartBlock.parentElement !== cartColumn) {
+        // Restore the original two-column desktop layout.
+        cartColumn.appendChild(cartBlock);
+    }
+}
+
+function bindResponsiveCheckoutOrder() {
+    arrangeMobileCheckout();
+    const media = window.matchMedia("(max-width: 991.98px)");
+    if (media.addEventListener) {
+        media.addEventListener("change", arrangeMobileCheckout);
+    } else if (media.addListener) {
+        media.addListener(arrangeMobileCheckout);
+    }
+}
+
 function boot() {
     bindQtyButtons();
     if (!document.querySelector("[data-gl-groundlift-checkout='1']")) return;
+    bindResponsiveCheckoutOrder();
 
     document.addEventListener("click", async (ev) => {
         const button = ev.target.closest("#o_payment_submit_button, button[name='o_payment_submit_button'], .o_payment_submit_button");

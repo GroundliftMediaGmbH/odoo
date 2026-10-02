@@ -29,3 +29,9 @@
 .gl_checkout_page .gl_coupon_box {
     margin-top: 0.5rem;
 }
+
+@media (max-width: 991.98px) {
+    .gl_checkout_page .gl_cart_column:empty {
+        display: none;
+    }
+}

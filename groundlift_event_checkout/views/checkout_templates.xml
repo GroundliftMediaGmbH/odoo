@@ -6,7 +6,7 @@
             <div id="wrap" class="oe_structure gl_checkout_page" data-gl-groundlift-checkout="1">
                 <section class="container py-5">
                     <div class="row g-4 justify-content-center">
-                        <div class="col-lg-7">
+                        <div class="col-lg-7 gl_checkout_main">
                             <h1 class="h3 mb-4">Tickets kaufen</h1>
                             <div id="gl_customer_error" class="alert alert-danger d-none" role="alert"/>
                             <div class="card mb-4">
@@ -58,7 +58,7 @@
                                     </form>
                                 </div>
                             </div>
-                            <div class="card">
+                            <div class="card gl_payment_block">
                                 <div class="card-body p-4">
                                     <h2 class="h5 mb-3">Zahlungsart</h2>
                                     <t t-if="order.amount_total">
@@ -73,8 +73,8 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-lg-4">
-                            <div class="card sticky-lg-top" style="top: 1rem">
+                        <div class="col-lg-4 gl_cart_column">
+                            <div class="card sticky-lg-top gl_cart_block mb-4 mb-lg-0" style="top: 1rem">
                                 <div class="card-body p-4">
                                     <h2 class="h5 mb-3">Deine Bestellung</h2>
                                     <t t-foreach="gl_order_lines" t-as="line">
