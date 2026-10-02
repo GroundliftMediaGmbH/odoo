@@ -208,7 +208,16 @@ class GroundliftEventCheckout(WebsiteSale):
         else:
             return request.redirect("/groundlift/checkout")
 
-        order._cart_update(line_id=line.id, set_qty=new_qty)
+        update_kwargs = {}
+        if line.event_ticket_id:
+            update_kwargs["event_ticket_id"] = line.event_ticket_id.id
+            update_kwargs["event_slot_id"] = line.event_slot_id.id or False
+
+        order._cart_update_line_quantity(
+            line_id=line.id,
+            quantity=new_qty,
+            **update_kwargs,
+        )
         order._recompute_cart()
         remaining_tickets = order.order_line.filtered(lambda l: not l.display_type and l.event_ticket_id)
         if not remaining_tickets:
