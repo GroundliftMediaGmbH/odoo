@@ -190,6 +190,23 @@ class GroundliftEventCheckout(WebsiteSale):
                 "gl_cr_newsletter_optin_source": "groundlift_event_checkout",
             })
         order.sudo().write(order_vals)
+
+        # Important for paid event tickets in Odoo 19:
+        # create the registrations while the website order is still a draft.
+        # Odoo's event_sale module will then automatically move them from
+        # "Unconfirmed" (draft / to pay) to "Registered" (open / sold)
+        # when the payment confirms the sale order.
+        #
+        # Without this step, event_sale creates the registrations only inside
+        # sale.order.action_confirm(). For a single paid order that backend-style
+        # fallback deliberately creates them in draft so staff can fill attendee
+        # details manually. That is not the desired website checkout behaviour.
+        event_lines = order.order_line.filtered(
+            lambda line: line.event_ticket_id and line.service_tracking == "event"
+        )
+        if event_lines:
+            event_lines._init_registrations()
+
         request.session["sale_last_order_id"] = order.id
         return {"ok": True, "partner_id": partner.id}
 
