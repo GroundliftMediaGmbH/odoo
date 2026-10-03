@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_event_form_html_description" model="ir.ui.view">
+        <field name="name">event.event.form.html.description</field>
+        <field name="model">event.event</field>
+        <field name="inherit_id" ref="event.view_event_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Website HTML" name="gl_event_website_html">
+                    <field name="gl_html_description_initialized" invisible="1"/>
+                    <div class="alert alert-info mb-3" role="alert">
+                        Dieser HTML-Code ist die Beschreibung, die auf der öffentlichen Veranstaltungsseite ausgegeben wird.
+                        Die ursprüngliche Odoo-Beschreibung bleibt gespeichert, wird dort aber nicht mehr dargestellt.
+                    </div>
+                    <field
+                        name="gl_html_description_code"
+                        string="HTML-Code"
+                        widget="code"
+                        options="{'mode': 'xml'}"
+                        nolabel="1"
+                        placeholder="&lt;p&gt;Beschreibung der Veranstaltung&lt;/p&gt;"
+                    />
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
