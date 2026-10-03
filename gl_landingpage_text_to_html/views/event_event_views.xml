@@ -9,10 +9,9 @@
                 <page name="gl_landingpage_html_page" string="Landingpage HTML">
                     <group>
                         <div colspan="2" class="text-muted">
-                            Der bestehende Groundlift-Text wird in HTML umgewandelt und hier bearbeitbar gemacht.
-                            Diese HTML-Version ist die führende Version. Die öffentliche Odoo-Veranstaltungsseite
-                            erhält exakt diese HTML-Version über die native Odoo-Beschreibung – ohne zusätzliche
-                            Website-Template-Vererbung.
+                            Der bestehende Event-Text wird in HTML umgewandelt und hier bearbeitbar gemacht.
+                            Die HTML-Version wird 1:1 in Odoos native Veranstaltungsbeschreibung gespiegelt;
+                            dadurch zeigt die öffentliche Veranstaltungsseite ausschließlich diese HTML-Fassung.
                         </div>
                         <button name="action_gl_copy_plain_to_html"
                                 type="object"
