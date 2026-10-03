@@ -1,8 +1,10 @@
-"""Bridge Groundlift's legacy event text, its rich HTML, and Odoo's website HTML.
+"""Groundlift landing-page HTML bridge for Odoo 19.
 
-All three fields retain their existing names and types. The website side must be
-updated even if the legacy Studio field cannot be discovered: previous versions
-silently bypassed *all* synchronization in that case.
+`gl_landingpage_html` is the authoritative rich-text source whenever it contains
+content.  The native `event.event.description` is kept byte-for-byte in sync so
+all standard Odoo website templates (including `/event/.../register`) render the
+same formatting.  A pre-existing differing native description is backed up once
+before it is replaced.
 """
 import logging
 import re
@@ -18,12 +20,7 @@ SKIP_SYNC = 'gl_text_to_html_skip_sync'
 
 
 def _equivalent_text(first, second):
-    """Only for deciding whether an existing native description is ours.
-
-    HTML editors normalize paragraphs, NBSP and line breaks differently. Their
-    readable content may still be the same. Never remove content or compare
-    fuzzy substrings: unrelated existing descriptions must not be overwritten.
-    """
+    """Compare readable content while ignoring harmless HTML differences."""
     first_text = re.sub(r'\s+', ' ', html_to_plain(first or '')).strip()
     second_text = re.sub(r'\s+', ' ', html_to_plain(second or '')).strip()
     return first_text == second_text
@@ -37,11 +34,14 @@ class EventEvent(models.Model):
         sanitize=True,
         translate=False,
         copy=False,
-        help='Formatierte Beschreibung; das bestehende Studio-Textfeld bleibt erhalten.',
+        help=(
+            'Formatierte Beschreibung. Sobald dieses Feld Inhalt enthält, ist es '
+            'die führende Quelle für die Odoo-Veranstaltungsseite.'
+        ),
     )
     gl_landingpage_native_linked = fields.Boolean(
         string='Mit Odoo-Webseitenbeschreibung verbunden', copy=False,
-        help='Änderungen an HTML werden in die native Odoo-Website-Beschreibung übertragen.',
+        help='HTML und native Odoo-Webseitenbeschreibung werden automatisch synchron gehalten.',
     )
     gl_landingpage_native_backup = fields.Html(
         string='Sicherung der vorherigen Odoo-Webseitenbeschreibung',
@@ -54,19 +54,18 @@ class EventEvent(models.Model):
     @api.depends('gl_landingpage_html', 'description', 'gl_landingpage_native_linked')
     def _compute_gl_landingpage_website_status(self):
         for event in self:
-            if not event.gl_landingpage_html:
+            html = event.gl_landingpage_html or ''
+            native = event.description or ''
+            if not html:
                 event.gl_landingpage_website_status = _('HTML-Beschreibung ist noch leer.')
-            elif event.gl_landingpage_html == (event.description or ''):
-                event.gl_landingpage_website_status = _('HTML und native Odoo-Webseitenbeschreibung sind identisch.')
-            elif event.gl_landingpage_native_linked:
+            elif html == native:
                 event.gl_landingpage_website_status = _(
-                    'Verknüpft, aber HTML und native Webseitenbeschreibung unterscheiden sich. '
-                    'Bitte „HTML jetzt auf Odoo-Webseite übernehmen“ ausführen.'
+                    'HTML und native Odoo-Webseitenbeschreibung sind identisch.'
                 )
             else:
                 event.gl_landingpage_website_status = _(
-                    'Die native Odoo-Webseitenbeschreibung ist noch nicht verbunden. '
-                    'Bitte den Button „HTML jetzt auf Odoo-Webseite übernehmen“ verwenden.'
+                    'HTML und Website weichen ab. Beim Speichern des HTML-Feldes wird die '
+                    'Website automatisch auf diesen Stand synchronisiert.'
                 )
 
     @api.model
@@ -81,7 +80,7 @@ class EventEvent(models.Model):
         hits = [
             name for name, field in self._fields.items()
             if field.type == 'text'
-            and field.string.strip().casefold() in ('event beschreibung', 'eventbeschreibung')
+            and (field.string or '').strip().casefold() in ('event beschreibung', 'eventbeschreibung')
         ]
         if len(hits) == 1:
             return hits[0]
@@ -92,7 +91,7 @@ class EventEvent(models.Model):
         return None
 
     def _gl_internal_write(self, vals):
-        """Bypass our own bridge, not third-party model.write overrides."""
+        """Bypass only this module's bridge, preserving all other write overrides."""
         return self.with_context(**{SKIP_SYNC: True}).write(vals)
 
     def _gl_fill_html_from_plain(self):
@@ -101,24 +100,30 @@ class EventEvent(models.Model):
             if source and not event.gl_landingpage_html and event[source]:
                 event._gl_internal_write({'gl_landingpage_html': plain_to_html(event[source])})
 
-    def _gl_link_native_if_safe(self):
-        """Link only empty/semantically identical native descriptions; never erase others."""
+    def _gl_sync_html_to_native(self, backup=True):
+        """Make rich HTML authoritative and mirror it to Odoo's native HTML field.
+
+        This is intentionally exact instead of a semantic text comparison: formatting
+        such as <strong>, links, lists and headings is precisely what must reach the
+        public event page.
+        """
         for event in self:
-            html = event.gl_landingpage_html
+            html = event.gl_landingpage_html or ''
             if not html:
                 continue
+
+            updates = {'gl_landingpage_native_linked': True}
             native = event.description or ''
-            if (event.gl_landingpage_native_linked or not native
-                    or _equivalent_text(native, html)):
-                changes = {'gl_landingpage_native_linked': True}
-                if native != html:
-                    changes['description'] = html
-                event._gl_internal_write(changes)
-            else:
-                _logger.info(
-                    'Landingpage Text_to_HTML: native website description of event %s '
-                    'differs; explicit per-event confirmation needed.', event.id,
-                )
+            if native != html:
+                if backup and native and not event.gl_landingpage_native_backup:
+                    updates['gl_landingpage_native_backup'] = native
+                updates['description'] = html
+            if updates.get('description') is not None or not event.gl_landingpage_native_linked:
+                event._gl_internal_write(updates)
+
+    def _gl_link_native_if_safe(self):
+        """Backward-compatible method name; v1.3 makes the HTML field authoritative."""
+        self._gl_sync_html_to_native(backup=True)
 
     def action_gl_copy_plain_to_html(self):
         if not self._gl_get_plain_field_name():
@@ -128,34 +133,30 @@ class EventEvent(models.Model):
                 'Namen des bestehenden event.event-Textfelds setzen.'
             ))
         self._gl_fill_html_from_plain()
-        self._gl_link_native_if_safe()
+        self._gl_sync_html_to_native(backup=True)
         return True
 
     def action_gl_sync_native_if_safe(self):
         self._gl_fill_html_from_plain()
-        self._gl_link_native_if_safe()
+        self._gl_sync_html_to_native(backup=True)
         return True
 
     def action_gl_force_native_link(self):
-        """Explicit one-click repair on affected events; backup native HTML once."""
         for event in self:
             if not event.gl_landingpage_html:
                 event._gl_fill_html_from_plain()
             if not event.gl_landingpage_html:
                 raise UserError(_('Bitte zuerst eine Landingpage-HTML-Beschreibung eintragen.'))
-            updates = {
-                'description': event.gl_landingpage_html,
-                'gl_landingpage_native_linked': True,
-            }
-            if (not event.gl_landingpage_native_backup and event.description
-                    and event.description != event.gl_landingpage_html):
-                updates['gl_landingpage_native_backup'] = event.description
-            event._gl_internal_write(updates)
+        self._gl_sync_html_to_native(backup=True)
         return True
 
     @api.model
     def _gl_migrate_existing(self):
-        """Safe on module update: no reset of existing custom formatting."""
+        """Backfill and synchronize existing events in bounded batches.
+
+        Called both on first install and by the versioned upgrade migration so an
+        ordinary Apps -> Upgrade also repairs events that already had HTML in v1.2.
+        """
         events = self.sudo()
         last_id = 0
         while True:
@@ -163,7 +164,7 @@ class EventEvent(models.Model):
             if not batch:
                 break
             batch._gl_fill_html_from_plain()
-            batch._gl_link_native_if_safe()
+            batch._gl_sync_html_to_native(backup=True)
             last_id = batch[-1].id
 
     @api.model_create_multi
@@ -171,6 +172,7 @@ class EventEvent(models.Model):
         records = super().create(vals_list)
         if self.env.context.get(SKIP_SYNC):
             return records
+
         source = self._gl_get_plain_field_name()
         for event, vals in zip(records, vals_list):
             if 'gl_landingpage_html' in vals:
@@ -178,9 +180,8 @@ class EventEvent(models.Model):
                     event._gl_internal_write({source: html_to_plain(event.gl_landingpage_html)})
             elif source and event[source] and not event.gl_landingpage_html:
                 event._gl_fill_html_from_plain()
-            # Keep a separately supplied native description until user confirms
-            # if its readable content differs from rich HTML.
-            event._gl_link_native_if_safe()
+            if event.gl_landingpage_html:
+                event._gl_sync_html_to_native(backup=True)
         return records
 
     def write(self, vals):
@@ -194,48 +195,30 @@ class EventEvent(models.Model):
         if not (editing_html or editing_plain or editing_native):
             return super().write(vals)
 
-        before = {
-            event.id: (
-                event.gl_landingpage_html or '',
-                event.description or '',
-                event[source] if source else '',
-                event.gl_landingpage_native_linked,
-            )
-            for event in self
-        }
         vals = dict(vals)
         if editing_plain and not editing_html:
             vals['gl_landingpage_html'] = plain_to_html(vals[source])
+            editing_html = True
+
         result = super().write(vals)
 
         for event in self:
-            old_html, old_native, old_plain, previously_linked = before[event.id]
-            if editing_html or editing_plain:
+            if editing_html:
                 current_html = event.gl_landingpage_html or ''
                 updates = {}
-                if source and editing_html:
+                if source and 'gl_landingpage_html' in vals:
                     plain = html_to_plain(current_html)
                     if event[source] != plain:
                         updates[source] = plain
-                # CRITICAL: previous v1.1 aborted this step if the optional
-                # Studio field was not uniquely discovered. Rich HTML MUST
-                # reach native event.description independently of source.
-                # Compare with the OLD content, so bold-only edits link too.
-                safe_to_link = (
-                    previously_linked or not old_native
-                    or _equivalent_text(old_native, old_html)
-                    or (old_plain and _equivalent_text(old_native, old_plain))
-                    or _equivalent_text(old_native, current_html)
-                )
-                if safe_to_link:
-                    updates['gl_landingpage_native_linked'] = True
-                    if event.description != current_html:
-                        updates['description'] = current_html
                 if updates:
                     event._gl_internal_write(updates)
+                if current_html:
+                    # Saving the dedicated HTML field is explicit intent: preserve
+                    # the former native value once, then publish the exact rich HTML.
+                    event._gl_sync_html_to_native(backup=True)
             elif editing_native and event.gl_landingpage_native_linked:
-                # Native website editor writes description directly. Bring
-                # that sanitized HTML back to the Groundlift rich field.
+                # Edits made directly in Odoo's website editor flow back into the
+                # Groundlift HTML field and optional Studio plain-text mirror.
                 native = event.description or ''
                 updates = {}
                 if event.gl_landingpage_html != native:

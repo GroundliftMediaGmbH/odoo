@@ -1,20 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- This is Odoo's standard /event/... page, NOT an external PHP website.
-         Preserve an HTML t-field (with record metadata) for inline editing.
-         Standard event.description is synchronized too, to support other
-         Odoo templates that render the native field instead of this one. -->
+    <!-- Odoo 19 renders /event/<slug>/register through
+         website_event.event_description_full.  Keep this inheritance deliberately
+         late so theme/website customizations do not switch the page back to the
+         native field after our module has selected the Groundlift HTML field. -->
     <template id="gl_landingpage_event_description_html"
               name="Landingpage HTML event description"
               inherit_id="website_event.event_description_full"
-              priority="90">
-        <xpath expr="//div[@t-field='event.description']" position="replace">
-            <div t-if="event.gl_landingpage_html or editable"
+              priority="1000">
+        <xpath expr="//div[@id='o_wevent_event_main_col']/div[@t-field='event.description' and @itemprop='description']"
+               position="replace">
+            <div t-if="event.gl_landingpage_html"
                  class="mt-4 gl_landingpage_html"
                  t-field="event.gl_landingpage_html"
                  itemprop="description"
                  data-oe-placeholder="Eventbeschreibung bearbeiten ..."/>
-            <div t-else="" class="mt-4" t-field="event.description" itemprop="description"/>
+            <div t-else=""
+                 class="mt-4"
+                 t-field="event.description"
+                 itemprop="description"/>
         </xpath>
     </template>
 </odoo>
