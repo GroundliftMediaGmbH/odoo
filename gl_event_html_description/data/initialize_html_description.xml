@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Runs on install AND module upgrade. The Python method itself only copies
+         records which have never been initialized, so later edits stay untouched. -->
+    <function model="event.event" name="_gl_initialize_event_public_html"/>
+</odoo>

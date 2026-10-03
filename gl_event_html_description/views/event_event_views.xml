@@ -1,23 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="view_event_form_html_description" model="ir.ui.view">
+    <record id="event_event_form_html_description" model="ir.ui.view">
         <field name="name">event.event.form.html.description</field>
         <field name="model">event.event</field>
         <field name="inherit_id" ref="event.view_event_form"/>
+        <field name="priority" eval="100"/>
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
-                <page string="Website HTML" name="gl_event_website_html">
+                <page string="Website HTML" name="gl_event_public_html_page">
                     <div class="alert alert-info mb-3" role="alert">
-                        Hier wird direkt Odoos originale Veranstaltungsbeschreibung als HTML-Quellcode bearbeitet.
-                        Es gibt kein zweites Beschreibungsfeld und keine Synchronisation: Der Inhalt hier ist
-                        derselbe Inhalt wie bei „Event Beschreibung“ und wird von der Odoo-Website verwendet.
+                        Dieses Feld ist die führende Quelle für die öffentliche Veranstaltungsbeschreibung.
+                        Beim Speichern wird genau dieser HTML-Inhalt auf der Odoo-Veranstaltungsseite verwendet.
                     </div>
+                    <field name="gl_event_public_html_initialized" invisible="1"/>
                     <field
-                        name="description"
-                        string="HTML-Code"
-                        widget="code"
-                        options="{'mode': 'xml'}"
+                        name="gl_event_public_html"
+                        string="Website HTML"
                         nolabel="1"
+                        widget="code"
+                        options="{'mode': 'html'}"
+                        placeholder="&lt;p&gt;Veranstaltungsbeschreibung...&lt;/p&gt;"
                     />
                 </page>
             </xpath>

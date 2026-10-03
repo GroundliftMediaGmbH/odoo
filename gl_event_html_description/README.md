@@ -1,25 +1,16 @@
 # Groundlift Event HTML Description – Odoo 19
 
-Version: **19.0.1.2.0**
+Version: **19.0.2.0.0**
 
-## Zweck
+## Behaviour
 
-Das Modul ergänzt im Veranstaltungs-Backend einen Tab **Website HTML**.
+- Adds a brand-new field `event.event.gl_event_public_html` (`fields.Html`).
+- Hides all occurrences of Odoo's standard `description` field in the assembled event form view.
+- On install/upgrade, copies each existing event's current standard `description` HTML into the new field exactly once, including active-language translations.
+- From then on, `gl_event_public_html` is the master value.
+- Saving it mirrors its HTML into Odoo's standard `description` field so Odoo's native event website renders the new HTML without any QWeb template override.
+- No website XPath/template inheritance is used.
 
-Wichtig: Es wird **kein zweites Beschreibungsfeld** angelegt. Der Tab zeigt direkt Odoos natives Feld
-`event.event.description` mit dem Odoo-Code-Editor an.
+## Upgrade from earlier variants
 
-Damit gilt automatisch:
-
-- Die normale „Event Beschreibung“ und der HTML-Tab sind zwei Ansichten desselben Datenfeldes.
-- Bereits vorhandene Veranstaltungsbeschreibungen erscheinen sofort als HTML-Quellcode im neuen Tab.
-- Änderungen im HTML-Tab ändern direkt die originale Odoo-Veranstaltungsbeschreibung.
-- Die Standard-Eventseite verwendet weiterhin Odoos normalen Rendering-Weg und zeigt genau diesen Inhalt.
-- Es gibt keinen QWeb/XPath-Eingriff in die Website-Eventseite.
-- Es gibt keine Synchronisationslogik und keine Installations-/Migrationshooks.
-
-## Update von 19.0.1.1.0
-
-Den vorhandenen Modulordner `gl_event_html_description` vollständig durch diese Version ersetzen und die App in Odoo aktualisieren.
-Die früheren Python-Dateien sind in dieser ZIP absichtlich als leere Dateien enthalten, damit auch bei einem reinen Überschreiben
-keine alte Synchronisationslogik weiter importiert wird.
+Replace the complete `gl_event_html_description` addon directory with this version and upgrade the module in Odoo. This version uses a new technical field name, so values from earlier experimental custom HTML fields are not reused.
