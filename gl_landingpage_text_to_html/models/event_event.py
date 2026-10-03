@@ -1,13 +1,13 @@
 """Groundlift event description bridge for Odoo 19.
 
-Design of v1.6
+Design of v1.7
 ===============
 * The existing Groundlift plain-text field remains available.
 * ``gl_landingpage_html`` is the editable rich-text version and the canonical
   content for the public event page.
 * Odoo's native ``event.event.description`` is kept as an exact mirror of the
   HTML field because Odoo's standard event website renders that native field.
-* There is deliberately NO inherited website/QWeb template and therefore NO
+* There is no active inherited website/QWeb template and therefore NO
   XPath against ``website_event``.  This avoids the installation failures that
   occurred when another website view changed Odoo's surrounding HTML.
 
