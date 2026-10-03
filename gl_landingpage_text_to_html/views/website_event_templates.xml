@@ -1,21 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!--
-        Groundlift v1.4: the public Odoo event page renders ONLY the dedicated
-        Landingpage HTML field.  There is deliberately no fallback to
-        event.description and no rendering of the original plain-text field.
+        Groundlift v1.5
 
-        Odoo 19's standard /event/.../register page contains:
-            <div class="mt-4" t-field="event.description" itemprop="description"/>
-        in website_event.event_description_full.
+        Deliberately keep the XPath as small and stable as in the working v1.2:
+        target the native event.description node wherever it sits in the current
+        website_event template.  Do NOT depend on Odoo's surrounding container
+        hierarchy, because that hierarchy may be changed by Website Builder or
+        another installed module.
+
+        The public event page renders ONLY gl_landingpage_html.  There is no
+        fallback to event.description here.
     -->
     <template id="gl_landingpage_event_description_html"
-              name="Groundlift event page: HTML description only"
+              name="Groundlift event page: Landingpage HTML only"
               inherit_id="website_event.event_description_full"
-              priority="90">
-        <xpath expr="//div[@id='o_wevent_event_main_col']/div[@t-field='event.description']"
-               position="replace">
-            <div class="mt-4 gl_landingpage_html"
+              priority="999">
+        <xpath expr="//*[@t-field='event.description']" position="replace">
+            <div t-if="event.gl_landingpage_html or editable"
+                 class="mt-4 gl_landingpage_html"
                  t-field="event.gl_landingpage_html"
                  itemprop="description"
                  data-oe-placeholder="Eventbeschreibung bearbeiten ..."/>
