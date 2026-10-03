@@ -182,7 +182,8 @@ class MusicPlayer(models.AbstractModel):
         if not details["connected"]:
             return dict(details, playing=False, track="", artist="", volume=0,
                         shuffle=False, repeat="off", progress_ms=0, duration_ms=0,
-                        target_available=False, active_device="", target_active=False)
+                        target_available=False, active_device="", target_active=False,
+                        context_uri="", context_type="", context_name="", context_url="")
         data = self._spotify("GET", "/me/player", params={"additional_types": "track,episode"})
         # The Windows agent's hostname is NOT a Spotify Connect device name.
         # Include Connect availability even when Spotify reports no active playback (HTTP 204).
@@ -196,6 +197,7 @@ class MusicPlayer(models.AbstractModel):
         item = data.get("item") or {}
         device = data.get("device") or {}
         images = (item.get("album") or {}).get("images") or []
+        context = self._playback_context(data.get("context") or {})
         return dict(details, playing=bool(data.get("is_playing")),
                     track=item.get("name", ""),
                     artist=", ".join(a.get("name", "") for a in item.get("artists", [])),
@@ -209,7 +211,81 @@ class MusicPlayer(models.AbstractModel):
                     volume=(target_device or {}).get("volume_percent", device.get("volume_percent", 0)),
                     shuffle=bool(data.get("shuffle_state")), repeat=data.get("repeat_state", "off"),
                     progress_ms=data.get("progress_ms") or 0, duration_ms=item.get("duration_ms") or 0,
-                    context_uri=(data.get("context") or {}).get("uri", ""))
+                    **context)
+
+    def _playback_context(self, context):
+        """Return a human-readable Spotify playback context without hammering the API.
+
+        /me/player only returns a context URI, not its display name. Resolve a new
+        playlist/album/artist once and cache the result until Spotify changes context.
+        This also makes externally changed/autoplay contexts visible in both UIs.
+        """
+        uri = (context or {}).get("uri") or ""
+        context_type = (context or {}).get("type") or ""
+        context_url = ((context or {}).get("external_urls") or {}).get("spotify") or ""
+        if not uri:
+            return {"context_uri": "", "context_type": "", "context_name": "", "context_url": ""}
+
+        cached_uri = self._get("playback_context_uri")
+        cached_name = self._get("playback_context_name")
+        cached_url = self._get("playback_context_url")
+        cached_type = self._get("playback_context_type")
+        if uri == cached_uri and cached_name:
+            return {
+                "context_uri": uri,
+                "context_type": cached_type or context_type,
+                "context_name": cached_name,
+                "context_url": cached_url or context_url,
+            }
+
+        parts = uri.split(":")
+        spotify_id = parts[2] if len(parts) == 3 else ""
+        name = ""
+
+        # Saved Groundlift playlists can be resolved locally with no Spotify request.
+        if context_type == "playlist" and PLAYLIST_ID.fullmatch(spotify_id or ""):
+            for playlist in self.env["gl.music.playlist"].search([]):
+                try:
+                    if spotify_playlist_id(playlist.url) == spotify_id:
+                        name = playlist.name
+                        break
+                except ValueError:
+                    continue
+
+        # Unknown contexts (including Spotify switching away from our saved list)
+        # are resolved once through the matching Spotify metadata endpoint.
+        if not name and spotify_id and context_type in ("playlist", "album", "artist"):
+            endpoint = {
+                "playlist": "/playlists/%s",
+                "album": "/albums/%s",
+                "artist": "/artists/%s",
+            }[context_type] % spotify_id
+            try:
+                params = {"fields": "name,external_urls"} if context_type == "playlist" else None
+                meta = self._spotify("GET", endpoint, params=params)
+                name = meta.get("name") or ""
+                context_url = ((meta.get("external_urls") or {}).get("spotify") or context_url)
+            except UserError as exc:
+                # Playback status must remain usable even when Spotify refuses metadata
+                # for a context (e.g. a region/private availability edge case).
+                _logger.info("Could not resolve Spotify playback context %s: %s", uri, exc)
+
+        if not name:
+            labels = {"playlist": "Spotify-Playlist", "album": "Spotify-Album", "artist": "Spotify-Künstler"}
+            name = labels.get(context_type, "Spotify-Kontext")
+            if spotify_id and context_type == "playlist":
+                name += " · " + spotify_id
+
+        self._set("playback_context_uri", uri)
+        self._set("playback_context_type", context_type)
+        self._set("playback_context_name", name)
+        self._set("playback_context_url", context_url)
+        return {
+            "context_uri": uri,
+            "context_type": context_type,
+            "context_name": name,
+            "context_url": context_url,
+        }
 
     @api.model
     def available_devices(self):

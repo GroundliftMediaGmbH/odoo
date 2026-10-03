@@ -6,6 +6,7 @@
     if (!app) return;
     const csrf = app.dataset.csrf;
     const $ = (id) => document.getElementById(id);
+    const FADE_DURATION_MS = 4000;
     let state = {playing: false, target_active: false, target_available: false,
                  progress_ms: 0, duration_ms: 0, volume: 0, restore_volume: 0, playlists: []};
     let observedAt = Date.now();
@@ -70,6 +71,14 @@
         $("device").classList.toggle("offline", !available);
         $("title").textContent = state.track || "Keine Wiedergabe";
         $("artist").textContent = state.artist || "Spotify Connect";
+        if (state.context_type === "playlist" && state.context_name) {
+            $("current-context").textContent = `Aktuelle Playlist: ${state.context_name}`;
+        } else if (state.context_name) {
+            const typeLabel = {album: "Album", artist: "Künstler"}[state.context_type] || "Spotify-Kontext";
+            $("current-context").textContent = `Keine Playlist · ${typeLabel}: ${state.context_name}`;
+        } else {
+            $("current-context").textContent = "Aktuelle Playlist: keine Playlist von Spotify gemeldet";
+        }
         const coverUrl = state.image || "";
         $("cover").hidden = !coverUrl;
         $("cover-placeholder").hidden = Boolean(coverUrl);
@@ -205,7 +214,7 @@
         $("volume-minus").disabled = !state.target_available || busy || volume <= 0;
         $("volume-plus").disabled = !state.target_available || busy || volume >= 100;
         $("fade-in").disabled = !state.target_available || busy || !state.restore_volume;
-        $("fade-out").disabled = !state.target_available || busy || volume <= 0;
+        $("fade-out").disabled = !state.target_available || busy;
         $("fade-status").textContent = fadeMode ? `Fade ${fadeMode === "in" ? "In" : "Out"} läuft …` : "";
     }
     function stopFade() {
@@ -230,47 +239,98 @@
         stopFade();
         setLocalVolume(state.volume + delta, true, true);
     }
+    async function settleVolume(value, generation = null) {
+        if (generation !== null && generation !== fadeGeneration) return false;
+        if (volumeTimer) clearTimeout(volumeTimer);
+        volumeTimer = null;
+        volumeWanted = null;
+        while (volumeInFlight) {
+            await new Promise((resolve) => setTimeout(resolve, 40));
+            if (generation !== null && generation !== fadeGeneration) return false;
+        }
+        if (generation !== null && generation !== fadeGeneration) return false;
+        await api("transport", {command: "volume", value: JSON.stringify(value)});
+        volumeLastSent = value;
+        volumeLastSentAt = Date.now();
+        volumeLocalUntil = Date.now() + 2500;
+        setLocalVolume(value, false);
+        return generation === null || generation === fadeGeneration;
+    }
+    async function finishFade(direction, generation, targetVolume) {
+        try {
+            const settled = await settleVolume(targetVolume, generation);
+            if (!settled || generation !== fadeGeneration) return;
+            if (direction === "out") {
+                await api("transport", {command: "pause"});
+                if (generation !== fadeGeneration) return;
+                state.playing = false;
+            }
+            fadeMode = "";
+            drawVolume();
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            await refresh();
+        } catch (error) {
+            if (generation === fadeGeneration) {stopFade(); banner(error.message);}
+        }
+    }
     async function startFade(direction) {
         if (!state.target_available || busy) return;
         stopFade();
         const generation = fadeGeneration;
-        const from = Math.min(100, Math.max(0, Number(state.volume) || 0));
+        let from = Math.min(100, Math.max(0, Number(state.volume) || 0));
         let to;
         if (direction === "out") {
-            if (from === 0) return;
             fadeMode = "out"; drawVolume();
-            try {
-                const remembered = await api("remember_fade_volume", {value: String(from)});
-                if (generation !== fadeGeneration) return;
-                state.restore_volume = remembered;
-            } catch (error) {
-                if (generation === fadeGeneration) {stopFade(); banner(error.message);}
-                return;
+            if (from > 0) {
+                try {
+                    const remembered = await api("remember_fade_volume", {value: String(from)});
+                    if (generation !== fadeGeneration) return;
+                    state.restore_volume = remembered;
+                } catch (error) {
+                    if (generation === fadeGeneration) {stopFade(); banner(error.message);}
+                    return;
+                }
             }
             to = 0;
+            if (from === 0) {
+                void finishFade("out", generation, 0);
+                return;
+            }
         } else {
             to = Number(state.restore_volume) || 0;
             if (!to) {
                 banner("Keine vorherige Lautstärke gespeichert. Erst mit +/- einstellen und Fade Out verwenden.");
                 return;
             }
-            if (from === to) return;
             fadeMode = "in"; drawVolume();
+            try {
+                // Always resume silently first, then bring the playlist up over 4 seconds.
+                const settled = await settleVolume(0, generation);
+                if (!settled || generation !== fadeGeneration) return;
+                await api("transport", {command: "play"});
+                if (generation !== fadeGeneration) return;
+                state.playing = true;
+                state.target_active = true;
+                from = 0;
+            } catch (error) {
+                if (generation === fadeGeneration) {stopFade(); banner(error.message);}
+                return;
+            }
         }
         const started = Date.now();
         nextFadeSendAt = started;
         const tick = () => {
             if (generation !== fadeGeneration) return;
-            const elapsed = Math.min(3000, Math.max(0, Date.now() - started));
-            const value = Math.round(from + (to - from) * elapsed / 3000);
-            const send = elapsed === 3000 || Date.now() >= nextFadeSendAt;
-            setLocalVolume(value, send, elapsed === 3000);
+            const elapsed = Math.min(FADE_DURATION_MS, Math.max(0, Date.now() - started));
+            const value = Math.round(from + (to - from) * elapsed / FADE_DURATION_MS);
+            const finished = elapsed === FADE_DURATION_MS;
+            const send = !finished && Date.now() >= nextFadeSendAt;
+            setLocalVolume(value, send, false);
             if (send) nextFadeSendAt = Date.now() + 350;
-            if (elapsed === 3000) {
+            if (finished) {
                 if (fadeTimer) clearInterval(fadeTimer);
                 fadeTimer = null;
-                fadeMode = "";
-                drawVolume();
+                void finishFade(direction, generation, to);
             }
         };
         tick();

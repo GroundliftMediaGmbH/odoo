@@ -16,6 +16,7 @@ export class GroundliftMusic extends Component {
             active_device: "", target_active: false, playing: false, track: "", artist: "",
             image: "", track_url: "", volume: 40, volumeInput: 40, restore_volume: 0, fadeMode: "", shuffle: false,
             repeat: "off", progress_ms: 0, duration_ms: 0, progressInput: 0,
+            context_uri: "", context_type: "", context_name: "", context_url: "",
             playlists: [], owned: [], devices: [], showOwned: false, showDevices: false,
             playlistName: "", playlistUrl: "", embedUrl: "", currentUrl: "",
             searchQuery: "", searchedQuery: "", searchItems: [], searchNext: null,
@@ -27,6 +28,7 @@ export class GroundliftMusic extends Component {
         this.seekDragging = false;
         this.fadeTimer = null;
         this.fadeGeneration = 0;
+        this.fadeDurationMs = 4000;
         this.nextFadeSendAt = 0;
         this.volumeTimer = null;
         this.volumeInFlight = false;
@@ -99,6 +101,11 @@ export class GroundliftMusic extends Component {
                 this.state.volumeInput = this.state.volume ?? 0;
             }
             this.state.progressInput = this.seekDragging ? draggedPosition : (this.state.progress_ms || 0);
+            const contextMatch = (this.state.context_uri || "").match(/^spotify:playlist:([A-Za-z0-9]{22})$/);
+            if (contextMatch) {
+                this.state.currentUrl = `https://open.spotify.com/playlist/${contextMatch[1]}`;
+                this.state.embedUrl = `https://open.spotify.com/embed/playlist/${contextMatch[1]}?utm_source=generator`;
+            }
             this.progressAnchorAt = Date.now();
             this.progressAnchorValue = this.state.progress_ms || 0;
         } catch (error) {
@@ -146,19 +153,85 @@ export class GroundliftMusic extends Component {
         this.stopFade();
         this.setLocalVolume(this.state.volumeInput + delta, true, true);
     }
+    async settleVolume(value, generation = null) {
+        if (generation !== null && generation !== this.fadeGeneration) return false;
+        if (this.volumeTimer) clearTimeout(this.volumeTimer);
+        this.volumeTimer = null;
+        this.volumeWanted = null;
+        // Do not let an older queued request arrive after our definitive end value.
+        while (this.volumeInFlight && !this.disposed) {
+            await this.delay(40);
+            if (generation !== null && generation !== this.fadeGeneration) return false;
+        }
+        if (this.disposed || (generation !== null && generation !== this.fadeGeneration)) return false;
+        await this.orm.call("gl.music.player", "transport", ["volume", value]);
+        this.lastVolumeSent = value;
+        this.lastVolumeSentAt = Date.now();
+        this.volumeLocalUntil = Date.now() + 2500;
+        this.setLocalVolume(value, false);
+        return generation === null || generation === this.fadeGeneration;
+    }
+    async finishFade(direction, generation, targetVolume) {
+        try {
+            const settled = await this.settleVolume(targetVolume, generation);
+            if (!settled || generation !== this.fadeGeneration || this.disposed) return;
+            if (direction === "out") {
+                await this.orm.call("gl.music.player", "transport", ["pause", null]);
+                if (generation !== this.fadeGeneration || this.disposed) return;
+                this.state.playing = false;
+            }
+            this.state.fadeMode = "";
+            await this.delay(300);
+            await this.refresh(false);
+        } catch (error) {
+            if (generation === this.fadeGeneration && !this.disposed) {
+                this.stopFade();
+                this.alert(error);
+            }
+        }
+    }
     async startFade(direction) {
         if (!this.state.target_available || this.state.busy) return;
         this.stopFade();
         const generation = this.fadeGeneration;
-        const from = Math.min(100, Math.max(0, Number(this.state.volumeInput) || 0));
+        let from = Math.min(100, Math.max(0, Number(this.state.volumeInput) || 0));
         let to;
         if (direction === "out") {
-            if (from === 0) return;
             this.state.fadeMode = "out";
+            if (from > 0) {
+                try {
+                    const remembered = await this.orm.call("gl.music.player", "remember_fade_volume", [from]);
+                    if (generation !== this.fadeGeneration || this.disposed) return;
+                    this.state.restore_volume = remembered;
+                } catch (error) {
+                    if (generation === this.fadeGeneration) {
+                        this.stopFade();
+                        this.alert(error);
+                    }
+                    return;
+                }
+            }
+            to = 0;
+            if (from === 0) {
+                void this.finishFade("out", generation, 0);
+                return;
+            }
+        } else {
+            to = Number(this.state.restore_volume) || 0;
+            if (!to) {
+                this.notification.add("Keine vorherige Lautstärke gespeichert. Erst Lautstärke mit +/- einstellen und Fade Out verwenden.", {type: "warning"});
+                return;
+            }
+            this.state.fadeMode = "in";
             try {
-                const remembered = await this.orm.call("gl.music.player", "remember_fade_volume", [from]);
+                // Start silently, resume the current Spotify context, then fade up.
+                const settled = await this.settleVolume(0, generation);
+                if (!settled || generation !== this.fadeGeneration || this.disposed) return;
+                await this.orm.call("gl.music.player", "transport", ["play", null]);
                 if (generation !== this.fadeGeneration || this.disposed) return;
-                this.state.restore_volume = remembered;
+                this.state.playing = true;
+                this.state.target_active = true;
+                from = 0;
             } catch (error) {
                 if (generation === this.fadeGeneration) {
                     this.stopFade();
@@ -166,30 +239,22 @@ export class GroundliftMusic extends Component {
                 }
                 return;
             }
-            to = 0;
-        } else {
-            to = Number(this.state.restore_volume) || 0;
-            if (!to) {
-                this.notification.add("Keine vorherige Lautstärke gespeichert. Erst Lautstärke mit +/- einstellen und Fade Out verwenden.", {type: "warning"});
-                return;
-            }
-            if (from === to) return;
-            this.state.fadeMode = "in";
         }
         const started = Date.now();
         this.nextFadeSendAt = started;
         const tick = () => {
             if (generation !== this.fadeGeneration || this.disposed) return;
-            const elapsed = Math.min(3000, Math.max(0, Date.now() - started));
+            const elapsed = Math.min(this.fadeDurationMs, Math.max(0, Date.now() - started));
             // Time-based ramp: slow network responses skip obsolete steps, not the end value.
-            const value = Math.round(from + (to - from) * elapsed / 3000);
-            const send = elapsed === 3000 || Date.now() >= this.nextFadeSendAt;
-            this.setLocalVolume(value, send, elapsed === 3000);
+            const value = Math.round(from + (to - from) * elapsed / this.fadeDurationMs);
+            const finished = elapsed === this.fadeDurationMs;
+            const send = !finished && Date.now() >= this.nextFadeSendAt;
+            this.setLocalVolume(value, send, false);
             if (send) this.nextFadeSendAt = Date.now() + 350;
-            if (elapsed === 3000) {
+            if (finished) {
                 if (this.fadeTimer) clearInterval(this.fadeTimer);
                 this.fadeTimer = null;
-                this.state.fadeMode = "";
+                void this.finishFade(direction, generation, to);
             }
         };
         tick();

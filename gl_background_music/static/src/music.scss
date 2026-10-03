@@ -70,3 +70,8 @@
 .gl-music-root .gl-fade-out{background:#604137;color:#fff0d9;}
 .gl-fade-hint{font-size:12px;line-height:1.5;}
 @media(max-width:440px){.gl-fade-buttons{grid-template-columns:1fr}}
+
+/* 1.0.6: always-visible live Spotify context */
+.gl-current-context{margin-top:10px;padding:8px 10px;border-radius:8px;background:#151c25;border:1px solid #334150;color:#b8c5d2;font-size:13px;line-height:1.4;}
+.gl-current-context strong{color:#eef7f3;}
+.gl-current-context a{display:inline;color:#72e7c2;margin:0;text-decoration:none;}

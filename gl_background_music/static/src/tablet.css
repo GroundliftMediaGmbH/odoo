@@ -15,3 +15,6 @@
 #fade-out{color:#fff0dd;background:#604237}
 .volume-hint{font-size:12px;margin:0;line-height:1.5}
 @media(max-width:440px){.fade-buttons{grid-template-columns:1fr}}
+
+/* 1.0.6: always-visible live Spotify context */
+.current-context{margin:10px 0 0 !important;padding:8px 10px;border:1px solid #3a4a5a;border-radius:8px;background:#17202a;color:#d5e1ec !important;font-size:13px;line-height:1.45;}
