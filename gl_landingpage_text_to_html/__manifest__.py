@@ -1,7 +1,7 @@
 {
     'name': 'Landingpage Text_to_HTML',
-    'version': '19.0.1.3.0',
-    'summary': 'Editable HTML event landing page with reliable event HTML website synchronization',
+    'version': '19.0.1.4.0',
+    'summary': 'Groundlift event text mirrored to editable HTML; website renders HTML only',
     'category': 'Website/Website',
     'author': 'Groundlift',
     'license': 'LGPL-3',

@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Odoo 19 renders /event/<slug>/register through
-         website_event.event_description_full.  Keep this inheritance deliberately
-         late so theme/website customizations do not switch the page back to the
-         native field after our module has selected the Groundlift HTML field. -->
+    <!--
+        Groundlift v1.4: the public Odoo event page renders ONLY the dedicated
+        Landingpage HTML field.  There is deliberately no fallback to
+        event.description and no rendering of the original plain-text field.
+
+        Odoo 19's standard /event/.../register page contains:
+            <div class="mt-4" t-field="event.description" itemprop="description"/>
+        in website_event.event_description_full.
+    -->
     <template id="gl_landingpage_event_description_html"
-              name="Landingpage HTML event description"
+              name="Groundlift event page: HTML description only"
               inherit_id="website_event.event_description_full"
-              priority="1000">
-        <xpath expr="//div[@id='o_wevent_event_main_col']/div[@t-field='event.description' and @itemprop='description']"
+              priority="90">
+        <xpath expr="//div[@id='o_wevent_event_main_col']/div[@t-field='event.description']"
                position="replace">
-            <div t-if="event.gl_landingpage_html"
-                 class="mt-4 gl_landingpage_html"
+            <div class="mt-4 gl_landingpage_html"
                  t-field="event.gl_landingpage_html"
                  itemprop="description"
                  data-oe-placeholder="Eventbeschreibung bearbeiten ..."/>
-            <div t-else=""
-                 class="mt-4"
-                 t-field="event.description"
-                 itemprop="description"/>
         </xpath>
     </template>
 </odoo>
