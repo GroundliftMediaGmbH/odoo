@@ -1,64 +1,89 @@
-from markupsafe import Markup
-
 from odoo import api, fields, models
+
+
+_SYNC_CONTEXT_KEY = "gl_event_html_description_skip_sync"
 
 
 class EventEvent(models.Model):
     _inherit = "event.event"
 
     gl_html_description_code = fields.Text(
-        string="Website-Beschreibung (HTML)",
+        string="Website-Beschreibung (HTML-Code)",
         translate=True,
         copy=True,
         help=(
-            "HTML source rendered on the public event page instead of Odoo's "
-            "standard event description."
+            "HTML source for the public event description. The value is kept "
+            "synchronized with Odoo's standard event description so the normal "
+            "Odoo website template renders it without a custom QWeb override."
         ),
-    )
-    gl_html_description_initialized = fields.Boolean(
-        string="HTML-Beschreibung initialisiert",
-        default=False,
-        copy=True,
     )
 
     @api.model_create_multi
     def create(self, vals_list):
-        events = super().create(vals_list)
+        prepared_vals_list = []
+        sync_after_create = []
 
-        # A newly-created event receives the HTML source that Odoo has already
-        # produced for its standard description (including template/onchange
-        # content). If the caller explicitly supplied our field, keep it.
-        for event, vals in zip(events, vals_list):
-            if "gl_html_description_code" in vals:
-                if not event.gl_html_description_initialized:
-                    event.gl_html_description_initialized = True
-                continue
+        for incoming_vals in vals_list:
+            vals = dict(incoming_vals)
+            has_code = "gl_html_description_code" in vals
+            has_description = "description" in vals
 
-            event.write({
-                "gl_html_description_code": event.description or "",
-                "gl_html_description_initialized": True,
-            })
+            if has_code:
+                # The dedicated HTML source is authoritative when both values
+                # are supplied in the same create call.
+                vals["description"] = vals.get("gl_html_description_code") or ""
+            elif has_description:
+                vals["gl_html_description_code"] = vals.get("description") or ""
+
+            prepared_vals_list.append(vals)
+            sync_after_create.append(not has_code and not has_description)
+
+        events = super().create(prepared_vals_list)
+
+        # Some event creation flows can populate the standard description by
+        # defaults/templates only after the create values were prepared. Copy
+        # that final value into our source field once the record exists.
+        for event, needs_sync in zip(events, sync_after_create):
+            if needs_sync:
+                event._gl_write_code_without_sync(event.description or "")
+            else:
+                event._gl_resync_code_from_rendered_description()
 
         return events
 
     def write(self, vals):
-        # Explicitly editing the HTML source makes it authoritative, including
-        # when the user intentionally saves an empty value.
-        if "gl_html_description_code" in vals and "gl_html_description_initialized" not in vals:
-            vals = dict(vals, gl_html_description_initialized=True)
-        return super().write(vals)
+        if self.env.context.get(_SYNC_CONTEXT_KEY):
+            return super().write(vals)
 
-    def _gl_get_public_description_html(self):
-        """Return trusted HTML for the website event description.
+        vals = dict(vals)
+        has_code = "gl_html_description_code" in vals
+        has_description = "description" in vals
 
-        Before initialization (e.g. while installing/upgrading), gracefully
-        fall back to Odoo's native description. Once initialized, even an empty
-        HTML source is intentional and must remain empty.
-        """
+        if has_code:
+            # HTML source wins if a caller writes both fields at once.
+            vals["description"] = vals.get("gl_html_description_code") or ""
+        elif has_description:
+            # Keep edits made through Odoo's website editor/imports in sync too.
+            vals["gl_html_description_code"] = vals.get("description") or ""
+
+        result = super().write(vals)
+
+        # Odoo's Html field may sanitize the value written to `description`.
+        # Store that final value back in the code field so the backend always
+        # shows exactly what the public website will render.
+        if has_code or has_description:
+            self._gl_resync_code_from_rendered_description()
+
+        return result
+
+    def _gl_write_code_without_sync(self, value):
         self.ensure_one()
-        source = (
-            self.gl_html_description_code
-            if self.gl_html_description_initialized
-            else (self.description or "")
-        )
-        return Markup(source or "")
+        return super(EventEvent, self.with_context(**{_SYNC_CONTEXT_KEY: True})).write({
+            "gl_html_description_code": value or "",
+        })
+
+    def _gl_resync_code_from_rendered_description(self):
+        for event in self:
+            rendered_value = event.description or ""
+            if (event.gl_html_description_code or "") != rendered_value:
+                event._gl_write_code_without_sync(rendered_value)

@@ -7,10 +7,10 @@
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
                 <page string="Website HTML" name="gl_event_website_html">
-                    <field name="gl_html_description_initialized" invisible="1"/>
                     <div class="alert alert-info mb-3" role="alert">
-                        Dieser HTML-Code ist die Beschreibung, die auf der öffentlichen Veranstaltungsseite ausgegeben wird.
-                        Die ursprüngliche Odoo-Beschreibung bleibt gespeichert, wird dort aber nicht mehr dargestellt.
+                        Dieser HTML-Code ist die öffentliche Veranstaltungsbeschreibung.
+                        Beim Speichern wird er mit Odoos Standard-Beschreibungsfeld synchronisiert;
+                        dadurch verwendet die Website automatisch genau diesen Inhalt.
                     </div>
                     <field
                         name="gl_html_description_code"

@@ -1,24 +1,20 @@
-# Groundlift Event HTML Description (Odoo 19)
+# Groundlift Event HTML Description – Odoo 19
 
-Small, isolated Odoo 19 module for `website_event`.
+Dieses Modul fügt im Veranstaltungs-Backend den Tab **Website HTML** hinzu.
 
-## What it does
+## Funktionsweise
 
-- Adds a backend tab **Website HTML** to every event.
-- On first installation, copies the existing Odoo event description into the new HTML source field for all existing events and active languages.
-- New events initialize the field from Odoo's standard event description on creation.
-- The public event page renders the new HTML source instead of `event.description`.
-- The original Odoo description is not deleted or overwritten.
+- Bestehende Veranstaltungsbeschreibungen werden bei der Installation in das HTML-Codefeld übernommen.
+- Änderungen im Tab **Website HTML** werden direkt mit Odoos Standardfeld `event.event.description` synchronisiert.
+- Die öffentliche Eventseite bleibt vollständig bei Odoos Standard-QWeb-Template und zeigt dadurch den gespeicherten HTML-Inhalt an.
+- Änderungen, die über Odoos Website-Editor oder andere Standardwege am Feld `description` vorgenommen werden, werden zurück in das HTML-Codefeld gespiegelt.
+- Es gibt bewusst **keine** Vererbung von `website_event.event_description_full`. Damit hängt das Modul nicht von der konkreten HTML-Struktur der Odoo-19-Websitevorlage ab.
 
-## Installation on Odoo.sh
+## Installation
 
-1. Copy the folder `gl_event_html_description` into your custom addons repository.
-2. Commit and push to the desired Odoo.sh branch.
-3. Update the Apps list if needed.
-4. Install **Groundlift Event HTML Description**.
-5. Open an event and use the new **Website HTML** tab.
+1. Ordner `gl_event_html_description` in das Custom-Addons-Repository legen.
+2. In Odoo die App-Liste aktualisieren.
+3. **Groundlift Event HTML Description** installieren.
+4. Veranstaltung öffnen → Tab **Website HTML**.
 
-## Technical scope
-
-Dependencies: only `website_event` and its standard dependencies.
-No dependency on any Groundlift custom module.
+Version: `19.0.1.1.0`
