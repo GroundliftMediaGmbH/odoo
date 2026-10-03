@@ -1,20 +1,25 @@
 # Groundlift Event HTML Description – Odoo 19
 
-Dieses Modul fügt im Veranstaltungs-Backend den Tab **Website HTML** hinzu.
+Version: **19.0.1.2.0**
 
-## Funktionsweise
+## Zweck
 
-- Bestehende Veranstaltungsbeschreibungen werden bei der Installation in das HTML-Codefeld übernommen.
-- Änderungen im Tab **Website HTML** werden direkt mit Odoos Standardfeld `event.event.description` synchronisiert.
-- Die öffentliche Eventseite bleibt vollständig bei Odoos Standard-QWeb-Template und zeigt dadurch den gespeicherten HTML-Inhalt an.
-- Änderungen, die über Odoos Website-Editor oder andere Standardwege am Feld `description` vorgenommen werden, werden zurück in das HTML-Codefeld gespiegelt.
-- Es gibt bewusst **keine** Vererbung von `website_event.event_description_full`. Damit hängt das Modul nicht von der konkreten HTML-Struktur der Odoo-19-Websitevorlage ab.
+Das Modul ergänzt im Veranstaltungs-Backend einen Tab **Website HTML**.
 
-## Installation
+Wichtig: Es wird **kein zweites Beschreibungsfeld** angelegt. Der Tab zeigt direkt Odoos natives Feld
+`event.event.description` mit dem Odoo-Code-Editor an.
 
-1. Ordner `gl_event_html_description` in das Custom-Addons-Repository legen.
-2. In Odoo die App-Liste aktualisieren.
-3. **Groundlift Event HTML Description** installieren.
-4. Veranstaltung öffnen → Tab **Website HTML**.
+Damit gilt automatisch:
 
-Version: `19.0.1.1.0`
+- Die normale „Event Beschreibung“ und der HTML-Tab sind zwei Ansichten desselben Datenfeldes.
+- Bereits vorhandene Veranstaltungsbeschreibungen erscheinen sofort als HTML-Quellcode im neuen Tab.
+- Änderungen im HTML-Tab ändern direkt die originale Odoo-Veranstaltungsbeschreibung.
+- Die Standard-Eventseite verwendet weiterhin Odoos normalen Rendering-Weg und zeigt genau diesen Inhalt.
+- Es gibt keinen QWeb/XPath-Eingriff in die Website-Eventseite.
+- Es gibt keine Synchronisationslogik und keine Installations-/Migrationshooks.
+
+## Update von 19.0.1.1.0
+
+Den vorhandenen Modulordner `gl_event_html_description` vollständig durch diese Version ersetzen und die App in Odoo aktualisieren.
+Die früheren Python-Dateien sind in dieser ZIP absichtlich als leere Dateien enthalten, damit auch bei einem reinen Überschreiben
+keine alte Synchronisationslogik weiter importiert wird.

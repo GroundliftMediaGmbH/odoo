@@ -1,7 +1,7 @@
 {
     "name": "Groundlift Event HTML Description",
-    "version": "19.0.1.1.0",
-    "summary": "Edit the public event description as HTML source code in the backend",
+    "version": "19.0.1.2.0",
+    "summary": "Edit Odoo's native event description directly as HTML source code",
     "category": "Marketing/Events",
     "author": "Groundlift",
     "license": "LGPL-3",
@@ -11,7 +11,6 @@
     "data": [
         "views/event_event_views.xml",
     ],
-    "post_init_hook": "post_init_hook",
     "installable": True,
     "application": True,
     "auto_install": False,

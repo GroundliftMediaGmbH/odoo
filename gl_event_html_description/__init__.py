@@ -1,2 +1,2 @@
-from . import models
-from .hooks import post_init_hook
+# No Python model extension is required.
+# The module intentionally edits Odoo's native event.event.description field directly.

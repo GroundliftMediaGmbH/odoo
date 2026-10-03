@@ -8,17 +8,16 @@
             <xpath expr="//notebook" position="inside">
                 <page string="Website HTML" name="gl_event_website_html">
                     <div class="alert alert-info mb-3" role="alert">
-                        Dieser HTML-Code ist die öffentliche Veranstaltungsbeschreibung.
-                        Beim Speichern wird er mit Odoos Standard-Beschreibungsfeld synchronisiert;
-                        dadurch verwendet die Website automatisch genau diesen Inhalt.
+                        Hier wird direkt Odoos originale Veranstaltungsbeschreibung als HTML-Quellcode bearbeitet.
+                        Es gibt kein zweites Beschreibungsfeld und keine Synchronisation: Der Inhalt hier ist
+                        derselbe Inhalt wie bei „Event Beschreibung“ und wird von der Odoo-Website verwendet.
                     </div>
                     <field
-                        name="gl_html_description_code"
+                        name="description"
                         string="HTML-Code"
                         widget="code"
                         options="{'mode': 'xml'}"
                         nolabel="1"
-                        placeholder="&lt;p&gt;Beschreibung der Veranstaltung&lt;/p&gt;"
                     />
                 </page>
             </xpath>
