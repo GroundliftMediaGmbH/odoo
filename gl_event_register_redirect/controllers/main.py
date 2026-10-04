@@ -7,7 +7,7 @@ SOURCE_ROUTES = [
     "/event/susanne-kirchland-band-celebration-concert-94/register/",
 ]
 
-TARGET_URL = "https://groundlift.odoo.com/odoo/events/94/website"
+TARGET_URL = "https://groundlift.odoo.com/event/susanne-kirchland-band-celebration-concert-94/register"
 
 
 class GroundliftEventRegisterRedirect(http.Controller):

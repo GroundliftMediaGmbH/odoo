@@ -8,7 +8,7 @@ Odoo 19 SH addon for one targeted redirect.
 
 ## Target
 
-`https://groundlift.odoo.com/odoo/events/94/website`
+`https://groundlift.odoo.com/event/susanne-kirchland-band-celebration-concert-94/register`
 
 The addon uses HTTP status **302** intentionally, which is safer for staging/testing because browsers and proxies should not treat the mapping as permanent.
 
