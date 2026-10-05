@@ -3,6 +3,7 @@
 import { rpc } from "@web/core/network/rpc";
 
 const STORAGE_KEY = "gl_meta_pixel_seen_events";
+const ATTRIBUTION_KEY = "gl_meta_pixel_attribution";
 let bootPromise = null;
 let paymentGuardInstalled = false;
 
@@ -12,6 +13,13 @@ function readStore() {
 }
 function writeStore(data) {
     try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
+}
+function readAttributionStore() {
+    try { return JSON.parse(sessionStorage.getItem(ATTRIBUTION_KEY) || "{}"); }
+    catch { return {}; }
+}
+function writeAttributionStore(data) {
+    try { sessionStorage.setItem(ATTRIBUTION_KEY, JSON.stringify(data)); } catch {}
 }
 function uid(prefix, eventId) {
     return `${prefix}_${eventId}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
@@ -24,15 +32,49 @@ function cookie(name) {
     }
     return null;
 }
-function browserContext() {
+function safeParam(url, name) {
+    const value = url.searchParams.get(name);
+    if (!value) return null;
+    return value.slice(0, 1024);
+}
+function captureAttribution() {
     const url = new URL(window.location.href);
-    const fbclid = url.searchParams.get("fbclid");
-    let fbc = cookie("_fbc");
-    if (!fbc && fbclid) fbc = `fb.1.${Date.now()}.${fbclid}`;
+    const stored = readAttributionStore();
+
+    // gl_* values are intentionally bridged from groundlift.de to the Odoo
+    // checkout because _fbp/_fbc are first-party cookies and cannot cross domains.
+    const bridgedFbp = safeParam(url, "gl_fbp");
+    const bridgedFbc = safeParam(url, "gl_fbc");
+    const bridgedFbclid = safeParam(url, "gl_fbclid");
+    const directFbclid = safeParam(url, "fbclid");
+
+    const data = {
+        fbp: cookie("_fbp") || bridgedFbp || stored.fbp || null,
+        fbc: cookie("_fbc") || bridgedFbc || stored.fbc || null,
+        fbclid: directFbclid || bridgedFbclid || stored.fbclid || null,
+    };
+    if (!data.fbc && data.fbclid) {
+        data.fbc = `fb.1.${Date.now()}.${data.fbclid}`;
+    }
+    if (data.fbp || data.fbc || data.fbclid) writeAttributionStore(data);
+
+    // Keep tracking bridge parameters out of canonical/source URLs once captured.
+    let changed = false;
+    for (const key of ["gl_fbp", "gl_fbc", "gl_fbclid"]) {
+        if (url.searchParams.has(key)) {
+            url.searchParams.delete(key);
+            changed = true;
+        }
+    }
+    if (changed) window.history.replaceState({}, "", url.toString());
+    return data;
+}
+function browserContext() {
+    const attribution = captureAttribution();
     return {
-        fbp: cookie("_fbp"),
-        fbc,
-        fbclid,
+        fbp: attribution.fbp,
+        fbc: attribution.fbc,
+        fbclid: attribution.fbclid,
         page_url: window.location.href,
     };
 }
@@ -97,7 +139,7 @@ async function onEventPage() {
     if (!ctx.consent) return true;
     const pageKey = `eventpage:${eventId}:${window.location.pathname}`;
     if (store[pageKey]) return true;
-    // Groundlift funnel: the public-events.php overview owns PageView. The Odoo
+    // Groundlift funnel: public-events.php owns the overview PageView. The Odoo
     // event detail page therefore emits ViewContent only, never an extra PageView.
     if (ctx.events?.ViewContent) await sendBrowserEvent(ctx, "ViewContent");
     store[pageKey] = true;
@@ -113,8 +155,6 @@ async function onCommercePage() {
     const store = readStore();
     for (const ctx of contexts) {
         if (isGroundliftCheckout) {
-            // Successful add-to-cart is represented by arriving at our checkout
-            // after the server accepted the ticket quantities.
             const addKey = `addtocart:${ctx.event_id}:${ctx.order_id}`;
             if (!store[addKey] && ctx.events?.AddToCart) {
                 await sendBrowserEvent(ctx, "AddToCart", ctx.value, ctx.currency);
@@ -122,8 +162,6 @@ async function onCommercePage() {
             }
             continue;
         }
-        // Preserve legacy Odoo behaviour for other checkout entry points / older
-        // custom pixel setups. Groundlift's new flow does not need InitiateCheckout.
         const onceKey = `${path}:${ctx.event_id}:${ctx.order_id || "no_order"}`;
         if (store[onceKey]) continue;
         if (path.startsWith("/shop/cart") && ctx.events?.AddToCart) {
@@ -157,8 +195,6 @@ function installPaymentGuard() {
         ev.preventDefault();
         ev.stopImmediatePropagation();
         try {
-            // Save/validate the Groundlift customer form first.  This endpoint also
-            // writes exact first/last name to the sale order for CAPI matching.
             if (window.glGroundliftSaveCustomer) {
                 const ok = await window.glGroundliftSaveCustomer();
                 if (!ok) return;
@@ -198,6 +234,9 @@ async function boot() {
     if (bootPromise) return bootPromise;
     bootPromise = (async () => {
         try {
+            // Capture cross-domain attribution as early as possible, even on the
+            // Odoo event detail page before the visitor reaches checkout.
+            captureAttribution();
             await onEventPage();
             await onCommercePage();
             installPaymentGuard();

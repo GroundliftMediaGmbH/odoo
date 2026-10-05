@@ -36,6 +36,7 @@
                 <field name="sale_order_id" optional="show"/>
                 <field name="config_id" optional="hide"/>
                 <field name="response_code" optional="hide"/>
+                <field name="sent_user_fields" optional="hide"/>
             </list>
         </field>
     </record>
@@ -63,7 +64,12 @@
                             <field name="response_code"/>
                         </group>
                     </group>
-                    <group><field name="page_url"/><field name="response_message"/></group>
+                    <group>
+                        <field name="page_url"/>
+                        <field name="sent_event_fields"/>
+                        <field name="sent_user_fields"/>
+                        <field name="response_message"/>
+                    </group>
                 </sheet>
             </form>
         </field>
