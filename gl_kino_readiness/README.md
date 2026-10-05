@@ -17,6 +17,7 @@ Native Odoo-App für das Kinoprogramm und die Spielbereitschaft des Kino Alte Br
 - Button „Fehlende KDM an Dispo“ sendet alle fehlenden KDMs an die konfigurierte Dispo-Mailadresse.
 - Button „Fehlende DCP an Dispo“ sendet alle fehlenden DCPs an die konfigurierte Dispo-Mailadresse.
 - Dispo-Mailadresse ist in den App-Einstellungen änderbar. Standard: `dispo@neokinos.de`.
+- Absender-/Antwortadresse für KDM/DCP ist separat einstellbar. Ohne explizite Einstellung nutzt die App Firmenadresse, danach Benutzeradresse; Catchall-/Bounce-Adressen werden ausgeschlossen.
 - Automatischer Scheduler:
   - Montag 17:00 Uhr: aktuelles Kinoprogramm laden.
   - Dienstag 18:00 Uhr: definierter Mitarbeiter wird erinnert, falls nicht alles abgehakt ist.
@@ -54,3 +55,10 @@ Native Odoo-App für das Kinoprogramm und die Spielbereitschaft des Kino Alte Br
 - Beim Speichern werden OK-Änderungen sicher in die beiden gespeicherten Haken
   übersetzt, auch wenn der Odoo-One2many-Editor den Inverse-Pfad nicht nutzt.
 - Die vorhandene Synchronisierung für Film, Version, Saal und Spielwoche bleibt erhalten.
+
+## Version 19.0.1.1.2
+
+- Fix für KDM-/DCP-Mails: `email_from` und `reply_to` werden jetzt explizit gesetzt.
+- Keine unbeabsichtigte Verwendung von Odoo `catchall@...` mehr als Antwortadresse.
+- Neue Kino-Einstellung **Absender-/Antwortadresse für KDM/DCP**.
+- Fallback: Firmenadresse → Benutzeradresse. Wenn keine antwortfähige Adresse vorhanden ist, wird der Versand mit einer verständlichen Fehlermeldung abgebrochen.

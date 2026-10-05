@@ -19,6 +19,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
+from email.utils import formataddr, parseaddr
 from zoneinfo import ZoneInfo
 
 from odoo import _, api, fields, models
@@ -270,12 +271,51 @@ class GlKinoWeek(models.Model):
             names.add(line.display_film_name)
         return sorted(names, key=lambda txt: txt.casefold())
 
+    def _get_outgoing_reply_email(self) -> str:
+        """Return a real reply address and never silently fall back to Odoo catchall.
+
+        Priority:
+        1. Explicit address from Kino settings
+        2. Company e-mail
+        3. Current user's e-mail
+
+        Catchall/bounce style addresses are deliberately rejected because recipients
+        must be able to reply to KDM/DCP requests.
+        """
+        self.ensure_one()
+        param = self.env["ir.config_parameter"].sudo()
+        configured = (param.get_param("gl_kino_readiness.sender_reply_email") or "").strip()
+
+        candidates = [
+            configured,
+            (self.env.company.email or "").strip(),
+            (self.env.user.email or "").strip(),
+        ]
+        for candidate in candidates:
+            _display_name, address = parseaddr(candidate)
+            address = (address or candidate).strip()
+            if not address or "@" not in address:
+                continue
+            local_part = address.split("@", 1)[0].casefold()
+            if local_part in {"catchall", "bounce", "mailer-daemon", "postmaster"}:
+                continue
+            return address
+
+        raise UserError(
+            _(
+                "Für KDM/DCP-Mails ist keine antwortfähige Absenderadresse hinterlegt. "
+                "Bitte in den Kino-Einstellungen eine Absender-/Antwortadresse eintragen."
+            )
+        )
+
     def _send_missing_mail(self, kind: str):
         self.ensure_one()
         param = self.env["ir.config_parameter"].sudo()
         dispo_email = (param.get_param("gl_kino_readiness.dispo_email") or DEFAULT_DISPO_EMAIL).strip()
         if not dispo_email:
             raise UserError(_("Bitte zuerst eine Dispo-Mailadresse in den Kino-Einstellungen hinterlegen."))
+
+        reply_email = self._get_outgoing_reply_email()
 
         missing = self._missing_film_names(kind)
         if not missing:
@@ -300,10 +340,13 @@ class GlKinoWeek(models.Model):
         )
         body_html = "<pre style='font-family:Arial,sans-serif;white-space:pre-wrap'>%s</pre>" % self._html_escape(body_text)
 
+        sender_name = self.env.company.name or _("Kino Alte Brauerei Stegen")
         mail = self.env["mail.mail"].sudo().create(
             {
                 "subject": subject,
                 "email_to": dispo_email,
+                "email_from": formataddr((sender_name, reply_email)),
+                "reply_to": reply_email,
                 "body_html": body_html,
                 "auto_delete": False,
             }
