@@ -439,11 +439,65 @@ class CleverReachNewsletterConfig(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        # This module is intentionally a singleton configuration. 19.0.1.5.0
+        # could accidentally create another persisted config every time a menu
+        # was opened while the real config was inactive. Never allow that class
+        # of duplication again. Internal first-install creation explicitly opts in.
+        if not self.env.context.get("gl_cr_allow_duplicate_config"):
+            existing = self.sudo().with_context(active_test=False).search([], limit=1)
+            if existing:
+                raise ValidationError(_(
+                    "Es gibt bereits eine Groundlift-CleverReach-Konfiguration. "
+                    "Bitte die vorhandene Konfiguration verwenden; eine zweite Konfiguration würde doppelte Newsletter-Termine erzeugen."
+                ))
         records = super().create(vals_list)
         for rec in records:
             rec._ensure_schedule_defaults()
             rec.init_default_template()
         return records
+
+    @api.model
+    def _canonical_config(self, create_if_missing=False):
+        """Return the one configuration the app is allowed to operate on.
+
+        Older versions could create many inactive, mostly empty configuration
+        records. We deliberately choose the record containing the real API/list
+        setup instead of blindly taking the newest/oldest row. All automatic
+        planners and send crons use only this canonical record.
+        """
+        Config = self.sudo().with_context(active_test=False)
+        configs = Config.search([], order="id asc")
+        if not configs:
+            if not create_if_missing:
+                return Config.browse([])
+            return Config.with_context(gl_cr_allow_duplicate_config=True).create({})
+
+        Job = self.env["gl.cleverreach.newsletter.job"].sudo()
+
+        def score(rec):
+            points = 0
+            # Credentials and imported recipient lists are the strongest signs
+            # that this is the original production configuration.
+            for field_name, weight in (
+                ("oauth_refresh_token", 120),
+                ("client_id", 80),
+                ("client_secret", 80),
+                ("access_token", 50),
+                ("recipient_group_id", 35),
+                ("biweekly_recipient_group_id", 15),
+                ("weekly_recipient_group_id", 15),
+                ("spontaneous_recipient_group_id", 15),
+                ("newsletter_template_id", 5),
+            ):
+                if rec[field_name]:
+                    points += weight
+            points += min(len(rec.group_ids), 10) * 8
+            points += min(Job.search_count([("config_id", "=", rec.id), ("state", "=", "sent")]), 10) * 4
+            # Tie-breaker: keep the oldest record; that is the pre-bug config in
+            # normal upgrades.
+            return (points, -rec.id)
+
+        return max(configs, key=score)
 
     def _recipient_group_for_type(self, newsletter_type):
         """Resolve the list independently for every automatic newsletter type.
@@ -1136,7 +1190,8 @@ class CleverReachNewsletterConfig(models.Model):
 
     @api.model
     def _cron_announced_newsletters(self):
-        for config in self.search([("active", "=", True), ("spontaneous_enabled", "=", True)]):
+        config = self._canonical_config()
+        if config and config.active and config.spontaneous_enabled:
             try:
                 config._run_announced_newsletter_cron()
             except Exception:
@@ -1145,7 +1200,8 @@ class CleverReachNewsletterConfig(models.Model):
 
     @api.model
     def _cron_biweekly_newsletters(self):
-        for config in self.search([("active", "=", True), ("biweekly_enabled", "=", True)]):
+        config = self._canonical_config()
+        if config and config.active and config.biweekly_enabled:
             try:
                 config._run_biweekly_newsletter_cron()
             except Exception:
@@ -1154,7 +1210,8 @@ class CleverReachNewsletterConfig(models.Model):
 
     @api.model
     def _cron_weekly_newsletters(self):
-        for config in self.search([("active", "=", True), ("weekly_enabled", "=", True)]):
+        config = self._canonical_config()
+        if config and config.active and config.weekly_enabled:
             try:
                 config._run_weekly_newsletter_cron()
             except Exception:
@@ -1163,7 +1220,8 @@ class CleverReachNewsletterConfig(models.Model):
 
     @api.model
     def _cron_watchdog(self):
-        for config in self.search([("active", "=", True)]):
+        config = self._canonical_config()
+        if config and config.active:
             try:
                 config._run_watchdog()
             except Exception:
@@ -1172,8 +1230,9 @@ class CleverReachNewsletterConfig(models.Model):
 
     @api.model
     def _cron_refresh_planning(self):
-        """Build or refresh all send slots for the next two months."""
-        for config in self.with_context(active_test=False).search([]):
+        """Build or refresh send slots only for the canonical configuration."""
+        config = self._canonical_config()
+        if config:
             try:
                 config._refresh_planning_overview()
             except Exception:
@@ -1191,23 +1250,25 @@ class CleverReachNewsletterConfig(models.Model):
         """
         now = fields.Datetime.now()
         Job = self.env["gl.cleverreach.newsletter.job"].sudo()
-        for config in self.search([("active", "=", True)]):
-            if config._is_non_production_environment():
-                _logger.info("CleverReach send cron skipped on non-production database %s", self.env.cr.dbname)
+        config = self._canonical_config()
+        if not config or not config.active:
+            return True
+        if config._is_non_production_environment():
+            _logger.info("CleverReach send cron skipped on non-production database %s", self.env.cr.dbname)
+            return True
+        jobs = Job.search([
+            ("config_id", "=", config.id),
+            ("state", "in", ["ready", "scheduled"]),
+            ("scheduled_datetime", "!=", False),
+            ("scheduled_datetime", "<=", now),
+        ], order="scheduled_datetime asc, id asc")
+        for job in jobs:
+            if not config._newsletter_type_enabled(job.newsletter_type):
                 continue
-            jobs = Job.search([
-                ("config_id", "=", config.id),
-                ("state", "in", ["ready", "scheduled"]),
-                ("scheduled_datetime", "!=", False),
-                ("scheduled_datetime", "<=", now),
-            ], order="scheduled_datetime asc, id asc")
-            for job in jobs:
-                if not config._newsletter_type_enabled(job.newsletter_type):
-                    continue
-                try:
-                    job.action_send_due()
-                except Exception:
-                    _logger.exception("CleverReach due newsletter send failed for job %s", job.id)
+            try:
+                job.action_send_due()
+            except Exception:
+                _logger.exception("CleverReach due newsletter send failed for job %s", job.id)
         return True
 
     def action_run_announced_now(self):
@@ -1240,12 +1301,11 @@ class CleverReachNewsletterConfig(models.Model):
 
     @api.model
     def action_open_global_planning_overview(self):
-        configs = self.with_context(active_test=False).search([])
-        for config in configs:
-            try:
-                config._refresh_planning_overview()
-            except Exception:
-                _logger.exception("Could not refresh CleverReach planning overview for config %s", config.id)
+        config = self._canonical_config(create_if_missing=True)
+        try:
+            config._refresh_planning_overview()
+        except Exception:
+            _logger.exception("Could not refresh CleverReach planning overview for config %s", config.id)
         now = fields.Datetime.to_datetime(fields.Datetime.now())
         end = now + relativedelta(months=PLANNING_HORIZON_MONTHS)
         return {
@@ -1254,10 +1314,12 @@ class CleverReachNewsletterConfig(models.Model):
             "res_model": "gl.cleverreach.newsletter.job",
             "view_mode": "list,form",
             "domain": [
+                ("config_id", "=", config.id),
                 ("scheduled_datetime", ">=", now),
                 ("scheduled_datetime", "<=", end),
                 ("state", "in", ["placeholder", "draft", "ready", "scheduled", "error", "blocked"]),
             ],
+            "context": {"default_config_id": config.id},
             "target": "current",
         }
 
@@ -1269,15 +1331,9 @@ class CleverReachNewsletterConfig(models.Model):
         These helpers keep the new menu entries on the existing singleton record
         instead of opening a generic list view.
         """
-        Config = self.sudo().with_context(active_test=False)
-        config = Config.search([("active", "=", True)], order="id asc", limit=1)
-        if not config:
-            config = Config.search([], order="id asc", limit=1)
-        if not config:
-            # Never open the settings menu on a transient /new form. A persisted
-            # config record is required so schedule edits can actually be saved.
-            config = Config.create({})
-        return config
+        # Always use the one canonical persisted configuration. This also makes
+        # old accidental duplicate records harmless.
+        return self._canonical_config(create_if_missing=True)
 
     @api.model
     def _action_open_config_menu_view(self, view_xml_id, title):
@@ -1521,11 +1577,30 @@ class CleverReachNewsletterConfig(models.Model):
         else:
             hour, minute = self.spontaneous_send_hour, self.spontaneous_send_minute
         scheduled_dt = self._scheduled_utc_naive(local_date, hour, minute)
-        job = Job.search([
+        matching_jobs = Job.search([
             ("config_id", "=", self.id),
             ("planning_key", "=", planning_key),
             ("state", "in", ["placeholder", "draft", "ready", "scheduled", "error", "blocked"]),
-        ], order="scheduled_datetime desc, id desc", limit=1)
+        ], order="id asc")
+        job = matching_jobs[:1]
+        # Defensive self-healing: there must be exactly one row per planning
+        # key. If an older buggy release left duplicates behind, remove the
+        # extra unsent planner rows and their calendar entries silently.
+        duplicate_jobs = matching_jobs[1:]
+        if duplicate_jobs:
+            silent_ctx = {
+                "tracking_disable": True, "mail_notrack": True,
+                "mail_create_nosubscribe": True, "mail_create_nolog": True,
+                "mail_notify_force_send": False, "no_mail_to_attendees": True,
+                "dont_notify": True,
+            }
+            for duplicate in duplicate_jobs:
+                if duplicate.calendar_event_id:
+                    try:
+                        duplicate.calendar_event_id.sudo().with_context(**silent_ctx).unlink()
+                    except Exception:
+                        _logger.exception("Could not remove duplicate CleverReach calendar event for job %s", duplicate.id)
+            duplicate_jobs.with_context(**silent_ctx).unlink()
         # Legacy versions used a content-driven/pending spontaneous key. Reuse an
         # existing unsent job with identical content so upgrades do not duplicate it.
         if not job and content_key and events:
@@ -2979,7 +3054,7 @@ class CleverReachSingleEventWizard(models.TransientModel):
         if default_config_id:
             config = Config.browse(default_config_id).exists()
         if not config:
-            config = Config.search([("active", "=", True)], limit=1) or Config.search([], limit=1)
+            config = Config._canonical_config()
         if config:
             vals.setdefault("config_id", config.id)
             if config.recipient_group_id:

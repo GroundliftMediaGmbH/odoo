@@ -171,3 +171,13 @@ Die Methode `CleverReachNewsletterConfig._normalize_newsletter_html()` entfernt 
 - Schedule edits immediately rebuild future generated slots; obsolete future slots are retired without calendar chatter.
 - Groundlift schedule defaults are now: Tuesday 17:00 weekly, Thursday 18:00 every 14 days, Sunday 17:00 every 14 days for spontaneous/new-event newsletters.
 - Upgrade migration resets the three schedule anchors to their next matching weekday and rebuilds the future plan without changing any activation switch.
+
+
+## 19.0.1.5.2
+- Repairs the duplicate-config regression from 19.0.1.5.0/1.5.1.
+- Cleans unsent auto-generated duplicate planning rows and their calendar events during upgrade.
+- All planning and send crons now operate exclusively on one canonical CleverReach configuration.
+- Planning overview is restricted to that canonical configuration.
+- New accidental secondary configurations are rejected.
+- Defensive per-planning-key deduplication added.
+- Groundlift standard schedule remains Tuesday 17:00 / every second Thursday 18:00 / every second Sunday 17:00.
