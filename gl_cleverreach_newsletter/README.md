@@ -1,3 +1,15 @@
+## Änderung 19.0.1.5.0 – Zwei-Monats-Planung, feste spontane Termine und Versand-Sicherheiten
+
+- Die **Planungsübersicht** zeigt jetzt immer alle automatischen Versandtermine der kommenden **zwei Monate**. Auch Termine ohne aktuell passenden Inhalt werden als **Termin-Platzhalter** angelegt und können nicht versendet werden.
+- **Spontane Newsletter / neue Events** haben nun einen festen, konfigurierbaren Rhythmus: Wochentag, Intervall in Tagen, Stunde, Minute und nächster Ankertermin. Standard für neue Installationen: Sonntag alle 14 Tage. Neue angekündigte Events werden dem jeweils nächsten spontanen Termin zugeordnet.
+- Der Inhalt wird weiterhin laufend aktualisiert. Direkt vor dem tatsächlichen Versand werden die Eventdaten nochmals geprüft und neu gerendert; spontane Newsletter nehmen zusätzlich noch nicht zugeordnete neue Events in den fälligen Versand auf.
+- Kalendertermine der Newsletter werden weiterhin synchronisiert, aber mit deaktiviertem Mail-/Tracking-Kontext. Dadurch erzeugen Terminverschiebungen der App keine Chatter-/Benachrichtigungs-Meldungen mehr.
+- **Staging-/Development-/Test-Schutz:** In Odoo.sh Nicht-Produktivumgebungen und neutralisierten Datenbanken ist der tatsächliche CleverReach-Release technisch blockiert – auch bei manuellem Sofortversand. Planung und Vorschau bleiben möglich.
+- **Sicheres Upgrade:** Beim Update auf 19.0.1.5.0 werden der globale CleverReach-Schalter sowie 2-wöchig, Diese Woche und Spontan einmalig deaktiviert. Erst nach bewusster Reaktivierung kann Production wieder senden.
+- Alte dynamisch geplante spontane Versandjobs werden beim nächsten Planungsaufbau in den festen Rhythmus übernommen und als alte Versandtermine stillgelegt.
+
+**Nach dem Odoo.sh-Update:** App aktualisieren, Planungsübersicht prüfen, den spontanen Rhythmus festlegen und anschließend auf **Production** den globalen Schalter sowie nur die gewünschten Newsletter-Arten wieder aktivieren. Auf Staging bleibt der Versand unabhängig davon gesperrt.
+
 ## Änderung 19.0.1.4.9 – Aktivierungsschalter zuverlässig speichern
 
 - In **Einstellungen** und in jedem der drei Newsletter-Bereiche wird der tatsächlich gespeicherte Aktivierungszustand angezeigt. Daneben gibt es **Aktivieren** bzw. **Deaktivieren**. Der Klick schreibt den Wert direkt in die *bestehende* CleverReach-Konfiguration und öffnet anschließend denselben Datensatz erneut. Ein bloßer Wechsel des Häkchens ohne Speichern ist damit ausgeschlossen.
