@@ -11,7 +11,7 @@ def migrate(cr, version):
     """
     env = api.Environment(cr, SUPERUSER_ID, {})
     Config = env["gl.cleverreach.newsletter.config"].sudo()
-    configs = Config.search([])
+    configs = Config.with_context(active_test=False).search([])
     for config in configs:
         schedule_vals = {
             "spontaneous_weekday": config.spontaneous_weekday or "6",

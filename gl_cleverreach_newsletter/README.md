@@ -245,3 +245,10 @@ Zusätzlich wurde ein Duplikatschutz ergänzt:
 - Die Einstellungen-Vorschau des 2-wöchigen Newsletters verwendet jetzt den nächsten geplanten Sendetag statt immer das aktuelle Datum.
 - Unmittelbar vor jedem Versand eines 2-wöchigen oder Diese-Woche-Newsletters werden Veranstaltungen nach der tatsächlichen lokalen Versandzeit neu ausgewählt und automatisch generiertes HTML erneut gerendert. Ein bereits vorbereitetes CleverReach-Mailing mit veraltetem HTML wird nicht freigegeben; stattdessen wird bei Bedarf ein aktuelles Mailing erzeugt.
 - Wenn keine kommenden Veranstaltungen mehr vorhanden sind, wird nicht versendet. Bei manuell bearbeitetem HTML und inzwischen geänderter Eventauswahl wird der Versand zur manuellen Prüfung angehalten statt bearbeitetes HTML stillschweigend zu überschreiben.
+
+### Schedule defaults (19.0.1.5.1)
+
+- **Diese Woche bei Groundlift:** Tuesday, 17:00, weekly.
+- **2-wöchiger Newsletter:** Thursday, 18:00, every 14 days.
+- **Spontane Newsletter / neue Events:** Sunday, 17:00, every 14 days.
+- The planning overview is forward-looking from the current moment through the next two months, even while sending is disabled.

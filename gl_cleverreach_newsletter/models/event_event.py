@@ -27,7 +27,7 @@ class EventEvent(models.Model):
         return result
 
     def _gl_cr_queue_if_announced(self):
-        Config = self.env["gl.cleverreach.newsletter.config"].sudo()
+        Config = self.env["gl.cleverreach.newsletter.config"].sudo().with_context(active_test=False)
         configs = Config.search([])
         if not configs or "stage_id" not in self._fields:
             return False
