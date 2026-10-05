@@ -133,7 +133,7 @@
             </div>
           </section>
         </div>
-        <section t-if="state.embedUrl" class="gl-panel gl-embed"><div class="gl-section-label">SPOTIFY-EINBETTUNG · TITELLISTE</div><p>Die eingebettete Vorschau gehört zum aktuellen Browser; mit „Abspielen“ oben wird der Windows-PC gesteuert.</p><iframe t-att-src="state.embedUrl" title="Spotify Playlist" loading="lazy" allow="encrypted-media; fullscreen" referrerpolicy="strict-origin-when-cross-origin"/></section>
+        <section t-if="state.embedUrl &amp;&amp; !ui.isSmall" class="gl-panel gl-embed"><div class="gl-section-label">SPOTIFY-EINBETTUNG · TITELLISTE</div><p>Die eingebettete Vorschau gehört zum aktuellen Browser; mit „Abspielen“ oben wird der Windows-PC gesteuert.</p><iframe t-att-src="state.embedUrl" title="Spotify Playlist" loading="lazy" allow="encrypted-media; fullscreen" referrerpolicy="strict-origin-when-cross-origin"/></section>
         <section t-if="state.is_admin" class="gl-panel gl-admin"><button class="gl-secondary" t-on-click="connect">Spotify-Konto neu verbinden</button></section>
         <div class="gl-legal">Nur für rechtlich zulässige, nicht-kommerzielle Spotify-Nutzung. Spotify Premium ist keine Lizenz für öffentliche Hintergrundmusik in einem Betrieb.</div>
       </t>

@@ -10,6 +10,7 @@ export class GroundliftMusic extends Component {
         this.orm = useService("orm");
         this.action = useService("action");
         this.notification = useService("notification");
+        this.ui = useService("ui");
         this.state = useState({
             ready: false, busy: false, is_admin: false, connected: false,
             configured: false, agent_online: false, agent_running: false, agent_pc: "", target_name: "", target_available: false,
@@ -104,7 +105,12 @@ export class GroundliftMusic extends Component {
             const contextMatch = (this.state.context_uri || "").match(/^spotify:playlist:([A-Za-z0-9]{22})$/);
             if (contextMatch) {
                 this.state.currentUrl = `https://open.spotify.com/playlist/${contextMatch[1]}`;
-                this.state.embedUrl = `https://open.spotify.com/embed/playlist/${contextMatch[1]}?utm_source=generator`;
+                // The official Odoo mobile app runs the backend inside a native WebView.
+                // Do not instantiate the third-party Spotify iframe on phone-sized clients:
+                // it is optional for control and can destabilize/crash embedded WebViews.
+                this.state.embedUrl = this.ui.isSmall
+                    ? ""
+                    : `https://open.spotify.com/embed/playlist/${contextMatch[1]}?utm_source=generator`;
             }
             this.progressAnchorAt = Date.now();
             this.progressAnchorValue = this.state.progress_ms || 0;
@@ -314,7 +320,9 @@ export class GroundliftMusic extends Component {
             await this.orm.call("gl.music.player", "play_playlist", [url]);
             this.state.currentUrl = url;
             const match = url.match(/(?:playlist\/|spotify:playlist:)([A-Za-z0-9]{22})/);
-            this.state.embedUrl = match ? `https://open.spotify.com/embed/playlist/${match[1]}?utm_source=generator` : "";
+            this.state.embedUrl = match && !this.ui.isSmall
+                ? `https://open.spotify.com/embed/playlist/${match[1]}?utm_source=generator`
+                : "";
             this.notification.add("Playlist am Musik-PC gestartet", { type: "success" });
         } catch (error) { this.alert(error); }
         finally { this.state.busy = false; }
