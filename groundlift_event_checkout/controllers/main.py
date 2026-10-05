@@ -1,7 +1,7 @@
 from urllib.parse import quote
 
 from odoo import http, _
-from odoo.exceptions import UserError, ValidationError
+from odoo.exceptions import AccessError, MissingError, UserError, ValidationError
 from odoo.http import request
 from odoo.addons.website_sale.controllers.main import WebsiteSale
 
@@ -70,7 +70,24 @@ class GroundliftEventCheckout(WebsiteSale):
         if not quantities:
             return request.redirect(f"{event.website_url}?ticket_error=choose")
 
-        order = request.cart or request.website._create_cart()
+        # Odoo resolves ``request.cart`` lazily. For logged-in users this may
+        # migrate an anonymous/stale session cart to the user's partner. If that
+        # old cart can no longer be migrated cleanly, Odoo raises before the
+        # ticket can be added. Recover only this logged-in session-cart case by
+        # discarding the broken cart reference and creating a clean cart.
+        order = False
+        try:
+            with request.env.cr.savepoint():
+                current_cart = request.cart
+                order = current_cart.sudo() if current_cart else False
+        except (AccessError, MissingError, UserError, ValidationError):
+            if request.env.user._is_public():
+                raise
+            request.website.sale_reset()
+
+        if not order:
+            order = request.website._create_cart()
+
         added_any = False
         for ticket, qty in quantities:
             if ticket.event_id != event or not ticket.is_launched or ticket.is_expired:
