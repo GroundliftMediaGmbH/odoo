@@ -41,8 +41,8 @@ class ProductTemplate(models.Model):
     def _set_list_price_from_gross(self):
         """
         Convert the entered public/gross price back to the exact product
-        sales price. Odoo 19 already provides _get_list_price() for exactly
-        this tax-aware conversion, including price-included taxes.
+        sales price. Odoo 19 provides _get_list_price() for this tax-aware
+        conversion, including price-included taxes.
         """
         for product in self:
             product.list_price = product._get_list_price(
@@ -54,6 +54,5 @@ class ProductTemplate(models.Model):
 
     @api.onchange("gross_list_price")
     def _onchange_gross_list_price(self):
-        # Makes the precise net price visible immediately in the form,
-        # without waiting for the record to be saved.
+        # Makes the precise net price available immediately in the form.
         self._set_list_price_from_gross()

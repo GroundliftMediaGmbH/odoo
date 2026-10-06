@@ -1,24 +1,34 @@
 # Groundlift Bruttopreis Eingabe – Odoo 19
 
-Dieses Modul ergänzt Produkte um ein editierbares Feld **Bruttopreis**.
+Version 19.0.1.1.0
 
-## Verhalten
+## Zweck
 
-- Im Feld **Bruttopreis** wird z. B. `5,80 €` eingegeben.
-- Odoo berechnet daraus anhand der hinterlegten Verkaufssteuer automatisch den
-  präzisen Nettopreis und schreibt ihn in das Standardfeld **Verkaufspreis**.
-- Bei 19 % Verkaufssteuer werden aus `5,80 €` intern ca. `4,87394958 €` netto.
-- Der Nettopreis wird bewusst **nicht auf zwei Nachkommastellen gerundet**.
-  Dadurch bleiben Summen bei mehreren Stück sauber.
-- Wird ein Produkt ohne Verkaufssteuer verwendet, sind Brutto- und Nettopreis identisch.
-- Das Modul verwendet für die Rückrechnung die native Odoo-19-Methode
-  `product.template._get_list_price()`.
+Das Modul ergänzt Produkte um ein editierbares Feld **Bruttopreis** und behebt
+zusätzlich die Rundung des Nettopreises im Odoo-19-POS.
 
-## Installation
+Beispiel bei 19 % MwSt.:
 
-1. Modulordner `gl_gross_sales_price` in das Custom-Addons-/GitHub-Repository legen.
-2. Auf Odoo.sh committen und deployen.
-3. Apps-Liste aktualisieren.
-4. Nach **Groundlift Bruttopreis Eingabe** suchen und installieren.
+- Eingabe Bruttopreis: `3,80 €`
+- exakter Nettopreis: `3,1932773109... €`
+- 2 Produkte brutto: `7,60 €`
 
-Das Feld erscheint direkt unter dem Standard-Verkaufspreis im Produktformular.
+Odoo 19 rundet im Standard-POS `price_unit` über die Decimal Precision
+**Product Price**. Bei zwei Nachkommastellen wird aus dem exakten Nettopreis
+`3,19 €`; bei der Summen-/Steuerberechnung kann daraus `7,59 €` entstehen.
+
+Der POS-Patch dieses Moduls erhält die volle interne Präzision **nur dann**,
+wenn der Produkt-Verkaufspreis tatsächlich Nachkommastellen jenseits der
+normalen Product-Price-Präzision enthält. Normale Zweidezimalpreise behalten
+das Standardverhalten von Odoo.
+
+## Upgrade von Version 19.0.1.0.0
+
+1. Den bestehenden Modulordner `gl_gross_sales_price` durch diese Version ersetzen.
+2. Commit/Push nach Odoo.sh.
+3. Modul **Groundlift Bruttopreis Eingabe** aktualisieren.
+4. POS vollständig neu laden (offene POS-Tabs schließen und neu öffnen; bei Bedarf Hard Reload).
+5. Test: zwei verschiedene Produkte mit je 3,80 € brutto müssen zusammen 7,60 € ergeben.
+
+Es wird bewusst **nicht** die globale Decimal Precision `Product Price`
+verändert, damit andere Odoo-Bereiche nicht unnötig beeinflusst werden.
