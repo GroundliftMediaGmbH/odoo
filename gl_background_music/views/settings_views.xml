@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_res_config_settings_music" model="ir.ui.view">
+        <field name="name">res.config.settings.gl.music</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app name="gl_background_music" string="Hintergrundmusik">
+                    <block title="Spotify-Konto und API">
+                        <setting string="Client ID und Client Secret" help="Spotify Developer Dashboard: App mit Web API erstellen. Secret nur für Administratoren.">
+                            <field name="gl_music_client_id" placeholder="Spotify Client ID"/>
+                            <field name="gl_music_client_secret" password="True" placeholder="Spotify Client Secret"/>
+                        </setting>
+                        <setting string="Redirect URI" help="Muss exakt dem Spotify-Dashboard-Eintrag entsprechen (HTTPS).">
+                            <field name="gl_music_redirect_uri" placeholder="https://IHRE-ODOO-URL/gl_music/spotify/callback"/>
+                        </setting>
+                        <setting string="Wiedergaberechner" help="Den exakten Spotify-Connect-Gerätenamen eintragen oder im Dashboard ein verfügbares Gerät übernehmen.">
+                            <field name="gl_music_device_name" placeholder="z. B. GROUNDLIFT-MUSIK"/>
+                        </setting>
+                    </block>
+                    <block title="Windows-Wächter">
+                        <setting string="Verbindungsschlüssel" help="Schlüssel im Windows-Installationsassistenten eintragen; vor Unbefugten geheim halten.">
+                            <field name="gl_music_agent_key" password="False"/>
+                            <button name="action_gl_music_regenerate_agent_key" type="object" string="Neuen Schlüssel erzeugen" class="btn-secondary" confirm="Alter Schlüssel wird sofort ungültig. Windows anschließend neu koppeln?"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>

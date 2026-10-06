@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_cr_config_form_event_participant_optin" model="ir.ui.view">
+        <field name="name">gl.cleverreach.newsletter.config.form.event.participant.optin</field>
+        <field name="model">gl.cleverreach.newsletter.config</field>
+        <field name="inherit_id" ref="gl_cleverreach_newsletter.view_gl_cr_config_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//button[@name='action_sync_groups']" position="after">
+                <button name="action_import_all_event_participants"
+                        type="object"
+                        string="Alle bisherigen Teilnehmer bei CleverReach eintragen"
+                        class="btn-secondary"
+                        confirm="Dieser Bestandsimport verarbeitet ALLE bisherigen bestätigten Event-Teilnehmer mit E-Mail-Adresse, auch wenn für alte Buchungen die neue Checkbox noch nicht existierte. Vor dem Upload werden lokale und CleverReach-Duplikate geprüft. Bitte nur fortfahren, wenn die gewünschte Newsletter-Nutzung dieser Bestandskontakte rechtlich abgedeckt ist."/>
+            </xpath>
+
+            <xpath expr="//field[@name='recipient_group_id']" position="after">
+                <field name="event_participant_group_name"/>
+                <field name="event_participant_name_attributes_ready" readonly="1"/>
+                <field name="event_participant_bulk_imported_at" readonly="1"/>
+                <field name="event_participant_bulk_imported_count" readonly="1"/>
+                <field name="event_participant_bulk_existing_count" readonly="1"/>
+                <field name="event_participant_bulk_skipped_count" readonly="1"/>
+                <field name="event_participant_bulk_last_message" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

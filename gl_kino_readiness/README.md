@@ -10,11 +10,14 @@ Native Odoo-App für das Kinoprogramm und die Spielbereitschaft des Kino Alte Br
   - **KINO SPIELBEREIT**
   - **KINO NOCH NICHT SPIELBEREIT**
   - **Noch kein Programm geladen**
-- Zeigt alle Vorstellungen mit Kino/Saal, Datum/Uhrzeit, Film, Version, KDM und DCP.
+- Zeigt Filme standardmäßig zusammengefasst je **Film + Version + Kinosaal + Spielwoche** (frühester Termin und Anzahl der Termine). Über „Identische Filme zusammenfassen“ lassen sich jederzeit alle einzelnen Vorstellungen anzeigen. Diese Einstellung wird pro Spielwoche gespeichert.
+- Ein Klick auf **OK** hakt **KDM und DCP gleichzeitig** ab (bzw. beim Entfernen beide ab). Über die vorhandene Gruppensynchronisierung gilt dies für alle Vorstellungen desselben Films und derselben Version im gleichen Saal der Spielwoche.
+- Zeigt bei ausgeschalteter Zusammenfassung alle Vorstellungen mit Kino/Saal, Datum/Uhrzeit, Film, Version, KDM und DCP.
 - KDM-/DCP-Haken werden wie im Projektmanagement-Kinotab pro Film + Kino + Spielwoche synchronisiert.
 - Button „Fehlende KDM an Dispo“ sendet alle fehlenden KDMs an die konfigurierte Dispo-Mailadresse.
 - Button „Fehlende DCP an Dispo“ sendet alle fehlenden DCPs an die konfigurierte Dispo-Mailadresse.
 - Dispo-Mailadresse ist in den App-Einstellungen änderbar. Standard: `dispo@neokinos.de`.
+- Absender-/Antwortadresse für KDM/DCP ist separat einstellbar. Ohne explizite Einstellung nutzt die App Firmenadresse, danach Benutzeradresse; Catchall-/Bounce-Adressen werden ausgeschlossen.
 - Automatischer Scheduler:
   - Montag 17:00 Uhr: aktuelles Kinoprogramm laden.
   - Dienstag 18:00 Uhr: definierter Mitarbeiter wird erinnert, falls nicht alles abgehakt ist.
@@ -26,7 +29,7 @@ Native Odoo-App für das Kinoprogramm und die Spielbereitschaft des Kino Alte Br
 1. Den Ordner `gl_kino_readiness` in dein Odoo-SH-Repository unter `addons/` oder in den Custom-Addons-Pfad kopieren.
 2. Änderungen committen und in die gewünschte Odoo-SH-Branch pushen.
 3. In Odoo Apps-Liste aktualisieren.
-4. App **GROUNDLIFT Kino Spielbereitschaft** installieren.
+4. App **GROUNDLIFT Kino Spielbereitschaft** neu installieren oder bei vorhandener Installation **aktualisieren** (App-Upgrade nach GitHub-Deployment).
 5. Menü **Kino Spielbereitschaft → Kino-Einstellungen** öffnen und prüfen:
    - Cinetixx-API-URL
    - Dispo-Mailadresse
@@ -39,3 +42,23 @@ Native Odoo-App für das Kinoprogramm und die Spielbereitschaft des Kino Alte Br
 - Der interne Cron läuft alle 15 Minuten und prüft selbst die Berliner Zeitfenster. Dadurch sind Sommer-/Winterzeitwechsel robuster als bei festem UTC-`nextcall`.
 - Montag bis Mittwoch wird operativ die kommende Spielwoche ab Donnerstag geprüft. Ab Donnerstag gilt die laufende Spielwoche.
 - Alte Vorstellungen, die bei einem neuen API-Lauf nicht mehr geliefert werden, werden archiviert statt gelöscht.
+
+## Version 19.0.1.1.0
+
+- Neue Standardansicht „Identische Filme zusammenfassen“, jederzeit umschaltbar.
+- Die Datensätze werden **nur in der Anzeige** zusammengefasst und nicht gelöscht. Film/Version in verschiedenen Sälen bleiben getrennt, da KDMs saalbezogen sein können.
+- Die OK-Checkbox ist direkt anklickbar und setzt KDM und DCP zusammen.
+
+## Version 19.0.1.1.1
+
+- **OK** setzt nun KDM und DCP auch unmittelbar sichtbar in der editierbaren Liste.
+- Beim Speichern werden OK-Änderungen sicher in die beiden gespeicherten Haken
+  übersetzt, auch wenn der Odoo-One2many-Editor den Inverse-Pfad nicht nutzt.
+- Die vorhandene Synchronisierung für Film, Version, Saal und Spielwoche bleibt erhalten.
+
+## Version 19.0.1.1.2
+
+- Fix für KDM-/DCP-Mails: `email_from` und `reply_to` werden jetzt explizit gesetzt.
+- Keine unbeabsichtigte Verwendung von Odoo `catchall@...` mehr als Antwortadresse.
+- Neue Kino-Einstellung **Absender-/Antwortadresse für KDM/DCP**.
+- Fallback: Firmenadresse → Benutzeradresse. Wenn keine antwortfähige Adresse vorhanden ist, wird der Versand mit einer verständlichen Fehlermeldung abgebrochen.

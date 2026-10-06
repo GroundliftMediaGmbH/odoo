@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="project_room_cinema_1" model="gl.ha.project.room">
+        <field name="name">Kino 1</field>
+        <field name="code">cinema_1</field>
+        <field name="sequence">10</field>
+        <field name="active">True</field>
+    </record>
+    <record id="project_room_cinema_2" model="gl.ha.project.room">
+        <field name="name">Kino 2</field>
+        <field name="code">cinema_2</field>
+        <field name="sequence">20</field>
+        <field name="active">True</field>
+    </record>
+    <record id="project_room_theater" model="gl.ha.project.room">
+        <field name="name">Theater</field>
+        <field name="code">theater</field>
+        <field name="sequence">30</field>
+        <field name="active">True</field>
+    </record>
+    <record id="project_room_lounge" model="gl.ha.project.room">
+        <field name="name">Lounge</field>
+        <field name="code">lounge</field>
+        <field name="sequence">40</field>
+        <field name="active">True</field>
+    </record>
+    <record id="project_room_podcast" model="gl.ha.project.room">
+        <field name="name">Podcaststudio</field>
+        <field name="code">podcast</field>
+        <field name="sequence">50</field>
+        <field name="active">True</field>
+    </record>
+</odoo>

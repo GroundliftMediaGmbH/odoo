@@ -42,23 +42,28 @@ class GraphicsTemplate(models.Model):
 
     font_regular_name = fields.Char(
         string="Schriftfamilie normal",
-        default="Arial",
+        default="Rubik",
         help="CSS-Schriftname. Für exakte Übereinstimmung kann darunter die Originalschrift hochgeladen werden.",
     )
     font_bold_name = fields.Char(
         string="Schriftfamilie fett",
-        default="Arial Black",
+        default="Rubik",
     )
     font_condensed_name = fields.Char(
         string="Schriftfamilie schmal",
-        default="Arial Narrow",
+        default="Rubik",
     )
 
-    font_regular_file = fields.Binary(string="Schriftdatei normal", attachment=True)
+    font_light_file = fields.Binary(string="Rubik Light", attachment=True)
+    font_light_filename = fields.Char()
+    font_regular_file = fields.Binary(string="Rubik Regular", attachment=True)
     font_regular_filename = fields.Char()
-    font_bold_file = fields.Binary(string="Schriftdatei fett", attachment=True)
+    font_medium_file = fields.Binary(string="Rubik Medium", attachment=True)
+    font_medium_filename = fields.Char()
+    font_bold_file = fields.Binary(string="Rubik Bold", attachment=True)
     font_bold_filename = fields.Char()
-    font_condensed_file = fields.Binary(string="Schriftdatei schmal", attachment=True)
+    # Legacy field kept for database compatibility with earlier module versions.
+    font_condensed_file = fields.Binary(string="Legacy-Schriftdatei schmal", attachment=True)
     font_condensed_filename = fields.Char()
 
     @api.model

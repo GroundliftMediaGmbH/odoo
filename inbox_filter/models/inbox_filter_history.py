@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import json
 
+from markupsafe import Markup
+
 from odoo import _, api, fields, models, tools
 from odoo.exceptions import UserError
 
@@ -18,6 +20,7 @@ class InboxFilterHistory(models.Model):
         "lead_id", "category", "moved_to", "target_stage_id", "project_id", "event_id",
         "employee_id", "user_id", "ticket_ref_model", "ticket_ref_id", "status",
         "gpt_response_json", "reason", "summary", "error_message",
+        "retry_count", "last_retry_at", "next_retry_at",
     }
 
     name = fields.Char(required=True, tracking=True)
@@ -66,6 +69,9 @@ class InboxFilterHistory(models.Model):
         default="applied",
         tracking=True,
     )
+    retry_count = fields.Integer(string="Fehler-Wiederholungen", default=0, readonly=True)
+    last_retry_at = fields.Datetime(string="Letzter Wiederholungsversuch", readonly=True)
+    next_retry_at = fields.Datetime(string="Nächster Wiederholungsversuch", readonly=True, index=True)
     active = fields.Boolean(default=True)
 
     @api.depends(
@@ -210,39 +216,49 @@ class InboxFilterHistory(models.Model):
         best = {}
         best_score = -1
         for index, message in enumerate(messages):
-            body_text = tools.html2plaintext(message.body or "").strip()
-            if not body_text:
+            body_html = message.body or ""
+            body_text = tools.html2plaintext(body_html).strip()
+            attachments = message.sudo().attachment_ids
+            # Auch eine Mail ohne Text, aber mit Anhang, ist ein relevanter
+            # Originaleingang und darf nicht übergangen werden.
+            if not body_text and not attachments:
                 continue
             body_lower = body_text.lower()
-            if (
+            if body_text and (
                 "inbox filter" in body_lower
                 or "automatischer sortierlauf" in body_lower
                 or "live-lernregeln ergänzt" in body_lower
             ):
                 continue
-            if self._is_odoo_lead_notification_text(body_text):
+            if body_text and self._is_odoo_lead_notification_text(body_text):
                 # Bei weitergeleiteten Leads von Jana/office@groundlift liegt im Chatter oft
                 # eine reine Odoo-Benachrichtigung. Der eigentliche Kundentext steht dann
                 # in einer weiteren Notiz/Nachricht und darf nicht überdeckt werden.
                 continue
 
-            score = self._raw_input_quality_score(body_text)
+            score = self._raw_input_quality_score(body_text) if body_text else 0
             if message.message_type == "email":
                 score += 100
             if message.email_from:
                 score += 20
             if message.subject:
                 score += 10
+            if attachments:
+                score += min(len(attachments), 10) * 25
             # Frühere Nachrichten bevorzugen, wenn mehrere Kandidaten gleich gut sind.
             score -= index
             if score > best_score:
                 best_score = score
                 best = {
+                    "message_id": message.id,
                     "subject": message.subject or "",
                     "email_from": message.email_from or "",
                     "body": body_text,
+                    "body_html": body_html,
                     "date": fields.Datetime.to_string(message.date) if message.date else "",
                     "message_type": message.message_type or "",
+                    "attachment_ids": attachments.ids,
+                    "attachment_names": attachments.mapped("name"),
                 }
         return best
 
@@ -353,12 +369,18 @@ class InboxFilterHistory(models.Model):
         return rec
 
     def _post_original_to_chatter(self):
+        service = self.env["inbox.filter.service"].sudo()
         for rec in self:
-            raw = (rec.effective_raw_input or rec.raw_input or "").strip()
-            if not raw:
+            lead = rec.with_context(active_test=False).lead_id.exists()
+            if lead:
+                service._post_original_mail_to_target(rec, lead, message_type="comment")
                 continue
-            body = '<p><b>Originalinhalt des CRM-Eingangs</b></p><pre style="white-space: pre-wrap; font-family: inherit;">%s</pre>' % tools.html_escape(raw)
-            rec.message_post(body=body)
+
+            # Nur für historisch rekonstruierte/gelöschte Datensätze ohne Lead.
+            raw = (rec.effective_raw_input or rec.raw_input or "").strip()
+            if raw:
+                body = Markup('<p><b>Originalinhalt des CRM-Eingangs</b></p><pre style="white-space: pre-wrap; font-family: inherit;">%s</pre>') % raw
+                rec.message_post(body=body)
 
     @api.model
     def _snapshot_lead(self, lead):
@@ -399,9 +421,11 @@ class InboxFilterHistory(models.Model):
             "phone": phone,
             "mobile": mobile,
             "description": description,
+            "mail_message_id": mail_data.get("message_id") or 0,
             "mail_message_subject": mail_data.get("subject") or "",
             "mail_message_from": mail_data.get("email_from") or "",
             "mail_message_body": mail_data.get("body") or "",
+            "mail_attachment_names": mail_data.get("attachment_names") or [],
             "planned_revenue": value("planned_revenue", 0.0),
             "probability": value("probability", 0.0),
             "priority": value("priority", "0"),
@@ -503,6 +527,81 @@ class InboxFilterHistory(models.Model):
             }
         return False
 
+    def _inbox_filter_target_record(self):
+        """Ermittelt den aktuell dokumentierten Ziel-Datensatz des Vorgangs."""
+        self.ensure_one()
+        if self.ticket_ref_model and self.ticket_ref_id and self.ticket_ref_model in self.env.registry.models:
+            target = self.env[self.ticket_ref_model].sudo().browse(self.ticket_ref_id).exists()
+            if target:
+                return target
+        if self.project_id:
+            return self.project_id
+        if self.event_id:
+            return self.event_id
+
+        decision = self.decision_dict()
+        target_model = decision.get("target_model")
+        target_id = decision.get("target_id")
+        if target_model and target_id and target_model in self.env.registry.models:
+            try:
+                target = self.env[target_model].sudo().browse(int(target_id)).exists()
+            except (TypeError, ValueError):
+                target = self.env[target_model]
+            if target:
+                return target
+
+        lead = self.with_context(active_test=False).lead_id.exists()
+        return lead or self
+
+    def action_sync_original_mail_to_target(self):
+        """Repariert bestehende Zielobjekte mit vollständiger Mail + Anhängen.
+
+        Damit lassen sich auch Tickets korrigieren, die vor diesem Fix bereits
+        mit abgeschnittenem/escaped Inhalt erzeugt wurden.
+        """
+        service = self.env["inbox.filter.service"].sudo()
+        for rec in self:
+            lead = rec.with_context(active_test=False).lead_id.exists()
+            if not lead:
+                raise UserError(_(
+                    "Die Originalmail kann nicht erneut übertragen werden, weil der ursprüngliche CRM-Datensatz nicht mehr vorhanden ist."
+                ))
+            target = rec._inbox_filter_target_record()
+            if not target:
+                raise UserError(_("Für diesen Vorgang wurde kein vorhandener Ziel-Datensatz gefunden."))
+
+            decision = rec.decision_dict()
+            ticket_kind = "Kartenbestellung" if rec.category == "ticket_order" else "Kundensupport"
+            intro = None
+            if target._name == "helpdesk.ticket":
+                intro = service._support_intro_html(lead, decision, ticket_kind=ticket_kind)
+                if "description" in target._fields:
+                    target.sudo().write({
+                        "description": service._support_description(lead, decision, ticket_kind=ticket_kind),
+                    })
+            elif target._name in ("project.project", "event.event"):
+                intro = service._format_production_chatter_note(lead, decision, include_original=False)
+            elif target._name != rec._name:
+                intro = Markup("<p><b>%s</b></p>") % _("Inbox Filter: Originalmail erneut übertragen")
+
+            service._post_original_mail_to_target(
+                target.sudo(),
+                lead.sudo(),
+                intro_html=intro,
+                message_type="email" if target._name == "helpdesk.ticket" else "comment",
+            )
+
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Inbox Filter"),
+                "message": _("Originalmail und Anhänge wurden in den Ziel-Datensatz übertragen."),
+                "type": "success",
+                "sticky": False,
+            },
+        }
+
     def action_reclassify(self):
         for rec in self:
             rec._ensure_not_locked()
@@ -519,7 +618,10 @@ class InboxFilterHistory(models.Model):
         }
 
     def action_reclassify_all(self):
-        return self.env["inbox.filter.service"].reclassify_all_history_records_action()
+        return self.env["inbox.filter.batch"].action_start_batch("all")
+
+    def action_reclassify_errors(self):
+        return self.env["inbox.filter.batch"].action_start_batch("errors")
 
     def action_undo(self):
         for rec in self:
@@ -659,4 +761,5 @@ class InboxFilterHistory(models.Model):
             prompt.append_learning_note(note)
             messages.append("%s: %s" % (prompt.name, note))
         if messages:
-            self.message_post(body=_("Live-Lernregeln ergänzt:<br/>%s") % "<br/>".join(tools.html_escape(m) for m in messages))
+            lines = Markup("<br/>").join(Markup("%s") % m for m in messages)
+            self.message_post(body=Markup("<p><b>%s</b><br/>%s</p>") % (_("Live-Lernregeln ergänzt:"), lines))

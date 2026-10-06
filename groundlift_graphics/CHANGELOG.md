@@ -1,3 +1,10 @@
+## 19.0.1.8.0
+- Der Button „Grafik erstellen“ öffnet jetzt die zuletzt bearbeitete aktive Grafik einer Veranstaltung erneut, statt bei jedem Klick einen neuen Datensatz anzulegen.
+- „Designelement quadratisch“, „Scope“ und „Flat“ sind vollständig von der globalen Bildpositionsübernahme entkoppelt.
+- Für die drei Designelemente kann jeweils ein eigenes Bild gespeichert werden; ohne individuelles Bild wird das normale Veranstaltungsbild verwendet.
+- Typografie auf Rubik umgestellt: Bold für Datum/Uhrzeit/Kategorie/Titel, Regular für Untertitel, Light für Kurzzusammenfassung/Fotocredit/Ticketlink und Medium für Foyer-Einlass/Ticketpreis.
+- Automatische Speicherung des Bearbeitungsstands alle 10 Sekunden; manuelles Speichern zeigt eine sichtbare Bestätigung.
+- Manuell gesetzte Schriftgrößen werden nicht mehr vom Auto-Fit wieder verkleinert; dadurch entfällt das Größen-Springen beim Hochzählen.
 
 ## 19.0.1.5.1
 - Standards pro Ausspielformat jetzt global in Odoo gespeichert und geladen (ir.config_parameter).

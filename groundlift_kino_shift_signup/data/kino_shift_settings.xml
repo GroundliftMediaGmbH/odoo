@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- noupdate: an upgrade must NEVER overwrite the user's checkbox choices. -->
+<odoo noupdate="1">
+    <record id="kino_shift_default_settings" model="gl.kino.shift.settings">
+        <field name="name">Kino Dienstplan – Einstellungen</field>
+        <field name="weekday_monday" eval="False"/>
+        <field name="weekday_tuesday" eval="False"/>
+        <field name="weekday_wednesday" eval="False"/>
+        <field name="weekday_thursday" eval="True"/>
+        <field name="weekday_friday" eval="True"/>
+        <field name="weekday_saturday" eval="True"/>
+        <field name="weekday_sunday" eval="True"/>
+    </record>
+</odoo>

@@ -9,4 +9,13 @@
         <field name="interval_type">hours</field>
         <field name="active">True</field>
     </record>
+    <record id="ir_cron_gl_sync_social_graphics" model="ir.cron">
+        <field name="name">Groundlift: Grafiken für geplante Social Posts aktualisieren</field>
+        <field name="model_id" ref="social.model_social_post"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_gl_sync_social_graphics()</field>
+        <field name="interval_number">15</field>
+        <field name="interval_type">minutes</field>
+        <field name="active">True</field>
+    </record>
 </odoo>

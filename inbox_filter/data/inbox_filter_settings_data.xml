@@ -7,6 +7,11 @@
         <field name="customer_care_email">customer-care@groundlift.odoo.com</field>
         <field name="limit">50</field>
         <field name="auto_sort_enabled">1</field>
+        <field name="rate_limit_tpm">200000</field>
+        <field name="rate_safety_percent">85</field>
+        <field name="min_request_interval">1.5</field>
+        <field name="classification_max_completion_tokens">1200</field>
+        <field name="error_retry_enabled">1</field>
     </record>
     <record id="workspace_default" model="inbox.filter.workspace">
         <field name="name">Inbox Filter</field>

@@ -8,10 +8,6 @@
         <field name="name">SCORSESE</field>
     </record>
     <function model="ir.config_parameter" name="set_param">
-        <value>gl_scorsese.event_announced_stage_names</value>
-        <value>Angekündigt,Announced</value>
-    </function>
-    <function model="ir.config_parameter" name="set_param">
         <value>gl_scorsese.project_work_stage_names</value>
         <value>In Bearbeitung,In Progress</value>
     </function>

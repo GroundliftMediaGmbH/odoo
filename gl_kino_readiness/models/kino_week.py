@@ -19,6 +19,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
+from email.utils import formataddr, parseaddr
 from zoneinfo import ZoneInfo
 
 from odoo import _, api, fields, models
@@ -114,6 +115,17 @@ class GlKinoWeek(models.Model):
         "week_id",
         string="Aktive Vorstellungen",
         domain=[("active", "=", True)],
+    )
+    # Nur die erste Vorstellung je Saal + Film + Version anzeigen. Die darunter-
+    # liegenden Vorstellungen bleiben gespeichert und ihre Haken synchronisiert.
+    grouped_line_ids = fields.One2many(
+        "gl.kino.show",
+        "week_id",
+        string="Zusammengefasste Filme",
+        domain=[("active", "=", True), ("is_group_representative", "=", True)],
+    )
+    collapse_identical_films = fields.Boolean(
+        string="Identische Filme zusammenfassen", default=True
     )
     state = fields.Selection(
         [
@@ -259,12 +271,51 @@ class GlKinoWeek(models.Model):
             names.add(line.display_film_name)
         return sorted(names, key=lambda txt: txt.casefold())
 
+    def _get_outgoing_reply_email(self) -> str:
+        """Return a real reply address and never silently fall back to Odoo catchall.
+
+        Priority:
+        1. Explicit address from Kino settings
+        2. Company e-mail
+        3. Current user's e-mail
+
+        Catchall/bounce style addresses are deliberately rejected because recipients
+        must be able to reply to KDM/DCP requests.
+        """
+        self.ensure_one()
+        param = self.env["ir.config_parameter"].sudo()
+        configured = (param.get_param("gl_kino_readiness.sender_reply_email") or "").strip()
+
+        candidates = [
+            configured,
+            (self.env.company.email or "").strip(),
+            (self.env.user.email or "").strip(),
+        ]
+        for candidate in candidates:
+            _display_name, address = parseaddr(candidate)
+            address = (address or candidate).strip()
+            if not address or "@" not in address:
+                continue
+            local_part = address.split("@", 1)[0].casefold()
+            if local_part in {"catchall", "bounce", "mailer-daemon", "postmaster"}:
+                continue
+            return address
+
+        raise UserError(
+            _(
+                "Für KDM/DCP-Mails ist keine antwortfähige Absenderadresse hinterlegt. "
+                "Bitte in den Kino-Einstellungen eine Absender-/Antwortadresse eintragen."
+            )
+        )
+
     def _send_missing_mail(self, kind: str):
         self.ensure_one()
         param = self.env["ir.config_parameter"].sudo()
         dispo_email = (param.get_param("gl_kino_readiness.dispo_email") or DEFAULT_DISPO_EMAIL).strip()
         if not dispo_email:
             raise UserError(_("Bitte zuerst eine Dispo-Mailadresse in den Kino-Einstellungen hinterlegen."))
+
+        reply_email = self._get_outgoing_reply_email()
 
         missing = self._missing_film_names(kind)
         if not missing:
@@ -289,10 +340,13 @@ class GlKinoWeek(models.Model):
         )
         body_html = "<pre style='font-family:Arial,sans-serif;white-space:pre-wrap'>%s</pre>" % self._html_escape(body_text)
 
+        sender_name = self.env.company.name or _("Kino Alte Brauerei Stegen")
         mail = self.env["mail.mail"].sudo().create(
             {
                 "subject": subject,
                 "email_to": dispo_email,
+                "email_from": formataddr((sender_name, reply_email)),
+                "reply_to": reply_email,
                 "body_html": body_html,
                 "auto_delete": False,
             }
@@ -594,7 +648,18 @@ class GlKinoShow(models.Model):
     display_film_name = fields.Char(compute="_compute_display_film_name", store=True)
     kdm_ready = fields.Boolean(string="KDM vorhanden", tracking=True)
     dcp_ready = fields.Boolean(string="DCP vorhanden", tracking=True)
-    row_ready = fields.Boolean(compute="_compute_row_ready", store=True)
+    row_ready = fields.Boolean(
+        string="OK", compute="_compute_row_ready", inverse="_inverse_row_ready", store=True
+    )
+    is_group_representative = fields.Boolean(
+        string="Erste Vorstellung der Filmgruppe",
+        compute="_compute_group_representative",
+        store=True,
+        index=True,
+    )
+    group_show_count = fields.Integer(
+        string="Termine", compute="_compute_group_representative", store=True
+    )
     external_key = fields.Char(required=True, index=True, copy=False)
     group_key = fields.Char(required=True, index=True, copy=False)
 
@@ -616,9 +681,70 @@ class GlKinoShow(models.Model):
         for line in self:
             line.row_ready = bool(line.kdm_ready and line.dcp_ready)
 
+    @api.onchange("row_ready")
+    def _onchange_row_ready(self):
+        """Die beiden Dateihaken sofort in der editierbaren Liste aktualisieren.
+
+        Ohne diesen Onchange kann die berechnete OK-Spalte in der One2many-Liste
+        bereits vor dem Speichern wieder auf den alten Wert springen.
+        """
+        for line in self:
+            checked = bool(line.row_ready)
+            line.kdm_ready = checked
+            line.dcp_ready = checked
+
+    def _inverse_row_ready(self):
+        """Auch bei einem direkten ORM-Schreibzugriff auf OK beide Haken setzen."""
+        for line in self:
+            checked = bool(line.row_ready)
+            line.write({"kdm_ready": checked, "dcp_ready": checked})
+
+    @api.depends(
+        "active", "week_id", "show_datetime", "cinema", "film_title", "version",
+        "week_id.line_ids", "week_id.line_ids.active",
+        "week_id.line_ids.show_datetime", "week_id.line_ids.cinema",
+        "week_id.line_ids.film_title", "week_id.line_ids.version",
+    )
+    def _compute_group_representative(self):
+        """Nur den frühesten aktiven Termin je Saal, Film und Version zeigen.
+
+        Abhängigkeiten auf den Geschwisterzeilen sorgen dafür, dass auch bei
+        Neuimport, Archivierung und nach einem Modul-Upgrade korrekt gruppiert
+        wird; bestehende Vorstellungen werden niemals zusammengelegt/gelöscht.
+        """
+        week_groups = {}
+        for line in self:
+            week = line.week_id
+            if not week or not line.active:
+                line.is_group_representative = False
+                line.group_show_count = 0
+                continue
+            if week.id not in week_groups:
+                representatives = {}
+                counts = defaultdict(int)
+                active_shows = week.line_ids.filtered(lambda show: show.active).sorted(
+                    key=lambda show: (show.show_datetime or datetime.min, show.id)
+                )
+                for show in active_shows:
+                    title, version = _normalize_title_and_version(show.film_title, show.version)
+                    key = _stable_key(show.cinema, title, version)
+                    counts[key] += 1
+                    representatives.setdefault(key, show)
+                week_groups[week.id] = (representatives, counts)
+            representatives, counts = week_groups[week.id]
+            title, version = _normalize_title_and_version(line.film_title, line.version)
+            key = _stable_key(line.cinema, title, version)
+            line.is_group_representative = representatives.get(key) == line
+            line.group_show_count = counts.get(key, 0)
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
+            # OK ist eine Sammelaktion und darf nicht nur das berechnete
+            # Anzeige-Feld setzen (z.B. bei einem Import/API-Aufruf).
+            if "row_ready" in vals:
+                checked = bool(vals.pop("row_ready"))
+                vals.update({"kdm_ready": checked, "dcp_ready": checked})
             title, version = _normalize_title_and_version(vals.get("film_title"), vals.get("version"))
             vals["film_title"] = title
             vals["version"] = version
@@ -633,6 +759,14 @@ class GlKinoShow(models.Model):
         return super().create(vals_list)
 
     def write(self, vals):
+        # Odoo schreibt Änderungen in editierbaren One2many-Listen über write().
+        # Das berechnete OK-Feld deshalb VOR super().write() in die tatsächlich
+        # gespeicherten Dateihaken übersetzen. Das ist unabhängig davon, ob
+        # Odoo die inverse-Methode beim Inline-Speichern aufruft.
+        if "row_ready" in vals:
+            vals = dict(vals)
+            checked = bool(vals.pop("row_ready"))
+            vals.update({"kdm_ready": checked, "dcp_ready": checked})
         if "film_title" in vals or "version" in vals:
             title = vals.get("film_title") if "film_title" in vals else self[:1].film_title
             version = vals.get("version") if "version" in vals else self[:1].version

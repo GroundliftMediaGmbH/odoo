@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="group_gl_timesheet_manager" model="res.groups">
+        <field name="name">Stundenzettel-Prüfung: Verwaltung</field>
+        <field name="comment">Zugriff auf die Backend-Verwaltung der Groundlift-Stundenzettel-Prüfung.</field>
+    </record>
+
+    <!--
+        Odoo zeigt Root-Menüs nur Benutzern an, die deren Gruppe besitzen.
+        Systemadministratoren erhalten diese Modulgruppe deshalb implizit.
+        Das funktioniert sowohl bei einer Neuinstallation als auch beim Upgrade
+        einer bereits installierten Version.
+    -->
+    <record id="base.group_system" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('gl_timesheet_approval.group_gl_timesheet_manager'))]"/>
+    </record>
+
+    <record id="rule_gl_timesheet_month_company" model="ir.rule">
+        <field name="name">Stundenzettel-Monate nach Firma</field>
+        <field name="model_id" ref="model_gl_timesheet_month"/>
+        <field name="groups" eval="[(4, ref('group_gl_timesheet_manager'))]"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_gl_timesheet_employee_month_company" model="ir.rule">
+        <field name="name">Mitarbeiter-Monatszettel nach Firma</field>
+        <field name="model_id" ref="model_gl_timesheet_employee_month"/>
+        <field name="groups" eval="[(4, ref('group_gl_timesheet_manager'))]"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_gl_timesheet_day_company" model="ir.rule">
+        <field name="name">Stundenzettel-Tage nach Firma</field>
+        <field name="model_id" ref="model_gl_timesheet_day"/>
+        <field name="groups" eval="[(4, ref('group_gl_timesheet_manager'))]"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_gl_timesheet_reviewer_company" model="ir.rule">
+        <field name="name">Prüfer nach Firma</field>
+        <field name="model_id" ref="model_gl_timesheet_reviewer"/>
+        <field name="groups" eval="[(4, ref('group_gl_timesheet_manager'))]"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_gl_timesheet_log_company" model="ir.rule">
+        <field name="name">Prüfhistorie nach Firma</field>
+        <field name="model_id" ref="model_gl_timesheet_review_log"/>
+        <field name="groups" eval="[(4, ref('group_gl_timesheet_manager'))]"/>
+        <field name="domain_force">[('employee_month_id.company_id', 'in', company_ids)]</field>
+    </record>
+</odoo>

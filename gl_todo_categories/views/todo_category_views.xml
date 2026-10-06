@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_todo_category_list" model="ir.ui.view">
+        <field name="name">gl.todo.category.list</field>
+        <field name="model">gl.todo.category</field>
+        <field name="arch" type="xml">
+            <list string="To-Do-Kategorien" editable="bottom" default_order="sequence, name">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="parent_id" string="Überkategorie" optional="show"/>
+                <field name="color" widget="color_picker" optional="show"/>
+                <field name="fold" optional="hide"/>
+                <field name="active" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_todo_category_form" model="ir.ui.view">
+        <field name="name">gl.todo.category.form</field>
+        <field name="model">gl.todo.category</field>
+        <field name="arch" type="xml">
+            <form string="To-Do-Kategorie">
+                <sheet>
+                    <field name="is_uncategorized" invisible="1"/>
+                    <group>
+                        <field name="name"/>
+                        <field name="parent_id" string="Überkategorie" options="{'no_create_edit': False}"/>
+                        <field name="sequence"/>
+                        <field name="color" widget="color_picker"/>
+                        <field name="active"/>
+                    </group>
+                    <group string="Unterkategorien" invisible="is_uncategorized">
+                        <field name="child_ids" nolabel="1" context="{'default_parent_id': id}">
+                            <list editable="bottom" default_order="sequence, name">
+                                <field name="sequence" widget="handle"/>
+                                <field name="name"/>
+                                <field name="active" optional="hide"/>
+                            </list>
+                        </field>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_todo_categories" model="ir.actions.act_window">
+        <field name="name">Kategorien</field>
+        <field name="res_model">gl.todo.category</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Erste To-Do-Kategorie anlegen</p>
+            <p>Kategorien können hierarchisch mit Über- und Unterkategorien aufgebaut werden. Die Hierarchie erscheint links in der To-Do-Ansicht als aufklappbarer Baum.</p>
+        </field>
+    </record>
+</odoo>

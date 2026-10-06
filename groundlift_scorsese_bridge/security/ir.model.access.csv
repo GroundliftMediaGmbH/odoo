@@ -16,3 +16,4 @@ access_gl_scorsese_import_wizard_user,gl.scorsese.import.wizard user,model_gl_sc
 
 access_gl_scorsese_dashboard_user,gl.scorsese.dashboard user,model_gl_scorsese_dashboard,groundlift_scorsese_bridge.group_scorsese_user,1,0,0,0
 access_gl_scorsese_dashboard_manager,gl.scorsese.dashboard manager,model_gl_scorsese_dashboard,groundlift_scorsese_bridge.group_scorsese_manager,1,1,1,1
+access_gl_scorsese_settings_manager,gl.scorsese.settings manager,model_gl_scorsese_settings,groundlift_scorsese_bridge.group_scorsese_manager,1,1,1,1
