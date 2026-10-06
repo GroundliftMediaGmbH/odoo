@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <xpath expr="//div[@name='list_price_uom']" position="after">
                 <label for="gross_list_price" string="Bruttopreis"/>
-                <div name="gross_list_price_uom">
+                <div name="gross_list_price_uom" class="d-flex align-items-center gap-2">
                     <field
                         name="gross_list_price"
                         class="oe_inline"
@@ -27,6 +27,14 @@
                             options="{'no_quick_create': True}"
                         />
                     </span>
+                    <button
+                        name="action_gl_reapply_gross_price"
+                        type="object"
+                        string="Netto exakt neu berechnen"
+                        class="btn btn-secondary btn-sm"
+                        title="Für Produkte aus älteren Modulversionen: den aktuell sichtbaren Bruttopreis erneut ohne Cent-Rundung in einen exakten Nettopreis umrechnen."
+                    />
+                    <field name="gl_gross_price_managed" invisible="1"/>
                 </div>
             </xpath>
         </field>
@@ -45,6 +53,7 @@
                     options="{'currency_field': 'currency_id'}"
                     optional="hide"
                 />
+                <field name="gl_gross_price_managed" optional="hide"/>
             </xpath>
         </field>
     </record>

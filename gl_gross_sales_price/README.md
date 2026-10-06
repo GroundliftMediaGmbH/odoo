@@ -1,34 +1,43 @@
 # Groundlift Bruttopreis Eingabe – Odoo 19
 
-Version 19.0.1.1.0
+Version **19.0.1.2.0**
 
-## Zweck
+## Was v1.2 korrigiert
 
-Das Modul ergänzt Produkte um ein editierbares Feld **Bruttopreis** und behebt
-zusätzlich die Rundung des Nettopreises im Odoo-19-POS.
+Die frühere Version verwendete Odoos `product.template._get_list_price()`.
+Diese Methode ruft `account.tax.compute_all()` mit der normalen
+Währungsrundung auf. Deshalb wurde bei 19 % aus 3,80 EUR bereits serverseitig
+3,19 EUR statt 3,193277310924... EUR.
 
-Beispiel bei 19 % MwSt.:
+v1.2 verwendet für die Rückrechnung:
 
-- Eingabe Bruttopreis: `3,80 €`
-- exakter Nettopreis: `3,1932773109... €`
-- 2 Produkte brutto: `7,60 €`
+- `force_price_include=True`
+- `round_base=False`
 
-Odoo 19 rundet im Standard-POS `price_unit` über die Decimal Precision
-**Product Price**. Bei zwei Nachkommastellen wird aus dem exakten Nettopreis
-`3,19 €`; bei der Summen-/Steuerberechnung kann daraus `7,59 €` entstehen.
+Damit bleibt der steuerfreie Basispreis intern exakt.
 
-Der POS-Patch dieses Moduls erhält die volle interne Präzision **nur dann**,
-wenn der Produkt-Verkaufspreis tatsächlich Nachkommastellen jenseits der
-normalen Product-Price-Präzision enthält. Normale Zweidezimalpreise behalten
-das Standardverhalten von Odoo.
+Zusätzlich kennzeichnet das Modul Produkte, deren Preis über das Feld
+**Bruttopreis** gepflegt wird. Nur bei diesen Produkten unterbindet der
+POS-Patch die zusätzliche Rundung von `price_unit` auf die Product-Price-
+Dezimalstellen.
 
-## Upgrade von Version 19.0.1.0.0
+## Wichtig nach Upgrade von v1.0/v1.1
 
-1. Den bestehenden Modulordner `gl_gross_sales_price` durch diese Version ersetzen.
-2. Commit/Push nach Odoo.sh.
-3. Modul **Groundlift Bruttopreis Eingabe** aktualisieren.
-4. POS vollständig neu laden (offene POS-Tabs schließen und neu öffnen; bei Bedarf Hard Reload).
-5. Test: zwei verschiedene Produkte mit je 3,80 € brutto müssen zusammen 7,60 € ergeben.
+Bestehende Produkte wurden bereits mit dem alten gerundeten Nettopreis
+gespeichert. Sie müssen einmal korrigiert werden.
 
-Es wird bewusst **nicht** die globale Decimal Precision `Product Price`
-verändert, damit andere Odoo-Bereiche nicht unnötig beeinflusst werden.
+Einzelprodukt:
+- Produkt öffnen
+- **Netto exakt neu berechnen** klicken
+
+Mehrere Produkte:
+- Produktliste öffnen
+- betroffene Produkte markieren
+- Aktion **Bruttopreis → exakten Nettopreis anwenden**
+
+Danach POS komplett schließen und neu öffnen.
+
+Beispiel:
+- Bruttopreis 3,80 EUR
+- exakter Netto-Basispreis 3,193277310924...
+- zwei Produkte zu je 3,80 EUR = 7,60 EUR
