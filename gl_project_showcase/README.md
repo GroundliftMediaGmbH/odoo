@@ -1,6 +1,6 @@
 # Groundlift Project Showcase 19.0
 
-**Version:** 19.0.1.1.0 · **Plattform:** Odoo 19 SH · **Abhängigkeiten:** `project`, `website`
+**Version:** 19.0.1.2.0 · **Plattform:** Odoo 19 SH · **Abhängigkeiten:** `project`, `website`
 
 Eine eigene Ergebnis-Landingpage pro Odoo-Projekt. Entworfen für veranstaltungsbezogene Medien- und Kundenübergaben.
 
@@ -68,3 +68,17 @@ Es wurde eine statische Syntax-/XML-Prüfung im Generierungscontainer durchgefü
 - Browser neu laden (Strg+F5), ein vorhandenes Projekt **über seine Einstellungen/Formularansicht** öffnen; nicht nur Aufgabenübersicht. Dort sind der Reiter und der Smart-Button.
 - `Project Showcase: Redaktion` wird nicht mehr benötigt; eventuell aus früherer Installation verbliebene Gruppe kann ignoriert werden.
 - Der Projekt-Hauptmenüpunkt von Odoo ist standardmäßig weiterhin nur für Projektbenutzer/Projektleiter sichtbar. Diese App verändert die Projekt-Hauptmenüberechtigung nicht. Wenn Mitarbeiter ihre Projekte bereits über Odoo aufrufen können, sehen sie den Showcase-Reiter.
+
+## Korrektur Version 1.2
+
+Der zusätzliche XML-Datensatz `menu_gl_project_showcase` aus Version 1.1 verwendete
+noch `ir.ui.menu.groups_id`. In Odoo 19 wurde dieses Menü-Feld auf `group_ids`
+umbenannt. Dies führte beim Installieren/Aktualisieren zum Parse-/Ladefehler.
+Die v1.2 stellt auf `<field name="group_ids" .../>` um.
+
+Die bestehende Odoo-Gruppe `base.group_user` bleibt der Berechtigungsträger;
+keine manuelle Benutzerzuordnung. Die getrennten `ir.rule`-Felder heißen
+in Odoo 19 weiterhin `groups` und wurden **nicht** geändert.
+
+Für ein reguläres Upgrade einfach den Modulordner ersetzen; Modul muss
+in der betroffenen Datenbank installiert/aktualisiert werden.
