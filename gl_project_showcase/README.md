@@ -1,4 +1,21 @@
-# Groundlift Project Showcase – Odoo 19 SH (Version 1.3)
+# Groundlift Project Showcase – Odoo 19 SH (Version 1.4)
+
+## Neues in Version 1.4 (Fix von 1.3)
+
+- **PDF-/Dateiupload:** Computed MIME-Typen und Uploadvalidierung lesen Binärfelder mit `bin_size=False` und `bin_size_<feld>=False`, damit Odoo-Formulargrößenangaben nicht irrtümlich als Base64-Inhalt dekodiert werden.
+- **Robuste Kodierung:** Zulässige Zeilenumbrüche und Leerzeichen in Base64-Payloads werden vor der Prüfung entfernt; ungültige Base64-Daten und Dateien über 40 MB werden weiter abgelehnt.
+- **Alle Medien:** Derselbe Binärzugriff wird bei Galerie-Bild- und eigener WOFF2-Schrift-Prüfung verwendet.
+- **Videoeditor breiter:** Dokumentliste aus der schmalen `<group>` entfernt. Das modalspezifische Backend-CSS erweitert den Video-Dialog auf Desktops auf bis zu 1400px; andere Dialoge bleiben unverändert.
+- **Rückwärtskompatibilität:** Keine geänderten Feldnamen/Relationen; existierende Daten bleiben erhalten. Regeltabellen und öffentliche URLs sind unverändert.
+- **Tests:** Regressionstest für `bin_size`-Kontexte sowie Base64-Zeilenumbrüche, zusätzlich lokale Syntax-/XML-Strukturprüfungen. Ein realer Odoo.sh-Upgrade-Test ist weiterhin erforderlich.
+
+### Upgrade v1.3 → v1.4
+
+1. Bestehenden Modulordner `gl_project_showcase` **vollständig ersetzen** (nicht zusätzlich hineinkopieren).
+2. Änderungen nach Odoo.sh **Development/Staging** pushen; nach erfolgreichem Build in **Apps → Groundlift Project Showcase → Aktualisieren** das Modul-Upgrade ausführen.
+3. Browser hart neu laden (Strg+F5), da das Backend-CSS neu eingebunden wird.
+4. PDF mit deaktiviertem Download und PDF mit aktiviertem Download jeweils in einem Video und im Dokumententab hochladen; Vorschau und Downloadfreigaben prüfen.
+5. Test mit JPG/PNG, Office-Datei (Download erlaubt) und großer Dateiliste durchführen. Erst danach Production aktualisieren.
 
 ## Neues in Version 1.3 (Upgrade von 1.2)
 
@@ -40,7 +57,7 @@
 
 # Groundlift Project Showcase 19.0
 
-**Version:** 19.0.1.2.0 · **Plattform:** Odoo 19 SH · **Abhängigkeiten:** `project`, `website`
+**Version:** 19.0.1.4.0 · **Plattform:** Odoo 19 SH · **Abhängigkeiten:** `project`, `website`
 
 Eine eigene Ergebnis-Landingpage pro Odoo-Projekt. Entworfen für veranstaltungsbezogene Medien- und Kundenübergaben.
 

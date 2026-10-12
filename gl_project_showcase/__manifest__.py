@@ -1,6 +1,6 @@
 {
     'name': 'Groundlift Project Showcase',
-    'version': '19.0.1.3.0',
+    'version': '19.0.1.4.0',
     'summary': 'Projektgebundene Kunden-Landingpages mit Vimeo, Dokumenten und Fotogalerie',
     'author': 'Groundlift',
     'website': 'https://www.groundlift.de',
@@ -14,6 +14,11 @@
         'views/project_views.xml',
         'views/showcase_templates.xml',
     ],
+    'assets': {
+        'web.assets_backend': [
+            'gl_project_showcase/static/src/css/showcase_backend.css',
+        ],
+    },
     'installable': True,
     'application': True,
 }

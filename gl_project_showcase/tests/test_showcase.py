@@ -52,6 +52,32 @@ class TestProjectShowcase(TransactionCase):
                 'allow_download': False,
             })
 
+    def test_pdf_upload_binary_size_context(self):
+        """Odoo 19 form reads may request size-only values of binary fields."""
+        from ..models.media import decode_record_file
+        pdf = b'%PDF-1.7\n1 0 obj\nendobj\n%%EOF'
+        doc = self.env['gl.showcase.document'].create({
+            'name': 'Upload aus Dialog',
+            'showcase_id': self.showcase.id,
+            'filename': 'upload.pdf',
+            'data': base64.b64encode(pdf),
+            'allow_download': False,
+        })
+        # The form may request human-readable bin_size while constraints
+        # must always retrieve the full PDF instead of parsing that size.
+        in_dialog = doc.with_context(bin_size=True, bin_size_data=True)
+        self.assertEqual(decode_record_file(in_dialog, 'data'), pdf)
+        in_dialog._validate_data()
+        in_dialog._compute_mime_type()
+        self.assertEqual(in_dialog.mime_type, 'application/pdf')
+        self.assertTrue(in_dialog.has_preview)
+
+    def test_base64_line_breaks_in_uploaded_data(self):
+        from ..models.media import decode_file
+        pdf = b'%PDF-1.7\n1 0 obj\nendobj\n%%EOF'
+        encoded = base64.b64encode(pdf)
+        self.assertEqual(decode_file(encoded[:12] + b'\r\n' + encoded[12:]), pdf)
+
     def test_invalid_color(self):
         with self.assertRaises(ValidationError):
             self.showcase.write({'color_accent': 'red; background:red'})

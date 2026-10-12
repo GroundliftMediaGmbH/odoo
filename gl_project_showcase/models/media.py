@@ -14,16 +14,36 @@ def decode_file(data, limit=MAX_DOC):
     if not data:
         return b''
     if isinstance(data, str):
-        data = data.encode('ascii')
+        try:
+            data = data.encode('ascii')
+        except UnicodeEncodeError as err:
+            raise ValidationError(_('Die Datei ist nicht korrekt kodiert.')) from err
+    # Odoo's base64 payload may contain MIME line breaks. Remove whitespace,
+    # but keep validate=True so malformed/size-only values are never accepted.
+    data = re.sub(rb'[\t\n\r\f\v ]+', b'', data)
     if len(data) > (limit * 4 // 3 + 8192):
         raise ValidationError(_('Datei zu groß. Maximal %s MB.') % (limit // (1024 * 1024)))
     try:
         binary = base64.b64decode(data, validate=True)
-    except (ValueError, base64.binascii.Error):
-        raise ValidationError(_('Die Datei ist nicht korrekt kodiert.'))
+    except (ValueError, base64.binascii.Error) as err:
+        raise ValidationError(_('Die Datei ist nicht korrekt kodiert.')) from err
     if len(binary) > limit:
         raise ValidationError(_('Datei zu groß.'))
     return binary
+
+
+def decode_record_file(record, field_name, limit=MAX_DOC):
+    """Read the real upload, not a file-size placeholder from Odoo form RPCs.
+
+    Binary fields in Odoo 19 can return a human-readable size under
+    bin_size/bin_size_<field> contexts. The model's own constraints and
+    computed fields must explicitly request the binary content instead.
+    """
+    actual = record.with_context(**{
+        'bin_size': False,
+        'bin_size_' + field_name: False,
+    })[field_name]
+    return decode_file(actual, limit=limit)
 
 
 def safe_mime(binary, filename=''):
@@ -134,10 +154,11 @@ class ShowcaseDocument(models.Model):
     mime_type = fields.Char(string='Dateityp', compute='_compute_mime_type', store=True)
     has_preview = fields.Boolean(compute='_compute_has_preview', store=True)
 
-    @api.depends('data')
+    @api.depends('data', 'filename')
     def _compute_mime_type(self):
         for rec in self:
-            rec.mime_type = safe_mime(decode_file(rec.data), rec.filename) if rec.data else False
+            payload = decode_record_file(rec, 'data')
+            rec.mime_type = safe_mime(payload, rec.filename) if payload else False
 
     @api.depends('mime_type')
     def _compute_has_preview(self):
@@ -147,8 +168,8 @@ class ShowcaseDocument(models.Model):
     @api.constrains('data', 'allow_download')
     def _validate_data(self):
         for rec in self:
-            if rec.data:
-                filebytes = decode_file(rec.data)
+            filebytes = decode_record_file(rec, 'data')
+            if filebytes:
                 if not rec.allow_download and safe_mime(filebytes) not in PREVIEWABLE:
                     raise ValidationError(_(
                         'Ohne Downloadfreigabe sind nur PDFs, JPEG, PNG oder WebP als Vorschau zulässig.'
@@ -212,6 +233,6 @@ class ShowcasePhoto(models.Model):
     def _validate_photo(self):
         for rec in self:
             if rec.photo:
-                data = decode_file(rec.photo, MAX_PHOTO)
+                data = decode_record_file(rec, 'photo', MAX_PHOTO)
                 if safe_mime(data) not in ('image/png', 'image/jpeg', 'image/webp'):
                     raise ValidationError(_('Nur JPG, PNG und WebP sind für die Galerie zugelassen.'))

@@ -119,9 +119,9 @@ class ProjectShowcase(models.Model):
 
     @api.constrains('custom_font')
     def _validate_font(self):
-        from .media import decode_file
+        from .media import decode_record_file
         for rec in self:
-            if rec.custom_font and not decode_file(rec.custom_font, limit=4 * 1024 * 1024).startswith(b'wOF2'):
+            if rec.custom_font and not decode_record_file(rec, 'custom_font', limit=4 * 1024 * 1024).startswith(b'wOF2'):
                 raise ValidationError(_('Nur gültige WOFF2-Schriftdateien bis 4 MB sind erlaubt.'))
 
     @api.constrains('legal_notice_url', 'privacy_url')

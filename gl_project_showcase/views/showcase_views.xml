@@ -61,7 +61,42 @@
                                     <field name="vimeo_url"/>
                                     <field name="description" optional="show"/>
                                 <field name="document_count" string="Dateien" readonly="1" optional="show"/></list>
-                                <form string="Vimeo-Video &amp; zugehörige Dateien"><group><field name="showcase_id" invisible="1"/><field name="name"/><field name="vimeo_url"/><field name="description"/></group><group string="Dateien zu diesem Video"><div class="text-muted">Diese Dokumente werden direkt unter diesem Video auf der Landingpage angezeigt.</div><field name="document_ids" mode="list,form" context="{'default_showcase_id': showcase_id}"><list editable="bottom" default_order="sequence,id"><field name="sequence" widget="handle"/><field name="name"/><field name="filename" invisible="1"/><field name="data" filename="filename"/><field name="allow_download"/><field name="has_preview" readonly="1" optional="show"/></list><form><group><field name="showcase_id" invisible="1"/><field name="video_id" invisible="1"/><field name="name"/><field name="description"/><field name="filename" invisible="1"/><field name="data" filename="filename"/><field name="allow_download"/><field name="has_preview" readonly="1"/></group></form></field></group></form></field>
+                                <form string="Vimeo-Video &amp; zugehörige Dateien" class="gl-showcase-video-editor">
+                                    <sheet>
+                                        <group col="2">
+                                            <field name="showcase_id" invisible="1"/>
+                                            <field name="name"/>
+                                            <field name="vimeo_url"/>
+                                            <field name="description" colspan="2"/>
+                                        </group>
+                                        <separator string="Dateien zu diesem Video"/>
+                                        <div class="text-muted mb-2">Diese Dokumente erscheinen direkt unter diesem Video auf der Landingpage.</div>
+                                        <field name="document_ids" nolabel="1" mode="list,form" context="{'default_showcase_id': showcase_id}">
+                                            <list editable="bottom" default_order="sequence,id">
+                                                <field name="sequence" widget="handle"/>
+                                                <field name="name" string="Dokumenttitel"/>
+                                                <field name="filename" invisible="1"/>
+                                                <field name="data" filename="filename" string="Datei"/>
+                                                <field name="allow_download" string="Download"/>
+                                                <field name="has_preview" string="Vorschau" readonly="1" optional="show"/>
+                                            </list>
+                                            <form string="Datei zum Video">
+                                                <sheet>
+                                                    <group>
+                                                        <field name="showcase_id" invisible="1"/>
+                                                        <field name="video_id" invisible="1"/>
+                                                        <field name="name"/>
+                                                        <field name="description"/>
+                                                        <field name="filename" invisible="1"/>
+                                                        <field name="data" filename="filename"/>
+                                                        <field name="allow_download"/>
+                                                        <field name="has_preview" readonly="1"/>
+                                                    </group>
+                                                </sheet>
+                                            </form>
+                                        </field>
+                                    </sheet>
+                                </form></field>
                         </page>
                         <page string="Dokumente" name="documents">
                             <div class="alert alert-info" role="alert">Dateien lassen sich einem Vimeo-Video zuordnen. Zugeordnete Dokumente erscheinen direkt unter dem jeweiligen Video; andere in der Dokumenten-Sektion.</div>
