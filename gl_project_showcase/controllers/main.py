@@ -91,7 +91,11 @@ class ShowcaseController(http.Controller):
         if not self._is_allowed(show):
             # Avoid revealing existence/content to unauthorized visitors.
             return request.not_found()
-        response = self._render('gl_project_showcase.showcase_page', {'show': show})
+        response = self._render('gl_project_showcase.showcase_page', {
+            'show': show,
+            'standalone_documents': show.document_ids.filtered(lambda doc: not doc.video_id),
+            'gallery_groups': show.gl_gallery_groups(),
+        })
         if show.published and show.visibility == 'public' and show.indexable:
             response.headers['X-Robots-Tag'] = 'index, follow'
         return response

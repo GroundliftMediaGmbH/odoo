@@ -1,3 +1,43 @@
+# Groundlift Project Showcase – Odoo 19 SH (Version 1.3)
+
+## Neues in Version 1.3 (Upgrade von 1.2)
+
+### 1. Dateien direkt an Vimeo-Videos anheften
+
+- Unter **Vimeo-Showreel & Videos** Video anklicken; im Videoformular den Bereich **Dateien zu diesem Video** öffnen und PDFs/Bilder bzw. zum Download freigegebene Dateien hinzufügen.
+- Alternativ im Tab **Dokumente** das Feld **Zugeordnetes Video** auswählen.
+- Ein Dokument gehört höchstens zu **einem** Video und bleibt im zentralen Dokumenten-Tab sichtbar.
+- Auf der Landingpage erscheint ein zugeordnetes Dokument mit Vorschau und seinem individuellen Downloadrecht **direkt unter dem Video**; nicht zugeordnete Dokumente bleiben im allgemeinen Bereich **Dokumente**.
+- Ein Video kann beliebig viele Dokumente haben. Zuordnungen zu Videos eines anderen Showcases werden serverseitig abgelehnt.
+
+### 2. Fotogalerie mit Tags und Überschriften
+
+- Im Tab **Galerie-Überschriften** die gewünschten Tag-/Gruppennamen anlegen, z. B. Aufbau, Show, Backstage. Reihenfolge über den Griff einstellen.
+- Im Tab **Fotogalerie** pro Bild einen oder mehrere **Galerie-Tags** auswählen (auch neue Tags können aus dem Auswahlfeld angelegt werden).
+- Auf der öffentlichen/geschützten Landingpage werden nur befüllte Gruppen angezeigt, mit Tag-Namen als Abschnittsüberschrift und Bildern im bestehenden Grid/Lightbox-Design.
+- Ein Foto kann in **mehreren** Gruppen vorkommen. Nicht getaggte Bilder erscheinen am Schluss unter **Weitere Fotos**; wenn gar keine Tags verwendet werden, bleibt die ursprüngliche einfache Galerie ohne zusätzliche Überschrift erhalten.
+- Gruppierung ist auf das jeweilige Projekt-Showcase begrenzt. Tags eines anderen Projekts können nicht zugewiesen werden.
+
+### Datenbestand & Berechtigung
+
+- V1.3 ergänzt nur neue Datenbankfelder und das Galerie-Tag-Modell. Bestehende Videos, Dokumente, Bilder, URLs und Veröffentlichungseinstellungen werden nicht gelöscht.
+- Für bestehende Daten bleibt die bisherige Darstellung erhalten: Dokumente ohne Videolink liegen im allgemeinen Bereich; Fotos ohne Tags bleiben in einer Galerie.
+- Alle internen Odoo-Nutzer mit Projektzugriff behalten den Showcase-Reiter. Portal-/Kundenbenutzer bekommen keine neuen Bearbeitungsrechte.
+- Dateien werden weiterhin nur über die expliziten Showcase-Routen mit Veröffentlichungs- und Zugriffsprüfung ausgeliefert.
+- „Download nicht erlaubt“ bedeutet weiterhin Verzicht auf einen Download-Button – kein technischer Vollschutz gegen Speichern des im Browser angezeigten Inhalts.
+
+### Upgrade in Odoo.sh
+
+1. Vorhandenen Modulordner `gl_project_showcase` vollständig durch den Inhalt der ZIP ersetzen, keine Ordner doppelt ineinander verschachteln.
+2. Push nach **Development**, dort **Apps → Groundlift Project Showcase → Aktualisieren (Upgrade)** ausführen. Ein bloßer Git-Push aktualisiert weder Views noch Datenbankschema.
+3. Bestehendes Projekt öffnen → Ergebnis-Landingpage → Video anklicken und Datei zuordnen; Galerie-Überschriften anlegen und Bilder taggen.
+4. Link zur Landingpage überprüfen, auch ausgeloggt und mit einem Kunden-Zugang, sowie Downloads zugelassen/gesperrt testen.
+5. Nach erfolgreichem Staging-Test nach Production übernehmen.
+
+**Validierung:** Python-Syntax und XML-Parsing können lokal geprüft werden. Ein vollständiger Odoo.sh-Modultest muss in der realen Umgebung erfolgen.
+
+---
+
 # Groundlift Project Showcase 19.0
 
 **Version:** 19.0.1.2.0 · **Plattform:** Odoo 19 SH · **Abhängigkeiten:** `project`, `website`

@@ -77,6 +77,23 @@ class ShowcaseVideo(models.Model):
     description = fields.Text(string='Beschreibung')
     vimeo_url = fields.Char(string='Vimeo-URL', required=True)
     embed_url = fields.Char(compute='_compute_embed_url', string='Embed-URL')
+    document_ids = fields.One2many(
+        'gl.showcase.document', 'video_id', string='Dateien zu diesem Video', copy=False,
+    )
+    document_count = fields.Integer(string='Dateien', compute='_compute_document_count')
+
+    @api.depends('document_ids')
+    def _compute_document_count(self):
+        for rec in self:
+            rec.document_count = len(rec.document_ids)
+
+    @api.constrains('showcase_id')
+    def _check_documents_showcase(self):
+        for rec in self:
+            if any(doc.showcase_id != rec.showcase_id for doc in rec.document_ids):
+                raise ValidationError(_(
+                    'Ein Video und seine Dokumente müssen zur selben Ergebnis-Landingpage gehören.'
+                ))
 
     @api.depends('vimeo_url')
     def _compute_embed_url(self):
@@ -102,6 +119,18 @@ class ShowcaseDocument(models.Model):
     filename = fields.Char(string='Dateiname', required=True)
     data = fields.Binary(string='Datei', attachment=True, required=True)
     allow_download = fields.Boolean(string='Download erlauben', default=False)
+    video_id = fields.Many2one(
+        'gl.showcase.video', string='Zugeordnetes Video', ondelete='set null', index=True,
+        help='Optional: Dokument direkt unter diesem Vimeo-Video anzeigen.',
+    )
+
+    @api.constrains('video_id', 'showcase_id')
+    def _check_video_showcase(self):
+        for rec in self:
+            if rec.video_id and rec.video_id.showcase_id != rec.showcase_id:
+                raise ValidationError(_(
+                    'Das verknüpfte Video muss zur selben Ergebnis-Landingpage gehören.'
+                ))
     mime_type = fields.Char(string='Dateityp', compute='_compute_mime_type', store=True)
     has_preview = fields.Boolean(compute='_compute_has_preview', store=True)
 
@@ -126,6 +155,35 @@ class ShowcaseDocument(models.Model):
                     ))
 
 
+class ShowcasePhotoTag(models.Model):
+    _name = 'gl.showcase.photo.tag'
+    _description = 'Showcase Galerie-Tag / Galerie-Überschrift'
+    _order = 'sequence, name, id'
+
+    _unique_name_per_showcase = models.Constraint(
+        'UNIQUE(showcase_id, name)',
+        'Dieser Galerie-Tag existiert in der Ergebnis-Landingpage bereits.',
+    )
+
+    sequence = fields.Integer(default=10, string='Reihenfolge')
+    name = fields.Char(string='Galerie-Überschrift', required=True)
+    showcase_id = fields.Many2one(
+        'gl.project.showcase', required=True, ondelete='cascade', index=True,
+    )
+    photo_ids = fields.Many2many(
+        'gl.showcase.photo', 'gl_showcase_photo_tag_rel', 'tag_id', 'photo_id',
+        string='Fotos', copy=False,
+    )
+
+    @api.constrains('showcase_id', 'photo_ids')
+    def _check_photo_showcase(self):
+        for rec in self:
+            if any(photo.showcase_id != rec.showcase_id for photo in rec.photo_ids):
+                raise ValidationError(_(
+                    'Galerie-Tags und Fotos müssen zur selben Ergebnis-Landingpage gehören.'
+                ))
+
+
 class ShowcasePhoto(models.Model):
     _name = 'gl.showcase.photo'
     _description = 'Showcase-Galeriefoto'
@@ -136,6 +194,19 @@ class ShowcasePhoto(models.Model):
     name = fields.Char(string='Bildtitel', required=True)
     description = fields.Text(string='Bildunterschrift')
     photo = fields.Image(string='Bild', required=True, attachment=True, max_width=2400, max_height=2400)
+    tag_ids = fields.Many2many(
+        'gl.showcase.photo.tag', 'gl_showcase_photo_tag_rel', 'photo_id', 'tag_id',
+        string='Galerie-Tags', copy=False,
+        help='Ein Foto kann mehreren Galerie-Überschriften zugeordnet werden.',
+    )
+
+    @api.constrains('showcase_id', 'tag_ids')
+    def _check_tag_showcase(self):
+        for rec in self:
+            if any(tag.showcase_id != rec.showcase_id for tag in rec.tag_ids):
+                raise ValidationError(_(
+                    'Galerie-Tags und Fotos müssen zur selben Ergebnis-Landingpage gehören.'
+                ))
 
     @api.constrains('photo')
     def _validate_photo(self):

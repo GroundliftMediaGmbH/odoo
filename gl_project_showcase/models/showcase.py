@@ -57,6 +57,9 @@ class ProjectShowcase(models.Model):
     video_ids = fields.One2many('gl.showcase.video', 'showcase_id', string='Vimeo-Videos', copy=False)
     document_ids = fields.One2many('gl.showcase.document', 'showcase_id', string='Dokumente', copy=False)
     photo_ids = fields.One2many('gl.showcase.photo', 'showcase_id', string='Fotogalerie', copy=False)
+    photo_tag_ids = fields.One2many(
+        'gl.showcase.photo.tag', 'showcase_id', string='Galerie-Überschriften', copy=False,
+    )
     page_url = fields.Char(compute='_compute_page_url', string='Landingpage-URL')
 
     @api.depends('password_hash')
@@ -167,6 +170,25 @@ class ProjectShowcase(models.Model):
         self.ensure_one()
         self.check_access('read')
         return {'type': 'ir.actions.act_url', 'url': self.page_url, 'target': 'new'}
+
+    def gl_gallery_groups(self):
+        """Visible groups in tag sequence; untagged pictures are kept in a final group.
+
+        Images with several tags deliberately appear in every matching section.
+        """
+        self.ensure_one()
+        groups = []
+        for tag in self.photo_tag_ids:
+            photos = self.photo_ids.filtered(lambda photo: tag in photo.tag_ids)
+            if photos:
+                groups.append({'name': tag.name, 'photos': photos})
+        untagged = self.photo_ids.filtered(lambda photo: not photo.tag_ids)
+        if untagged:
+            groups.append({
+                'name': _('Weitere Fotos') if groups else False,
+                'photos': untagged,
+            })
+        return groups
 
     @property
     def gl_css_variables(self):

@@ -94,3 +94,85 @@ class TestProjectShowcase(TransactionCase):
         self.assertFalse(portal_user.has_group('base.group_user'))
         with self.assertRaises(AccessError):
             self.env['gl.project.showcase'].with_user(portal_user).search([])
+
+    def test_documents_attach_to_video_and_remain_in_same_showcase(self):
+        """Attached files can be assigned from the Documents tab or video form."""
+        video = self.env['gl.showcase.video'].create({
+            'showcase_id': self.showcase.id, 'name': 'Kundenfilm',
+            'vimeo_url': 'https://vimeo.com/123456',
+        })
+        file_bytes = b'%PDF-1.7\n1 0 obj\nendobj\n%%EOF'
+        document = self.env['gl.showcase.document'].create({
+            'name': 'Schnittliste', 'showcase_id': self.showcase.id,
+            'filename': 'schnittliste.pdf', 'data': base64.b64encode(file_bytes),
+            'video_id': video.id, 'allow_download': False,
+        })
+        self.assertEqual(video.document_ids, document)
+        self.assertEqual(video.document_count, 1)
+        self.assertTrue(document.has_preview)
+
+        document.write({'video_id': False})
+        self.assertFalse(video.document_ids)
+        self.assertEqual(video.document_count, 0)
+        self.assertIn(document, self.showcase.document_ids)
+
+        second_project = self.env['project.project'].create({'name': 'Fremdes Showcase-Projekt'})
+        second_showcase = self.env['gl.project.showcase'].create({
+            'name': 'Fremdes Showcase', 'project_id': second_project.id,
+        })
+        foreign_video = self.env['gl.showcase.video'].create({
+            'showcase_id': second_showcase.id, 'name': 'Anderes Video',
+            'vimeo_url': 'https://vimeo.com/987654',
+        })
+        with self.assertRaises(ValidationError):
+            with self.env.cr.savepoint():
+                document.write({'video_id': foreign_video.id})
+        self.assertFalse(document.video_id)
+
+    def test_gallery_tags_group_photos_and_enforce_showcase(self):
+        """One photo can appear under several custom section headings."""
+        from io import BytesIO
+        from PIL import Image
+        from odoo import fields
+
+        buffer = BytesIO()
+        Image.new('RGB', (8, 8), (120, 80, 40)).save(buffer, format='PNG')
+        data = base64.b64encode(buffer.getvalue())
+
+        photo_tag = self.env['gl.showcase.photo.tag']
+        tag_one = photo_tag.create({
+            'name': 'Aufbau', 'sequence': 5, 'showcase_id': self.showcase.id,
+        })
+        tag_two = photo_tag.create({
+            'name': 'Show', 'sequence': 10, 'showcase_id': self.showcase.id,
+        })
+        photo = self.env['gl.showcase.photo'].create({
+            'showcase_id': self.showcase.id, 'name': 'Bühne', 'photo': data,
+            'tag_ids': [fields.Command.set([tag_one.id, tag_two.id])],
+        })
+        extra = self.env['gl.showcase.photo'].create({
+            'showcase_id': self.showcase.id, 'name': 'Ohne Tag', 'photo': data,
+        })
+        groups = self.showcase.gl_gallery_groups()
+        self.assertEqual([g['name'] for g in groups], ['Aufbau', 'Show', 'Weitere Fotos'])
+        self.assertIn(photo, groups[0]['photos'])
+        self.assertIn(photo, groups[1]['photos'])
+        self.assertIn(extra, groups[2]['photos'])
+
+        other_project = self.env['project.project'].create({'name': 'Fremde Galerie'})
+        other_showcase = self.env['gl.project.showcase'].create({
+            'name': 'Andere Galerie', 'project_id': other_project.id,
+        })
+        foreign_tag = photo_tag.create({
+            'name': 'Nicht erlaubt', 'showcase_id': other_showcase.id,
+        })
+        with self.assertRaises(ValidationError):
+            with self.env.cr.savepoint():
+                photo.write({'tag_ids': [fields.Command.link(foreign_tag.id)]})
+        self.assertNotIn(foreign_tag, photo.tag_ids)
+
+        # Names are unique within a showcase, not globally across customers.
+        with self.assertRaises(Exception):
+            with self.env.cr.savepoint():
+                photo_tag.create({'name': 'Aufbau', 'showcase_id': self.showcase.id})
+        photo_tag.create({'name': 'Aufbau', 'showcase_id': other_showcase.id})
