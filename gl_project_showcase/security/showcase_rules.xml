@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Restrict editors to projects normally visible by their privacy level,
+         their own projects, or projects where they are followers. -->
+    <record id="rule_showcase_editor_project" model="ir.rule">
+        <field name="name">Project Showcase: Projektzugriff Redaktion</field>
+        <field name="model_id" ref="model_gl_project_showcase"/>
+        <field name="groups" eval="[(4, ref('gl_project_showcase.group_showcase_editor'))]"/>
+        <field name="domain_force">['|','|',('project_id.privacy_visibility','in',['employees','portal']),('project_id.user_id','=',user.id),('project_id.message_partner_ids','in',[user.partner_id.id])]</field>
+    </record>
+    <!-- Apply the SAME project boundary to every child model: no cross-project
+         RPC read/write of individual files even when the parent is hidden. -->
+    <record id="rule_video_editor_project" model="ir.rule">
+        <field name="name">Project Showcase: video Projektzugriff</field>
+        <field name="model_id" ref="model_gl_showcase_video"/>
+        <field name="groups" eval="[(4, ref('gl_project_showcase.group_showcase_editor'))]"/>
+        <field name="domain_force">['|','|',('showcase_id.project_id.privacy_visibility','in',['employees','portal']),('showcase_id.project_id.user_id','=',user.id),('showcase_id.project_id.message_partner_ids','in',[user.partner_id.id])]</field>
+    </record>
+    <record id="rule_photo_editor_project" model="ir.rule">
+        <field name="name">Project Showcase: photo Projektzugriff</field>
+        <field name="model_id" ref="model_gl_showcase_photo"/>
+        <field name="groups" eval="[(4, ref('gl_project_showcase.group_showcase_editor'))]"/>
+        <field name="domain_force">['|','|',('showcase_id.project_id.privacy_visibility','in',['employees','portal']),('showcase_id.project_id.user_id','=',user.id),('showcase_id.project_id.message_partner_ids','in',[user.partner_id.id])]</field>
+    </record>
+    <record id="rule_document_editor_project" model="ir.rule">
+        <field name="name">Project Showcase: document Projektzugriff</field>
+        <field name="model_id" ref="model_gl_showcase_document"/>
+        <field name="groups" eval="[(4, ref('gl_project_showcase.group_showcase_editor'))]"/>
+        <field name="domain_force">['|','|',('showcase_id.project_id.privacy_visibility','in',['employees','portal']),('showcase_id.project_id.user_id','=',user.id),('showcase_id.project_id.message_partner_ids','in',[user.partner_id.id])]</field>
+    </record>
+</odoo>

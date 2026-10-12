@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Checked against Odoo 19.0 project_project_views.xml: project.edit_project /sheet/notebook. -->
+    <record id="view_project_form_inherit_showcase" model="ir.ui.view">
+        <field name="name">project.project.form.gl.showcase</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form/sheet/notebook" position="inside">
+                <page name="gl_project_showcase" string="Ergebnis-Landingpage"
+                      groups="gl_project_showcase.group_showcase_editor">
+                    <group string="Groundlift Project Showcase">
+                        <field name="gl_showcase_count" invisible="1"/>
+                        <button name="action_gl_open_showcase" type="object"
+                                string="Ergebnis-Landingpage öffnen / anlegen" class="btn-primary"
+                                icon="fa-external-link"/>
+                        <div class="text-muted">Kunden-CI, Vimeo, Dokumente und Galerie getrennt von internen Projektanhängen verwalten.</div>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
