@@ -23,7 +23,7 @@ class ShowcaseController(http.Controller):
 
     def _editor_has_project_access(self, show):
         user = request.env.user
-        if not user.has_group('gl_project_showcase.group_showcase_editor'):
+        if not user.has_group('base.group_user'):
             return False
         try:
             show.project_id.with_user(user).check_access('read')

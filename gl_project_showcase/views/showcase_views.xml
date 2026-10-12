@@ -115,7 +115,11 @@
     </record>
     <menuitem id="menu_gl_project_showcase" name="Ergebnis-Landingpages"
               parent="project.menu_main_pm" action="action_gl_showcases" sequence="99"
-              groups="gl_project_showcase.group_showcase_editor"/>
+              groups="base.group_user"/>
+    <!-- On upgrades, explicitly REPLACE the old editor-only menu groups. -->
+    <record id="menu_gl_project_showcase" model="ir.ui.menu">
+        <field name="groups_id" eval="[(6, 0, [ref('base.group_user')])]"/>
+    </record>
     <record id="view_gl_showcase_password_wizard" model="ir.ui.view">
         <field name="name">gl.showcase.password.wizard.form</field>
         <field name="model">gl.showcase.password.wizard</field>

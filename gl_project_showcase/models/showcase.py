@@ -51,7 +51,7 @@ class ProjectShowcase(models.Model):
     indexable = fields.Boolean(string='Suchmaschinenindexierung erlauben', default=False)
     legal_notice_url = fields.Char(string='Impressumslink')
     privacy_url = fields.Char(string='Datenschutzlink')
-    password_hash = fields.Char(string='Passworthash', copy=False, groups='gl_project_showcase.group_showcase_editor')
+    password_hash = fields.Char(string='Passworthash', copy=False, groups='base.group_user')
     access_version = fields.Char(default=lambda s: uuid.uuid4().hex, copy=False)
     password_is_set = fields.Boolean(compute='_compute_password_is_set', string='Passwort gesetzt')
     video_ids = fields.One2many('gl.showcase.video', 'showcase_id', string='Vimeo-Videos', copy=False)
@@ -75,6 +75,19 @@ class ProjectShowcase(models.Model):
                 # Website domain is configured by trusted site administrators.
                 domain = f'{parsed.scheme}://{parsed.netloc}' if parsed.netloc else base_url
             record.page_url = f'{domain or base_url}/showcase/{record.id}' if record.id else False
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            project_id = vals.get('project_id')
+            if project_id and not self.env.su:
+                self.env['project.project'].browse(project_id).check_access('read')
+        return super().create(vals_list)
+
+    def write(self, vals):
+        if vals.get('project_id') and not self.env.su:
+            self.env['project.project'].browse(vals['project_id']).check_access('read')
+        return super().write(vals)
 
     @api.constrains('color_background', 'color_text', 'color_accent')
     def _validate_colors(self):

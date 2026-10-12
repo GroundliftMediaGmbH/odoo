@@ -13,7 +13,7 @@ class ShowcasePasswordWizard(models.TransientModel):
 
     def action_save(self):
         self.ensure_one()
-        if not self.env.user.has_group('gl_project_showcase.group_showcase_editor'):
+        if not self.env.user.has_group('base.group_user'):
             raise AccessError(_('Keine Berechtigung.'))
         if self.new_password != self.confirm_password:
             from odoo.exceptions import ValidationError

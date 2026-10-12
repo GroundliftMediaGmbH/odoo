@@ -1,5 +1,4 @@
 from odoo import _, fields, models
-from odoo.exceptions import AccessError
 
 
 class Project(models.Model):
@@ -14,12 +13,11 @@ class Project(models.Model):
 
     def action_gl_open_showcase(self):
         self.ensure_one()
-        if not self.env.user.has_group('gl_project_showcase.group_showcase_editor'):
-            raise AccessError(_('Keine Berechtigung zur Showcase-Bearbeitung.'))
         self.check_access('read')
         showcase = self.gl_showcase_ids[:1]
         if not showcase:
-            self.check_access('write')
+            # All internal employees can manage a showcase on projects they can read.
+            # No write permission on project.project is necessary.
             showcase = self.env['gl.project.showcase'].create({
                 'project_id': self.id,
                 'name': self.name,

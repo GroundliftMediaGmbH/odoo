@@ -1,6 +1,6 @@
 {
     'name': 'Groundlift Project Showcase',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'summary': 'Projektgebundene Kunden-Landingpages mit Vimeo, Dokumenten und Fotogalerie',
     'author': 'Groundlift',
     'website': 'https://www.groundlift.de',
@@ -8,7 +8,6 @@
     'license': 'LGPL-3',
     'depends': ['project', 'website'],
     'data': [
-        'security/showcase_groups.xml',
         'security/ir.model.access.csv',
         'security/showcase_rules.xml',
         'views/showcase_views.xml',

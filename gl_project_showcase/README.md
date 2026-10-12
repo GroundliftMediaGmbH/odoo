@@ -1,12 +1,12 @@
 # Groundlift Project Showcase 19.0
 
-**Version:** 19.0.1.0.0 · **Plattform:** Odoo 19 SH · **Abhängigkeiten:** `project`, `website`
+**Version:** 19.0.1.1.0 · **Plattform:** Odoo 19 SH · **Abhängigkeiten:** `project`, `website`
 
 Eine eigene Ergebnis-Landingpage pro Odoo-Projekt. Entworfen für veranstaltungsbezogene Medien- und Kundenübergaben.
 
 ## Funktionsumfang
 
-- Nahtlose Projektverknüpfung: Schaltfläche **Ergebnis-Landingpage öffnen / anlegen** in der Projektmaske.
+- Nahtlose Projektverknüpfung: Reiter **Ergebnis-Landingpage** und Smart-Button **Showcase** in der Projektmaske.
 - Genau eine Showcase-Konfiguration je Projekt (Odoo-19-`models.Constraint`).
 - CI pro Showcase: Logo, Headerbild, Markenname, 4 Schriftstile plus optional hochladbare eigene WOFF2-Schrift, drei HEX-Farben. Die normale Website-CI wird nicht verändert.
 - Vimeo-Showcase-URLs und Einzelvideos, inklusive Vimeo-Links mit `h`-Hash für unlisted Videos. **Erst nach Klick** wird Vimeo kontaktiert.
@@ -15,7 +15,7 @@ Eine eigene Ergebnis-Landingpage pro Odoo-Projekt. Entworfen für veranstaltungs
 - Individuelle Downloadfreigabe je Dokument. Ohne Freigabe kein eigener Download-Endpunkt; die browserseitige PDF-Vorschau bleibt technisch kopierbar.
 - Responsive Fotogalerie mit Lightbox.
 - Zugriff: **privat** (angemeldete interne Odoo-Nutzer mit Projekt-Leserechten), **Kundenlogin** (angemeldeter Kontakt derselben kommerziellen Partnerfirma), **Passwort** (Passworthash, Session, einfaches Versuchslimit) oder **öffentlich**.
-- Veröffentlichungsstatus unabhängig von Projektstatus. Nicht veröffentlichte Seiten sind nur für Showcase-Redakteure mit Projektzugriff sichtbar.
+- Veröffentlichungsstatus unabhängig von Projektstatus. Nicht veröffentlichte Seiten sind nur für interne Projektbenutzer mit Projektzugriff sichtbar.
 - Projektbezogene Regeln auch für Medienmodelle. Öffentlich kein ORM-Zugriff auf Showcase-Modelle.
 - Website-Bindung: Showcases werden nur auf ihrer ausgewählten Odoo-Website ausgespielt.
 - SEO standardmäßig `noindex`; bei öffentlich sichtbarer Seite optional aktivierbar.
@@ -26,7 +26,7 @@ Eine eigene Ergebnis-Landingpage pro Odoo-Projekt. Entworfen für veranstaltungs
 1. Den Ordner `gl_project_showcase/` **unverändert** in das Custom-Addons-Verzeichnis des Odoo.sh-Git-Repositories legen (oder im Repository als Top-Level-Modul ablegen).
 2. Commit auf **Development** und Build abwarten; danach in Odoo die App-Liste aktualisieren (Entwicklermodus bei Bedarf).
 3. Nach **Groundlift Project Showcase** suchen und installieren. Odoo installiert fehlende Abhängigkeiten `project` / `website`.
-4. Benutzer, die Showcases bearbeiten dürfen, unter **Einstellungen → Benutzer → Zugriffsrechte** der Gruppe **Project Showcase: Redaktion** zuweisen. Die Gruppe beinhaltet Projektbenutzerrechte.
+4. Alle internen Odoo-Benutzer (`base.group_user`) haben die Berechtigung automatisch. Eine eigene Redaktionsgruppe ist **nicht** erforderlich. Standardmäßige Projektsichtbarkeit und Mandantentrennung bleiben erhalten.
 5. Im Projekt über die Aktion **Ergebnis-Landingpage öffnen / anlegen** eine Seite erstellen. Alternativ über **Projekt → Ergebnis-Landingpages** eine vorhandene Seite bearbeiten.
 6. Website auswählen, CI/Medien eintragen, Zugriff festlegen. Für passwortgeschützte Seiten zuerst **Zugangspasswort setzen** (mind. 12 Zeichen).
 7. Über **Veröffentlichen** aktivieren, den Link aus **Landingpage-URL** verwenden. Erst in Staging mit den Zugriffsarten testen.
@@ -60,3 +60,11 @@ Eine eigene Ergebnis-Landingpage pro Odoo-Projekt. Entworfen für veranstaltungs
 ## Entwicklernotiz
 
 Es wurde eine statische Syntax-/XML-Prüfung im Generierungscontainer durchgeführt. **Ein vollständiger Odoo-19-Laufzeittest auf eurer SH-Datenbank war nicht möglich**, da hier keine Odoo-Instanz verfügbar ist. Bitte zuerst in `dev`/`staging` installieren; bei einem abweichenden Projektformular oder kundenspezifischen Regeln kann eine Anpassung erforderlich sein.
+
+## Update von Version 1.0 auf 1.1
+
+- Bestehenden Modulordner `gl_project_showcase` durch diesen ersetzen (nicht parallel installieren).
+- In Odoo.sh pushen / Build abwarten. Im Apps-Menü **Groundlift Project Showcase → Upgrade** ausführen. Ein Git-Push allein aktualisiert die `ir.ui.view`-, `ir.rule`- und ACL-Datensätze nicht.
+- Browser neu laden (Strg+F5), ein vorhandenes Projekt **über seine Einstellungen/Formularansicht** öffnen; nicht nur Aufgabenübersicht. Dort sind der Reiter und der Smart-Button.
+- `Project Showcase: Redaktion` wird nicht mehr benötigt; eventuell aus früherer Installation verbliebene Gruppe kann ignoriert werden.
+- Der Projekt-Hauptmenüpunkt von Odoo ist standardmäßig weiterhin nur für Projektbenutzer/Projektleiter sichtbar. Diese App verändert die Projekt-Hauptmenüberechtigung nicht. Wenn Mitarbeiter ihre Projekte bereits über Odoo aufrufen können, sehen sie den Showcase-Reiter.
