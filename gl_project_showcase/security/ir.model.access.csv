@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_gl_showcase_editor,gl.project.showcase editor,model_gl_project_showcase,base.group_user,1,1,1,1
+access_gl_showcase_video_editor,gl.showcase.video editor,model_gl_showcase_video,base.group_user,1,1,1,1
+access_gl_showcase_photo_editor,gl.showcase.photo editor,model_gl_showcase_photo,base.group_user,1,1,1,1
+access_gl_showcase_document_editor,gl.showcase.document editor,model_gl_showcase_document,base.group_user,1,1,1,1
+access_gl_showcase_password_wizard,gl.showcase.password.wizard editor,model_gl_showcase_password_wizard,base.group_user,1,1,1,1
