@@ -1,0 +1,246 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+  <record id="res_config_settings_view_form_showcase_texts" model="ir.ui.view">
+    <field name="name">res.config.settings.project.showcase.texts</field>
+    <field name="model">res.config.settings</field>
+    <field name="inherit_id" ref="project.res_config_settings_view_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//app[@name='project']" position="inside">
+        <block title="Groundlift Project Showcase – Standardtexte" id="gl_project_showcase_default_texts">
+          <setting id="gl_showcase_text_defaults" string="Standardtexte für Kunden-Landingpages" help="Zentrale Texte für alle Projekt-Showcases. In jedem Showcase können die Werte individuell überschrieben werden.">
+            <div class="content-group">
+              <div class="mt16">
+                <h4>Navigation &amp; Branding</h4>
+                <div class="row mb8">
+                  <label for="gl_text_brand_fallback" class="col-12 col-lg-4 o_light_label">Branding: Ersatztext</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_brand_fallback"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_nav_results" class="col-12 col-lg-4 o_light_label">Menü: Ergebnisse</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_nav_results"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_nav_videos" class="col-12 col-lg-4 o_light_label">Menü: Filme</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_nav_videos"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_nav_documents" class="col-12 col-lg-4 o_light_label">Menü: Dokumente</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_nav_documents"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_nav_gallery" class="col-12 col-lg-4 o_light_label">Menü: Galerie</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_nav_gallery"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_hero_eyebrow" class="col-12 col-lg-4 o_light_label">Titelbild: Kategorie</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_hero_eyebrow"/>
+                  </div>
+                </div>
+              </div>
+              <div class="mt16">
+                <h4>Titelbild &amp; Ergebnis</h4>
+                <div class="row mb8">
+                  <label for="gl_text_hero_cta" class="col-12 col-lg-4 o_light_label">Titelbild: Aufruf</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_hero_cta"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_results_index" class="col-12 col-lg-4 o_light_label">Ergebnisse: Bereichslabel</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_results_index"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_results_title" class="col-12 col-lg-4 o_light_label">Ergebnisse: Überschrift</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_results_title"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_intro_fallback" class="col-12 col-lg-4 o_light_label">Ergebnisse: Ersatztext</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_intro_fallback"/>
+                  </div>
+                </div>
+              </div>
+              <div class="mt16">
+                <h4>Videos</h4>
+                <div class="row mb8">
+                  <label for="gl_text_videos_index" class="col-12 col-lg-4 o_light_label">Videos: Bereichslabel</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_videos_index"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_videos_title" class="col-12 col-lg-4 o_light_label">Videos: Überschrift</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_videos_title"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_video_start" class="col-12 col-lg-4 o_light_label">Videos: Button</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_video_start"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_video_privacy" class="col-12 col-lg-4 o_light_label">Videos: Datenschutzhinweis</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_video_privacy"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_video_files" class="col-12 col-lg-4 o_light_label">Videos: Dateibereich</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_video_files"/>
+                  </div>
+                </div>
+              </div>
+              <div class="mt16">
+                <h4>Dokumente</h4>
+                <div class="row mb8">
+                  <label for="gl_text_documents_index" class="col-12 col-lg-4 o_light_label">Dokumente: Bereichslabel</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_documents_index"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_documents_title" class="col-12 col-lg-4 o_light_label">Dokumente: Überschrift</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_documents_title"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_document_view_only" class="col-12 col-lg-4 o_light_label">Dokumente: Hinweis ohne Download</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_document_view_only"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_document_preview" class="col-12 col-lg-4 o_light_label">Dokumente: Vorschau</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_document_preview"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_document_download" class="col-12 col-lg-4 o_light_label">Dokumente: Download</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_document_download"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_gallery_index" class="col-12 col-lg-4 o_light_label">Galerie: Bereichslabel</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_gallery_index"/>
+                  </div>
+                </div>
+              </div>
+              <div class="mt16">
+                <h4>Galerie &amp; Footer</h4>
+                <div class="row mb8">
+                  <label for="gl_text_gallery_title" class="col-12 col-lg-4 o_light_label">Galerie: Überschrift</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_gallery_title"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_gallery_untagged" class="col-12 col-lg-4 o_light_label">Galerie: Fotos ohne Tag</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_gallery_untagged"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_thanks" class="col-12 col-lg-4 o_light_label">Abschluss: Überschrift</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_thanks"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_imprint" class="col-12 col-lg-4 o_light_label">Footer: Impressum</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_imprint"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_privacy" class="col-12 col-lg-4 o_light_label">Footer: Datenschutz</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_privacy"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_skip_link" class="col-12 col-lg-4 o_light_label">Barrierefreiheit: Zum Inhalt</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_skip_link"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_lightbox_close" class="col-12 col-lg-4 o_light_label">Galerie: Schließen</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_lightbox_close"/>
+                  </div>
+                </div>
+              </div>
+              <div class="mt16">
+                <h4>Passwortschutz</h4>
+                <div class="row mb8">
+                  <label for="gl_text_password_eyebrow" class="col-12 col-lg-4 o_light_label">Passwortseite: Bereichslabel</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_password_eyebrow"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_password_title" class="col-12 col-lg-4 o_light_label">Passwortseite: Überschrift</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_password_title"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_password_help" class="col-12 col-lg-4 o_light_label">Passwortseite: Hinweis</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_password_help"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_password_label" class="col-12 col-lg-4 o_light_label">Passwortseite: Eingabefeld</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_password_label"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_password_submit" class="col-12 col-lg-4 o_light_label">Passwortseite: Button</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_password_submit"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_password_invalid" class="col-12 col-lg-4 o_light_label">Passwortseite: falsches Passwort</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_password_invalid"/>
+                  </div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_password_limited" class="col-12 col-lg-4 o_light_label">Passwortseite: zu viele Versuche</label>
+                  <div class="col-12 col-lg-8">
+                    <field name="gl_text_password_limited"/>
+                  </div>
+                </div>
+              </div>
+            <div class="mt16"><h4>Zusätzliche Standardtexte</h4><div class="row mb8"><label for="gl_text_page_title_suffix" class="col-12 col-lg-4 o_light_label">Browser-Titel: Namenszusatz</label><div class="col-12 col-lg-8"><field name="gl_text_page_title_suffix"/></div></div><div class="row mb8"><label for="gl_text_password_browser_title" class="col-12 col-lg-4 o_light_label">Passwortseite: Browser-Titel</label><div class="col-12 col-lg-8"><field name="gl_text_password_browser_title"/></div></div><div class="row mb8"><label for="gl_text_closing_body" class="col-12 col-lg-4 o_light_label">Abschluss: Standardabsatz</label><div class="col-12 col-lg-8"><field name="gl_text_closing_body"/></div></div><div class="row mb8"><label for="gl_text_aria_navigation" class="col-12 col-lg-4 o_light_label">Barrierefreiheit: Navigationsbeschreibung</label><div class="col-12 col-lg-8"><field name="gl_text_aria_navigation"/></div></div><div class="row mb8"><label for="gl_text_aria_pdf_preview" class="col-12 col-lg-4 o_light_label">Barrierefreiheit: PDF-Vorschaubeschreibung</label><div class="col-12 col-lg-8"><field name="gl_text_aria_pdf_preview"/></div></div><div class="row mb8"><label for="gl_text_aria_lightbox" class="col-12 col-lg-4 o_light_label">Barrierefreiheit: Galeriefenster</label><div class="col-12 col-lg-8"><field name="gl_text_aria_lightbox"/></div></div><div class="row mb8"><label for="gl_text_aria_logo" class="col-12 col-lg-4 o_light_label">Barrierefreiheit: Logo-Ersatztext</label><div class="col-12 col-lg-8"><field name="gl_text_aria_logo"/></div></div></div></div>
+          </setting>
+        </block>
+      </xpath>
+    </field>
+  </record>
+</odoo>

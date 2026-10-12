@@ -98,3 +98,10 @@ body.gl-showcase { margin: 0; background: var(--gl-bg, #101820); color: var(--gl
 @media (max-width:900px){ .gl-gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
 @media (max-width:650px){ .gl-container{width:calc(100% - 32px);} .gl-head-inner{padding-block:17px;flex-wrap:wrap;} .gl-nav{gap:16px;} .gl-hero,.gl-has-image{min-height:430px;} .gl-hero-content{padding-block:60px;} .gl-section{padding-block:65px 30px;} .gl-gallery-grid{grid-template-columns:1fr;} .gl-document{padding:17px;} .gl-document-actions{justify-content:flex-start;} .gl-password-card{padding:24px;} .gl-video-attachments{padding:0 16px 16px;} }
 @media (prefers-reduced-motion: reduce) { html{scroll-behavior:auto;} .gl-lightbox-open img{transition:none;} }
+
+/* v1.5: local Vimeo or custom thumbnail; no Vimeo network request before consent. */
+.gl-video-consent { position: relative; isolation: isolate; overflow:hidden; }
+.gl-video-thumbnail { position:absolute; inset:0; height:100%; width:100%; object-fit:cover; z-index:-2; }
+.gl-video-consent:has(.gl-video-thumbnail) { background:#090e13; }
+.gl-video-consent:has(.gl-video-thumbnail)::before { content:""; position:absolute; inset:0; background:linear-gradient(0deg,rgba(0,0,0,.84),rgba(0,0,0,.14)); z-index:-1; }
+.gl-video-overlay { position:relative; z-index:1; text-shadow:0 1px 4px #000; }

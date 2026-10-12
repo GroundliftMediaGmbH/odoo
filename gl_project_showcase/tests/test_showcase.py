@@ -202,3 +202,76 @@ class TestProjectShowcase(TransactionCase):
             with self.env.cr.savepoint():
                 photo_tag.create({'name': 'Aufbau', 'showcase_id': self.showcase.id})
         photo_tag.create({'name': 'Aufbau', 'showcase_id': other_showcase.id})
+
+    def test_text_defaults_and_project_override(self):
+        """Inherited text updates live; an explicit showcase value wins."""
+        from ..models.texts import CONFIG_PREFIX, SHOWCASE_TEXTS
+        params = self.env['ir.config_parameter'].sudo()
+        key = CONFIG_PREFIX + 'hero_cta'
+        old = params.get_param(key)
+        try:
+            self.assertIn('hero_cta', SHOWCASE_TEXTS)
+            params.set_param(key, 'Die Highlights erleben')
+            self.assertEqual(self.showcase.gl_get_texts()['hero_cta'], 'Die Highlights erleben')
+            self.showcase.write({'gl_text_hero_cta': 'Hier klicken'})
+            self.assertEqual(self.showcase.gl_get_texts()['hero_cta'], 'Hier klicken')
+            params.set_param(key, 'Neuer Standard')
+            self.assertEqual(self.showcase.gl_get_texts()['hero_cta'], 'Hier klicken')
+            self.showcase.write({'gl_text_hero_cta': False})
+            self.assertEqual(self.showcase.gl_get_texts()['hero_cta'], 'Neuer Standard')
+        finally:
+            params.set_param(key, old or '')
+
+    def test_vimeo_oembed_thumbnail_cached_and_manual_override(self):
+        """Fetch from Vimeo only, cache bytes locally, allow custom preferred image."""
+        from io import BytesIO
+        from unittest.mock import patch
+        from PIL import Image
+        from ..models import media
+
+        output = BytesIO()
+        Image.new('RGB', (16, 9), (26, 45, 83)).save(output, format='PNG')
+        png = output.getvalue()
+
+        class FakeResponse:
+            status_code = 200
+            content = b'{}'
+
+            def json(self):
+                return {'thumbnail_url': 'https://i.vimeocdn.com/video/123456_960.jpg'}
+
+            def iter_content(self, chunk_size):
+                return iter([png])
+
+            def close(self):
+                pass
+
+        with patch.object(media.requests, 'get', side_effect=[FakeResponse(), FakeResponse()]) as req:
+            video = self.env['gl.showcase.video'].create({
+                'showcase_id': self.showcase.id,
+                'name': 'Vimeo-Cover-Test',
+                'vimeo_url': 'https://vimeo.com/123456',
+            })
+            self.assertEqual(req.call_count, 2)
+            self.assertTrue(video.thumbnail_vimeo)
+            self.assertTrue(video.thumbnail_checked_at)
+            self.assertEqual(video.thumbnail_checked_url, video.vimeo_url)
+            video._gl_sync_thumbnails()
+            self.assertEqual(req.call_count, 2)  # Cached successful fetch
+
+        # A customer-provided thumbnail can override the Vimeo one at any time.
+        video.write({'thumbnail_custom': base64.b64encode(png)})
+        self.assertTrue(video.thumbnail_custom)
+
+    def test_unavailable_vimeo_thumbnail_does_not_block_video(self):
+        from unittest.mock import patch
+        from ..models import media
+        with patch.object(media.requests, 'get', side_effect=media.requests.Timeout('offline')):
+            video = self.env['gl.showcase.video'].create({
+                'showcase_id': self.showcase.id,
+                'name': 'Geschütztes Video',
+                'vimeo_url': 'https://vimeo.com/5678',
+            })
+        self.assertTrue(video)
+        self.assertFalse(video.thumbnail_vimeo)
+        self.assertTrue(video.thumbnail_checked_at)

@@ -1,10 +1,17 @@
 import base64
+import logging
 import re
+from io import BytesIO
+
+import requests
+from PIL import Image, UnidentifiedImageError
 from urllib.parse import parse_qs, urlparse
 
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
 
+_logger = logging.getLogger(__name__)
+MAX_THUMB = 5 * 1024 * 1024
 MAX_DOC = 40 * 1024 * 1024
 MAX_PHOTO = 18 * 1024 * 1024
 PREVIEWABLE = ('application/pdf', 'image/jpeg', 'image/png', 'image/webp')
@@ -101,6 +108,108 @@ class ShowcaseVideo(models.Model):
         'gl.showcase.document', 'video_id', string='Dateien zu diesem Video', copy=False,
     )
     document_count = fields.Integer(string='Dateien', compute='_compute_document_count')
+    # Local fallback takes precedence, then the cached Vimeo oEmbed thumbnail.
+    thumbnail_custom = fields.Image(
+        string='Eigenes Videovorschaubild (optional)', attachment=True,
+        max_width=1920, max_height=1080,
+        help='Wird bevorzugt angezeigt. Auch nutzbar, wenn Vimeo kein Thumbnail liefert.',
+    )
+    thumbnail_vimeo = fields.Image(
+        string='Vimeo-Vorschaubild (automatisch)', attachment=True,
+        max_width=1920, max_height=1080, readonly=True, copy=False,
+    )
+    thumbnail_checked_at = fields.Datetime(string='Vimeo zuletzt geprüft', readonly=True, copy=False)
+    thumbnail_checked_url = fields.Char(string='Geprüfte Vimeo-URL', readonly=True, copy=False)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        videos = super().create(vals_list)
+        # Vimeo failures must not prevent publishing or editing a showcase.
+        videos._gl_sync_thumbnails(force=True)
+        return videos
+
+    def write(self, vals):
+        changed = 'vimeo_url' in vals
+        res = super().write(vals)
+        if changed:
+            # Never use a cached thumbnail from a different Vimeo URL.
+            self._gl_sync_thumbnails(force=True)
+        return res
+
+    def action_gl_refresh_thumbnail(self):
+        self.check_access('write')
+        self._gl_sync_thumbnails(force=True)
+        return True
+
+    def _gl_sync_thumbnails(self, force=False):
+        """Fetch Vimeo oEmbed metadata only from a fixed trusted endpoint.
+
+        Copy the preview to an Odoo Image field so page visitors do not request
+        Vimeo resources before clicking the video consent button. No user URL
+        is requested directly, and thumbnail URLs must be vimeocdn HTTPS.
+        """
+        for video in self:
+            if not force and video.thumbnail_checked_at and video.thumbnail_checked_url == video.vimeo_url:
+                continue
+            data = False
+            try:
+                url = (video.vimeo_url or '').strip()
+                if vimeo_embed(url):
+                    reply = requests.get(
+                        'https://vimeo.com/api/oembed.json',
+                        params={'url': url, 'width': 960}, timeout=(2, 3),
+                        allow_redirects=False,
+                        headers={'Accept': 'application/json'},
+                    )
+                    if reply.status_code == 200 and len(reply.content) <= 128 * 1024:
+                        info = reply.json()
+                        thumb_url = info.get('thumbnail_url')
+                        if isinstance(thumb_url, str):
+                            parsed = urlparse(thumb_url)
+                            if (parsed.scheme == 'https'
+                                    and (parsed.hostname == 'vimeocdn.com'
+                                         or (parsed.hostname or '').endswith('.vimeocdn.com'))
+                                    and not parsed.username and not parsed.password
+                                    and parsed.port in (None, 443)):
+                                response = requests.get(
+                                    thumb_url, timeout=(2, 4), allow_redirects=False,
+                                    headers={'Accept': 'image/jpeg, image/png, image/webp'},
+                                    stream=True,
+                                )
+                                try:
+                                    if response.status_code == 200:
+                                        size = 0
+                                        chunks = []
+                                        for chunk in response.iter_content(chunk_size=65536):
+                                            size += len(chunk)
+                                            if size > MAX_THUMB:
+                                                raise ValueError('Vimeo thumbnail exceeds size limit')
+                                            chunks.append(chunk)
+                                        payload = b''.join(chunks)
+                                        if safe_mime(payload) in ('image/jpeg', 'image/png', 'image/webp'):
+                                            # Verify that actual image data is decodable.
+                                            with Image.open(BytesIO(payload)) as picture:
+                                                picture.verify()
+                                            data = base64.b64encode(payload)
+                                finally:
+                                    response.close()
+            except (requests.RequestException, ValueError, TypeError,
+                    UnidentifiedImageError, OSError) as exc:
+                _logger.info('Vimeo thumbnail for video %s unavailable: %s', video.id, exc)
+            # Store a failed check as well to avoid repeated network calls.
+            # Force refresh clears an outdated old thumbnail.
+            super(ShowcaseVideo, video).write({
+                'thumbnail_vimeo': data,
+                'thumbnail_checked_at': fields.Datetime.now(),
+                'thumbnail_checked_url': video.vimeo_url,
+            })
+
+    def _gl_sync_missing_thumbnails(self):
+        for video in self:
+            if not video.thumbnail_checked_at or video.thumbnail_checked_url != video.vimeo_url:
+                video._gl_sync_thumbnails()
+
+
 
     @api.depends('document_ids')
     def _compute_document_count(self):

@@ -1,4 +1,14 @@
-# Groundlift Project Showcase – Odoo 19 SH (Version 1.4)
+# Groundlift Project Showcase – Odoo 19 SH (Version 1.5)
+
+## Neu in Version 1.5
+
+- **42 zentrale Standardtexte:** Projekt → Konfiguration → Einstellungen → Groundlift Project Showcase – Standardtexte (einschließlich "Ergebnisse entdecken", "Vielen Dank", Navigation, Kapitelüberschriften, Dokumentenaktionen und Passwortseite).
+- **42 individuelle Überschreibungen:** Reiter **Seitentexte** im jeweiligen Showcase. Leer = dynamische Übernahme der aktuellen Projekteinstellungen; vorhandene Inhalte bleiben unverändert.
+- **Vimeo-Vorschaubilder:** Beim Anlegen/Ändern eines Videos über Vimeo-oEmbed serverseitig abrufen und in einem `fields.Image` speichern; dadurch keine Drittanbieter-Verbindung des Seitenbesuchers beim Anzeigen des Covers. Manuelles Thumbnail pro Video hat Vorrang, wenn gewünscht.
+- **Manuelle Aktualisierung:** Button im Video und "Vimeo-Thumbnails abrufen" im Showcase; vorhandene Videos werden bei der ersten Landingpage-Anzeige in kleinen Gruppen nachgeladen.
+- **Upgrade:** Modulordner vollständig ersetzen, auf Staging pushen, App-Upgrade ausführen. Details in separater Updateanleitung.
+
+
 
 ## Neues in Version 1.4 (Fix von 1.3)
 
@@ -57,7 +67,7 @@
 
 # Groundlift Project Showcase 19.0
 
-**Version:** 19.0.1.4.0 · **Plattform:** Odoo 19 SH · **Abhängigkeiten:** `project`, `website`
+**Version:** 19.0.1.5.0 · **Plattform:** Odoo 19 SH · **Abhängigkeiten:** `project`, `website`
 
 Eine eigene Ergebnis-Landingpage pro Odoo-Projekt. Entworfen für veranstaltungsbezogene Medien- und Kundenübergaben.
 

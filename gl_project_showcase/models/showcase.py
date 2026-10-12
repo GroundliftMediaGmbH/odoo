@@ -7,6 +7,8 @@ from werkzeug.security import generate_password_hash
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
 
+from .texts import SHOWCASE_TEXTS, CONFIG_PREFIX
+
 
 _HEX_COLOR = re.compile(r'^#[0-9a-fA-F]{6}$')
 
@@ -61,6 +63,66 @@ class ProjectShowcase(models.Model):
         'gl.showcase.photo.tag', 'showcase_id', string='Galerie-Überschriften', copy=False,
     )
     page_url = fields.Char(compute='_compute_page_url', string='Landingpage-URL')
+
+    # Optional per-showcase overrides. False means live default from Project settings.
+    gl_text_brand_fallback = fields.Char(string='Branding: Ersatztext', help='Leer lassen = Projekteinstellungen: PROJECT SHOWCASE')
+    gl_text_nav_results = fields.Char(string='Menü: Ergebnisse', help='Leer lassen = Projekteinstellungen: Ergebnisse')
+    gl_text_nav_videos = fields.Char(string='Menü: Filme', help='Leer lassen = Projekteinstellungen: Filme')
+    gl_text_nav_documents = fields.Char(string='Menü: Dokumente', help='Leer lassen = Projekteinstellungen: Dokumente')
+    gl_text_nav_gallery = fields.Char(string='Menü: Galerie', help='Leer lassen = Projekteinstellungen: Galerie')
+    gl_text_hero_eyebrow = fields.Char(string='Titelbild: Kategorie', help='Leer lassen = Projekteinstellungen: Projektabschluss · Ergebnisse')
+    gl_text_hero_cta = fields.Char(string='Titelbild: Aufruf', help='Leer lassen = Projekteinstellungen: Ergebnisse entdecken')
+    gl_text_results_index = fields.Char(string='Ergebnisse: Bereichslabel', help='Leer lassen = Projekteinstellungen: 01 / ÜBERBLICK')
+    gl_text_results_title = fields.Char(string='Ergebnisse: Überschrift', help='Leer lassen = Projekteinstellungen: Das Ergebnis')
+    gl_text_intro_fallback = fields.Char(string='Ergebnisse: Ersatztext', help='Leer lassen = Projekteinstellungen: Einblicke und freigegebene Ergebnisse aus unserem gemeinsamen Projekt.')
+    gl_text_videos_index = fields.Char(string='Videos: Bereichslabel', help='Leer lassen = Projekteinstellungen: 02 / MOVING IMAGE')
+    gl_text_videos_title = fields.Char(string='Videos: Überschrift', help='Leer lassen = Projekteinstellungen: Showreel & Videos')
+    gl_text_video_start = fields.Char(string='Videos: Button', help='Leer lassen = Projekteinstellungen: Video auf Vimeo laden')
+    gl_text_video_privacy = fields.Char(string='Videos: Datenschutzhinweis', help='Leer lassen = Projekteinstellungen: Beim Abspielen werden Daten an Vimeo übertragen.')
+    gl_text_video_files = fields.Char(string='Videos: Dateibereich', help='Leer lassen = Projekteinstellungen: Zugehörige Dateien')
+    gl_text_documents_index = fields.Char(string='Dokumente: Bereichslabel', help='Leer lassen = Projekteinstellungen: 03 / ASSETS & DOCUMENTS')
+    gl_text_documents_title = fields.Char(string='Dokumente: Überschrift', help='Leer lassen = Projekteinstellungen: Dokumente')
+    gl_text_document_view_only = fields.Char(string='Dokumente: Hinweis ohne Download', help='Leer lassen = Projekteinstellungen: Nur Ansicht · kein Download-Button')
+    gl_text_document_preview = fields.Char(string='Dokumente: Vorschau', help='Leer lassen = Projekteinstellungen: Vorschau ansehen')
+    gl_text_document_download = fields.Char(string='Dokumente: Download', help='Leer lassen = Projekteinstellungen: Herunterladen')
+    gl_text_gallery_index = fields.Char(string='Galerie: Bereichslabel', help='Leer lassen = Projekteinstellungen: 04 / STILL IMAGE')
+    gl_text_gallery_title = fields.Char(string='Galerie: Überschrift', help='Leer lassen = Projekteinstellungen: Galerie')
+    gl_text_gallery_untagged = fields.Char(string='Galerie: Fotos ohne Tag', help='Leer lassen = Projekteinstellungen: Weitere Fotos')
+    gl_text_thanks = fields.Char(string='Abschluss: Überschrift', help='Leer lassen = Projekteinstellungen: VIELEN DANK')
+    gl_text_imprint = fields.Char(string='Footer: Impressum', help='Leer lassen = Projekteinstellungen: Impressum')
+    gl_text_privacy = fields.Char(string='Footer: Datenschutz', help='Leer lassen = Projekteinstellungen: Datenschutz')
+    gl_text_skip_link = fields.Char(string='Barrierefreiheit: Zum Inhalt', help='Leer lassen = Projekteinstellungen: Zum Inhalt springen')
+    gl_text_lightbox_close = fields.Char(string='Galerie: Schließen', help='Leer lassen = Projekteinstellungen: Schließen')
+    gl_text_password_eyebrow = fields.Char(string='Passwortseite: Bereichslabel', help='Leer lassen = Projekteinstellungen: GESCHÜTZTER PROJEKTBEREICH')
+    gl_text_password_title = fields.Char(string='Passwortseite: Überschrift', help='Leer lassen = Projekteinstellungen: Zugang zum Project Showcase')
+    gl_text_password_help = fields.Char(string='Passwortseite: Hinweis', help='Leer lassen = Projekteinstellungen: Für diese Ergebnis-Landingpage benötigst du ein Zugangspasswort.')
+    gl_text_password_label = fields.Char(string='Passwortseite: Eingabefeld', help='Leer lassen = Projekteinstellungen: Passwort')
+    gl_text_password_submit = fields.Char(string='Passwortseite: Button', help='Leer lassen = Projekteinstellungen: Showcase öffnen')
+    gl_text_password_invalid = fields.Char(string='Passwortseite: falsches Passwort', help='Leer lassen = Projekteinstellungen: Das Passwort ist nicht korrekt.')
+    gl_text_password_limited = fields.Char(string='Passwortseite: zu viele Versuche', help='Leer lassen = Projekteinstellungen: Zu viele Versuche. Bitte später erneut versuchen.')
+
+    gl_text_page_title_suffix = fields.Char(string='Browser-Titel: Namenszusatz', help='Leer lassen = Projekteinstellungen: Project Showcase')
+    gl_text_password_browser_title = fields.Char(string='Passwortseite: Browser-Titel', help='Leer lassen = Projekteinstellungen: Geschütztes Project Showcase')
+    gl_text_closing_body = fields.Char(string='Abschluss: Standardabsatz', help='Leer lassen = Projekteinstellungen: Vielen Dank für die Zusammenarbeit.')
+    gl_text_aria_navigation = fields.Char(string='Barrierefreiheit: Navigationsbeschreibung', help='Leer lassen = Projekteinstellungen: Seitennavigation')
+    gl_text_aria_pdf_preview = fields.Char(string='Barrierefreiheit: PDF-Vorschaubeschreibung', help='Leer lassen = Projekteinstellungen: PDF-Vorschau')
+    gl_text_aria_lightbox = fields.Char(string='Barrierefreiheit: Galeriefenster', help='Leer lassen = Projekteinstellungen: Bild in Großansicht')
+    gl_text_aria_logo = fields.Char(string='Barrierefreiheit: Logo-Ersatztext', help='Leer lassen = Projekteinstellungen: Logo')
+
+    def gl_get_texts(self):
+        """Return an escaped-by-QWeb plain-text map of current labels.
+
+        Overrides remain empty on existing showcases, hence updated global
+        Project settings apply immediately without a migration or duplication.
+        """
+        self.ensure_one()
+        params = self.env['ir.config_parameter'].sudo()
+        result = {}
+        for key, (_label, original_default) in SHOWCASE_TEXTS.items():
+            local_value = self['gl_text_' + key]
+            global_value = params.get_param(CONFIG_PREFIX + key)
+            result[key] = local_value or global_value or original_default
+        return result
 
     @api.depends('password_hash')
     def _compute_password_is_set(self):
@@ -145,6 +207,13 @@ class ProjectShowcase(models.Model):
     def action_unpublish(self):
         self.write({'published': False})
 
+    def action_gl_refresh_video_thumbnails(self):
+        self.ensure_one()
+        self.check_access('write')
+        # Deliberate user action; auto-fetch is also done on newly saved URLs.
+        self.video_ids._gl_sync_thumbnails(force=True)
+        return True
+
     def action_change_password(self):
         self.ensure_one()
         self.check_access('write')
@@ -185,7 +254,7 @@ class ProjectShowcase(models.Model):
         untagged = self.photo_ids.filtered(lambda photo: not photo.tag_ids)
         if untagged:
             groups.append({
-                'name': _('Weitere Fotos') if groups else False,
+                'name': self.gl_get_texts()['gallery_untagged'] if groups else False,
                 'photos': untagged,
             })
         return groups

@@ -9,7 +9,7 @@
       if (!url || !/^https:\/\/(player\.vimeo\.com|vimeo\.com)\//.test(url)) return;
       const iframe = document.createElement('iframe');
       iframe.src = url;
-      iframe.title = 'Vimeo-Video';
+      iframe.title = container.getAttribute('data-vimeo-title') || 'Video';
       iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
       iframe.setAttribute('allowfullscreen', '');
       iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
