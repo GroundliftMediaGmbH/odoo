@@ -1,3 +1,5 @@
+**Hotfix v1.6.1:** No eager import or hard manifest dependency for pypdfium2. The registry can start even if Odoo.sh has not yet installed the rendering package. The PDF preview remains *closed* (never serves the source PDF) until the dependency is available. Copy/merge `requirements.txt` into the root of the actual Git repository. See HOTFIX_v1.6.1.md.
+
 **Version 1.6:** Geschützte PDF-Vorschauen werden serverseitig mit pypdfium2 in JPEG-Seiten gerendert. **Zwingend:** Im Odoo.sh-Git-Repository `requirements.txt` mit `pypdfium2>=4.30,<6` pflegen. Siehe beiliegende INSTALLATION_v1.6.md. Vimeo-Poster-CSS korrigiert, oEmbed-Domänen-Referer ergänzt, PDF-Vollbild und neues Fenster.
 
 # Groundlift Project Showcase – Odoo 19 SH (Version 1.5)

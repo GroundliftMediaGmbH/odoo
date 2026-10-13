@@ -5,9 +5,9 @@ Requires pypdfium2 in the Odoo.sh repository requirements.txt.
 No native/system package (poppler) is required.
 """
 from io import BytesIO
+import importlib
 from math import sqrt
 
-import pypdfium2 as pdfium
 
 MAX_PAGES = 120
 MAX_RENDER_PIXELS = 3_000_000
@@ -18,9 +18,25 @@ class PdfPreviewError(Exception):
     pass
 
 
+def _load_pdfium():
+    """Lazy dependency loading avoids breaking the entire Odoo registry.
+
+    Odoo.sh only installs pypdfium2 if requirements.txt was committed in
+    the Git repository. Missing native/pdfium binaries must NEVER prevent
+    Odoo from starting or allow the unprotected original PDF to be served.
+    """
+    try:
+        return importlib.import_module('pypdfium2')
+    except (ImportError, OSError) as exc:
+        raise PdfPreviewError(
+            'PDF-Vorschau nicht verfügbar: pypdfium2 fehlt oder kann nicht geladen werden. '
+            'Bitte requirements.txt im Git-Repository prüfen.'
+        ) from exc
+
+
 def count_pdf_pages(pdf_data):
     try:
-        with pdfium.PdfDocument(pdf_data) as pdf:
+        with _load_pdfium().PdfDocument(pdf_data) as pdf:
             n = len(pdf)
             if n < 1 or n > MAX_PAGES:
                 raise PdfPreviewError('PDF enthält keine Seiten oder überschreitet das Limit von %s Seiten.' % MAX_PAGES)
@@ -34,7 +50,7 @@ def count_pdf_pages(pdf_data):
 def render_pdf_page(pdf_data, page_num):
     """Return rendered JPEG bytes (1-based page); constrained size and pixels."""
     try:
-        with pdfium.PdfDocument(pdf_data) as pdf:
+        with _load_pdfium().PdfDocument(pdf_data) as pdf:
             n = len(pdf)
             if n < 1 or n > MAX_PAGES or not 1 <= page_num <= n:
                 raise PdfPreviewError('Ungültige PDF-Seite.')

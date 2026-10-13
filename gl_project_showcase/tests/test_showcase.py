@@ -16,12 +16,27 @@ class TestProjectShowcase(TransactionCase):
         })
 
 
+    def test_missing_optional_pdf_library_does_not_crash_module(self):
+        """A missing renderer cannot break registry loading or leak original PDFs."""
+        from unittest.mock import patch
+        from ..models import pdf_preview
+        with patch.object(pdf_preview.importlib, 'import_module',
+                          side_effect=ModuleNotFoundError('pypdfium2 not installed')):
+            with self.assertRaises(pdf_preview.PdfPreviewError):
+                pdf_preview.count_pdf_pages(b'%PDF-1.7\n%%EOF')
+
     def test_server_raster_pdf_preview(self):
         """A valid PDF is converted to images without shipping raw PDF bytes."""
         from io import BytesIO
         from PIL import Image
         from reportlab.pdfgen import canvas
-        from ..models.pdf_preview import PdfPreviewError, count_pdf_pages, render_pdf_page
+        from ..models.pdf_preview import (
+            PdfPreviewError, _load_pdfium, count_pdf_pages, render_pdf_page,
+        )
+        try:
+            _load_pdfium()
+        except PdfPreviewError:
+            self.skipTest('pypdfium2 is not installed; install the Git-root requirements.txt to enable PDF previews')
 
         buffer = BytesIO()
         pdf = canvas.Canvas(buffer, pagesize=(595, 842))

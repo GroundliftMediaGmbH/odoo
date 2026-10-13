@@ -202,8 +202,8 @@ class ShowcaseController(http.Controller):
             return request.not_found()
         try:
             page_count = count_pdf_pages(payload)
-        except PdfPreviewError:
-            _logger.warning('PDF preview cannot count pages: doc=%s', document_id)
+        except PdfPreviewError as exc:
+            _logger.warning('PDF preview cannot count pages: doc=%s, error=%s', document_id, exc)
             return request.not_found()
         response = self._render('gl_project_showcase.showcase_pdf_viewer', {
             'show': show, 'doc': doc, 'page_count': page_count, 'labels': show.gl_get_texts(),
@@ -223,8 +223,8 @@ class ShowcaseController(http.Controller):
             return request.not_found()
         try:
             picture = render_pdf_page(payload, page_num)
-        except PdfPreviewError:
-            _logger.warning('Cannot render PDF preview: doc=%s page=%s', document_id, page_num)
+        except PdfPreviewError as exc:
+            _logger.warning('Cannot render PDF preview: doc=%s page=%s, error=%s', document_id, page_num, exc)
             return request.not_found()
         return self._binary_response(picture, 'seite-%s.jpg' % page_num, 'image/jpeg')
 
