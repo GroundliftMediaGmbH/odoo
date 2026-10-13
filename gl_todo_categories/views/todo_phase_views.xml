@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_todo_phase_list" model="ir.ui.view">
+        <field name="name">gl.todo.phase.list</field>
+        <field name="model">gl.todo.phase</field>
+        <field name="arch" type="xml">
+            <list string="To-Do-Phasen" editable="bottom" default_order="sequence, id">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="fold" optional="show"/>
+                <field name="active" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_todo_phase_form" model="ir.ui.view">
+        <field name="name">gl.todo.phase.form</field>
+        <field name="model">gl.todo.phase</field>
+        <field name="arch" type="xml">
+            <form string="To-Do-Phase">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="sequence"/>
+                        <field name="fold"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_todo_phases" model="ir.actions.act_window">
+        <field name="name">Phasen</field>
+        <field name="res_model">gl.todo.phase</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

@@ -2,6 +2,7 @@
 
 import { Component, onMounted, onPatched, useRef, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
+import { isBinarySize } from "@web/core/utils/binary";
 import { standardFieldProps } from "@web/views/fields/standard_field_props";
 
 class GroundliftDrawingCanvasField extends Component {
@@ -29,6 +30,8 @@ class GroundliftDrawingCanvasField extends Component {
         this.lastY = 0;
         this.saveTimer = null;
         this.lastLoadedValue = null;
+        this.overlayLoadToken = 0;
+        this.localCanvasIsAuthoritative = false;
         this.state = useState({
             size: 4,
             color: "#0a84ff",
@@ -192,13 +195,27 @@ class GroundliftDrawingCanvasField extends Component {
     }
 
     normalizeBinaryValue(value) {
-        if (!value || typeof value !== "string") {
+        if (!value || typeof value !== "string" || isBinarySize(value)) {
             return false;
         }
         if (value.startsWith("data:image")) {
             return value;
         }
         return `data:image/png;base64,${value}`;
+    }
+
+    getPersistedOverlayUrl() {
+        const { resModel, resId } = this.props.record;
+        if (!resModel || !resId) {
+            return false;
+        }
+        const model = encodeURIComponent(resModel);
+        const id = encodeURIComponent(resId);
+        const field = encodeURIComponent(this.props.name);
+        // Binary-Felder mit attachment=True werden nach einem normalen Odoo-Speichern
+        // im Client nur noch als Größenangabe (z. B. "12.34 Kb") gehalten.
+        // In diesem Fall muss das echte PNG über /web/content nachgeladen werden.
+        return `/web/content/${model}/${id}/${field}?download=false&nocache=1&t=${Date.now()}`;
     }
 
     loadOverlay(force = false) {
@@ -210,15 +227,42 @@ class GroundliftDrawingCanvasField extends Component {
             return;
         }
         this.lastLoadedValue = value;
-        this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
-        const src = this.normalizeBinaryValue(value);
-        if (!src) {
+
+        const isStoredBinary = typeof value === "string" && isBinarySize(value);
+        if (isStoredBinary && this.localCanvasIsAuthoritative) {
+            // Direkt nach dem normalen Odoo-Speichern ersetzt der Client den Base64-Wert
+            // durch eine Größenangabe. Das Canvas enthält zu diesem Zeitpunkt aber bereits
+            // exakt die gerade gespeicherte Zeichnung. Diese bleibt maßgeblich; beim nächsten
+            // Öffnen des Datensatzes wird das PNG regulär vom Server geladen.
+            this.localCanvasIsAuthoritative = false;
             return;
         }
+        const src = isStoredBinary ? this.getPersistedOverlayUrl() : this.normalizeBinaryValue(value);
+        const loadToken = ++this.overlayLoadToken;
+
+        if (!src) {
+            this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+            return;
+        }
+
         const img = new Image();
         img.onload = () => {
+            // Eine ältere asynchrone Bildladung darf eine neuere Zeichnung nicht überschreiben.
+            if (loadToken !== this.overlayLoadToken || !this.ctx) {
+                return;
+            }
             this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
             this.ctx.drawImage(img, 0, 0, this.canvasWidth, this.canvasHeight);
+        };
+        img.onerror = () => {
+            if (loadToken !== this.overlayLoadToken) {
+                return;
+            }
+            // Bei einem bereits gespeicherten Binary die aktuell sichtbare Zeichnung
+            // nicht löschen. So geht bei einem kurzzeitigen Ladefehler nichts verloren.
+            if (!isStoredBinary) {
+                this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+            }
         };
         img.src = src;
     }
@@ -271,6 +315,8 @@ class GroundliftDrawingCanvasField extends Component {
             return;
         }
         ev.preventDefault();
+        // Eine eventuell noch laufende Server-Bildladung darf keinen neuen Strich überschreiben.
+        this.overlayLoadToken += 1;
         this.loadOverlay(false);
         const pos = this.getCanvasPoint(ev);
         this.drawing = true;
@@ -300,6 +346,7 @@ class GroundliftDrawingCanvasField extends Component {
         this.ctx.stroke();
         this.lastX = pos.x;
         this.lastY = pos.y;
+        this.localCanvasIsAuthoritative = true;
         this.state.status = "Änderungen ...";
     }
 
@@ -309,12 +356,9 @@ class GroundliftDrawingCanvasField extends Component {
         }
         ev.preventDefault();
         this.drawing = false;
-        this.scheduleSave();
-    }
-
-    scheduleSave() {
-        clearTimeout(this.saveTimer);
-        this.saveTimer = setTimeout(() => this.saveCanvas(), 600);
+        // Sofort in den Odoo-Datensatz übernehmen. Dadurch kann der normale
+        // "Manuell speichern"-Button nicht mit einem verzögerten Auto-Save kollidieren.
+        this.saveCanvas();
     }
 
     buildUpdateData(base64) {
@@ -326,12 +370,21 @@ class GroundliftDrawingCanvasField extends Component {
     }
 
     async saveCanvas(statusText = null) {
-        if (this.props.readonly) {
+        if (this.props.readonly || !this.canvasRef.el) {
             return;
         }
+        // t-on-click übergibt das DOM-Event als erstes Argument. Das ist kein Statustext.
+        if (typeof statusText !== "string") {
+            statusText = null;
+        }
+        clearTimeout(this.saveTimer);
+        this.overlayLoadToken += 1;
         const dataUrl = this.canvasRef.el.toDataURL("image/png");
         const base64 = dataUrl.split(",", 2)[1];
         this.lastLoadedValue = base64;
+        this.localCanvasIsAuthoritative = true;
+        // Wichtig: record.update markiert das Binary-Feld als geändert. Der normale
+        // Odoo-Speichervorgang schreibt es anschließend zusammen mit dem Projekt.
         await this.props.record.update(this.buildUpdateData(base64));
         this.state.status = statusText || `In das Projekt übernommen ${new Date().toLocaleTimeString()}`;
     }
@@ -340,8 +393,10 @@ class GroundliftDrawingCanvasField extends Component {
         if (this.props.readonly) {
             return;
         }
+        this.overlayLoadToken += 1;
         this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         this.lastLoadedValue = false;
+        this.localCanvasIsAuthoritative = true;
         const values = { [this.props.name]: false };
         if (this.props.rotationField) {
             values[this.props.rotationField] = this.rotation;

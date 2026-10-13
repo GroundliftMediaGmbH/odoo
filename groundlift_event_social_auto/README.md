@@ -141,3 +141,27 @@ wird nicht von der Event-Planungsautomatik erneut verschoben oder verarbeitet.
 - Stattdessen erzeugt die App aus den zwei dominanten Bildfarben einen Hintergrundverlauf im Ziel-Seitenverhältnis.
 - Das Originalbild wird vollständig sichtbar per Resize/Contain auf diesen Verlauf gesetzt.
 - Der Ausverkauft-Störer wird anschließend auf dieses bereits angepasste Bild gelegt.
+
+## Änderungen in 19.0.1.0.22 – Grafik-App als Bildquelle
+
+- Benötigt `groundlift_graphics` (wird als Odoo-Modulabhängigkeit installiert).
+- Für automatisch erzeugte Event-Posts wird das zuletzt **gerenderte** Bild aus der
+  Grafik-App verwendet: `social_post` für Feed und `social_story` für Stories.
+  Eine Vorlage oder ein noch nicht gespeicherter Editor-Entwurf ist kein Bild.
+- Die bisherigen Social-Bilder bleiben pro Post als unveränderter Fallback
+  erhalten. Existiert keine passende Ausgabe, wird weiterhin das alte Bild
+  verwendet; wird die Ausgabe später entfernt/archiviert, kehrt es zurück.
+- Beim Speichern fertiger Grafik-App-Ausgaben werden vorhandene ungepostete
+  Event-Posts unmittelbar aktualisiert. Ein eigenständiger Cron prüft zusätzlich
+  **alle 15 Minuten**, auch bei bereits geplanten Posts. Ab 24 Stunden vor dem
+  geplanten Versand erfolgt einmal ein erzwungener erneuter Inhaltsabgleich;
+  spätere Änderungen bleiben weiterhin durch Speichern/Cron sichtbar.
+- Native Veröffentlichungsaktionen prüfen die Ausgabe noch einmal vor dem Post.
+  Schon veröffentlichte Posts bleiben unverändert. Datum, Text, Freigabe und
+  gewählte Accounts bleiben bei automatischen Bildwechseln erhalten.
+- Ausverkauft-Posts erhalten den bestehenden Ausverkauft-Störer auf die neue
+  Grafik; Original- und Grafik-App-Ausgaben werden dafür nicht überschrieben.
+- Im Groundlift-Postformular ist die verwendete Grafik-App-Ausgabe einsehbar.
+
+Nach dem GitHub-Push beide Module in Odoo.sh aktualisieren (Grafiken vor Social).
+Der neue 15-Minuten-Cron wird beim Upgrade des Social-Moduls angelegt.

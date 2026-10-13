@@ -1,0 +1,401 @@
+:root {
+    --kp-bg: #0b0d10;
+    --kp-panel: #14181d;
+    --kp-panel-2: #1a2026;
+    --kp-border: rgba(255, 255, 255, 0.10);
+    --kp-text: #f5f7f8;
+    --kp-muted: #9da6ae;
+    --kp-soft: #c7ced4;
+    --kp-accent: #ffffff;
+    --kp-success: #67d391;
+    --kp-warning: #f0bd5b;
+    --kp-danger: #ff7b7b;
+    --kp-radius: 18px;
+    --kp-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
+}
+
+body:has(#gl-kino-pos-app),
+body:has(#gl-kino-pos-device-setup) {
+    background: var(--kp-bg) !important;
+}
+body:has(#gl-kino-pos-app) #top,
+body:has(#gl-kino-pos-app) footer#bottom,
+body:has(#gl-kino-pos-device-setup) #top,
+body:has(#gl-kino-pos-device-setup) footer#bottom {
+    display: none !important;
+}
+
+.gl-kino-pos {
+    min-height: 100vh;
+    padding: clamp(18px, 2.5vw, 38px);
+    background:
+        radial-gradient(circle at 10% 0%, rgba(255,255,255,0.055), transparent 28%),
+        radial-gradient(circle at 92% 18%, rgba(255,255,255,0.035), transparent 23%),
+        var(--kp-bg);
+    color: var(--kp-text);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.gl-kino-pos-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    max-width: 1780px;
+    margin: 0 auto 24px;
+}
+
+.gl-kino-pos-eyebrow,
+.gl-kino-pos-kicker {
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--kp-muted);
+}
+
+.gl-kino-pos-header h1 {
+    margin: 5px 0 4px;
+    color: var(--kp-text);
+    font-size: clamp(1.75rem, 3vw, 3.25rem);
+    line-height: 1.06;
+    font-weight: 760;
+    letter-spacing: -0.045em;
+}
+
+.gl-kino-pos-shift {
+    color: var(--kp-soft);
+    font-size: 0.98rem;
+}
+.gl-kino-pos-shift.warning { color: var(--kp-warning); }
+
+.gl-kino-pos-ha {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 18px;
+    border: 1px solid var(--kp-border);
+    border-radius: 999px;
+    color: var(--kp-text) !important;
+    background: var(--kp-panel-2);
+    text-decoration: none !important;
+    font-weight: 700;
+    white-space: nowrap;
+    transition: transform .16s ease, background .16s ease;
+}
+.gl-kino-pos-ha:hover { transform: translateY(-1px); background: #222a32; }
+
+.gl-kino-pos-error {
+    max-width: 1780px;
+    margin: 0 auto 18px;
+    padding: 13px 16px;
+    border: 1px solid rgba(255, 123, 123, .45);
+    border-radius: 12px;
+    background: rgba(255, 123, 123, .10);
+    color: #ffc5c5;
+}
+
+.gl-kino-pos-layout {
+    max-width: 1780px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1.72fr) minmax(360px, .78fr);
+    gap: 20px;
+    align-items: start;
+}
+.gl-kino-pos-sidecol { display: grid; gap: 20px; }
+
+.gl-kino-pos-panel {
+    border: 1px solid var(--kp-border);
+    border-radius: var(--kp-radius);
+    background: linear-gradient(180deg, rgba(255,255,255,.018), transparent 20%), var(--kp-panel);
+    box-shadow: var(--kp-shadow);
+    overflow: hidden;
+}
+
+.gl-kino-pos-panel-head {
+    min-height: 86px;
+    padding: 20px 22px 17px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    border-bottom: 1px solid var(--kp-border);
+}
+.gl-kino-pos-panel-head h2 {
+    margin: 3px 0 0;
+    color: var(--kp-text);
+    font-size: 1.28rem;
+    font-weight: 760;
+    letter-spacing: -0.02em;
+}
+.gl-kino-pos-count {
+    min-width: 38px;
+    height: 38px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 999px;
+    background: #fff;
+    color: #111;
+    font-weight: 850;
+}
+
+.gl-kino-pos-tickets { padding: 18px; display: grid; gap: 14px; }
+.gl-kino-pos-ticket {
+    border: 1px solid var(--kp-border);
+    border-radius: 15px;
+    background: var(--kp-panel-2);
+    overflow: hidden;
+}
+.gl-kino-pos-ticket-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    padding: 17px 18px;
+    border-bottom: 1px solid var(--kp-border);
+}
+.gl-kino-pos-ticket-id { font-size: 1.02rem; font-weight: 780; color: var(--kp-text); }
+.gl-kino-pos-ticket-time { margin-top: 3px; color: var(--kp-muted); font-size: .78rem; }
+.gl-kino-pos-solve {
+    border: 0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    background: #fff;
+    color: #0d0f12;
+    font-weight: 780;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.gl-kino-pos-solve:disabled { opacity: .48; cursor: wait; }
+
+.gl-kino-pos-ticket-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.gl-kino-pos-ticket-field {
+    padding: 14px 18px;
+    border-right: 1px solid var(--kp-border);
+    border-bottom: 1px solid var(--kp-border);
+    min-width: 0;
+}
+.gl-kino-pos-ticket-field:nth-child(2n) { border-right: 0; }
+.gl-kino-pos-ticket-field.wide { grid-column: 1 / -1; border-right: 0; }
+.gl-kino-pos-ticket-field span {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--kp-muted);
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .085em;
+    text-transform: uppercase;
+}
+.gl-kino-pos-ticket-field strong {
+    display: block;
+    color: var(--kp-text);
+    font-size: .96rem;
+    line-height: 1.42;
+    overflow-wrap: anywhere;
+}
+.gl-kino-pos-phone { color: var(--kp-text) !important; text-decoration: underline !important; text-underline-offset: 3px; }
+
+.gl-kino-pos-todos { padding: 12px; display: grid; gap: 8px; }
+.gl-kino-pos-todo {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 12px;
+    align-items: start;
+    margin: 0;
+    padding: 13px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background .15s ease;
+}
+.gl-kino-pos-todo:hover { background: rgba(255,255,255,.035); }
+.gl-kino-pos-todo input { position: absolute; opacity: 0; pointer-events: none; }
+.gl-kino-pos-checkmark {
+    width: 25px;
+    height: 25px;
+    display: grid;
+    place-items: center;
+    border: 2px solid #64707a;
+    border-radius: 7px;
+    background: transparent;
+}
+.gl-kino-pos-todo.done .gl-kino-pos-checkmark { border-color: var(--kp-success); background: var(--kp-success); }
+.gl-kino-pos-todo.done .gl-kino-pos-checkmark::after { content: "✓"; color: #071109; font-weight: 900; font-size: 16px; }
+.gl-kino-pos-todo-copy strong { display: block; color: var(--kp-text); font-size: .98rem; line-height: 1.25; }
+.gl-kino-pos-todo-copy small { display: block; margin-top: 4px; color: var(--kp-muted); line-height: 1.35; }
+.gl-kino-pos-todo.done .gl-kino-pos-todo-copy strong { text-decoration: line-through; color: #9aa4ab; }
+
+.gl-kino-pos-thanks {
+    margin: 14px 14px 2px;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 38px 1fr;
+    column-gap: 11px;
+    border: 1px solid rgba(103, 211, 145, .34);
+    border-radius: 13px;
+    background: rgba(103, 211, 145, .09);
+}
+.gl-kino-pos-thanks-icon {
+    grid-row: 1 / span 2;
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--kp-success);
+    color: #071109;
+    font-weight: 900;
+}
+.gl-kino-pos-thanks strong { color: #b9f3cd; font-size: 1rem; }
+.gl-kino-pos-thanks > span:last-child { color: #8ecba5; font-size: .82rem; }
+
+.gl-kino-pos-reset {
+    border: 1px solid var(--kp-border);
+    border-radius: 9px;
+    padding: 8px 11px;
+    background: transparent;
+    color: var(--kp-soft);
+    font-weight: 700;
+    cursor: pointer;
+}
+.gl-kino-pos-reset:hover { background: rgba(255,255,255,.045); }
+.gl-kino-pos-cash { padding: 8px 14px 12px; max-height: 520px; overflow: auto; }
+.gl-kino-pos-cash-row {
+    display: grid;
+    grid-template-columns: 65px minmax(150px, 1fr) 90px;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.gl-kino-pos-denomination { font-weight: 760; color: var(--kp-text); }
+.gl-kino-pos-stepper {
+    display: grid;
+    grid-template-columns: 38px 1fr 38px;
+    border: 1px solid var(--kp-border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #0f1317;
+}
+.gl-kino-pos-stepper button {
+    border: 0;
+    background: rgba(255,255,255,.045);
+    color: var(--kp-text);
+    font-size: 1.25rem;
+    cursor: pointer;
+}
+.gl-kino-pos-stepper input {
+    width: 100%;
+    min-width: 0;
+    height: 38px;
+    border: 0;
+    border-left: 1px solid var(--kp-border);
+    border-right: 1px solid var(--kp-border);
+    outline: 0;
+    background: transparent;
+    color: var(--kp-text);
+    text-align: center;
+    font-weight: 800;
+    -moz-appearance: textfield;
+}
+.gl-kino-pos-stepper input::-webkit-outer-spin-button,
+.gl-kino-pos-stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.gl-kino-pos-line-total { text-align: right; color: var(--kp-soft); font-size: .86rem; }
+.gl-kino-pos-total-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    padding: 17px 18px;
+    border-top: 1px solid var(--kp-border);
+    background: #101419;
+}
+.gl-kino-pos-total-row span { color: var(--kp-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; font-size: .75rem; }
+.gl-kino-pos-total-row strong { color: var(--kp-text); font-size: 1.45rem; }
+
+.gl-kino-pos-empty,
+.gl-kino-pos-loading {
+    min-height: 160px;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 5px;
+    padding: 22px;
+    text-align: center;
+    color: var(--kp-muted);
+}
+.gl-kino-pos-empty.compact { min-height: 120px; }
+.gl-kino-pos-empty > span { color: var(--kp-success); font-size: 1.5rem; }
+.gl-kino-pos-empty strong { color: var(--kp-soft); }
+.gl-kino-pos-empty small { color: var(--kp-muted); max-width: 430px; }
+
+.gl-kino-pos-footer {
+    max-width: 1780px;
+    margin: 18px auto 0;
+    color: #65707a;
+    font-size: .75rem;
+    text-align: center;
+}
+
+/* Setup / denied pages */
+.gl-kino-pos-device-setup {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: var(--kp-bg);
+    color: var(--kp-text);
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+.gl-kino-pos-setup-card {
+    width: min(640px, 100%);
+    padding: clamp(25px, 5vw, 46px);
+    border: 1px solid var(--kp-border);
+    border-radius: 22px;
+    background: var(--kp-panel);
+    box-shadow: var(--kp-shadow);
+}
+.gl-kino-pos-setup-card h1 { margin: 8px 0 14px; color: var(--kp-text); font-size: clamp(1.8rem, 4vw, 2.8rem); letter-spacing: -.04em; }
+.gl-kino-pos-setup-card p { color: var(--kp-soft); line-height: 1.55; }
+.gl-kino-pos-setup-card button {
+    width: 100%;
+    margin-top: 14px;
+    padding: 14px 18px;
+    border: 0;
+    border-radius: 12px;
+    background: #fff;
+    color: #0b0d10;
+    font-weight: 820;
+    cursor: pointer;
+}
+.gl-kino-pos-setup-card button:disabled { opacity: .55; cursor: wait; }
+.gl-kino-pos-setup-status { margin-top: 13px; color: var(--kp-muted); font-size: .86rem; }
+.gl-kino-pos-setup-status.success { color: var(--kp-success); }
+.gl-kino-pos-setup-status.error { color: var(--kp-danger); }
+
+@media (max-width: 1120px) {
+    .gl-kino-pos-layout { grid-template-columns: 1fr; }
+    .gl-kino-pos-sidecol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+    .gl-kino-pos { padding: 14px; }
+    .gl-kino-pos-header { align-items: flex-start; flex-direction: column; margin-bottom: 16px; }
+    .gl-kino-pos-ha { width: 100%; justify-content: center; }
+    .gl-kino-pos-sidecol { grid-template-columns: 1fr; }
+    .gl-kino-pos-ticket-top { align-items: stretch; flex-direction: column; }
+    .gl-kino-pos-solve { width: 100%; }
+    .gl-kino-pos-ticket-grid { grid-template-columns: 1fr; }
+    .gl-kino-pos-ticket-field, .gl-kino-pos-ticket-field:nth-child(2n) { border-right: 0; }
+    .gl-kino-pos-ticket-field.wide { grid-column: auto; }
+    .gl-kino-pos-cash-row { grid-template-columns: 54px minmax(135px, 1fr); }
+    .gl-kino-pos-line-total { grid-column: 2; }
+}
+
+@media (orientation: portrait) and (min-width: 761px) and (max-width: 1200px) {
+    .gl-kino-pos-layout { grid-template-columns: 1fr; }
+    .gl-kino-pos-sidecol { grid-template-columns: 1fr 1fr; }
+}

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_project_form_ha_building_automation" model="ir.ui.view">
+        <field name="name">project.project.form.ha.building.automation</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='date_start']" position="after">
+                <field name="ha_start_at" string="Startzeit" required="not is_template"/>
+                <field name="ha_end_at" string="Endzeit" required="not is_template"/>
+                <field name="ha_room_ids"
+                       string="Räume"
+                       widget="many2many_tags"
+                       options="{'no_create': True, 'no_create_edit': True}"
+                       required="ha_building_automation"/>
+                <field name="ha_building_automation" string="Gebäude-Automation"/>
+                <div class="text-muted" colspan="2" invisible="not ha_building_automation">
+                    Die gewählten Räume werden für diesen Zeitraum sofort in die Gebäudeautomation übernommen: Kino 1/2 wie Kinobetrieb, Theater wie Veranstaltung, Lounge und Podcaststudio als eigene Projekt-Quellen.
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_gl_ha_project_room_list" model="ir.ui.view">
+        <field name="name">gl.ha.project.room.list</field>
+        <field name="model">gl.ha.project.room</field>
+        <field name="arch" type="xml">
+            <list string="Projekträume">
+                <field name="sequence" widget="handle"/>
+                <field name="active"/>
+                <field name="name"/>
+                <field name="code"/>
+            </list>
+        </field>
+    </record>
+</odoo>

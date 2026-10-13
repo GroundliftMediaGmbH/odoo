@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_employee_form_gl_timesheet" model="ir.ui.view">
+        <field name="name">hr.employee.form.gl.timesheet.approval</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Stundenzettel-Prüfung" groups="gl_timesheet_approval.group_gl_timesheet_manager">
+                    <group>
+                        <group string="Strukturtyp und Lohn">
+                            <field name="gl_timesheet_hourly_wage"/>
+                            <field name="gl_timesheet_is_eligible" readonly="1"/>
+                            <field name="gl_timesheet_detection_info" readonly="1"/>
+                            <field name="gl_timesheet_currency_id" invisible="1"/>
+                        </group>
+                        <group string="Hinweis">
+                            <div class="text-muted">
+                                Es werden ausschließlich Mitarbeitende übernommen, deren technisches Feld
+                                „structure_type_id“ exakt auf „Minijob“ oder „Geringfügige Beschäftigung“ verweist.
+                                Andere Beschäftigungsarten, Tags oder frühere manuelle Einstellungen werden nicht berücksichtigt.
+                            </div>
+                            <button name="action_open_gl_timesheet_months" type="object" string="Bisherige Prüfmonate öffnen" class="btn-secondary"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

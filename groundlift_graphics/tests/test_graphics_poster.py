@@ -42,6 +42,24 @@ class TestGraphicsPoster(TransactionCase):
             "20260617-20260430 Kaulis_ue_40_Disco_Kino.jpg",
         )
 
+
+    def test_graphics_button_reuses_latest_active_poster(self):
+        event = self.env["event.event"].create(
+            {
+                "name": "Grafik Wiederverwenden",
+                "date_begin": datetime(2026, 9, 21, 17, 0, 0),
+                "date_end": datetime(2026, 9, 21, 20, 0, 0),
+                "date_tz": "Europe/Berlin",
+            }
+        )
+        poster = self.env["gl.graphics.poster"].create({"event_id": event.id})
+        action = event.action_create_graphics_poster()
+        self.assertEqual(action["params"]["poster_id"], poster.id)
+        self.assertEqual(
+            self.env["gl.graphics.poster"].search_count([("event_id", "=", event.id)]),
+            1,
+        )
+
     def test_qr_generation_returns_png(self):
         value = self.env["gl.graphics.poster"].generate_qr_base64(
             "https://groundlift.de/event/test"

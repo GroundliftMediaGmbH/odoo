@@ -40,6 +40,16 @@
                         <group>
                             <field name="target_month"/>
                             <field name="day_mode"/>
+                            <group string="Wochentage dieses Monats" invisible="day_mode != 'custom'">
+                                <field name="weekday_monday" readonly="1"/>
+                                <field name="weekday_tuesday" readonly="1"/>
+                                <field name="weekday_wednesday" readonly="1"/>
+                                <field name="weekday_thursday" readonly="1"/>
+                                <field name="weekday_friday" readonly="1"/>
+                                <field name="weekday_saturday" readonly="1"/>
+                                <field name="weekday_sunday" readonly="1"/>
+                                <p class="text-muted">Diese Monatsauswahl bleibt bei Änderungen der globalen Einstellungen unverändert.</p>
+                            </group>
                             <field name="date_start" readonly="1"/>
                             <field name="date_end" readonly="1"/>
                             <field name="manager_email"/>
@@ -62,7 +72,8 @@
                     <notebook>
                         <page string="Kinotage">
                             <p class="text-muted">
-                                Reguläre Tage werden über die Auswahl oben und den Button <strong>Kinotage erzeugen</strong> ergänzt.
+                                Neue Monatspläne übernehmen die Wochentage aus <strong>Einstellungen</strong> als feste Monatskopie.
+                                Reguläre Tage werden mit <strong>Kinotage erzeugen</strong> ergänzt, vorhandene Termine nicht gelöscht.
                                 Manuelle Zusatztermine können hier per <strong>Zeile hinzufügen</strong> angelegt werden.
                                 Nachträglich gesperrte Termine zählen nicht mehr als Spieltag und werden auf der öffentlichen Eintrageseite ausgeblendet.
                                 Die Notiz ist für Filmvorführer:innen auf der öffentlichen Eintrageseite sichtbar.
@@ -282,8 +293,49 @@
     </record>
 
 
+    <record id="view_gl_kino_shift_settings_form" model="ir.ui.view">
+        <field name="name">gl.kino.shift.settings.form</field>
+        <field name="model">gl.kino.shift.settings</field>
+        <field name="arch" type="xml">
+            <form string="Kino Dienstplan – Einstellungen" create="0" delete="0" duplicate="0">
+                <sheet>
+                    <div class="oe_title"><h1>Kino Dienstplan – Einstellungen</h1></div>
+                    <notebook>
+                        <page string="Kinotage" name="weekday_settings">
+                            <p class="text-muted">
+                                Reguläre Kinotage für künftig neu erstellte Monatspläne wählen.
+                                Die automatische Monatsanfrage übernimmt diese Auswahl beim Erstellen
+                                des neuen Monats. Vorhandene Monate, Schichten und Eintragungen
+                                werden durch das Ändern dieser Einstellungen nicht verändert.
+                            </p>
+                            <group string="Reguläre Kinotage (Montag–Sonntag)" col="2">
+                                <field name="weekday_monday"/>
+                                <field name="weekday_tuesday"/>
+                                <field name="weekday_wednesday"/>
+                                <field name="weekday_thursday"/>
+                                <field name="weekday_friday"/>
+                                <field name="weekday_saturday"/>
+                                <field name="weekday_sunday"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_kino_shift_settings" model="ir.actions.act_window">
+        <field name="name">Kino Dienstplan – Einstellungen</field>
+        <field name="res_model">gl.kino.shift.settings</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_gl_kino_shift_settings_form"/>
+        <field name="res_id" ref="kino_shift_default_settings"/>
+        <field name="target">current</field>
+    </record>
+
     <menuitem id="menu_gl_kino_shift_root" name="Kino Dienstplan" sequence="80"/>
     <menuitem id="menu_gl_kino_shift_campaigns" name="Dienstpläne" parent="menu_gl_kino_shift_root" action="action_gl_kino_shift_campaigns" sequence="10"/>
     <menuitem id="menu_gl_kino_shift_team_members" name="Filmvorführer:innen" parent="menu_gl_kino_shift_root" action="action_gl_kino_shift_team_members" sequence="20"/>
     <menuitem id="menu_gl_kino_shift_slot_offers" name="Zusatztermin-Anfragen" parent="menu_gl_kino_shift_root" action="action_gl_kino_shift_slot_offers" sequence="30"/>
+    <menuitem id="menu_gl_kino_shift_settings" name="Einstellungen" parent="menu_gl_kino_shift_root" action="action_gl_kino_shift_settings" sequence="90"/>
 </odoo>

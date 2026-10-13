@@ -5,13 +5,18 @@ from odoo.http import request
 
 class GLServiceStaffPortal(http.Controller):
 
-    @http.route(['/servicepersonal'], type='http', auth='public', website=True, methods=['GET', 'POST'], csrf=True)
+    @http.route(
+        ['/servicepersonal'], type='http', auth='public', website=True,
+        methods=['GET', 'POST'], csrf=True
+    )
     def service_staff_home(self, **post):
         member = False
         error = False
         if request.httprequest.method == 'POST':
             pin = (post.get('pin_code') or '').strip()
-            member = request.env['gl.service.staff.member'].sudo().search([('pin_code', '=', pin), ('active', '=', True)], limit=1)
+            member = request.env['gl.service.staff.member'].sudo().search([
+                ('pin_code', '=', pin), ('active', '=', True)
+            ], limit=1)
             if member:
                 request.session['gl_service_staff_member_id'] = member.id
             else:
@@ -31,6 +36,7 @@ class GLServiceStaffPortal(http.Controller):
                 ('member_id', '=', member.id),
                 ('shift_id.active', '=', True),
                 ('shift_id.shift_date', '>=', fields.Date.today()),
+                ('state', '!=', 'draft'),
             ], order='planned_start_datetime asc, shift_id asc')
         return request.render('gl_service_staff.portal_service_staff_home', {
             'member': member,
@@ -38,13 +44,13 @@ class GLServiceStaffPortal(http.Controller):
             'error': error,
         })
 
-
-    @http.route(['/servicepersonal/mitarbeiter/<int:member_id>/<string:pin_code>'], type='http', auth='public', website=True, csrf=False)
+    @http.route(
+        ['/servicepersonal/mitarbeiter/<int:member_id>/<string:pin_code>'],
+        type='http', auth='public', website=True, csrf=False
+    )
     def service_staff_member_direct(self, member_id, pin_code, **kw):
         member = request.env['gl.service.staff.member'].sudo().search([
-            ('id', '=', member_id),
-            ('pin_code', '=', pin_code),
-            ('active', '=', True),
+            ('id', '=', member_id), ('pin_code', '=', pin_code), ('active', '=', True),
         ], limit=1)
         if member:
             request.session['gl_service_staff_member_id'] = member.id
@@ -62,9 +68,14 @@ class GLServiceStaffPortal(http.Controller):
         request.session.pop('gl_service_staff_member_id', None)
         return request.redirect('/servicepersonal')
 
-    @http.route(['/servicepersonal/antwort/<int:line_id>/<string:token>/<string:answer>'], type='http', auth='public', website=True, csrf=False)
+    @http.route(
+        ['/servicepersonal/antwort/<int:line_id>/<string:token>/<string:answer>'],
+        type='http', auth='public', website=True, csrf=False
+    )
     def service_staff_response(self, line_id, token, answer, **kw):
-        line = request.env['gl.service.shift.line'].sudo().search([('id', '=', line_id), ('token', '=', token)], limit=1)
+        line = request.env['gl.service.shift.line'].sudo().search([
+            ('id', '=', line_id), ('token', '=', token)
+        ], limit=1)
         if not line:
             return request.render('gl_service_staff.portal_service_staff_response', {
                 'success': False,
@@ -72,34 +83,77 @@ class GLServiceStaffPortal(http.Controller):
                 'message': _('Dieser Antwort-Link ist ungültig oder nicht mehr vorhanden.'),
                 'line': False,
             })
-        is_time_change_response = line.time_change_state == 'pending' and line.state == 'accepted'
+
+        is_time_change_response = (
+            line.time_change_state == 'pending' and line.state == 'accepted' and line.role == 'desired'
+        )
         if answer == 'accept':
             line._accept(source='public')
             if is_time_change_response:
                 title = _('Zeitänderung bestätigt')
-                message = _('Danke für deine Flexibilität.')
+                message = _('Danke! Die geänderte Arbeitszeit ist bestätigt.')
+            elif line.state == 'accepted':
+                title = _('Bereits gebucht')
+                message = _('Du bist für diesen Einsatz bereits fest gebucht.')
             else:
-                title = _('Zusage gespeichert')
-                message = _('Vielen Dank! Deine Zusage wurde gespeichert.')
+                title = _('Verfügbarkeit gespeichert')
+                message = _(
+                    'Vielen Dank! Du bist als verfügbar vorgemerkt. '
+                    'Eine feste Buchung erhältst du separat per E-Mail.'
+                )
             success = True
         elif answer == 'decline':
             line._decline(source='public')
             if is_time_change_response:
                 title = _('Rückmeldung gespeichert')
-                message = _('Vielen Dank für Deine Rückmeldung.')
+                message = _('Danke. Die geänderte Arbeitszeit wurde als nicht passend gemeldet.')
+            elif line.state == 'accepted':
+                title = _('Bereits gebucht')
+                message = _(
+                    'Du bist für diesen Einsatz bereits fest gebucht. '
+                    'Bitte melde dich bei Änderungen direkt beim Groundlift-Team.'
+                )
             else:
-                title = _('Absage gespeichert')
-                message = _('Danke für deine Rückmeldung. Deine Absage wurde gespeichert.')
+                title = _('Rückmeldung gespeichert')
+                message = _('Danke! Du bist für diesen Einsatz als nicht verfügbar eingetragen.')
             success = True
         else:
             title = _('Antwort unbekannt')
             message = _('Diese Antwort konnte nicht verarbeitet werden.')
             success = False
+
         return request.render('gl_service_staff.portal_service_staff_response', {
             'success': success,
             'title': title,
             'message': message,
             'line': line,
+        })
+
+    @http.route(
+        ['/servicepersonal/monatsmail/<int:member_id>/<string:token>/abbestellen'],
+        type='http', auth='public', website=True, csrf=False
+    )
+    def service_staff_monthly_unsubscribe(self, member_id, token, **kw):
+        member = request.env['gl.service.staff.member'].sudo().search([
+            ('id', '=', member_id),
+            ('monthly_unsubscribe_token', '=', token),
+        ], limit=1)
+        if not member:
+            return request.render('gl_service_staff.portal_service_staff_response', {
+                'success': False,
+                'title': _('Link ungültig'),
+                'message': _('Dieser Abmelde-Link ist ungültig.'),
+                'line': False,
+            })
+        member.sudo().monthly_summary_opt_in = False
+        return request.render('gl_service_staff.portal_service_staff_response', {
+            'success': True,
+            'title': _('Monatsmail abbestellt'),
+            'message': _(
+                'Du erhältst künftig keine monatliche Einsatzübersicht mehr. '
+                'Einzelne Verfügbarkeitsanfragen und Buchungsbestätigungen bleiben davon unberührt.'
+            ),
+            'line': False,
         })
 
     @http.route(['/servicepersonal/overview'], type='http', auth='public', website=True, csrf=False)

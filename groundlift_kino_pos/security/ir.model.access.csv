@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_gl_kino_pos_config_user,gl.kino.pos.config user,model_gl_kino_pos_config,base.group_user,1,1,1,0
+access_gl_kino_pos_todo_item_user,gl.kino.pos.todo.item user,model_gl_kino_pos_todo_item,base.group_user,1,1,1,1
+access_gl_kino_pos_todo_completion_user,gl.kino.pos.todo.completion user,model_gl_kino_pos_todo_completion,base.group_user,1,1,1,1
+access_gl_kino_pos_device_access_user,gl.kino.pos.device.access user,model_gl_kino_pos_device_access,base.group_user,1,1,1,1

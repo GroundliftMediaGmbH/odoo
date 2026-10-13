@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_ha_comfort_group_list" model="ir.ui.view">
+        <field name="name">gl.ha.comfort.group.list</field>
+        <field name="model">gl.ha.comfort.group</field>
+        <field name="arch" type="xml">
+            <list string="Klima-Gruppen" editable="bottom" default_order="sequence,name">
+                <field name="sequence" widget="handle"/>
+                <field name="active"/>
+                <field name="name"/>
+                <field name="temperature_entity_id" options="{'no_create': True, 'no_create_edit': True}"/>
+                <field name="humidity_entity_id" options="{'no_create': True, 'no_create_edit': True}"/>
+                <field name="mould_warning_enabled"/>
+                <field name="note" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_gl_ha_comfort_group_form" model="ir.ui.view">
+        <field name="name">gl.ha.comfort.group.form</field>
+        <field name="model">gl.ha.comfort.group</field>
+        <field name="arch" type="xml">
+            <form string="Klima-Gruppe">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="z. B. Lager, Foyer oder Kino 1"/></h1>
+                    </div>
+                    <group>
+                        <group string="Messwerte">
+                            <field name="config_id" invisible="1"/>
+                            <field name="active"/>
+                            <field name="temperature_entity_id" options="{'no_create': True, 'no_create_edit': True}"/>
+                            <field name="humidity_entity_id" options="{'no_create': True, 'no_create_edit': True}"/>
+                        </group>
+                        <group string="Bewertung">
+                            <field name="mould_warning_enabled"/>
+                            <field name="note"/>
+                            <field name="sequence"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_ha_comfort_group" model="ir.actions.act_window">
+        <field name="name">Klima-Gruppen</field>
+        <field name="res_model">gl.ha.comfort.group</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" eval="False"/>
+    </record>
+</odoo>

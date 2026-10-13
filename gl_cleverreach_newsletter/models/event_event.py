@@ -27,18 +27,17 @@ class EventEvent(models.Model):
         return result
 
     def _gl_cr_queue_if_announced(self):
-        Config = self.env["gl.cleverreach.newsletter.config"].sudo()
-        configs = Config.search([("active", "=", True)])
-        if not configs or "stage_id" not in self._fields:
+        Config = self.env["gl.cleverreach.newsletter.config"].sudo().with_context(active_test=False)
+        config = Config._canonical_config()
+        if not config or "stage_id" not in self._fields:
             return False
         for event in self.sudo():
             stage = event.stage_id
             if not stage or not stage.name:
                 continue
-            for config in configs:
-                if stage.name.strip().casefold() == (config.announced_stage_name or "Angekündigt").strip().casefold():
-                    try:
-                        config._queue_event(event, stage=stage)
-                    except Exception:
-                        _logger.exception("Could not queue event %s for CleverReach newsletter config %s", event.id, config.id)
+            if stage.name.strip().casefold() == (config.announced_stage_name or "Angekündigt").strip().casefold():
+                try:
+                    config._queue_event(event, stage=stage)
+                except Exception:
+                    _logger.exception("Could not queue event %s for canonical CleverReach newsletter config %s", event.id, config.id)
         return True
