@@ -6,6 +6,7 @@
                                         <div class="gl-document-title">
                                             <h3 t-esc="doc.name"/>
                                             <p t-if="doc.description" t-esc="doc.description"/>
+                                            <span class="gl-document-tags" t-if="doc.tag_ids"><span t-foreach="doc.tag_ids" t-as="tag" class="gl-tag" t-esc="tag.name"/></span>
                                             <span class="gl-tag" t-if="not doc.allow_download" t-esc="labels['document_view_only']"/>
                                         </div>
                                     </div>

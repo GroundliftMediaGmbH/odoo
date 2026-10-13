@@ -1,0 +1,49 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<odoo>
+    <record id="view_gl_showcase_media_batch_wizard" model="ir.ui.view">
+        <field name="name">gl.showcase.media.batch.wizard.form</field>
+        <field name="model">gl.showcase.media.batch.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Showcase: mehrere Dateien verwalten">
+                <sheet>
+                    <field name="showcase_id" invisible="1"/>
+                    <field name="media_kind" invisible="1"/>
+                    <field name="mode" invisible="1"/>
+                    <div class="alert alert-info" role="alert" invisible="mode != 'upload'">
+                        Mehrere Dateien im Datei-Auswahldialog markieren (Strg/Umschalt). Ohne gemeinsamen Titel erhält jede Datei den eigenen Dateinamen als Titel. Die Beschreibung ist freiwillig.
+                    </div>
+                    <div class="alert alert-info" role="alert" invisible="mode != 'edit'">
+                        Einträge auswählen oder alle markieren. Es werden nur ausdrücklich aktivierte Felder geändert. Vorhandene Titel und Beschreibungen bleiben ansonsten unverändert.
+                    </div>
+                    <group invisible="mode != 'upload'">
+                        <field name="attachment_ids" widget="many2many_binary"/>
+                        <div class="text-muted" invisible="media_kind != 'photo'">Für Galeriebilder sind JPG, PNG und WebP erlaubt.</div>
+                        <div class="text-muted" invisible="media_kind != 'document'">Ohne Downloadfreigabe können PDFs, JPG, PNG und WebP hochgeladen werden. Andere Formate benötigen eine Downloadfreigabe.</div>
+                    </group>
+                    <group invisible="mode != 'edit'">
+                        <field name="all_items"/>
+                        <field name="photo_ids" widget="many2many_tags" domain="[('showcase_id', '=', showcase_id)]" options="{'no_create': True}" invisible="media_kind != 'photo' or all_items"/>
+                        <field name="document_ids" widget="many2many_tags" domain="[('showcase_id', '=', showcase_id)]" options="{'no_create': True}" invisible="media_kind != 'document' or all_items"/>
+                    </group>
+                    <separator string="Gemeinsame Angaben"/>
+                    <group>
+                        <field name="edit_name" invisible="mode != 'edit'"/>
+                        <field name="name" placeholder="Leer lassen = individuelle Dateinamen" invisible="mode == 'edit' and not edit_name" required="mode == 'edit' and edit_name"/>
+                        <field name="edit_description" invisible="mode != 'edit'"/>
+                        <field name="description" placeholder="Optional — darf leer bleiben" invisible="mode == 'edit' and not edit_description"/>
+                        <field name="tag_mode" invisible="mode != 'edit'"/>
+                        <field name="tag_ids" widget="many2many_tags" domain="[('showcase_id', '=', showcase_id)]" context="{'default_showcase_id': showcase_id}" invisible="mode == 'edit' and tag_mode == 'keep'"/>
+                        <field name="video_id" domain="[('showcase_id', '=', showcase_id)]" options="{'no_create': True}" invisible="mode != 'upload' or media_kind != 'document'"/>
+                        <field name="edit_download" invisible="mode != 'edit' or media_kind != 'document'"/>
+                        <field name="allow_download" invisible="media_kind != 'document' or (mode == 'edit' and not edit_download)"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_apply" type="object" string="Dateien hochladen" class="btn-primary" invisible="mode != 'upload'"/>
+                    <button name="action_apply" type="object" string="Änderungen übernehmen" class="btn-primary" invisible="mode != 'edit'"/>
+                    <button special="cancel" string="Abbrechen" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

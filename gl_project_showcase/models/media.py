@@ -142,6 +142,10 @@ class ShowcaseVideo(models.Model):
         self._gl_sync_thumbnails(force=True)
         return True
 
+    def action_gl_upload_video_documents(self):
+        self.ensure_one()
+        return self.showcase_id._gl_open_media_batch('document', 'upload', video_id=self.id)
+
     def _gl_sync_thumbnails(self, force=False):
         """Store Vimeo's thumbnail locally *before* visitor starts playback.
 
@@ -280,6 +284,18 @@ class ShowcaseDocument(models.Model):
         help='Optional: Dokument direkt unter diesem Vimeo-Video anzeigen.',
     )
 
+    tag_ids = fields.Many2many(
+        'gl.showcase.photo.tag', 'gl_showcase_document_tag_rel',
+        'document_id', 'tag_id', string='Tags', copy=False,
+        help='Dieselben Projekt-Tags wie in der Fotogalerie; auf der Landingpage am Dokument sichtbar.',
+    )
+
+    @api.constrains('showcase_id', 'tag_ids')
+    def _check_document_tags_showcase(self):
+        for rec in self:
+            if any(tag.showcase_id != rec.showcase_id for tag in rec.tag_ids):
+                raise ValidationError(_('Tags und Dokumente müssen zur selben Ergebnis-Landingpage gehören.'))
+
     @api.constrains('video_id', 'showcase_id')
     def _check_video_showcase(self):
         for rec in self:
@@ -332,12 +348,21 @@ class ShowcasePhotoTag(models.Model):
         string='Fotos', copy=False,
     )
 
+    document_ids = fields.Many2many(
+        'gl.showcase.document', 'gl_showcase_document_tag_rel',
+        'tag_id', 'document_id', string='Dokumente', copy=False,
+    )
+
     @api.constrains('showcase_id', 'photo_ids')
     def _check_photo_showcase(self):
         for rec in self:
             if any(photo.showcase_id != rec.showcase_id for photo in rec.photo_ids):
                 raise ValidationError(_(
                     'Galerie-Tags und Fotos müssen zur selben Ergebnis-Landingpage gehören.'
+                ))
+            if any(doc.showcase_id != rec.showcase_id for doc in rec.document_ids):
+                raise ValidationError(_(
+                    'Tags und Dokumente müssen zur selben Ergebnis-Landingpage gehören.'
                 ))
 
 

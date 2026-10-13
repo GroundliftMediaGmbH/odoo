@@ -247,6 +247,36 @@ class ProjectShowcase(models.Model):
         self.check_access('read')
         return {'type': 'ir.actions.act_url', 'url': self.page_url, 'target': 'new'}
 
+    def _gl_open_media_batch(self, media_kind, mode, video_id=False):
+        self.ensure_one()
+        self.check_access('write')
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Mehrfachupload' if mode == 'upload' else 'Gemeinsam bearbeiten',
+            'res_model': 'gl.showcase.media.batch.wizard',
+            'view_mode': 'form',
+            'view_id': self.env.ref('gl_project_showcase.view_gl_showcase_media_batch_wizard').id,
+            'target': 'new',
+            'context': {
+                'default_showcase_id': self.id,
+                'default_media_kind': media_kind,
+                'default_mode': mode,
+                'default_video_id': video_id or False,
+            },
+        }
+
+    def action_gl_upload_photos(self):
+        return self._gl_open_media_batch('photo', 'upload')
+
+    def action_gl_edit_photos(self):
+        return self._gl_open_media_batch('photo', 'edit')
+
+    def action_gl_upload_documents(self):
+        return self._gl_open_media_batch('document', 'upload')
+
+    def action_gl_edit_documents(self):
+        return self._gl_open_media_batch('document', 'edit')
+
     def gl_gallery_groups(self):
         """Visible groups in tag sequence; untagged pictures are kept in a final group.
 

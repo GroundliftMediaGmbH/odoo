@@ -5,3 +5,4 @@ access_gl_showcase_photo_editor,gl.showcase.photo editor,model_gl_showcase_photo
 access_gl_showcase_photo_tag_editor,gl.showcase.photo.tag editor,model_gl_showcase_photo_tag,base.group_user,1,1,1,1
 access_gl_showcase_document_editor,gl.showcase.document editor,model_gl_showcase_document,base.group_user,1,1,1,1
 access_gl_showcase_password_wizard,gl.showcase.password.wizard editor,model_gl_showcase_password_wizard,base.group_user,1,1,1,1
+access_gl_showcase_media_batch_wizard,gl.showcase.media.batch.wizard editor,model_gl_showcase_media_batch_wizard,base.group_user,1,1,1,1
