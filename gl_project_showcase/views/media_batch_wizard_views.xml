@@ -2,7 +2,7 @@
 <odoo>
     <record id="view_gl_showcase_media_batch_wizard" model="ir.ui.view">
         <field name="name">gl.showcase.media.batch.wizard.form</field>
-        <field name="model">gl.showcase.media.batch.wizard</field>
+        <field name="show_title" invisible="mode == 'edit' and not edit_show_title"/><field name="model">gl.showcase.media.batch.wizard</field>
         <field name="arch" type="xml">
             <form string="Showcase: mehrere Dateien verwalten">
                 <sheet>
@@ -28,7 +28,7 @@
                     <separator string="Gemeinsame Angaben"/>
                     <group>
                         <field name="edit_name" invisible="mode != 'edit'"/>
-                        <field name="name" placeholder="Leer lassen = individuelle Dateinamen" invisible="mode == 'edit' and not edit_name" required="mode == 'edit' and edit_name"/>
+                        <field name="edit_show_title" invisible="mode != 'edit'"/><field name="name" placeholder="Leer lassen = individuelle Dateinamen" invisible="mode == 'edit' and not edit_name" required="mode == 'edit' and edit_name"/>
                         <field name="edit_description" invisible="mode != 'edit'"/>
                         <field name="description" placeholder="Optional — darf leer bleiben" invisible="mode == 'edit' and not edit_description"/>
                         <field name="tag_mode" invisible="mode != 'edit'"/>

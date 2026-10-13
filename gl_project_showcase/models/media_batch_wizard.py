@@ -47,6 +47,8 @@ class ShowcaseMediaBatchWizard(models.TransientModel):
     name = fields.Char(string='Gemeinsame Überschrift / Titel',
                        help='Beim Hochladen optional: ohne Eingabe wird der jeweilige Dateiname als Titel verwendet.')
     edit_name = fields.Boolean(string='Titel bei allen ausgewählten Einträgen ändern')
+    show_title = fields.Boolean(string='Titel auf Landingpage anzeigen', default=True)
+    edit_show_title = fields.Boolean(string='Titel-Sichtbarkeit bei allen ausgewählten Einträgen ändern')
     description = fields.Text(string='Gemeinsame Beschreibung (optional)',
                               help='Kann leer bleiben. Bestehende Beschreibungen werden nur mit gesetztem Haken geändert.')
     edit_description = fields.Boolean(string='Beschreibung bei allen ändern')
@@ -131,6 +133,7 @@ class ShowcaseMediaBatchWizard(models.TransientModel):
                 'showcase_id': self.showcase_id.id,
                 'name': (self.name or '').strip() or derived_title,
                 'description': self.description or False,
+                'show_title': self.show_title,
                 'tag_ids': [(6, 0, self.tag_ids.ids)],
             }
             if self.media_kind == 'photo':
@@ -172,6 +175,8 @@ class ShowcaseMediaBatchWizard(models.TransientModel):
             vals['name'] = name
         if self.edit_description:
             vals['description'] = self.description or False
+        if self.edit_show_title:
+            vals['show_title'] = self.show_title
         if self.tag_mode == 'replace':
             vals['tag_ids'] = [(6, 0, self.tag_ids.ids)]
         elif self.tag_mode == 'add':

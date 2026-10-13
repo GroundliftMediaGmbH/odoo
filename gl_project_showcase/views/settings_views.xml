@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version='1.0' encoding='UTF-8'?>
 <odoo>
   <record id="res_config_settings_view_form_showcase_texts" model="ir.ui.view">
     <field name="name">res.config.settings.project.showcase.texts</field>
@@ -7,7 +7,7 @@
     <field name="arch" type="xml">
       <xpath expr="//app[@name='project']" position="inside">
         <block title="Groundlift Project Showcase – Standardtexte" id="gl_project_showcase_default_texts">
-          <setting id="gl_showcase_text_defaults" string="Standardtexte für Kunden-Landingpages" help="Zentrale Texte für alle Projekt-Showcases. In jedem Showcase können die Werte individuell überschrieben werden.">
+          <setting id="gl_showcase_text_defaults" string="Standardtexte für Kunden-Landingpages" help="Zentrale Standardtexte und Sichtbarkeit für alle Projekt-Showcases. Einzelne Showcases können Text und Sichtbarkeit überschreiben.">
             <div class="content-group">
               <div class="mt16">
                 <h4>Navigation &amp; Branding</h4>
@@ -15,37 +15,37 @@
                   <label for="gl_text_brand_fallback" class="col-12 col-lg-4 o_light_label">Branding: Ersatztext</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_brand_fallback"/>
-                  </div>
+                  <field name="gl_show_brand_fallback" widget="boolean_toggle" string="Anzeigen: Branding: Ersatztext"/><label for="gl_show_brand_fallback" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_nav_results" class="col-12 col-lg-4 o_light_label">Menü: Ergebnisse</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_nav_results"/>
-                  </div>
+                  <field name="gl_show_nav_results" widget="boolean_toggle" string="Anzeigen: Menü: Ergebnisse"/><label for="gl_show_nav_results" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_nav_videos" class="col-12 col-lg-4 o_light_label">Menü: Filme</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_nav_videos"/>
-                  </div>
+                  <field name="gl_show_nav_videos" widget="boolean_toggle" string="Anzeigen: Menü: Filme"/><label for="gl_show_nav_videos" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_nav_documents" class="col-12 col-lg-4 o_light_label">Menü: Dokumente</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_nav_documents"/>
-                  </div>
+                  <field name="gl_show_nav_documents" widget="boolean_toggle" string="Anzeigen: Menü: Dokumente"/><label for="gl_show_nav_documents" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_nav_gallery" class="col-12 col-lg-4 o_light_label">Menü: Galerie</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_nav_gallery"/>
-                  </div>
+                  <field name="gl_show_nav_gallery" widget="boolean_toggle" string="Anzeigen: Menü: Galerie"/><label for="gl_show_nav_gallery" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_hero_eyebrow" class="col-12 col-lg-4 o_light_label">Titelbild: Kategorie</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_hero_eyebrow"/>
-                  </div>
+                  <field name="gl_show_hero_eyebrow" widget="boolean_toggle" string="Anzeigen: Titelbild: Kategorie"/><label for="gl_show_hero_eyebrow" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
               </div>
               <div class="mt16">
@@ -54,25 +54,25 @@
                   <label for="gl_text_hero_cta" class="col-12 col-lg-4 o_light_label">Titelbild: Aufruf</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_hero_cta"/>
-                  </div>
+                  <field name="gl_show_hero_cta" widget="boolean_toggle" string="Anzeigen: Titelbild: Aufruf"/><label for="gl_show_hero_cta" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_results_index" class="col-12 col-lg-4 o_light_label">Ergebnisse: Bereichslabel</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_results_index"/>
-                  </div>
+                  <field name="gl_show_results_index" widget="boolean_toggle" string="Anzeigen: Ergebnisse: Bereichslabel"/><label for="gl_show_results_index" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_results_title" class="col-12 col-lg-4 o_light_label">Ergebnisse: Überschrift</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_results_title"/>
-                  </div>
+                  <field name="gl_show_results_title" widget="boolean_toggle" string="Anzeigen: Ergebnisse: Überschrift"/><label for="gl_show_results_title" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_intro_fallback" class="col-12 col-lg-4 o_light_label">Ergebnisse: Ersatztext</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_intro_fallback"/>
-                  </div>
+                  <field name="gl_show_intro_fallback" widget="boolean_toggle" string="Anzeigen: Ergebnisse: Ersatztext"/><label for="gl_show_intro_fallback" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
               </div>
               <div class="mt16">
@@ -81,31 +81,31 @@
                   <label for="gl_text_videos_index" class="col-12 col-lg-4 o_light_label">Videos: Bereichslabel</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_videos_index"/>
-                  </div>
+                  <field name="gl_show_videos_index" widget="boolean_toggle" string="Anzeigen: Videos: Bereichslabel"/><label for="gl_show_videos_index" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_videos_title" class="col-12 col-lg-4 o_light_label">Videos: Überschrift</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_videos_title"/>
-                  </div>
+                  <field name="gl_show_videos_title" widget="boolean_toggle" string="Anzeigen: Videos: Überschrift"/><label for="gl_show_videos_title" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_video_start" class="col-12 col-lg-4 o_light_label">Videos: Button</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_video_start"/>
-                  </div>
+                  <field name="gl_show_video_start" widget="boolean_toggle" string="Anzeigen: Videos: Button"/><label for="gl_show_video_start" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_video_privacy" class="col-12 col-lg-4 o_light_label">Videos: Datenschutzhinweis</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_video_privacy"/>
-                  </div>
+                  <field name="gl_show_video_privacy" widget="boolean_toggle" string="Anzeigen: Videos: Datenschutzhinweis"/><label for="gl_show_video_privacy" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_video_files" class="col-12 col-lg-4 o_light_label">Videos: Dateibereich</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_video_files"/>
-                  </div>
+                  <field name="gl_show_video_files" widget="boolean_toggle" string="Anzeigen: Videos: Dateibereich"/><label for="gl_show_video_files" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
               </div>
               <div class="mt16">
@@ -114,19 +114,19 @@
                   <label for="gl_text_documents_index" class="col-12 col-lg-4 o_light_label">Dokumente: Bereichslabel</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_documents_index"/>
-                  </div>
+                  <field name="gl_show_documents_index" widget="boolean_toggle" string="Anzeigen: Dokumente: Bereichslabel"/><label for="gl_show_documents_index" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_documents_title" class="col-12 col-lg-4 o_light_label">Dokumente: Überschrift</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_documents_title"/>
-                  </div>
+                  <field name="gl_show_documents_title" widget="boolean_toggle" string="Anzeigen: Dokumente: Überschrift"/><label for="gl_show_documents_title" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_document_view_only" class="col-12 col-lg-4 o_light_label">Dokumente: Hinweis ohne Download</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_document_view_only"/>
-                  </div>
+                  <field name="gl_show_document_view_only" widget="boolean_toggle" string="Anzeigen: Dokumente: Hinweis ohne Download"/><label for="gl_show_document_view_only" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_document_preview" class="col-12 col-lg-4 o_light_label">Dokumente: Vorschau</label>
@@ -172,7 +172,7 @@
                   <label for="gl_text_gallery_index" class="col-12 col-lg-4 o_light_label">Galerie: Bereichslabel</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_gallery_index"/>
-                  </div>
+                  <field name="gl_show_gallery_index" widget="boolean_toggle" string="Anzeigen: Galerie: Bereichslabel"/><label for="gl_show_gallery_index" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
               </div>
               <div class="mt16">
@@ -181,19 +181,19 @@
                   <label for="gl_text_gallery_title" class="col-12 col-lg-4 o_light_label">Galerie: Überschrift</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_gallery_title"/>
-                  </div>
+                  <field name="gl_show_gallery_title" widget="boolean_toggle" string="Anzeigen: Galerie: Überschrift"/><label for="gl_show_gallery_title" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_gallery_untagged" class="col-12 col-lg-4 o_light_label">Galerie: Fotos ohne Tag</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_gallery_untagged"/>
-                  </div>
+                  <field name="gl_show_gallery_untagged" widget="boolean_toggle" string="Anzeigen: Galerie: Fotos ohne Tag"/><label for="gl_show_gallery_untagged" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_thanks" class="col-12 col-lg-4 o_light_label">Abschluss: Überschrift</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_thanks"/>
-                  </div>
+                  <field name="gl_show_thanks" widget="boolean_toggle" string="Anzeigen: Abschluss: Überschrift"/><label for="gl_show_thanks" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_imprint" class="col-12 col-lg-4 o_light_label">Footer: Impressum</label>
@@ -226,19 +226,19 @@
                   <label for="gl_text_password_eyebrow" class="col-12 col-lg-4 o_light_label">Passwortseite: Bereichslabel</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_password_eyebrow"/>
-                  </div>
+                  <field name="gl_show_password_eyebrow" widget="boolean_toggle" string="Anzeigen: Passwortseite: Bereichslabel"/><label for="gl_show_password_eyebrow" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_password_title" class="col-12 col-lg-4 o_light_label">Passwortseite: Überschrift</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_password_title"/>
-                  </div>
+                  <field name="gl_show_password_title" widget="boolean_toggle" string="Anzeigen: Passwortseite: Überschrift"/><label for="gl_show_password_title" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_password_help" class="col-12 col-lg-4 o_light_label">Passwortseite: Hinweis</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_password_help"/>
-                  </div>
+                  <field name="gl_show_password_help" widget="boolean_toggle" string="Anzeigen: Passwortseite: Hinweis"/><label for="gl_show_password_help" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div>
                 </div>
                 <div class="row mb8">
                   <label for="gl_text_password_label" class="col-12 col-lg-4 o_light_label">Passwortseite: Eingabefeld</label>
@@ -265,7 +265,7 @@
                   </div>
                 </div>
               </div>
-            <div class="mt16"><h4>Zusätzliche Standardtexte</h4><div class="row mb8"><label for="gl_text_page_title_suffix" class="col-12 col-lg-4 o_light_label">Browser-Titel: Namenszusatz</label><div class="col-12 col-lg-8"><field name="gl_text_page_title_suffix"/></div></div><div class="row mb8"><label for="gl_text_password_browser_title" class="col-12 col-lg-4 o_light_label">Passwortseite: Browser-Titel</label><div class="col-12 col-lg-8"><field name="gl_text_password_browser_title"/></div></div><div class="row mb8"><label for="gl_text_closing_body" class="col-12 col-lg-4 o_light_label">Abschluss: Standardabsatz</label><div class="col-12 col-lg-8"><field name="gl_text_closing_body"/></div></div><div class="row mb8"><label for="gl_text_aria_navigation" class="col-12 col-lg-4 o_light_label">Barrierefreiheit: Navigationsbeschreibung</label><div class="col-12 col-lg-8"><field name="gl_text_aria_navigation"/></div></div><div class="row mb8"><label for="gl_text_aria_pdf_preview" class="col-12 col-lg-4 o_light_label">Barrierefreiheit: PDF-Vorschaubeschreibung</label><div class="col-12 col-lg-8"><field name="gl_text_aria_pdf_preview"/></div></div><div class="row mb8"><label for="gl_text_aria_lightbox" class="col-12 col-lg-4 o_light_label">Barrierefreiheit: Galeriefenster</label><div class="col-12 col-lg-8"><field name="gl_text_aria_lightbox"/></div></div><div class="row mb8"><label for="gl_text_aria_logo" class="col-12 col-lg-4 o_light_label">Barrierefreiheit: Logo-Ersatztext</label><div class="col-12 col-lg-8"><field name="gl_text_aria_logo"/></div></div></div></div>
+            <div class="mt16"><h4>Zusätzliche Standardtexte</h4><div class="row mb8"><label for="gl_text_page_title_suffix" class="col-12 col-lg-4 o_light_label">Browser-Titel: Namenszusatz</label><div class="col-12 col-lg-8"><field name="gl_text_page_title_suffix"/></div></div><div class="row mb8"><label for="gl_text_password_browser_title" class="col-12 col-lg-4 o_light_label">Passwortseite: Browser-Titel</label><div class="col-12 col-lg-8"><field name="gl_text_password_browser_title"/></div></div><div class="row mb8"><label for="gl_text_closing_body" class="col-12 col-lg-4 o_light_label">Abschluss: Standardabsatz</label><div class="col-12 col-lg-8"><field name="gl_text_closing_body"/><field name="gl_show_closing_body" widget="boolean_toggle" string="Anzeigen: Abschluss: Standardabsatz"/><label for="gl_show_closing_body" class="ms-2 o_light_label">Auf Landingpage anzeigen</label></div></div><div class="row mb8"><label for="gl_text_aria_navigation" class="col-12 col-lg-4 o_light_label">Barrierefreiheit: Navigationsbeschreibung</label><div class="col-12 col-lg-8"><field name="gl_text_aria_navigation"/></div></div><div class="row mb8"><label for="gl_text_aria_pdf_preview" class="col-12 col-lg-4 o_light_label">Barrierefreiheit: PDF-Vorschaubeschreibung</label><div class="col-12 col-lg-8"><field name="gl_text_aria_pdf_preview"/></div></div><div class="row mb8"><label for="gl_text_aria_lightbox" class="col-12 col-lg-4 o_light_label">Barrierefreiheit: Galeriefenster</label><div class="col-12 col-lg-8"><field name="gl_text_aria_lightbox"/></div></div><div class="row mb8"><label for="gl_text_aria_logo" class="col-12 col-lg-4 o_light_label">Barrierefreiheit: Logo-Ersatztext</label><div class="col-12 col-lg-8"><field name="gl_text_aria_logo"/></div></div></div></div>
           </setting>
         </block>
       </xpath>

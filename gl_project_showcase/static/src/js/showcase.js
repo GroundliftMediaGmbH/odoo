@@ -25,7 +25,7 @@
     button.addEventListener('click', function () {
       image.src = button.getAttribute('data-src');
       image.alt = button.getAttribute('data-title') || '';
-      caption.textContent = button.getAttribute('data-title') || '';
+      caption.textContent = button.getAttribute('data-show-caption') === '1' ? (button.getAttribute('data-title') || '') : '';
       lightbox.showModal();
     });
   });

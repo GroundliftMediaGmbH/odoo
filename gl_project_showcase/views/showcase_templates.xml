@@ -1,13 +1,13 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version='1.0' encoding='UTF-8'?>
 <odoo>
     <template id="showcase_document_card" name="Showcase Dokumentkarte"><article class="gl-document">
                                     <div class="gl-document-main">
                                         <span class="gl-file-icon" aria-hidden="true">▤</span>
                                         <div class="gl-document-title">
-                                            <h3 t-esc="doc.name"/>
+                                            <h3 t-esc="doc.name" t-if="doc.show_title"/>
                                             <p t-if="doc.description" t-esc="doc.description"/>
                                             <span class="gl-document-tags" t-if="doc.tag_ids"><span t-foreach="doc.tag_ids" t-as="tag" class="gl-tag" t-esc="tag.name"/></span>
-                                            <span class="gl-tag" t-if="not doc.allow_download" t-esc="labels['document_view_only']"/>
+                                            <span class="gl-tag" t-if="(not doc.allow_download) and (labels['document_view_only'])" t-esc="labels['document_view_only']"/>
                                         </div>
                                     </div>
                                     <div class="gl-document-actions">
@@ -48,14 +48,14 @@
                                 <img class="gl-logo" t-att-src="'/showcase/%s/brand/logo' % show.id" t-att-alt="show.client_label or labels['aria_logo']"/>
                             </t>
                             <t t-else="">
-                                <span class="gl-brand-text" t-esc="show.client_label or labels['brand_fallback']"/>
+                                <span class="gl-brand-text" t-esc="show.client_label or labels['brand_fallback']" t-if="labels['brand_fallback']"/>
                             </t>
                         </div>
                         <nav class="gl-nav" t-att-aria-label="labels['aria_navigation']">
-                            <a href="#gl-results" t-esc="labels['nav_results']"/>
-                            <a t-if="show.video_ids" href="#gl-video" t-esc="labels['nav_videos']"/>
-                            <a t-if="standalone_documents" href="#gl-documents" t-esc="labels['nav_documents']"/>
-                            <a t-if="show.photo_ids" href="#gl-gallery" t-esc="labels['nav_gallery']"/>
+                            <a href="#gl-results" t-esc="labels['nav_results']" t-if="labels['nav_results']"/>
+                            <a t-if="(show.video_ids) and (labels['nav_videos'])" href="#gl-video" t-esc="labels['nav_videos']"/>
+                            <a t-if="(standalone_documents) and (labels['nav_documents'])" href="#gl-documents" t-esc="labels['nav_documents']"/>
+                            <a t-if="(show.photo_ids) and (labels['nav_gallery'])" href="#gl-gallery" t-esc="labels['nav_gallery']"/>
                         </nav>
                     </div>
                 </header>
@@ -66,56 +66,56 @@
                         </t>
                         <div class="gl-hero-shade"/>
                         <div class="gl-container gl-hero-content">
-                            <div class="gl-eyebrow" t-esc="show.client_label or labels['hero_eyebrow']"/>
+                            <div class="gl-eyebrow" t-esc="show.client_label or labels['hero_eyebrow']" t-if="labels['hero_eyebrow']"/>
                             <h1 t-esc="show.name"/>
                             <p class="gl-subtitle" t-if="show.subtitle" t-esc="show.subtitle"/>
-                            <a class="gl-hero-link" href="#gl-results"><t t-esc="labels['hero_cta']"/> <span aria-hidden="true">↓</span></a>
+                            <a class="gl-hero-link" href="#gl-results" t-if="labels['hero_cta']"><t t-esc="labels['hero_cta']"/> <span aria-hidden="true">↓</span></a>
                         </div>
                     </section>
                     <section class="gl-section gl-container" id="gl-results">
-                        <div class="gl-section-heading"><span class="gl-index" t-esc="labels['results_index']"/><h2 t-esc="labels['results_title']"/></div>
+                        <div class="gl-section-heading" t-if="labels['results_index'] or labels['results_title']"><span class="gl-index" t-esc="labels['results_index']" t-if="labels['results_index']"/><h2 t-esc="labels['results_title']" t-if="labels['results_title']"/></div>
                         <p class="gl-prose" t-if="show.intro" t-esc="show.intro"/>
-                        <p class="gl-prose gl-muted" t-else="" t-esc="labels['intro_fallback']"/>
+                        <p class="gl-prose gl-muted" t-esc="labels['intro_fallback']" t-if="not show.intro and labels['intro_fallback']"/>
                     </section>
                     <section class="gl-section gl-container" id="gl-video" t-if="show.video_ids">
-                        <div class="gl-section-heading"><span class="gl-index" t-esc="labels['videos_index']"/><h2 t-esc="labels['videos_title']"/></div>
+                        <div class="gl-section-heading" t-if="labels['videos_index'] or labels['videos_title']"><span class="gl-index" t-esc="labels['videos_index']" t-if="labels['videos_index']"/><h2 t-esc="labels['videos_title']" t-if="labels['videos_title']"/></div>
                         <div class="gl-video-grid">
                             <t t-foreach="show.video_ids" t-as="video">
                                 <article class="gl-video-card">
                                     <div class="gl-player" t-att-data-vimeo-url="video.embed_url" t-att-data-vimeo-title="video.name">
-                                        <button class="gl-video-consent" type="button" t-att-aria-label="labels['video_start']">
+                                        <button class="gl-video-consent" type="button" t-att-aria-label="labels['video_start'] or 'Video auf Vimeo laden'">
                                             <img class="gl-video-thumbnail" loading="eager" decoding="async" alt="" t-if="video.thumbnail_custom or video.thumbnail_vimeo" t-att-src="'/showcase/%s/video/%s/thumbnail' % (show.id, video.id)"/><span class="gl-play-icon gl-video-overlay" aria-hidden="true">▶</span>
-                                            <span t-esc="labels['video_start']" class="gl-video-overlay"/>
-                                            <small t-esc="labels['video_privacy']" class="gl-video-overlay"/>
+                                            <span t-esc="labels['video_start']" class="gl-video-overlay" t-if="labels['video_start']"/>
+                                            <small t-esc="labels['video_privacy']" class="gl-video-overlay" t-if="labels['video_privacy']"/>
                                         </button>
                                     </div>
-                                    <div class="gl-card-info"><h3 t-esc="video.name"/><p t-if="video.description" t-esc="video.description"/></div>
-                                <div class="gl-video-attachments" t-if="video.document_ids"><h4 t-esc="labels['video_files']"/><div class="gl-document-list gl-document-list-attached"><t t-foreach="video.document_ids" t-as="doc"><t t-call="gl_project_showcase.showcase_document_card"/></t></div></div></article>
+                                    <div class="gl-card-info" t-if="(video.show_title and video.name) or video.description"><h3 t-esc="video.name" t-if="video.show_title"/><p t-if="video.description" t-esc="video.description"/></div>
+                                <div class="gl-video-attachments" t-if="video.document_ids"><h4 t-esc="labels['video_files']" t-if="labels['video_files']"/><div class="gl-document-list gl-document-list-attached"><t t-foreach="video.document_ids" t-as="doc"><t t-call="gl_project_showcase.showcase_document_card"/></t></div></div></article>
                             </t>
                         </div>
                     </section>
                     <section class="gl-section gl-container" id="gl-documents" t-if="standalone_documents">
-                        <div class="gl-section-heading"><span class="gl-index" t-esc="labels['documents_index']"/><h2 t-esc="labels['documents_title']"/></div>
+                        <div class="gl-section-heading" t-if="labels['documents_index'] or labels['documents_title']"><span class="gl-index" t-esc="labels['documents_index']" t-if="labels['documents_index']"/><h2 t-esc="labels['documents_title']" t-if="labels['documents_title']"/></div>
                         <div class="gl-document-list">
                             <t t-foreach="standalone_documents" t-as="doc">
                                 <t t-call="gl_project_showcase.showcase_document_card"/></t>
                         </div>
                     </section>
                     <section class="gl-section gl-container" id="gl-gallery" t-if="show.photo_ids">
-                        <div class="gl-section-heading"><span class="gl-index" t-esc="labels['gallery_index']"/><h2 t-esc="labels['gallery_title']"/></div>
+                        <div class="gl-section-heading" t-if="labels['gallery_index'] or labels['gallery_title']"><span class="gl-index" t-esc="labels['gallery_index']" t-if="labels['gallery_index']"/><h2 t-esc="labels['gallery_title']" t-if="labels['gallery_title']"/></div>
                         <t t-foreach="gallery_groups" t-as="group"><div class="gl-gallery-group"><h3 class="gl-gallery-group-title" t-if="group['name']" t-esc="group['name']"/><div class="gl-gallery-grid"><t t-foreach="group['photos']" t-as="photo">
                                 <figure class="gl-gallery-item">
-                                    <button type="button" class="gl-lightbox-open" t-att-data-src="'/showcase/%s/photo/%s' % (show.id, photo.id)" t-att-data-title="photo.name">
+                                    <button type="button" class="gl-lightbox-open" t-att-data-src="'/showcase/%s/photo/%s' % (show.id, photo.id)" t-att-data-title="photo.name" t-att-data-show-caption="'1' if photo.show_title else '0'">
                                         <img loading="lazy" t-att-src="'/showcase/%s/photo/%s' % (show.id, photo.id)" t-att-alt="photo.name"/>
                                         <span class="gl-expand" aria-hidden="true">↗</span>
                                     </button>
-                                    <figcaption t-if="photo.name or photo.description"><strong t-esc="photo.name"/><span t-if="photo.description" t-esc="photo.description"/></figcaption>
+                                    <figcaption t-if="(photo.show_title and photo.name) or photo.description"><strong t-esc="photo.name" t-if="photo.show_title"/><span t-if="photo.description" t-esc="photo.description"/></figcaption>
                                 </figure>
                             </t>
                         </div></div></t></section>
                     <section class="gl-section gl-container gl-end" t-if="show.closing_text or labels['closing_body']">
-                        <span class="gl-index" t-esc="labels['thanks']"/>
-                        <p class="gl-prose" t-esc="show.closing_text or labels['closing_body']"/>
+                        <span class="gl-index" t-esc="labels['thanks']" t-if="labels['thanks']"/>
+                        <p class="gl-prose" t-esc="show.closing_text or labels['closing_body']" t-if="show.closing_text or labels['closing_body']"/>
                     </section>
                 </main>
                 <footer class="gl-footer">
@@ -147,9 +147,9 @@
             </head>
             <body class="gl-showcase gl-password-page" t-att-style="show.gl_css_variables">
                 <main class="gl-password-card">
-                    <div class="gl-eyebrow" t-esc="show.client_label or labels['password_eyebrow']"/>
-                    <h1 t-esc="labels['password_title']"/>
-                    <p t-esc="labels['password_help']"/>
+                    <div class="gl-eyebrow" t-esc="show.client_label or labels['password_eyebrow']" t-if="labels['password_eyebrow']"/>
+                    <h1 t-esc="labels['password_title']" t-if="labels['password_title']"/>
+                    <p t-esc="labels['password_help']" t-if="labels['password_help']"/>
                     <p class="gl-error" role="alert" t-if="error" t-esc="error"/>
                     <form t-att-action="'/showcase/%s/unlock' % show.id" method="post">
                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>

@@ -116,3 +116,6 @@ body.gl-showcase { margin: 0; background: var(--gl-bg, #101820); color: var(--gl
 /* v1.7: document tags share the project's gallery label vocabulary. */
 .gl-document-tags { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
 .gl-document-tags .gl-tag { display:inline-block; margin:0; }
+
+/* No empty caption gap when an optional photo title is hidden. */
+.gl-lightbox p:empty { display:none; }

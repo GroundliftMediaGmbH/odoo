@@ -10,6 +10,9 @@ from odoo.exceptions import ValidationError
 from .texts import SHOWCASE_TEXTS, CONFIG_PREFIX
 
 
+HIDEABLE_TEXT_KEYS = frozenset(['brand_fallback', 'nav_results', 'nav_videos', 'nav_documents', 'nav_gallery', 'hero_eyebrow', 'hero_cta', 'results_index', 'results_title', 'intro_fallback', 'videos_index', 'videos_title', 'video_start', 'video_privacy', 'video_files', 'documents_index', 'documents_title', 'document_view_only', 'gallery_index', 'gallery_title', 'gallery_untagged', 'thanks', 'closing_body', 'password_eyebrow', 'password_title', 'password_help'])
+
+
 _HEX_COLOR = re.compile(r'^#[0-9a-fA-F]{6}$')
 
 
@@ -116,6 +119,34 @@ class ProjectShowcase(models.Model):
     gl_text_aria_lightbox = fields.Char(string='Barrierefreiheit: Galeriefenster', help='Leer lassen = Projekteinstellungen: Bild in Großansicht')
     gl_text_aria_logo = fields.Char(string='Barrierefreiheit: Logo-Ersatztext', help='Leer lassen = Projekteinstellungen: Logo')
 
+
+    # Per-showcase override: inherit the global setting, force visible or force hidden.
+    gl_visibility_brand_fallback = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Branding: Ersatztext', default='inherit')
+    gl_visibility_nav_results = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Menü: Ergebnisse', default='inherit')
+    gl_visibility_nav_videos = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Menü: Filme', default='inherit')
+    gl_visibility_nav_documents = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Menü: Dokumente', default='inherit')
+    gl_visibility_nav_gallery = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Menü: Galerie', default='inherit')
+    gl_visibility_hero_eyebrow = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Titelbild: Kategorie', default='inherit')
+    gl_visibility_hero_cta = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Titelbild: Aufruf', default='inherit')
+    gl_visibility_results_index = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Ergebnisse: Bereichslabel', default='inherit')
+    gl_visibility_results_title = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Ergebnisse: Überschrift', default='inherit')
+    gl_visibility_intro_fallback = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Ergebnisse: Ersatztext', default='inherit')
+    gl_visibility_videos_index = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Videos: Bereichslabel', default='inherit')
+    gl_visibility_videos_title = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Videos: Überschrift', default='inherit')
+    gl_visibility_video_start = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Videos: Button', default='inherit')
+    gl_visibility_video_privacy = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Videos: Datenschutzhinweis', default='inherit')
+    gl_visibility_video_files = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Videos: Dateibereich', default='inherit')
+    gl_visibility_documents_index = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Dokumente: Bereichslabel', default='inherit')
+    gl_visibility_documents_title = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Dokumente: Überschrift', default='inherit')
+    gl_visibility_document_view_only = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Dokumente: Hinweis ohne Download', default='inherit')
+    gl_visibility_gallery_index = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Galerie: Bereichslabel', default='inherit')
+    gl_visibility_gallery_title = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Galerie: Überschrift', default='inherit')
+    gl_visibility_gallery_untagged = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Galerie: Fotos ohne Tag', default='inherit')
+    gl_visibility_thanks = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Abschluss: Überschrift', default='inherit')
+    gl_visibility_closing_body = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Abschluss: Standardabsatz', default='inherit')
+    gl_visibility_password_eyebrow = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Passwortseite: Bereichslabel', default='inherit')
+    gl_visibility_password_title = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Passwortseite: Überschrift', default='inherit')
+    gl_visibility_password_help = fields.Selection([('inherit', 'Standard verwenden'), ('show', 'Anzeigen'), ('hide', 'Ausblenden')], string='Sichtbarkeit: Passwortseite: Hinweis', default='inherit')
     def gl_get_texts(self):
         """Return an escaped-by-QWeb plain-text map of current labels.
 
@@ -128,7 +159,13 @@ class ProjectShowcase(models.Model):
         for key, (_label, original_default) in SHOWCASE_TEXTS.items():
             local_value = self['gl_text_' + key]
             global_value = params.get_param(CONFIG_PREFIX + key)
-            result[key] = local_value or global_value or original_default
+            text = local_value or global_value or original_default
+            if key in HIDEABLE_TEXT_KEYS:
+                choice = self['gl_visibility_' + key]
+                global_visible = params.get_param(CONFIG_PREFIX + 'show_' + key, 'True')
+                if choice == 'hide' or (choice not in ('show', 'hide') and str(global_visible).lower() in ('false', '0', 'off')):
+                    text = False
+            result[key] = text
         return result
 
     @api.depends('password_hash')
@@ -287,7 +324,7 @@ class ProjectShowcase(models.Model):
         for tag in self.photo_tag_ids:
             photos = self.photo_ids.filtered(lambda photo: tag in photo.tag_ids)
             if photos:
-                groups.append({'name': tag.name, 'photos': photos})
+                groups.append({'name': tag.name if tag.show_heading else False, 'photos': photos})
         untagged = self.photo_ids.filtered(lambda photo: not photo.tag_ids)
         if untagged:
             groups.append({

@@ -101,6 +101,7 @@ class ShowcaseVideo(models.Model):
     sequence = fields.Integer(default=10)
     showcase_id = fields.Many2one('gl.project.showcase', required=True, ondelete='cascade', index=True)
     name = fields.Char(string='Videotitel', required=True)
+    show_title = fields.Boolean(string='Titel unter Video anzeigen', default=True)
     description = fields.Text(string='Beschreibung')
     vimeo_url = fields.Char(string='Vimeo-URL', required=True)
     embed_url = fields.Char(compute='_compute_embed_url', string='Embed-URL')
@@ -275,6 +276,7 @@ class ShowcaseDocument(models.Model):
     sequence = fields.Integer(default=10)
     showcase_id = fields.Many2one('gl.project.showcase', required=True, ondelete='cascade', index=True)
     name = fields.Char(string='Dokumenttitel', required=True)
+    show_title = fields.Boolean(string='Dokumenttitel auf Landingpage anzeigen', default=True)
     description = fields.Text(string='Beschreibung')
     filename = fields.Char(string='Dateiname', required=True)
     data = fields.Binary(string='Datei', attachment=True, required=True)
@@ -340,6 +342,7 @@ class ShowcasePhotoTag(models.Model):
 
     sequence = fields.Integer(default=10, string='Reihenfolge')
     name = fields.Char(string='Galerie-Überschrift', required=True)
+    show_heading = fields.Boolean(string='Galerie-Überschrift anzeigen', default=True)
     showcase_id = fields.Many2one(
         'gl.project.showcase', required=True, ondelete='cascade', index=True,
     )
@@ -374,6 +377,7 @@ class ShowcasePhoto(models.Model):
     sequence = fields.Integer(default=10)
     showcase_id = fields.Many2one('gl.project.showcase', required=True, ondelete='cascade', index=True)
     name = fields.Char(string='Bildtitel', required=True)
+    show_title = fields.Boolean(string='Bildtitel unter dem Foto anzeigen', default=True)
     description = fields.Text(string='Bildunterschrift')
     photo = fields.Image(string='Bild', required=True, attachment=True, max_width=2400, max_height=2400)
     tag_ids = fields.Many2many(
