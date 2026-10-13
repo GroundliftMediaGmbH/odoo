@@ -7,12 +7,13 @@
         <field name="name">gl.service.staff.member.list</field>
         <field name="model">gl.service.staff.member</field>
         <field name="arch" type="xml">
-            <list string="Servicepersonal" editable="bottom">
+            <list string="Servicepersonal">
                 <field name="employee_id"/>
                 <field name="email"/>
                 <field name="monthly_summary_opt_in" string="Monatsmail"/>
                 <field name="pin_code" optional="hide"/>
                 <field name="active"/>
+                <button name="action_open_member_details" type="object" string="PIN / Details" class="btn-primary"/>
                 <button name="action_open_portal" type="object" string="Webseite öffnen" class="btn-secondary"/>
             </list>
         </field>

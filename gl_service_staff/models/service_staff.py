@@ -234,6 +234,19 @@ class GLServiceStaffMember(models.Model):
                 ) or False
         return super().create(vals_list)
 
+    def action_open_member_details(self):
+        """Open the staff member's own form rather than the related HR record."""
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Servicepersonal: %s' % self.name,
+            'res_model': 'gl.service.staff.member',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'views': [(self.env.ref('gl_service_staff.view_gl_service_staff_member_form').id, 'form')],
+            'target': 'current',
+        }
+
     def action_generate_new_pin(self):
         for rec in self:
             rec.pin_code = self._new_numeric_pin()

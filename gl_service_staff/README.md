@@ -69,3 +69,9 @@ Eine spätere manuelle Änderung der Schicht-Anfangs- oder Endzeit löst die Kop
 
 ## 19.0.2.0.5
 - Fix: `Mail debugging` speichert nun explizit `1`/`0` in `ir.config_parameter`, damit ein deaktivierter Haken nicht durch den Standardwert wieder aktiviert wird.
+
+
+### 19.0.2.0.6 — PIN-Verwaltung
+- Mitarbeiterliste ist nicht mehr inline-editierbar. Anklicken öffnet die Detailansicht.
+- Neuer Button **PIN / Details** öffnet explizit das Servicepersonal-Formular mit PIN-Feld und PIN-Neugenerierung.
+- Bestehende PINs, Daten und Schichten bleiben unverändert.
