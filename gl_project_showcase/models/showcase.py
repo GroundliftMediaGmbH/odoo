@@ -251,6 +251,20 @@ class ProjectShowcase(models.Model):
     def action_unpublish(self):
         self.write({'published': False})
 
+    def action_enable_password_access(self):
+        """Explicitly activate an existing password for external visitors.
+
+        Setting a password alone must not silently publish a draft. This
+        action is deliberately called only from a user-initiated button or
+        the password wizard's explicit publish option.
+        """
+        self.ensure_one()
+        self.check_access('write')
+        if not self.password_hash:
+            raise ValidationError(_('Bitte zuerst ein Showcase-Zugangspasswort setzen.'))
+        self.write({'visibility': 'password', 'published': True})
+        return True
+
     def action_gl_refresh_video_thumbnails(self):
         self.ensure_one()
         self.check_access('write')

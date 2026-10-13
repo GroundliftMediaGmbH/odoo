@@ -8,6 +8,7 @@
                 <header>
                     <button name="action_publish" type="object" string="Veröffentlichen" class="btn-primary" invisible="published"/>
                     <button name="action_unpublish" type="object" string="Veröffentlichung aufheben" invisible="not published"/>
+                    <button name="action_enable_password_access" type="object" string="Mit Passwort veröffentlichen" class="btn-primary" invisible="not password_is_set or (published and visibility == 'password')" confirm="Diese Landingpage jetzt für externe Besucher mit Passwortschutz freigeben?"/>
                     <button name="action_open_website" type="object" string="Landingpage ansehen" icon="fa-external-link"/>
                     <button name="action_gl_refresh_video_thumbnails" type="object" string="Vimeo-Thumbnails abrufen" icon="fa-picture-o"/>
                     <field name="published" widget="boolean_toggle"/>
@@ -23,8 +24,9 @@
                         <group>
                             <field name="visibility"/>
                             <field name="indexable" invisible="visibility != 'public'"/>
-                            <field name="password_is_set" invisible="visibility != 'password'"/>
-                            <button name="action_change_password" type="object" string="Zugangspasswort setzen / ändern" invisible="visibility != 'password'" class="btn-secondary"/>
+                            <field name="password_is_set" readonly="1"/>
+                            <div class="text-muted" colspan="2">Extern sichtbar erst, wenn „Veröffentlicht“ aktiv ist und „Zugriff“ auf „Mit Passwort“ steht. Passwort setzen allein veröffentlicht keine Entwürfe.</div>
+                            <button name="action_change_password" type="object" string="Zugangspasswort setzen / ändern" class="btn-secondary"/>
                         </group>
                     </group>
                     <notebook>
@@ -172,6 +174,8 @@
                     <field name="showcase_id" invisible="1"/>
                     <field name="new_password" password="1"/>
                     <field name="confirm_password" password="1"/>
+                    <field name="publish_now"/>
+                    <div class="text-muted">Aktiviert die Seite für Besucher ohne Odoo-Login. Ist diese Option deaktiviert, wird nur das Passwort gespeichert.</div>
                 </group>
                 <footer>
                     <button name="action_save" type="object" string="Passwort speichern" class="btn-primary"/>

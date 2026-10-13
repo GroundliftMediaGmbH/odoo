@@ -78,6 +78,43 @@ class TestProjectShowcase(TransactionCase):
         self.assertTrue(self.showcase.published)
         self.assertNotEqual(self.showcase.password_hash, 'EinSicheresPasswort2026!')
 
+    def test_password_wizard_explicit_external_publication(self):
+        """Setting a password can publish via the explicit wizard checkbox."""
+        self.assertFalse(self.showcase.published)
+        self.assertEqual(self.showcase.visibility, 'private')
+        wizard = self.env['gl.showcase.password.wizard'].create({
+            'showcase_id': self.showcase.id,
+            'new_password': 'EinSicheresPasswort2026!',
+            'confirm_password': 'EinSicheresPasswort2026!',
+            'publish_now': True,
+        })
+        wizard.action_save()
+        self.assertTrue(self.showcase.password_is_set)
+        self.assertEqual(self.showcase.visibility, 'password')
+        self.assertTrue(self.showcase.published)
+        self.assertNotEqual(self.showcase.password_hash, 'EinSicheresPasswort2026!')
+
+    def test_password_wizard_can_leave_draft_private(self):
+        """The non-publication option must preserve drafts and privacy."""
+        wizard = self.env['gl.showcase.password.wizard'].create({
+            'showcase_id': self.showcase.id,
+            'new_password': 'EinSicheresPasswort2026!',
+            'confirm_password': 'EinSicheresPasswort2026!',
+            'publish_now': False,
+        })
+        wizard.action_save()
+        self.assertTrue(self.showcase.password_is_set)
+        self.assertEqual(self.showcase.visibility, 'private')
+        self.assertFalse(self.showcase.published)
+        self.showcase.action_enable_password_access()
+        self.assertTrue(self.showcase.published)
+        self.assertEqual(self.showcase.visibility, 'password')
+
+    def test_cannot_activate_password_access_without_password(self):
+        with self.assertRaises(ValidationError):
+            self.showcase.action_enable_password_access()
+        self.assertFalse(self.showcase.published)
+
     def test_preview_only_pdf_or_images(self):
         pdf = b'%PDF-1.7\n1 0 obj\nendobj\n%%EOF'
         self.assertEqual(safe_mime(pdf), 'application/pdf')
