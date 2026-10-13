@@ -120,6 +120,7 @@ class ShowcaseVideo(models.Model):
     )
     thumbnail_checked_at = fields.Datetime(string='Vimeo zuletzt geprüft', readonly=True, copy=False)
     thumbnail_checked_url = fields.Char(string='Geprüfte Vimeo-URL', readonly=True, copy=False)
+    thumbnail_fetch_note = fields.Char(string='Vimeo-Thumbnail-Status', readonly=True, copy=False)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -142,66 +143,92 @@ class ShowcaseVideo(models.Model):
         return True
 
     def _gl_sync_thumbnails(self, force=False):
-        """Fetch Vimeo oEmbed metadata only from a fixed trusted endpoint.
+        """Store Vimeo's thumbnail locally *before* visitor starts playback.
 
-        Copy the preview to an Odoo Image field so page visitors do not request
-        Vimeo resources before clicking the video consent button. No user URL
-        is requested directly, and thumbnail URLs must be vimeocdn HTTPS.
+        Vimeo may strip thumbnail_url from oEmbed for domain-restricted videos.
+        Try the configured website and Groundlift's production Referer; if it
+        is unavailable, keep an existing poster or allow a custom thumbnail.
+        Only whitelisted HTTPS vimeocdn images are downloaded (SSRF defence).
         """
         for video in self:
             if not force and video.thumbnail_checked_at and video.thumbnail_checked_url == video.vimeo_url:
                 continue
-            data = False
+            unchanged = video.thumbnail_checked_url == video.vimeo_url
+            data = video.with_context(bin_size=False).thumbnail_vimeo if unchanged else False
+            note = 'Kein Vimeo-Thumbnail verfügbar. Bei privaten Videos eigenes Bild hochladen.'
             try:
                 url = (video.vimeo_url or '').strip()
                 if vimeo_embed(url):
-                    reply = requests.get(
-                        'https://vimeo.com/api/oembed.json',
-                        params={'url': url, 'width': 960}, timeout=(2, 3),
-                        allow_redirects=False,
-                        headers={'Accept': 'application/json'},
-                    )
-                    if reply.status_code == 200 and len(reply.content) <= 128 * 1024:
+                    parsed_video = urlparse(url)
+                    # Strip Vimeo UI-only query params for showcase/album links;
+                    # preserve ?h= for unlisted individual videos.
+                    oembed_url = (parsed_video._replace(query='', fragment='').geturl()
+                                  if parsed_video.path.startswith(('/showcase/', '/album/')) else url)
+                    configured = (video.showcase_id.website_id.domain or '').strip()
+                    if configured and not configured.startswith(('https://', 'http://')):
+                        configured = 'https://' + configured
+                    configured = configured.rstrip('/') + '/' if configured else 'https://www.groundlift.de/'
+                    referers = list(dict.fromkeys([configured, 'https://www.groundlift.de/']))
+                    thumb_url = None
+                    last_status = None
+                    for referer in referers:
+                        reply = requests.get(
+                            'https://vimeo.com/api/oembed.json',
+                            params={'url': oembed_url, 'width': 960}, timeout=(2, 4),
+                            allow_redirects=False,
+                            headers={'Accept': 'application/json', 'Referer': referer},
+                        )
+                        last_status = reply.status_code
+                        if reply.status_code != 200 or len(reply.content) > 128 * 1024:
+                            continue
                         info = reply.json()
                         thumb_url = info.get('thumbnail_url')
                         if isinstance(thumb_url, str):
-                            parsed = urlparse(thumb_url)
-                            if (parsed.scheme == 'https'
-                                    and (parsed.hostname == 'vimeocdn.com'
-                                         or (parsed.hostname or '').endswith('.vimeocdn.com'))
-                                    and not parsed.username and not parsed.password
-                                    and parsed.port in (None, 443)):
-                                response = requests.get(
-                                    thumb_url, timeout=(2, 4), allow_redirects=False,
-                                    headers={'Accept': 'image/jpeg, image/png, image/webp'},
-                                    stream=True,
-                                )
-                                try:
-                                    if response.status_code == 200:
-                                        size = 0
-                                        chunks = []
-                                        for chunk in response.iter_content(chunk_size=65536):
-                                            size += len(chunk)
-                                            if size > MAX_THUMB:
-                                                raise ValueError('Vimeo thumbnail exceeds size limit')
-                                            chunks.append(chunk)
-                                        payload = b''.join(chunks)
-                                        if safe_mime(payload) in ('image/jpeg', 'image/png', 'image/webp'):
-                                            # Verify that actual image data is decodable.
-                                            with Image.open(BytesIO(payload)) as picture:
-                                                picture.verify()
-                                            data = base64.b64encode(payload)
-                                finally:
-                                    response.close()
-            except (requests.RequestException, ValueError, TypeError,
+                            break
+                    if isinstance(thumb_url, str):
+                        parsed = urlparse(thumb_url)
+                        if (parsed.scheme == 'https'
+                                and (parsed.hostname == 'vimeocdn.com'
+                                     or (parsed.hostname or '').endswith('.vimeocdn.com'))
+                                and not parsed.username and not parsed.password
+                                and parsed.port in (None, 443)):
+                            response = requests.get(
+                                thumb_url, timeout=(2, 4), allow_redirects=False,
+                                headers={'Accept': 'image/jpeg, image/png, image/webp'}, stream=True,
+                            )
+                            try:
+                                if response.status_code == 200:
+                                    size = 0
+                                    chunks = []
+                                    for chunk in response.iter_content(chunk_size=65536):
+                                        size += len(chunk)
+                                        if size > MAX_THUMB:
+                                            raise ValueError('Vimeo thumbnail exceeds size limit')
+                                        chunks.append(chunk)
+                                    payload = b''.join(chunks)
+                                    if safe_mime(payload) in ('image/jpeg', 'image/png', 'image/webp'):
+                                        with Image.open(BytesIO(payload)) as picture:
+                                            picture.verify()
+                                        data = base64.b64encode(payload)
+                                        note = 'Vorschaubild vor Wiedergabe erfolgreich abgerufen.'
+                                else:
+                                    note = 'Vimeo-Bildserver antwortet mit HTTP %s.' % response.status_code
+                            finally:
+                                response.close()
+                        else:
+                            note = 'Vimeo liefert eine nicht unterstützte Thumbnail-Adresse.'
+                    else:
+                        note = ('Vimeo oEmbed ohne Thumbnail (HTTP %s). '
+                                'Videoprivatsphäre prüfen oder eigenes Bild hochladen.' % last_status)
+            except (requests.RequestException, ValueError, TypeError, KeyError,
                     UnidentifiedImageError, OSError) as exc:
                 _logger.info('Vimeo thumbnail for video %s unavailable: %s', video.id, exc)
-            # Store a failed check as well to avoid repeated network calls.
-            # Force refresh clears an outdated old thumbnail.
+                note = 'Thumbnail-Abruf fehlgeschlagen: %s' % str(exc)[:180]
             super(ShowcaseVideo, video).write({
                 'thumbnail_vimeo': data,
                 'thumbnail_checked_at': fields.Datetime.now(),
                 'thumbnail_checked_url': video.vimeo_url,
+                'thumbnail_fetch_note': note,
             })
 
     def _gl_sync_missing_thumbnails(self):

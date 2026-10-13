@@ -105,3 +105,10 @@ body.gl-showcase { margin: 0; background: var(--gl-bg, #101820); color: var(--gl
 .gl-video-consent:has(.gl-video-thumbnail) { background:#090e13; }
 .gl-video-consent:has(.gl-video-thumbnail)::before { content:""; position:absolute; inset:0; background:linear-gradient(0deg,rgba(0,0,0,.84),rgba(0,0,0,.14)); z-index:-1; }
 .gl-video-overlay { position:relative; z-index:1; text-shadow:0 1px 4px #000; }
+
+/* v1.6: ensure poster appears ABOVE button background and BELOW controls. */
+.gl-video-consent{isolation:isolate;position:relative;background:#111923;}
+.gl-video-thumbnail{z-index:0!important;pointer-events:none;display:block;opacity:1;}
+.gl-video-consent:has(.gl-video-thumbnail)::before{z-index:1!important;pointer-events:none;}
+.gl-video-overlay{z-index:2!important;}
+.gl-document-actions .gl-doc-new-window{white-space:normal;text-align:center;}

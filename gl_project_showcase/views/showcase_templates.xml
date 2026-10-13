@@ -13,12 +13,13 @@
                                         <details t-if="doc.has_preview" class="gl-document-preview">
                                             <summary t-esc="labels['document_preview']"/>
                                             <div class="gl-preview-body" t-if="doc.mime_type == 'application/pdf'">
-                                                <iframe loading="lazy" t-att-title="labels['aria_pdf_preview']" t-att-src="'/showcase/%s/document/%s#toolbar=0&amp;navpanes=0' % (show.id, doc.id)"/>
+                                                <iframe loading="lazy" allowfullscreen="allowfullscreen" allow="fullscreen" t-att-title="labels['aria_pdf_preview']" t-att-src="'/showcase/%s/document/%s/preview' % (show.id, doc.id)"/>
                                             </div>
                                             <div class="gl-preview-body gl-image-preview" t-else="">
                                                 <img loading="lazy" t-att-src="'/showcase/%s/document/%s' % (show.id, doc.id)" t-att-alt="doc.name"/>
                                             </div>
                                         </details>
+                                        <a class="gl-btn gl-doc-new-window" t-if="doc.mime_type == 'application/pdf'" t-att-href="'/showcase/%s/document/%s/preview' % (show.id, doc.id)" target="_blank" rel="noopener noreferrer" t-esc="labels['document_new_window']"/>
                                         <a class="gl-btn" t-if="doc.allow_download" t-att-href="'/showcase/%s/document/%s?download=1' % (show.id, doc.id)" download="download" t-esc="labels['document_download']"/>
                                     </div>
                                 </article>
@@ -82,7 +83,7 @@
                                 <article class="gl-video-card">
                                     <div class="gl-player" t-att-data-vimeo-url="video.embed_url" t-att-data-vimeo-title="video.name">
                                         <button class="gl-video-consent" type="button" t-att-aria-label="labels['video_start']">
-                                            <img class="gl-video-thumbnail" loading="lazy" alt="" t-if="video.thumbnail_custom or video.thumbnail_vimeo" t-att-src="'/showcase/%s/video/%s/thumbnail' % (show.id, video.id)"/><span class="gl-play-icon gl-video-overlay" aria-hidden="true">▶</span>
+                                            <img class="gl-video-thumbnail" loading="eager" decoding="async" alt="" t-if="video.thumbnail_custom or video.thumbnail_vimeo" t-att-src="'/showcase/%s/video/%s/thumbnail' % (show.id, video.id)"/><span class="gl-play-icon gl-video-overlay" aria-hidden="true">▶</span>
                                             <span t-esc="labels['video_start']" class="gl-video-overlay"/>
                                             <small t-esc="labels['video_privacy']" class="gl-video-overlay"/>
                                         </button>
@@ -155,6 +156,39 @@
                         <input id="gl-password" name="password" type="password" required="required" autocomplete="current-password" autofocus="autofocus"/>
                         <button class="gl-btn" type="submit" t-esc="labels['password_submit']"/>
                     </form>
+                </main>
+            </body>
+        </html>
+    </template>
+
+    <template id="showcase_pdf_viewer" name="Groundlift Showcase PDF Seitenansicht">
+        <html lang="de">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <meta name="robots" content="noindex,nofollow,noarchive"/>
+                <title t-esc="doc.name"/>
+                <link rel="stylesheet" href="/gl_project_showcase/static/src/css/pdf_viewer.css"/>
+                <script src="/gl_project_showcase/static/src/js/pdf_viewer.js" defer="defer"/>
+            </head>
+            <body t-att-class="'gl-pdf-no-print' if not doc.allow_download else 'gl-pdf-printable'">
+                <main id="gl-pdf-viewer" t-att-data-page-base="'/showcase/%s/document/%s/page/' % (show.id, doc.id)" t-att-data-pages="page_count">
+                    <header class="gl-pdf-toolbar">
+                        <span class="gl-pdf-title" t-esc="doc.name"/>
+                        <nav class="gl-pdf-controls" t-att-aria-label="labels['aria_pdf_preview']">
+                            <button id="gl-pdf-prev" type="button" t-att-aria-label="labels['document_previous']">←</button>
+                            <span id="gl-pdf-counter">1 / <t t-esc="page_count"/></span>
+                            <button id="gl-pdf-next" type="button" t-att-aria-label="labels['document_next']">→</button>
+                            <button id="gl-pdf-zoom-out" type="button" t-att-aria-label="labels['document_zoom_out']">−</button>
+                            <button id="gl-pdf-zoom-in" type="button" t-att-aria-label="labels['document_zoom_in']">+</button>
+                            <button id="gl-pdf-fullscreen" type="button" t-esc="labels['document_fullscreen']"/>
+                            <a t-if="doc.allow_download" class="gl-pdf-download" t-att-href="'/showcase/%s/document/%s?download=1' % (show.id, doc.id)" t-esc="labels['document_download']"/>
+                        </nav>
+                    </header>
+                    <div class="gl-pdf-canvas">
+                        <img id="gl-pdf-page-image" t-att-src="'/showcase/%s/document/%s/page/1' % (show.id, doc.id)" t-att-alt="'%s: 1' % doc.name" draggable="false"/>
+                    </div>
+                    <p class="gl-pdf-print-notice" t-esc="labels['document_print_blocked']"/>
                 </main>
             </body>
         </html>

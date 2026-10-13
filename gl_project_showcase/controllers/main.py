@@ -15,6 +15,7 @@ from odoo.exceptions import AccessError, MissingError
 from odoo.http import request
 
 from ..models.media import decode_file, decode_record_file, safe_mime
+from ..models.pdf_preview import PdfPreviewError, count_pdf_pages, render_pdf_page
 
 _logger = logging.getLogger(__name__)
 
@@ -93,9 +94,14 @@ class ShowcaseController(http.Controller):
             return request.not_found()
         # Backfill existing v1.4 videos the first time this page is opened.
         # A failed lookup is stored to avoid retrying on every page visit.
+        # Existing v1.5 videos may have a failed/missing oEmbed thumbnail.
+        # Retry once after upgrade (new note field is initially unset), with
+        # explicit site Referer support. Avoid repeated public page delays.
         show.video_ids.filtered(
-            lambda v: not v.thumbnail_checked_at or v.thumbnail_checked_url != v.vimeo_url
-        )[:4]._gl_sync_missing_thumbnails()
+            lambda v: not v.thumbnail_custom and not v.thumbnail_vimeo
+            and (not v.thumbnail_checked_at or v.thumbnail_checked_url != v.vimeo_url
+                 or not v.thumbnail_fetch_note)
+        )[:2]._gl_sync_thumbnails(force=True)
         labels = show.gl_get_texts()
         response = self._render('gl_project_showcase.showcase_page', {
             'show': show,
@@ -157,15 +163,70 @@ class ShowcaseController(http.Controller):
         if not is_download and not doc.has_preview:
             return request.not_found()
         try:
-            payload = decode_file(doc.data)
+            payload = decode_record_file(doc, 'data')
         except Exception:
             _logger.exception('Invalid showcase document %s', document_id)
             return request.not_found()
         actual_mime = safe_mime(payload)
-        if not is_download and actual_mime not in ('application/pdf', 'image/png', 'image/jpeg', 'image/webp'):
+        # CRITICAL: Never deliver raw PDF bytes through any GET route if the
+        # attachment is preview-only. Even for allowed downloads, the PDF is
+        # served ONLY when ?download=1 is explicitly given.
+        if actual_mime == 'application/pdf' and not is_download:
+            return request.redirect('/showcase/%s/document/%s/preview' % (show.id, doc.id), code=302)
+        if not is_download and actual_mime not in ('image/png', 'image/jpeg', 'image/webp'):
             return request.not_found()
         return self._binary_response(payload, doc.filename or 'Dokument',
                                      actual_mime if not is_download else 'application/octet-stream', is_download)
+
+    def _get_pdf_for_preview(self, showcase_id, document_id):
+        show = self._show(showcase_id)
+        if not self._is_allowed(show):
+            return None, None, None
+        doc = request.env['gl.showcase.document'].sudo().browse(document_id).exists()
+        if not doc or doc.showcase_id.id != show.id or not doc.has_preview or doc.mime_type != 'application/pdf':
+            return None, None, None
+        try:
+            payload = decode_record_file(doc, 'data')
+            if safe_mime(payload) != 'application/pdf':
+                return None, None, None
+            return show, doc, payload
+        except Exception:
+            _logger.warning('Invalid PDF preview document %s', document_id)
+            return None, None, None
+
+    @http.route('/showcase/<int:showcase_id>/document/<int:document_id>/preview',
+                type='http', auth='public', website=True, methods=['GET'], sitemap=False)
+    def showcase_pdf_preview(self, showcase_id, document_id, **kw):
+        show, doc, payload = self._get_pdf_for_preview(showcase_id, document_id)
+        if not doc:
+            return request.not_found()
+        try:
+            page_count = count_pdf_pages(payload)
+        except PdfPreviewError:
+            _logger.warning('PDF preview cannot count pages: doc=%s', document_id)
+            return request.not_found()
+        response = self._render('gl_project_showcase.showcase_pdf_viewer', {
+            'show': show, 'doc': doc, 'page_count': page_count, 'labels': show.gl_get_texts(),
+        })
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'none'; img-src 'self' data:; style-src 'self'; "
+            "script-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'"
+        )
+        return response
+
+    @http.route('/showcase/<int:showcase_id>/document/<int:document_id>/page/<int:page_num>',
+                type='http', auth='public', website=True, methods=['GET'], sitemap=False)
+    def showcase_pdf_page(self, showcase_id, document_id, page_num, **kw):
+        show, doc, payload = self._get_pdf_for_preview(showcase_id, document_id)
+        if not doc:
+            return request.not_found()
+        try:
+            picture = render_pdf_page(payload, page_num)
+        except PdfPreviewError:
+            _logger.warning('Cannot render PDF preview: doc=%s page=%s', document_id, page_num)
+            return request.not_found()
+        return self._binary_response(picture, 'seite-%s.jpg' % page_num, 'image/jpeg')
 
     def _image_response(self, show, data, name):
         if not self._is_allowed(show):

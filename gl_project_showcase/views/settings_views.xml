@@ -141,6 +141,34 @@
                   </div>
                 </div>
                 <div class="row mb8">
+                  <label for="gl_text_document_new_window" class="col-12 col-lg-4 o_light_label">Dokumente: In neuem Fenster</label>
+                  <div class="col-12 col-lg-8"><field name="gl_text_document_new_window"/></div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_document_fullscreen" class="col-12 col-lg-4 o_light_label">Dokumente: Vollbild</label>
+                  <div class="col-12 col-lg-8"><field name="gl_text_document_fullscreen"/></div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_document_previous" class="col-12 col-lg-4 o_light_label">Dokumente: Vorherige Seite</label>
+                  <div class="col-12 col-lg-8"><field name="gl_text_document_previous"/></div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_document_next" class="col-12 col-lg-4 o_light_label">Dokumente: Nächste Seite</label>
+                  <div class="col-12 col-lg-8"><field name="gl_text_document_next"/></div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_document_zoom_in" class="col-12 col-lg-4 o_light_label">Dokumente: Vergrößern</label>
+                  <div class="col-12 col-lg-8"><field name="gl_text_document_zoom_in"/></div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_document_zoom_out" class="col-12 col-lg-4 o_light_label">Dokumente: Verkleinern</label>
+                  <div class="col-12 col-lg-8"><field name="gl_text_document_zoom_out"/></div>
+                </div>
+                <div class="row mb8">
+                  <label for="gl_text_document_print_blocked" class="col-12 col-lg-4 o_light_label">Dokumente: Druckhinweis</label>
+                  <div class="col-12 col-lg-8"><field name="gl_text_document_print_blocked"/></div>
+                </div>
+                <div class="row mb8">
                   <label for="gl_text_gallery_index" class="col-12 col-lg-4 o_light_label">Galerie: Bereichslabel</label>
                   <div class="col-12 col-lg-8">
                     <field name="gl_text_gallery_index"/>

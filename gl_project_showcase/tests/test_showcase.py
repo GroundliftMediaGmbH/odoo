@@ -15,6 +15,32 @@ class TestProjectShowcase(TransactionCase):
             'website_id': cls.env['website'].search([], limit=1).id,
         })
 
+
+    def test_server_raster_pdf_preview(self):
+        """A valid PDF is converted to images without shipping raw PDF bytes."""
+        from io import BytesIO
+        from PIL import Image
+        from reportlab.pdfgen import canvas
+        from ..models.pdf_preview import PdfPreviewError, count_pdf_pages, render_pdf_page
+
+        buffer = BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=(595, 842))
+        pdf.drawString(80, 730, 'Showcase protected PDF page 1')
+        pdf.showPage()
+        pdf.drawString(80, 730, 'Showcase protected PDF page 2')
+        pdf.showPage()
+        pdf.save()
+        source = buffer.getvalue()
+        self.assertTrue(source.startswith(b'%PDF-'))
+        self.assertEqual(count_pdf_pages(source), 2)
+        image = render_pdf_page(source, 2)
+        self.assertTrue(image.startswith(b'\xff\xd8\xff'))
+        self.assertFalse(image.startswith(b'%PDF-'))
+        with Image.open(BytesIO(image)) as jpg:
+            self.assertEqual(jpg.format, 'JPEG')
+        with self.assertRaises(PdfPreviewError):
+            render_pdf_page(source, 3)
+
     def test_vimeo_links(self):
         self.assertEqual(vimeo_embed('https://vimeo.com/123456'), 'https://player.vimeo.com/video/123456')
         self.assertEqual(vimeo_embed('https://vimeo.com/showcase/12345'), 'https://vimeo.com/showcase/12345/embed')

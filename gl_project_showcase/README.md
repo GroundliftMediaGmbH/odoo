@@ -1,3 +1,5 @@
+**Version 1.6:** Geschützte PDF-Vorschauen werden serverseitig mit pypdfium2 in JPEG-Seiten gerendert. **Zwingend:** Im Odoo.sh-Git-Repository `requirements.txt` mit `pypdfium2>=4.30,<6` pflegen. Siehe beiliegende INSTALLATION_v1.6.md. Vimeo-Poster-CSS korrigiert, oEmbed-Domänen-Referer ergänzt, PDF-Vollbild und neues Fenster.
+
 # Groundlift Project Showcase – Odoo 19 SH (Version 1.5)
 
 ## Neu in Version 1.5
