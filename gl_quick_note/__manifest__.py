@@ -2,7 +2,7 @@
 {
     "name": "Groundlift Schnell-Notiz",
     "summary": "Formatierte Schnellnotizen sicher in Projekte, CRM oder Veranstaltungen übertragen",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.0.1",
     "category": "Productivity",
     "author": "Groundlift Media GmbH",
     "website": "https://www.groundlift.de",

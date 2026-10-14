@@ -1,6 +1,6 @@
 # Groundlift Schnell-Notiz (Odoo 19 SH)
 
-Technischer Modulname: `gl_quick_note` — Version 19.0.1.0.0
+Technischer Modulname: `gl_quick_note` — Version 19.0.1.0.1
 
 ## Installation
 
@@ -40,3 +40,10 @@ Im Paket liegen Odoo-Transaktionstests (`tests/test_quick_note.py`): alter Proje
 - Bestehende CRM-Felder dürfen durch neue ausdrücklich eingegebene oder belegte Daten aktualisiert werden; alte CRM-Beschreibung bleibt vollständig bestehen.
 - In einer Projektnotiz erkannte Änderungen können vorhandene zugehörige Fachfelder aktualisieren. Die alte Fachfeldbelegung wird in der Beschreibungs-Änderungsliste dokumentiert. Bei Unsicherheit vor Produktivverwendung in Staging prüfen.
 - Einrichten und Ändern des Schlüssels ist nur für Systemadministratoren möglich.
+
+
+## Korrektur v1.0.1 (14.10.2026)
+
+- **Installationsfehler behoben:** Die `ir.actions.act_window`-Aktion `action_gl_quick_note_settings` verwendete `target="inline"`. Dieser Wert ist unter Odoo 19 kein zulässiger `ir.actions.act_window.target`-Wert und verursachte bei der Installation einen `RPC_ERROR` (`Wrong value ... 'inline'`). Der Wert ist nun `current`.
+- An der Datenstruktur und an bestehenden Projekten, CRM-Einträgen oder Veranstaltungen wurden durch dieses reine XML-Fix keine Änderungen vorgenommen.
+- Installation weiterhin zunächst in Staging prüfen. Eine laufende Odoo-19-Instanz steht für vollständige Installationstests nicht zur Verfügung.

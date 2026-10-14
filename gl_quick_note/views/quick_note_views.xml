@@ -90,7 +90,7 @@
         <field name="name">Schnell-Notiz Einstellungen</field>
         <field name="res_model">res.config.settings</field>
         <field name="view_mode">form</field>
-        <field name="target">inline</field>
+        <field name="target">current</field>
         <field name="context">{'module': 'gl_quick_note'}</field>
     </record>
     <menuitem id="menu_gl_quick_note_root" name="Schnell-Notiz" action="action_gl_quick_note" sequence="24" groups="base.group_user" web_icon="gl_quick_note,static/description/icon.png"/>
