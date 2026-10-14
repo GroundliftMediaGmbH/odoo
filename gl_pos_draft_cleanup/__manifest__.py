@@ -1,7 +1,7 @@
 {
     "name": "Groundlift POS - Drafts löschen",
     "summary": "Sichere Bereinigung verwaister POS-Entwürfe beim Kassenabschluss",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "category": "Point of Sale",
     "author": "Groundlift",
     "license": "LGPL-3",

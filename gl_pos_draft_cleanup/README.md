@@ -1,39 +1,58 @@
-# Groundlift POS – Drafts löschen (Odoo 19.sh)
+# Groundlift POS – Drafts löschen (Fix 19.0.1.1.0)
 
-## Funktion
-Im POS: **Menü (☰) → Kasse schließen → Drafts löschen**.
+Odoo 19 / Odoo.sh – Upgrade derselben App `gl_pos_draft_cleanup`.
 
-Das Modul verwendet die reguläre Odoo-Stornierungsfunktion, nicht `unlink()`.
-Es prüft und storniert **ausschließlich** Entwürfe der **aktuellen Kassensitzung**, die:
+## Verhalten
 
-- bereits mindestens **60 Sekunden unverändert** sind,
-- **0,00 € Gesamtbetrag**, **keine Zahlungen**, **keine Lagerbewegungen** und **keine Rechnung** haben,
-- **keinen geplanten Abhol-/Lieferzeitpunkt** enthalten,
-- entweder **keine Positionen** haben oder **exakt gegengebuchte Positionen** enthalten (gleicher Artikel, Einzelpreis, Rabatt und Steuern; Summe der Mengen je Schlüssel = 0).
+Button **Drafts löschen** im POS-Dialog **Kasse schließen**:
 
-Reguläre offene Verkäufe mit Betrag > 0, kostenfreie Artikel, geplante Bestellungen und bezahlte Aufträge bleiben unangetastet. Vor der Stornierung werden die Kandidaten angezeigt und ausdrücklich bestätigt. Zwischenzeitliche Änderungen verhindern die Stornierung; parallele Bearbeitung wird per Datenbanksperre abgesichert. Maximal 200 Kandidaten pro Vorgang. Die Aktion wird protokolliert.
+1. Lokale Bestellungen werden zunächst synchronisiert.
+2. Es erscheint ausdrücklich eine **VORSCHAU**. Bis hierher wird nichts verändert.
+3. Erst nach **Jetzt verbindlich stornieren** wird `pos.session.gl_cancel_draft_cleanup()` ausgeführt.
+4. Der Server prüft erneut alle Voraussetzungen, sperrt die betroffenen Datensätze, storniert sie via `action_pos_order_cancel()` und ermittelt die Zahl der danach verbleibenden Drafts.
+5. Der Benutzer erhält eine eigene Meldung **X Draft(s) STORNIERT – bestätigt**, einschließlich verbleibender offener Drafts. Ein Fehler zeigt **Drafts NICHT storniert**.
+6. Der **Kassenschluss wird NICHT automatisch ausgelöst**. Danach den Kassenschlussdialog regulär schließen/öffnen und die Sitzung normal abschließen.
 
-Nach Erfolg werden passende lokale Entwürfe aus dem POS-Cache entfernt und der Dialog zum Kassenschluss mit frischen Daten erneut geöffnet. Andere POS-Geräte können noch veraltete Ansichten haben; deshalb vor dem Schließen weiterhin die Synchronisierung prüfen.
+Das Modul unterscheidet bewusst `Vorschau` und `Stornierung`.
 
-## Installation auf Odoo.sh
+## Was geändert wurde
 
-1. Den Ordner `gl_pos_draft_cleanup` in euer Odoo.sh-Git-Repository unter die Custom-Addons legen (z. B. `custom_addons/`). Den Modulordner nicht in ein weiteres gleichnamiges Unterverzeichnis verschachteln.
-2. Erst auf **Staging** deployen; Apps-Liste aktualisieren und **Groundlift POS – Drafts löschen** installieren.
-3. POS auf Staging neu laden und im Dialog `Kasse schließen` den Button prüfen.
-4. Nach erfolgreichem Test auf **Production** übernehmen. Bei Installation während des Betriebs bitte vorher laufende POS-Sitzungen/Browsersync prüfen, keine ungesendeten Verkäufe verlieren.
+- Version 19.0.1.1.0 statt 19.0.1.0.0.
+- Die bisherige Implementierung rief nach serverseitiger Stornierung lokale POS-Cache-Funktionen und `pos.closeSession()` auf. Ein dort auftretender Fehler konnte die erfolgreiche Stornierung verdecken. Diese Schritte sind jetzt getrennt; der Kassenschluss erfolgt nicht automatisch.
+- Expliziter zweiter Bestätigungsbutton, klare Erfolgs-/Fehlermeldung.
+- Server antwortet mit `remaining_drafts`, sodass das Ergebnis nicht aus dem Frontend-Cache geschätzt werden muss.
+- Fehler in der *lokalen* POS-Auftragsbereinigung überschreiben keine bereits erfolgreiche serverseitige Stornierung. In diesem Fall wird die erforderliche manuelle Synchronisierung angezeigt.
 
-## Tests auf Staging
+## Sicherheitsgrenzen
 
-- Zwei leere Entwürfe älter als 60 Sekunden in derselben Sitzung: Vorschau → bestätigen → `cancel`.
-- Gin-Tonic +1/-1 mit identischem Preis/Rabatt/Steuern und 0 €: wird angeboten.
-- Bezahlter Auftrag, laufender Verkauf mit 9 €, kostenloser Artikel, 0-€-Entwurf jünger als 60 Sek., Entwurf mit Zahlung oder Lagerbewegung: werden NICHT angeboten.
-- Entwurf der *anderen* POS-Sitzung: wird nicht angeboten.
-- Parallelbearbeitung oder Änderung nach Vorschau: Server lehnt ab, keine Teilstornierung.
-- Anschließend Kassenschluss mit tatsächlich gezähltem Bargeldbestand testen.
+Nur Drafts der **aktuellen** Sitzung, die wenigstens 60 Sekunden unverändert sind, mit Gesamtbetrag 0,00 EUR und ohne Zahlungen, Lagerbewegungen, Rechnung oder geplanten Zeitpunkt. Zulässig sind nur vollständig leere Aufträge oder exakt (Produkt, Preis, Rabatt, Steuern) gegengebuchte Positionen. Bezahlte oder normal offene Verkäufe werden nicht verändert. Es werden maximal 200 Drafts pro Aufruf bearbeitet. Autorisierung und erneute Prüfung serverseitig; Datensatzsperre bis zum RPC-Ende.
 
-## Einschränkungen
+**Wichtig**: Die App nutzt ausschließlich die Odoo-Stornierung (`state=cancel`), keine physische Löschung. Der Erfolg des Aufrufs kann lokale ungesendete Änderungen anderer Geräte nicht ausschließen. Während der Bereinigung sollte niemand dieselben Bestellungen auf einem anderen Terminal bearbeiten.
 
-- Der Button ist nur im **Kassenschluss-Dialog** sichtbar.
-- Er repariert keine anderen Buchungs-/Zahlungs-/Mollie-Probleme.
-- Er setzt serverseitig den Sitzungsverantwortlichen oder POS-Manager voraus. Bei gemeinsam genutztem POS-Login muss die Rollenzuordnung entsprechend eingerichtet sein.
-- Eine echte Live-Installation wurde hier nicht durchgeführt: Staging-Test mit eurem Odoo-19.sh-Build ist erforderlich.
+## Upgrade einer bereits installierten App auf Odoo.sh
+
+1. Auf **Staging** den vorhandenen Ordner `gl_pos_draft_cleanup` im Git-Repository **vollständig ersetzen** (nicht zwei Versionen parallel installieren).
+2. Änderungen committen / Staging neu bauen.
+3. In Apps die installierte App **Groundlift POS – Drafts löschen** mit **Upgrade/Aktualisieren** aktualisieren. Nur Git-Deploy kann Asset-Caches unverändert lassen.
+4. POS-Clients **erst nach erfolgreicher Synchronisierung ihrer lokalen Verkäufe** neu laden. Bei der Umstellung während einer Veranstaltung ist besondere Vorsicht erforderlich.
+5. Auf Staging testweise leeren Draft älter als 60 Sekunden erzeugen, prüfen, **Jetzt verbindlich stornieren** klicken; dann in der Shell `state=cancel` überprüfen und anschließend Kassenschluss testen.
+6. Erst dann Production aktualisieren.
+
+### Staging-Testmatrix
+
+- Leerer 0-EUR-Draft mit 60+ Sekunden: nach Bestätigung `cancel`.
+- +1/−1 gleicher Artikel gleicher Preis/Steuern: nach Bestätigung `cancel`.
+- Vorschau ohne Bestätigung: bleibt `draft`.
+- Draft <60 Sekunden, laufende Bestellung >0 EUR, Gratisartikel ohne Gegenbuchung, Draft mit Zahlung/Lagerbewegung: geschützt.
+- Der Server zeigt `remaining_drafts` korrekt an.
+- Fehler beim lokalen Cache-Aufräumen darf keine falsche Meldung `nicht storniert` produzieren, wenn Server bereits storniert hat.
+- Andere Kassensitzung nicht betroffen.
+
+## Diagnose, falls weiterhin nichts passiert
+
+- Unterscheidet der Dialog noch `VORSCHAU` und `Jetzt verbindlich stornieren`? Wenn nicht: alter JS-Assetcache/Modul noch nicht upgegradet.
+- Bei `Drafts NICHT storniert`: Fehlermeldung/Console-Screenshot weitergeben.
+- Sind danach noch `remaining_drafts > 0`, so wurden diese aus Sicherheitsgründen nicht ausgewählt und müssen gesondert untersucht werden.
+- Eine allgemeine POS-/Buchhaltungsstörung wird durch dieses Modul nicht behoben.
+
+Eine Live-Integration in Groundlifts Odoo.sh-Installation wurde hier nicht getestet.

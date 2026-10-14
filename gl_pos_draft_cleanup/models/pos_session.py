@@ -167,4 +167,15 @@ class PosSession(models.Model):
             "Groundlift POS draft cleanup: user=%s session=%s canceled_orders=%s",
             self.env.uid, session.name, [(o.id, o.pos_reference) for o in orders]
         )
-        return {"count": len(orders), "ids": orders.ids}
+        # Return the authoritative server state; the POS must not infer success
+        # merely because the draft appeared in the preview dialog.
+        remaining = self.env["pos.order"].search_count([
+            ("session_id", "=", session.id),
+            ("state", "=", "draft"),
+        ])
+        return {
+            "count": len(orders),
+            "ids": orders.ids,
+            "remaining_drafts": remaining,
+            "session_name": session.name,
+        }

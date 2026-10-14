@@ -7,7 +7,7 @@
                     t-att-class="this.ui.isSmall ? 'w-100' : 'btn-lg'"
                     t-att-disabled="glDraftCleanupState.busy"
                     t-on-click="glDeleteDrafts"
-                    title="Leere oder ausgeglichene 0-Euro-Entwürfe der aktuellen Sitzung stornieren">
+                    title="0-Euro-Drafts prüfen; nach ausdrücklicher Bestätigung auf dem Server stornieren">
                 <i class="fa fa-trash me-1" role="img"/>
                 Drafts löschen
             </button>
