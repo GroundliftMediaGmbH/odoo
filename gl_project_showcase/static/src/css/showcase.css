@@ -76,6 +76,8 @@ body.gl-showcase { margin: 0; background: var(--gl-bg, #101820); color: var(--gl
 .gl-lightbox-close { float:right; color:white; background:transparent; border:0; font-size:1.7rem; cursor:pointer; margin:0 0 8px; }
 .gl-password-page { min-height:100vh; display:grid; place-items:center; padding:25px; }
 .gl-password-card { width:min(100%,490px); padding:45px; border:1px solid color-mix(in srgb,var(--gl-fg),transparent 79%); }
+.gl-password-logo-wrap { display:flex; justify-content:center; align-items:center; margin:0 0 30px; }
+.gl-password-logo { display:block; max-width:100%; width:auto; height:auto; max-height:145px; object-fit:contain; }
 .gl-password-card h1 { line-height:1.14; font-size:2.2rem; margin:20px 0; }
 .gl-password-card>p { opacity:.78; }
 .gl-password-card form { display:flex; flex-direction:column; gap:12px; margin-top:25px; }

@@ -270,6 +270,27 @@ class ShowcaseController(http.Controller):
             return request.not_found()
         return self._image_response(show, photo.photo, 'showcase-photo.jpg')
 
+    @http.route('/showcase/<int:showcase_id>/login-logo', type='http', auth='public',
+                website=True, methods=['GET'], sitemap=False)
+    def showcase_login_logo(self, showcase_id, **kw):
+        """Only the explicitly uploaded login logo is public before unlocking.
+
+        All other branded images and documents keep their existing access check.
+        Drafts, non-password showcases and other websites are never exposed.
+        """
+        show = self._show(showcase_id)
+        if not show or not show.published or show.visibility != 'password':
+            return request.not_found()
+        try:
+            payload = decode_record_file(show, 'password_logo', limit=5 * 1024 * 1024)
+        except Exception:
+            return request.not_found()
+        mime = safe_mime(payload)
+        if mime not in ('image/jpeg', 'image/png', 'image/webp'):
+            return request.not_found()
+        extension = {'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp'}[mime]
+        return self._binary_response(payload, 'showcase-login-logo.' + extension, mime)
+
     @http.route('/showcase/<int:showcase_id>/brand/<string:image_type>', type='http', auth='public',
                 website=True, methods=['GET'], sitemap=False)
     def showcase_brand(self, showcase_id, image_type, **kw):

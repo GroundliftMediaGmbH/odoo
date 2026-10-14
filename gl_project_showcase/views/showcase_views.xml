@@ -62,6 +62,9 @@
                                 <group>
                                     <field name="logo" widget="image"/>
                                     <field name="header_image" widget="image"/>
+                                    <separator string="Passwort-/Login-Seite"/>
+                                    <field name="password_logo" widget="image" options="{'size': [320, 180]}"/>
+                                    <div class="text-muted" colspan="2">Optionales Logo oberhalb des Passwortfeldes. Das Bild ist bereits vor dem Login öffentlich sichtbar. Leer lassen, um kein Login-Logo anzuzeigen.</div>
                                 </group>
                             </group>
                         </page>

@@ -155,6 +155,9 @@
             </head>
             <body class="gl-showcase gl-password-page" t-att-style="show.gl_css_variables">
                 <main class="gl-password-card">
+                    <div class="gl-password-logo-wrap" t-if="show.password_logo">
+                        <img class="gl-password-logo" t-att-src="'/showcase/%s/login-logo' % show.id" t-att-alt="show.client_label or labels['aria_logo'] or 'Logo'"/>
+                    </div>
                     <div class="gl-eyebrow" t-esc="show.client_label or labels['password_eyebrow']" t-if="labels['password_eyebrow']"/>
                     <h1 t-esc="labels['password_title']" t-if="labels['password_title']"/>
                     <p t-esc="labels['password_help']" t-if="labels['password_help']"/>

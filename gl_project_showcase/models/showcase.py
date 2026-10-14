@@ -33,6 +33,13 @@ class ProjectShowcase(models.Model):
     closing_text = fields.Text(string='Abschlusstext')
     client_label = fields.Char(string='Markenname / Kundenlabel')
     logo = fields.Image(string='Kundenlogo', attachment=True, max_width=1200, max_height=600)
+    password_logo = fields.Image(
+        string='Logo auf der Passwort-/Login-Seite', attachment=True,
+        max_width=1200, max_height=600,
+        help='Optional: Dieses Logo wird bereits VOR der Passworteingabe angezeigt. '
+             'Es ist öffentlich abrufbar, solange der Showcase mit Passwort veröffentlicht ist. '
+             'Das normale Kundenlogo bleibt weiterhin geschützt.',
+    )
     header_image = fields.Image(string='Titelbild', attachment=True, max_width=2400, max_height=1500)
     color_background = fields.Char(string='Hintergrundfarbe', default='#101820', required=True)
     color_text = fields.Char(string='Textfarbe', default='#FFFFFF', required=True)
