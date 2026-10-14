@@ -64,3 +64,21 @@ Im Paket liegen Odoo-Transaktionstests (`tests/test_quick_note.py`): alter Proje
 **Upgrade auf Odoo SH:** Vorhandenen Modulordner `gl_quick_note` durch die v1.0.2-Dateien ersetzen; Staging deployen und die App über **Apps → Upgrade** aktualisieren. Ein Git-Push alleine lädt bestehende XML-Views möglicherweise nicht neu; darum die Modulaktualisierung unbedingt durchführen.
 
 **Prüfszenarien in Staging:** Projekt mit/ohne API, CRM-Eintrag, Veranstaltung, Erfolgsmeldung, Schaltflächen „Datensatz öffnen“ und „Neue Notiz“; Editor mit gespeicherter Notiz darf keine zweite Übertragung erlauben.
+
+
+## Version 1.0.3 – Staging-Hotfix (14.10.2026)
+
+- Korrigiert drei Python-Aufrufe von `_complete_save`: `changes` wird jetzt bei
+  Projekt, CRM und Veranstaltung vollständig übergeben. In 1.0.2 führte dies zu
+  `TypeError: GlQuickNoteWizard._complete_save() missing 1 required positional
+  argument: 'changes'` beim Speichern und in den Odoo-Tests.
+- Regressionstests überprüfen jetzt zusätzlich das gespeicherte Änderungsprotokoll.
+- Version im Manifest erhöht, damit Odoo.sh die Modulaktualisierung erkennt.
+- Die exakte Ursache des roten Odoo.sh-Build-Status kann ohne das zugehörige
+  Staging-Build-Log nicht abschließend belegt werden. Die lokalen Prüfungen
+  ersetzen keinen Test in einer Odoo-19-SH-Instanz.
+
+**Deployment:** Ordner `gl_quick_note` vollständig ersetzen, auf den Staging-
+Branch pushen, unter Apps das Modul aktualisieren. Falls der Build erneut auf
+"Test: Failed" geht: im fehlgeschlagenen Build `LOGS` öffnen, nach
+`ERROR`, `FAIL` oder `Traceback` suchen und den vollständigen Block weitergeben.

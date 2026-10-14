@@ -25,6 +25,7 @@ class TestQuickNote(TransactionCase):
         self.assertEqual(wizard.saved_target_model, "project.project")
         self.assertEqual(wizard.saved_target_id, project.id)
         self.assertEqual(wizard.saved_ai_status, "disabled")
+        self.assertIn("Originalnotiz unverändert übernommen", wizard.save_change_summary)
         self.assertIn("Kein API-Schlüssel", wizard.save_feedback_html)
         opened = wizard.action_open_saved_record()
         self.assertEqual(opened["res_model"], "project.project")
@@ -56,6 +57,7 @@ class TestQuickNote(TransactionCase):
         self.assertTrue(wizard.save_completed)
         self.assertEqual(wizard.saved_ai_status, "used")
         self.assertIn("KI verarbeitet", wizard.save_feedback_html)
+        self.assertIn("Zeitlicher Ablauf", wizard.save_change_summary)
 
     def test_crm_existing_notes_are_prepended(self):
         lead = self.env["crm.lead"].create({
@@ -74,6 +76,7 @@ class TestQuickNote(TransactionCase):
         self.assertTrue(wizard.save_completed)
         self.assertEqual(wizard.saved_target_model, "crm.lead")
         self.assertEqual(wizard.saved_target_id, lead.id)
+        self.assertIn("Neue Notiz oberhalb", wizard.save_change_summary)
 
     def test_api_failure_receipt_and_guard_against_duplicate_save(self):
         project = self.env["project.project"].create({"name": "Fallback-Projekt"})

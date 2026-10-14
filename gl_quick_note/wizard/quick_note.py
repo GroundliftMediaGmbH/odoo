@@ -467,7 +467,7 @@ class GlQuickNoteWizard(models.TransientModel):
             )
         project.write({"description": new_description})
         self._log(project, status, changes)
-        return self._complete_save(project, status)
+        return self._complete_save(project, status, changes)
 
     def _crm_extracted(self, text, ai):
         """Validate all AI CRM fields against exact quotes, manual fields take priority."""
@@ -545,7 +545,7 @@ class GlQuickNoteWizard(models.TransientModel):
             lead.write({"description": next_desc})
             changes.append("Neue Notiz oberhalb der bisherigen CRM-Notizen eingefügt.")
         self._log(lead, status, changes)
-        return self._complete_save(lead, status)
+        return self._complete_save(lead, status, changes)
 
     def action_save_event(self):
         self._ensure_not_saved()
@@ -560,4 +560,4 @@ class GlQuickNoteWizard(models.TransientModel):
             subtype_xmlid="mail.mt_note",
         )
         self._log(event, "not_needed", ["Interne Notiz im Veranstaltungs-Chatter hinterlegt."])
-        return self._complete_save(event, "not_needed")
+        return self._complete_save(event, "not_needed", ["Interne Notiz im Veranstaltungs-Chatter hinterlegt."])
