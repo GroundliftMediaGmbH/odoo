@@ -7,4 +7,19 @@
   }
   .o_field_html { min-height: 345px; }
   .o_notebook { margin-top: 1rem; }
+
+  .o_gl_quick_note_savebar {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    padding: 12px 16px;
+    margin-top: 12px;
+    background: var(--o-view-background-color, var(--o-webclient-background-color, #ffffff));
+    border-top: 1px solid var(--border-color, #bbb);
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+  }
+  .o_gl_quick_note_savebar_label { font-weight: 600; }
+  .o_gl_quick_note_receipt { margin-bottom: 16px; }
+  .o_gl_quick_note_receipt .o_field_html { min-height: 0; }
+  .o_gl_quick_note_receipt_actions { margin-bottom: 20px; }
 }

@@ -5,11 +5,40 @@
         <field name="model">gl.quick.note.wizard</field>
         <field name="arch" type="xml">
             <form string="Schnell-Notiz" class="o_gl_quick_note_wizard" create="1" edit="1">
+                <!-- In fullscreen window actions (target=current), <footer> dialog buttons
+                     are NOT rendered. Place the save actions in the standard header. -->
+                <header>
+                    <button name="action_save_project" type="object" string="In Projekt speichern" class="btn-primary" invisible="save_completed"/>
+                    <button name="action_save_crm" type="object" string="In CRM speichern" class="btn-primary" invisible="save_completed"/>
+                    <button name="action_save_event" type="object" string="In Veranstaltung speichern" class="btn-primary" invisible="save_completed"/>
+                    <button name="action_open_saved_record" type="object" string="Gespeicherten Datensatz öffnen" class="btn-primary" invisible="not save_completed"/>
+                    <button name="action_new_note" type="object" string="Neue Notiz" class="btn-secondary" invisible="not save_completed"/>
+                </header>
                 <sheet>
-                    <div class="oe_title"><h1>Schnell-Notiz</h1></div>
-                    <div class="text-muted mb-2">Gedanken frei notieren, formatieren und anschließend einem Ziel zuweisen. Bestehende Beschreibungen bleiben erhalten.</div>
-                    <field name="note_html" widget="html" nolabel="1" placeholder="Hier die Notiz schreiben …" style="min-height: 330px;"/>
-                    <notebook>
+                    <field name="name" invisible="1"/>
+                    <field name="save_completed" invisible="1"/>
+                    <field name="saved_ai_status" invisible="1"/>
+                    <field name="saved_target_model" invisible="1"/>
+                    <field name="saved_target_id" invisible="1"/>
+                    <div class="alert alert-success o_gl_quick_note_receipt" role="status" invisible="not save_completed or saved_ai_status in ('disabled', 'failed')">
+                        <strong>Erfolgreich gespeichert</strong>
+                        <field name="save_feedback_html" nolabel="1" readonly="1"/>
+                    </div>
+                    <div class="alert alert-warning o_gl_quick_note_receipt" role="status" invisible="not save_completed or saved_ai_status not in ('disabled', 'failed')">
+                        <strong>Ohne KI gespeichert</strong>
+                        <field name="save_feedback_html" nolabel="1" readonly="1"/>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mb-3 o_gl_quick_note_receipt_actions" invisible="not save_completed">
+                        <button name="action_open_saved_record" type="object" string="Gespeicherten Datensatz öffnen" class="btn btn-primary"/>
+                        <button name="action_new_note" type="object" string="Neue Notiz schreiben" class="btn btn-secondary"/>
+                    </div>
+                    <group string="Protokoll der Übertragung" invisible="not save_completed">
+                        <field name="save_change_summary" nolabel="1" readonly="1"/>
+                    </group>
+                    <div class="oe_title" invisible="save_completed"><h1>Schnell-Notiz</h1></div>
+                    <div class="text-muted mb-2" invisible="save_completed">Gedanken frei notieren, formatieren und anschließend einem Ziel zuweisen. Bestehende Beschreibungen bleiben erhalten.</div>
+                    <field name="note_html" widget="html" nolabel="1" readonly="save_completed" placeholder="Hier die Notiz schreiben …" style="min-height: 330px;"/>
+                    <notebook invisible="save_completed">
                         <page string="Projekt" name="project">
                             <group>
                                 <field name="project_mode" widget="radio"/>
@@ -37,13 +66,15 @@
                             <div class="text-muted">Wird als interne Notiz im Aktivitätenverlauf (Chatter) hinterlegt – nicht als öffentliche Nachricht.</div>
                         </page>
                     </notebook>
+                    <!-- Visible inside the fullscreen form. Sticky when the long editor
+                         requires scrolling; not inside the modal-only form footer. -->
+                    <div class="o_gl_quick_note_savebar d-flex flex-wrap gap-2 align-items-center" invisible="save_completed">
+                        <span class="o_gl_quick_note_savebar_label">Notiz übertragen:</span>
+                        <button name="action_save_project" type="object" string="In Projekt speichern" class="btn btn-primary"/>
+                        <button name="action_save_crm" type="object" string="In CRM speichern" class="btn btn-primary"/>
+                        <button name="action_save_event" type="object" string="In Veranstaltung speichern" class="btn btn-primary"/>
+                    </div>
                 </sheet>
-                <footer>
-                    <button name="action_save_project" type="object" string="Speichern in Projekt" class="btn-primary"/>
-                    <button name="action_save_crm" type="object" string="Speichern in CRM" class="btn-primary"/>
-                    <button name="action_save_event" type="object" string="Speichern in Veranstaltung" class="btn-primary"/>
-                    <button string="Abbrechen" special="cancel" class="btn-secondary"/>
-                </footer>
             </form>
         </field>
     </record>

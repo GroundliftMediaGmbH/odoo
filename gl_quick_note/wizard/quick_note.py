@@ -62,6 +62,24 @@ def _short(value, length=260):
 class GlQuickNoteWizard(models.TransientModel):
     _name = "gl.quick.note.wizard"
     _description = "Schnell-Notiz Eingabe"
+    _rec_name = "name"
+
+    name = fields.Char(string="Bezeichnung", default="Neue Schnell-Notiz", readonly=True)
+    save_completed = fields.Boolean(string="Übertragung abgeschlossen", readonly=True, default=False)
+    saved_target_model = fields.Selection([
+        ("project.project", "Projekt"),
+        ("crm.lead", "CRM"),
+        ("event.event", "Veranstaltung"),
+    ], string="Gespeichertes Ziel", readonly=True)
+    saved_target_id = fields.Integer(string="Gespeicherte Datensatz-ID", readonly=True)
+    saved_ai_status = fields.Selection([
+        ("used", "KI verwendet"),
+        ("disabled", "Kein API-Schlüssel"),
+        ("failed", "KI nicht erreichbar"),
+        ("not_needed", "Ohne KI"),
+    ], string="KI-Status", readonly=True)
+    save_feedback_html = fields.Html(string="Speicherbestätigung", readonly=True, sanitize=True)
+    save_change_summary = fields.Text(string="Änderungen", readonly=True)
 
     note_html = fields.Html(string="Notiz", sanitize=True, required=True)
     project_mode = fields.Selection(
@@ -79,6 +97,11 @@ class GlQuickNoteWizard(models.TransientModel):
     crm_email = fields.Char(string="E-Mail")
     crm_phone = fields.Char(string="Telefon")
     event_id = fields.Many2one("event.event", string="Veranstaltung")
+
+    def _ensure_not_saved(self):
+        self.ensure_one()
+        if self.save_completed:
+            raise UserError(_("Diese Schnell-Notiz wurde bereits übertragen. Bitte 'Neue Notiz' öffnen, um eine weitere Übertragung anzulegen."))
 
     def _text(self):
         self.ensure_one()
@@ -329,9 +352,57 @@ class GlQuickNoteWizard(models.TransientModel):
             "change_summary": "\n".join(changes) if changes else "Keine Feldänderungen; Notiz gespeichert.",
         })
 
-    @staticmethod
-    def _open_record(record, status):
-        destination = {
+    def _complete_save(self, record, status, changes):
+        """Persist an unmissable receipt on this wizard; no transient toast only.
+
+        The receipt is written after the target change and log were successful.
+        A failing transaction rolls back all three changes atomically.
+        """
+        labels = {
+            "project.project": "Projekt",
+            "crm.lead": "CRM-Eintrag",
+            "event.event": "Veranstaltung",
+        }
+        target = labels.get(record._name, "Datensatz")
+        target_name = record.display_name or str(record.id)
+        target_html = "<strong>%s „%s“</strong>" % (escape(target), escape(target_name))
+        if status == "used":
+            message = "<strong>KI verarbeitet – interpretiert und gespeichert.</strong> Die Notiz wurde in %s übertragen." % target_html
+        elif status == "disabled":
+            message = "<strong>Kein API-Schlüssel hinterlegt.</strong> Die Originalnotiz wurde ohne KI in %s gespeichert." % target_html
+        elif status == "failed":
+            message = "<strong>KI nicht erreichbar oder Antwort ungültig.</strong> Die Originalnotiz wurde unverändert und ohne KI in %s gespeichert." % target_html
+        else:
+            message = "<strong>Notiz gespeichert.</strong> Die interne Notiz wurde in %s hinterlegt." % target_html
+        self.write({
+            "name": "Schnell-Notiz – gespeichert",
+            "save_completed": True,
+            "saved_target_model": record._name,
+            "saved_target_id": record.id,
+            "saved_ai_status": status,
+            "save_feedback_html": "<p>%s</p>" % message,
+            "save_change_summary": "\n".join(changes) if changes else "Notiz gespeichert, keine Felder geändert.",
+        })
+        # Stay in the editor and display the persistent receipt; the user can
+        # explicitly open the saved record or start a new note.
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Schnell-Notiz – gespeichert",
+            "res_model": self._name,
+            "res_id": self.id,
+            "view_mode": "form",
+            "view_id": self.env.ref("gl_quick_note.view_gl_quick_note_wizard_form").id,
+            "target": "current",
+        }
+
+    def action_open_saved_record(self):
+        self.ensure_one()
+        if not self.save_completed or not self.saved_target_model or not self.saved_target_id:
+            raise UserError(_("Es wurde noch kein Ziel gespeichert."))
+        record = self.env[self.saved_target_model].browse(self.saved_target_id).exists()
+        if not record:
+            raise UserError(_("Der gespeicherte Datensatz existiert nicht mehr."))
+        return {
             "type": "ir.actions.act_window",
             "name": record.display_name,
             "res_model": record._name,
@@ -339,27 +410,19 @@ class GlQuickNoteWizard(models.TransientModel):
             "view_mode": "form",
             "target": "current",
         }
-        if status in ("disabled", "failed"):
-            message = (
-                "Kein API-Schlüssel konfiguriert: Originalnotiz wurde ohne KI gespeichert."
-                if status == "disabled" else
-                "OpenAI API nicht erreichbar: Originalnotiz wurde ohne KI gespeichert."
-            )
-            return {
-                "type": "ir.actions.client",
-                "tag": "display_notification",
-                "params": {
-                    "title": "Schnell-Notiz gespeichert",
-                    "message": message,
-                    "type": "warning",
-                    "sticky": False,
-                    "next": destination,
-                },
-            }
-        return destination
+
+    def action_new_note(self):
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Neue Schnell-Notiz",
+            "res_model": self._name,
+            "view_mode": "form",
+            "view_id": self.env.ref("gl_quick_note.view_gl_quick_note_wizard_form").id,
+            "target": "current",
+        }
 
     def action_save_project(self):
-        self.ensure_one()
+        self._ensure_not_saved()
         text = self._text()
         if self.project_mode == "new":
             if not (self.new_project_name or "").strip():
@@ -404,7 +467,7 @@ class GlQuickNoteWizard(models.TransientModel):
             )
         project.write({"description": new_description})
         self._log(project, status, changes)
-        return self._open_record(project, status)
+        return self._complete_save(project, status)
 
     def _crm_extracted(self, text, ai):
         """Validate all AI CRM fields against exact quotes, manual fields take priority."""
@@ -429,7 +492,7 @@ class GlQuickNoteWizard(models.TransientModel):
         return values
 
     def action_save_crm(self):
-        self.ensure_one()
+        self._ensure_not_saved()
         text = self._text()
         ai, status = self._call_ai("crm", text)
         values = self._crm_extracted(text, ai)
@@ -482,10 +545,10 @@ class GlQuickNoteWizard(models.TransientModel):
             lead.write({"description": next_desc})
             changes.append("Neue Notiz oberhalb der bisherigen CRM-Notizen eingefügt.")
         self._log(lead, status, changes)
-        return self._open_record(lead, status)
+        return self._complete_save(lead, status)
 
     def action_save_event(self):
-        self.ensure_one()
+        self._ensure_not_saved()
         self._text()
         event = self.event_id.exists()
         if not event:
@@ -497,4 +560,4 @@ class GlQuickNoteWizard(models.TransientModel):
             subtype_xmlid="mail.mt_note",
         )
         self._log(event, "not_needed", ["Interne Notiz im Veranstaltungs-Chatter hinterlegt."])
-        return self._open_record(event, "not_needed")
+        return self._complete_save(event, "not_needed")

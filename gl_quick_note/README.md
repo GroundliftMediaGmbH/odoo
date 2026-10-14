@@ -1,6 +1,6 @@
 # Groundlift Schnell-Notiz (Odoo 19 SH)
 
-Technischer Modulname: `gl_quick_note` — Version 19.0.1.0.1
+Technischer Modulname: `gl_quick_note` — Version 19.0.1.0.2
 
 ## Installation
 
@@ -47,3 +47,20 @@ Im Paket liegen Odoo-Transaktionstests (`tests/test_quick_note.py`): alter Proje
 - **Installationsfehler behoben:** Die `ir.actions.act_window`-Aktion `action_gl_quick_note_settings` verwendete `target="inline"`. Dieser Wert ist unter Odoo 19 kein zulässiger `ir.actions.act_window.target`-Wert und verursachte bei der Installation einen `RPC_ERROR` (`Wrong value ... 'inline'`). Der Wert ist nun `current`.
 - An der Datenstruktur und an bestehenden Projekten, CRM-Einträgen oder Veranstaltungen wurden durch dieses reine XML-Fix keine Änderungen vorgenommen.
 - Installation weiterhin zunächst in Staging prüfen. Eine laufende Odoo-19-Instanz steht für vollständige Installationstests nicht zur Verfügung.
+
+
+## Korrektur v1.0.2 (14.10.2026) – Speicherbuttons und Bestätigung
+
+**Ursache:** Die drei Speichern-Buttons standen ausschließlich innerhalb des XML-`<footer>`; bei der Vollbild-Fensteraktion `target="current"` rendert Odoo diesen Dialog-Footer nicht. Das Speichern war daher trotz funktionierendem Editor nicht erreichbar.
+
+**Korrektur:**
+
+- Drei eindeutig beschriftete Speichern-Aktionen befinden sich nun **im immer erreichbaren Formularkopf** (`<header>`) sowie zusätzlich in einer unteren Aktionsleiste direkt im Formular.
+- Nach erfolgreichem Speichern verbleibt die App auf einer **dauerhaften Erfolgsansicht** statt ohne Rückmeldung direkt weiterzuspringen. Die Bestätigung benennt das Ziel und unterscheidet **„KI verarbeitet – interpretiert und gespeichert“**, **„Kein API-Schlüssel – Original gespeichert“**, **„KI nicht erreichbar – Original gespeichert“** und **„Interne Veranstaltungsnotiz gespeichert“**.
+- Über zwei Schaltflächen kann man den gespeicherten Datensatz direkt öffnen oder **eine neue Notiz schreiben**.
+- Ein bereits übertragener Wizard kann nicht nochmals versehentlich gespeichert werden (Duplikatschutz). Fehler beim Speichern führen nicht zur Erfolgsansicht; die Odoo-Transaktion wird zurückgerollt.
+- Bestehende Projekt-, CRM- und Veranstaltungsdatenmodelle unverändert; keine Migration notwendig. Bestehende Beschreibungen bleiben weiterhin erhalten.
+
+**Upgrade auf Odoo SH:** Vorhandenen Modulordner `gl_quick_note` durch die v1.0.2-Dateien ersetzen; Staging deployen und die App über **Apps → Upgrade** aktualisieren. Ein Git-Push alleine lädt bestehende XML-Views möglicherweise nicht neu; darum die Modulaktualisierung unbedingt durchführen.
+
+**Prüfszenarien in Staging:** Projekt mit/ohne API, CRM-Eintrag, Veranstaltung, Erfolgsmeldung, Schaltflächen „Datensatz öffnen“ und „Neue Notiz“; Editor mit gespeicherter Notiz darf keine zweite Übertragung erlauben.
