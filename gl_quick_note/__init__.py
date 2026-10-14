@@ -1,5 +1,6 @@
+# -*- coding: utf-8 -*-
 from . import models
 from . import wizard
 
-# Loaded by the Odoo test runner when tests are enabled.
-from . import tests
+# Odoo test modules must not be imported during normal business-module loading.
+# Tests remain available in tests/ for execution in a dedicated test environment.

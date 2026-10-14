@@ -82,3 +82,12 @@ Im Paket liegen Odoo-Transaktionstests (`tests/test_quick_note.py`): alter Proje
 Branch pushen, unter Apps das Modul aktualisieren. Falls der Build erneut auf
 "Test: Failed" geht: im fehlgeschlagenen Build `LOGS` öffnen, nach
 `ERROR`, `FAIL` oder `Traceback` suchen und den vollständigen Block weitergeben.
+
+
+## Version 1.0.4 – Fix Import des Odoo-Testframeworks (14.10.2026)
+
+Der Odoo-Staging-Log zeigt `ERROR odoo.tests.common: Importing test framework, avoid importing from business modules and when not running in test mode`. Der Import wurde durch `from . import tests` in `gl_quick_note/__init__.py` ausgelöst. Diese Importzeile wurde entfernt; die Dateien im `tests/`-Verzeichnis bleiben zur expliziten Ausführung unter dem Odoo-Testrunner erhalten.
+
+Die weiteren vier `FileNotFoundError`-Einträge im gelieferten Log betreffen ein fehlendes Bild im **Staging-Filestore** und stehen nicht in erkennbarem Zusammenhang mit diesem Modul.
+
+Diese Änderung wirkt ausschließlich beim Modulstart. Speicheraktionen, Oberflächen, Feldzuordnung und Daten bleiben gegenüber v1.0.3 unverändert. Es ist weiterhin kein realer Odoo.sh-Installations- oder Regressionstest in dieser Umgebung möglich. Nach Deployment das Modul im Odoo-Staging aktualisieren und Build/Test-Log prüfen.
