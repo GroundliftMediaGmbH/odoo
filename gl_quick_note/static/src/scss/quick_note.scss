@@ -1,0 +1,10 @@
+.o_gl_quick_note_wizard {
+  .o_field_html .odoo-editor-editable,
+  .o_field_html .note-editable,
+  .o_field_html .o_editable,
+  .o_field_html .oe_structure {
+    min-height: 330px;
+  }
+  .o_field_html { min-height: 345px; }
+  .o_notebook { margin-top: 1rem; }
+}

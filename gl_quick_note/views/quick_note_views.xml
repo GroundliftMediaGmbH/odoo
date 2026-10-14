@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_quick_note_wizard_form" model="ir.ui.view">
+        <field name="name">gl.quick.note.wizard.form</field>
+        <field name="model">gl.quick.note.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Schnell-Notiz" class="o_gl_quick_note_wizard" create="1" edit="1">
+                <sheet>
+                    <div class="oe_title"><h1>Schnell-Notiz</h1></div>
+                    <div class="text-muted mb-2">Gedanken frei notieren, formatieren und anschließend einem Ziel zuweisen. Bestehende Beschreibungen bleiben erhalten.</div>
+                    <field name="note_html" widget="html" nolabel="1" placeholder="Hier die Notiz schreiben …" style="min-height: 330px;"/>
+                    <notebook>
+                        <page string="Projekt" name="project">
+                            <group>
+                                <field name="project_mode" widget="radio"/>
+                                <field name="project_id" invisible="project_mode != 'existing'" options="{'no_create': True}"/>
+                                <field name="new_project_name" invisible="project_mode != 'new'" placeholder="Name des neuen Projekts"/>
+                            </group>
+                            <div class="text-muted">Mit KI: strukturierte Beschreibung und passende Projekt-Checklistenfelder. Ohne KI: Originalnotiz unverändert in die Beschreibung.</div>
+                        </page>
+                        <page string="CRM" name="crm">
+                            <group>
+                                <field name="crm_mode" widget="radio"/>
+                                <field name="crm_lead_id" invisible="crm_mode != 'existing'" options="{'no_create': True}"/>
+                            </group>
+                            <group string="Neuer CRM-Eintrag" invisible="crm_mode != 'new'">
+                                <field name="crm_subject" placeholder="Betreff (bei KI optional, wenn aus Notiz erkennbar)"/>
+                                <field name="crm_contact_name" placeholder="Ansprechpartner – Pflicht, wenn nicht aus Notiz erkennbar"/>
+                                <field name="crm_company" placeholder="Firma"/>
+                                <field name="crm_email" placeholder="E-Mail"/>
+                                <field name="crm_phone" placeholder="Telefon"/>
+                            </group>
+                            <div class="text-muted">Ein neuer CRM-Eintrag wird in der vorhandenen Phase „Neu“ erzeugt. Fehlen ohne KI Kontakt oder Betreff, fragt die App diese beim Speichern ab.</div>
+                        </page>
+                        <page string="Veranstaltung" name="event">
+                            <group><field name="event_id" options="{'no_create': True}"/></group>
+                            <div class="text-muted">Wird als interne Notiz im Aktivitätenverlauf (Chatter) hinterlegt – nicht als öffentliche Nachricht.</div>
+                        </page>
+                    </notebook>
+                </sheet>
+                <footer>
+                    <button name="action_save_project" type="object" string="Speichern in Projekt" class="btn-primary"/>
+                    <button name="action_save_crm" type="object" string="Speichern in CRM" class="btn-primary"/>
+                    <button name="action_save_event" type="object" string="Speichern in Veranstaltung" class="btn-primary"/>
+                    <button string="Abbrechen" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+    <record id="action_gl_quick_note" model="ir.actions.act_window">
+        <field name="name">Neue Schnell-Notiz</field>
+        <field name="res_model">gl.quick.note.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_gl_quick_note_wizard_form"/>
+        <field name="target">current</field>
+    </record>
+    <record id="view_gl_quick_note_log_list" model="ir.ui.view">
+        <field name="name">gl.quick.note.log.list</field>
+        <field name="model">gl.quick.note.log</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0">
+                <field name="create_date"/>
+                <field name="name"/>
+                <field name="target_model"/>
+                <field name="target_id"/>
+                <field name="ai_status"/>
+                <field name="create_uid"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_gl_quick_note_log_form" model="ir.ui.view">
+        <field name="name">gl.quick.note.log.form</field>
+        <field name="model">gl.quick.note.log</field>
+        <field name="arch" type="xml">
+            <form create="0" edit="0" delete="0">
+                <sheet>
+                    <group><field name="name"/><field name="target_model"/><field name="target_id"/><field name="ai_status"/><field name="create_date"/></group>
+                    <group string="Originalnotiz"><field name="note_html" nolabel="1" widget="html" readonly="1"/></group>
+                    <group string="Änderungen"><field name="change_summary" nolabel="1" readonly="1"/></group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_gl_quick_note_log" model="ir.actions.act_window">
+        <field name="name">Übertragungsprotokoll</field>
+        <field name="res_model">gl.quick.note.log</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="action_gl_quick_note_settings" model="ir.actions.act_window">
+        <field name="name">Schnell-Notiz Einstellungen</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">inline</field>
+        <field name="context">{'module': 'gl_quick_note'}</field>
+    </record>
+    <menuitem id="menu_gl_quick_note_root" name="Schnell-Notiz" action="action_gl_quick_note" sequence="24" groups="base.group_user" web_icon="gl_quick_note,static/description/icon.png"/>
+    <menuitem id="menu_gl_quick_note_new" name="Neue Notiz" parent="menu_gl_quick_note_root" action="action_gl_quick_note" sequence="1" groups="base.group_user"/>
+    <menuitem id="menu_gl_quick_note_logs" name="Übertragungsprotokoll" parent="menu_gl_quick_note_root" action="action_gl_quick_note_log" sequence="20" groups="base.group_user"/>
+    <menuitem id="menu_gl_quick_note_settings" name="Einstellungen" parent="menu_gl_quick_note_root" action="action_gl_quick_note_settings" sequence="30" groups="base.group_system"/>
+</odoo>
