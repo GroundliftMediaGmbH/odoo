@@ -91,3 +91,11 @@ Der Odoo-Staging-Log zeigt `ERROR odoo.tests.common: Importing test framework, a
 Die weiteren vier `FileNotFoundError`-Einträge im gelieferten Log betreffen ein fehlendes Bild im **Staging-Filestore** und stehen nicht in erkennbarem Zusammenhang mit diesem Modul.
 
 Diese Änderung wirkt ausschließlich beim Modulstart. Speicheraktionen, Oberflächen, Feldzuordnung und Daten bleiben gegenüber v1.0.3 unverändert. Es ist weiterhin kein realer Odoo.sh-Installations- oder Regressionstest in dieser Umgebung möglich. Nach Deployment das Modul im Odoo-Staging aktualisieren und Build/Test-Log prüfen.
+
+
+## Version 1.0.5 – UI-Korrektur
+
+- Drei Speicherbuttons ausschließlich in der unteren Formularleiste.
+- Untere Leiste mit festem dunklem Hintergrund und heller Beschriftung, auch bei dunkler Odoo-Oberfläche.
+- Erfolgsbestätigung und Navigationsaktionen bleiben nach der Übertragung erreichbar.
+- Keine Änderungen an der Datenübertragung oder den Odoo-Modellen.

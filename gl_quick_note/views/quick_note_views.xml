@@ -5,15 +5,8 @@
         <field name="model">gl.quick.note.wizard</field>
         <field name="arch" type="xml">
             <form string="Schnell-Notiz" class="o_gl_quick_note_wizard" create="1" edit="1">
-                <!-- In fullscreen window actions (target=current), <footer> dialog buttons
-                     are NOT rendered. Place the save actions in the standard header. -->
-                <header>
-                    <button name="action_save_project" type="object" string="In Projekt speichern" class="btn-primary" invisible="save_completed"/>
-                    <button name="action_save_crm" type="object" string="In CRM speichern" class="btn-primary" invisible="save_completed"/>
-                    <button name="action_save_event" type="object" string="In Veranstaltung speichern" class="btn-primary" invisible="save_completed"/>
-                    <button name="action_open_saved_record" type="object" string="Gespeicherten Datensatz öffnen" class="btn-primary" invisible="not save_completed"/>
-                    <button name="action_new_note" type="object" string="Neue Notiz" class="btn-secondary" invisible="not save_completed"/>
-                </header>
+                <!-- Save actions are only shown in the dark bar underneath the editor.
+                     After saving, receipt buttons inside the sheet provide navigation. -->
                 <sheet>
                     <field name="name" invisible="1"/>
                     <field name="save_completed" invisible="1"/>
