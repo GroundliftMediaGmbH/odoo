@@ -37,6 +37,12 @@ class ProjectShowcase(models.Model):
     color_background = fields.Char(string='Hintergrundfarbe', default='#101820', required=True)
     color_text = fields.Char(string='Textfarbe', default='#FFFFFF', required=True)
     color_accent = fields.Char(string='Akzentfarbe', default='#C5A46D', required=True)
+    color_video_card = fields.Char(string='Videokachel: Hintergrundfarbe', help='Optional: #RRGGBB, leer = bisheriges Design.')
+    color_video_text = fields.Char(string='Videokachel: Textfarbe', help='Optional: #RRGGBB, leer = bisheriges Design.')
+    color_video_border = fields.Char(string='Videokachel: Rahmenfarbe', help='Optional: #RRGGBB, leer = bisheriges Design.')
+    color_document_card = fields.Char(string='Dokumentenkachel: Hintergrundfarbe', help='Optional: #RRGGBB, leer = bisheriges Design.')
+    color_document_text = fields.Char(string='Dokumentenkachel: Textfarbe', help='Optional: #RRGGBB, leer = bisheriges Design.')
+    color_document_border = fields.Char(string='Dokumentenkachel: Rahmenfarbe', help='Optional: #RRGGBB, leer = bisheriges Design.')
     font_choice = fields.Selection([
         ('modern', 'Modern / Sans'),
         ('classic', 'Klassisch / Serif'),
@@ -198,11 +204,19 @@ class ProjectShowcase(models.Model):
             self.env['project.project'].browse(vals['project_id']).check_access('read')
         return super().write(vals)
 
-    @api.constrains('color_background', 'color_text', 'color_accent')
+    @api.constrains('color_background', 'color_text', 'color_accent',
+                    'color_video_card', 'color_video_text', 'color_video_border',
+                    'color_document_card', 'color_document_text', 'color_document_border')
     def _validate_colors(self):
         for rec in self:
             for color in (rec.color_background, rec.color_text, rec.color_accent):
                 if not color or not _HEX_COLOR.fullmatch(color):
+                    raise ValidationError(_('Farben müssen das Format #RRGGBB besitzen.'))
+            # Optional settings: an empty field restores the original design.
+            for name in ('color_video_card', 'color_video_text', 'color_video_border',
+                         'color_document_card', 'color_document_text', 'color_document_border'):
+                color = rec[name]
+                if color and not _HEX_COLOR.fullmatch(color):
                     raise ValidationError(_('Farben müssen das Format #RRGGBB besitzen.'))
 
     @api.constrains('website_id', 'project_id')
@@ -363,4 +377,15 @@ class ProjectShowcase(models.Model):
             f'--gl-fg: {self.color_text}',
             f'--gl-accent: {self.color_accent}',
             f'--gl-font: {fonts.get(self.font_choice, fonts["modern"])}',
+        ] + [
+            f'{css_var}: {self[field]}'
+            for field, css_var in (
+                ('color_video_card', '--gl-video-card-bg'),
+                ('color_video_text', '--gl-video-card-fg'),
+                ('color_video_border', '--gl-video-card-border'),
+                ('color_document_card', '--gl-document-card-bg'),
+                ('color_document_text', '--gl-document-card-fg'),
+                ('color_document_border', '--gl-document-card-border'),
+            )
+            if self[field] and _HEX_COLOR.fullmatch(self[field])
         ])

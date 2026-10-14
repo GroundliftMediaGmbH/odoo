@@ -119,3 +119,42 @@ body.gl-showcase { margin: 0; background: var(--gl-bg, #101820); color: var(--gl
 
 /* No empty caption gap when an optional photo title is hidden. */
 .gl-lightbox p:empty { display:none; }
+
+/* v1.7.5: optional per-Showcase card colors; unset settings keep v1.7.4 styling. */
+.gl-video-card {
+    background:var(--gl-video-card-bg,color-mix(in srgb,var(--gl-fg),transparent 95%));
+    border-color:var(--gl-video-card-border,color-mix(in srgb,var(--gl-fg),transparent 87%));
+    color:var(--gl-video-card-fg,var(--gl-fg));
+}
+.gl-document {
+    background:var(--gl-document-card-bg,color-mix(in srgb,var(--gl-fg),transparent 95%));
+    border-color:var(--gl-document-card-border,color-mix(in srgb,var(--gl-fg),transparent 87%));
+    color:var(--gl-document-card-fg,var(--gl-fg));
+}
+.gl-document-list-attached .gl-document {
+    background:var(--gl-document-card-bg,color-mix(in srgb,var(--gl-fg),transparent 98%));
+}
+.gl-document .gl-btn,.gl-document .gl-document-preview summary { color:inherit; }
+.gl-document .gl-btn:hover,.gl-document .gl-document-preview summary:hover { color:var(--gl-bg); }
+.gl-document .gl-tag { border-color:color-mix(in srgb,currentColor,transparent 70%); }
+
+/* v1.7.5: keyboard- and mouse-operable lightbox navigation. */
+.gl-lightbox { width:fit-content; max-width:96vw; padding:12px; }
+.gl-lightbox-layout { display:flex; align-items:center; justify-content:center; gap:8px; }
+.gl-lightbox-content { min-width:0; display:flex; flex-direction:column; align-items:center; }
+.gl-lightbox-content img { max-width:calc(92vw - 112px); max-height:76vh; width:auto; height:auto; }
+.gl-lightbox-nav { flex:0 0 auto; display:grid; place-items:center; width:44px; height:64px; border:1px solid #717986; border-radius:5px; background:rgba(25,32,43,.95); color:#fff; cursor:pointer; font-size:1.9rem; touch-action:manipulation; }
+.gl-lightbox-nav:hover,.gl-lightbox-nav:focus-visible { background:#34415b; outline-offset:2px; }
+.gl-lightbox-nav:disabled { opacity:.25; cursor:default; }
+.gl-lightbox-counter { font-size:.78rem; color:#c4cbd5; margin-top:7px; font-variant-numeric:tabular-nums; }
+.gl-lightbox-caption { margin:8px 0 0; align-self:stretch; text-align:center; white-space:pre-line; }
+.gl-lightbox-caption:empty { display:none; }
+.gl-lightbox-description { opacity:.78; margin-top:3px; text-align:center; white-space:pre-line; }
+.gl-lightbox-description:empty { display:none; }
+.gl-lightbox-close { float:none; display:block; margin:0 0 7px auto; min-width:38px; min-height:35px; }
+@media (max-width:650px) {
+    .gl-lightbox { max-width:100vw; padding:8px; }
+    .gl-lightbox-layout { gap:3px; }
+    .gl-lightbox-content img { max-width:calc(98vw - 88px); max-height:72vh; }
+    .gl-lightbox-nav { width:38px; height:54px; font-size:1.5rem; }
+}

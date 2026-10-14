@@ -105,7 +105,7 @@
                         <div class="gl-section-heading" t-if="labels['gallery_index'] or labels['gallery_title']"><span class="gl-index" t-esc="labels['gallery_index']" t-if="labels['gallery_index']"/><h2 t-esc="labels['gallery_title']" t-if="labels['gallery_title']"/></div>
                         <t t-foreach="gallery_groups" t-as="group"><div class="gl-gallery-group"><h3 class="gl-gallery-group-title" t-if="group['name']" t-esc="group['name']"/><div class="gl-gallery-grid"><t t-foreach="group['photos']" t-as="photo">
                                 <figure class="gl-gallery-item">
-                                    <button type="button" class="gl-lightbox-open" t-att-data-src="'/showcase/%s/photo/%s' % (show.id, photo.id)" t-att-data-title="photo.name" t-att-data-show-caption="'1' if photo.show_title else '0'">
+                                    <button type="button" class="gl-lightbox-open" t-att-data-src="'/showcase/%s/photo/%s' % (show.id, photo.id)" t-att-data-title="photo.name" t-att-data-description="photo.description or ''" t-att-data-show-caption="'1' if photo.show_title else '0'">
                                         <img loading="lazy" t-att-src="'/showcase/%s/photo/%s' % (show.id, photo.id)" t-att-alt="photo.name"/>
                                         <span class="gl-expand" aria-hidden="true">↗</span>
                                     </button>
@@ -127,10 +127,18 @@
                         </div>
                     </div>
                 </footer>
-                <dialog class="gl-lightbox" t-att-aria-label="labels['aria_lightbox']">
+                <dialog class="gl-lightbox" t-att-aria-label="labels['aria_lightbox']" aria-modal="true">
                     <button type="button" class="gl-lightbox-close" t-att-aria-label="labels['lightbox_close']">✕</button>
-                    <img alt=""/>
-                    <p/>
+                    <div class="gl-lightbox-layout">
+                        <button type="button" class="gl-lightbox-nav gl-lightbox-prev" aria-label="Vorheriges Bild" title="Vorheriges Bild (←)">‹</button>
+                        <div class="gl-lightbox-content">
+                            <img alt=""/>
+                            <p class="gl-lightbox-caption"/>
+                            <p class="gl-lightbox-description"/>
+                            <span class="gl-lightbox-counter" role="status" aria-live="polite"/>
+                        </div>
+                        <button type="button" class="gl-lightbox-nav gl-lightbox-next" aria-label="Nächstes Bild" title="Nächstes Bild (→)">›</button>
+                    </div>
                 </dialog>
             </body>
         </html>

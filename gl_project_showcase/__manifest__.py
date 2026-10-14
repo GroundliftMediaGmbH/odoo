@@ -1,6 +1,6 @@
 {
     'name': 'Groundlift Project Showcase',
-    'version': '19.0.1.7.4',
+    'version': '19.0.1.7.5',
     'summary': 'Projektgebundene Kunden-Landingpages mit Vimeo, Dokumenten und Fotogalerie',
     'author': 'Groundlift',
     'website': 'https://www.groundlift.de',

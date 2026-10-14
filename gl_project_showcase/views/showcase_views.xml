@@ -47,6 +47,15 @@
                                     <field name="color_background"/>
                                     <field name="color_text"/>
                                     <field name="color_accent"/>
+                                    <separator string="Videokacheln (optional)"/>
+                                    <div class="text-muted" colspan="2">Farbwerte als #RRGGBB eingeben. Leer lassen für das bisherige Design.</div>
+                                    <field name="color_video_card" placeholder="#261845"/>
+                                    <field name="color_video_text" placeholder="#FFFFFF"/>
+                                    <field name="color_video_border" placeholder="#52416F"/>
+                                    <separator string="Dokumentenkacheln (optional)"/>
+                                    <field name="color_document_card" placeholder="#261845"/>
+                                    <field name="color_document_text" placeholder="#FFFFFF"/>
+                                    <field name="color_document_border" placeholder="#52416F"/>
                                     <field name="legal_notice_url" placeholder="https://.../impressum"/>
                                     <field name="privacy_url" placeholder="https://.../datenschutz"/>
                                 </group>
