@@ -115,7 +115,10 @@ class MetaPixelConfig(models.Model):
             if email:
                 user_data["em"] = [self._hash(email)]
 
-            phone = self._normalize_phone(partner.phone or partner.mobile, partner)
+            phone = self._normalize_phone(
+                partner.phone or (partner.mobile if "mobile" in partner._fields else False),
+                partner,
+            )
             if phone:
                 user_data["ph"] = [self._hash(phone)]
 
