@@ -1,7 +1,7 @@
 from urllib.parse import quote
 
 from odoo import http, _
-from odoo.exceptions import UserError, ValidationError
+from odoo.exceptions import AccessError, MissingError, UserError, ValidationError
 from odoo.http import request
 from odoo.addons.website_sale.controllers.main import WebsiteSale
 
@@ -70,7 +70,24 @@ class GroundliftEventCheckout(WebsiteSale):
         if not quantities:
             return request.redirect(f"{event.website_url}?ticket_error=choose")
 
-        order = request.cart or request.website._create_cart()
+        # Odoo resolves ``request.cart`` lazily. For logged-in users this may
+        # migrate an anonymous/stale session cart to the user's partner. If that
+        # old cart can no longer be migrated cleanly, Odoo raises before the
+        # ticket can be added. Recover only this logged-in session-cart case by
+        # discarding the broken cart reference and creating a clean cart.
+        order = False
+        try:
+            with request.env.cr.savepoint():
+                current_cart = request.cart
+                order = current_cart.sudo() if current_cart else False
+        except (AccessError, MissingError, UserError, ValidationError):
+            if request.env.user._is_public():
+                raise
+            request.website.sale_reset()
+
+        if not order:
+            order = request.website._create_cart()
+
         added_any = False
         for ticket, qty in quantities:
             if ticket.event_id != event or not ticket.is_launched or ticket.is_expired:
@@ -120,6 +137,7 @@ class GroundliftEventCheckout(WebsiteSale):
             "gl_has_newsletter_optin": gl_has_newsletter_optin,
             "gl_newsletter_optin": bool(getattr(order, "gl_cr_newsletter_optin", False)) if gl_has_newsletter_optin else False,
         })
+        request.session["gl_event_checkout_order_id"] = order.id
         return request.render("groundlift_event_checkout.one_page_checkout", values)
 
     @http.route('/groundlift/checkout/customer', type="jsonrpc", auth="public", website=True, csrf=False)
@@ -190,6 +208,23 @@ class GroundliftEventCheckout(WebsiteSale):
                 "gl_cr_newsletter_optin_source": "groundlift_event_checkout",
             })
         order.sudo().write(order_vals)
+
+        # Important for paid event tickets in Odoo 19:
+        # create the registrations while the website order is still a draft.
+        # Odoo's event_sale module will then automatically move them from
+        # "Unconfirmed" (draft / to pay) to "Registered" (open / sold)
+        # when the payment confirms the sale order.
+        #
+        # Without this step, event_sale creates the registrations only inside
+        # sale.order.action_confirm(). For a single paid order that backend-style
+        # fallback deliberately creates them in draft so staff can fill attendee
+        # details manually. That is not the desired website checkout behaviour.
+        event_lines = order.order_line.filtered(
+            lambda line: line.event_ticket_id and line.service_tracking == "event"
+        )
+        if event_lines:
+            event_lines._init_registrations()
+
         request.session["sale_last_order_id"] = order.id
         return {"ok": True, "partner_id": partner.id}
 
