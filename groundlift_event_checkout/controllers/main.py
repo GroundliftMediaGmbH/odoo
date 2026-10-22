@@ -137,6 +137,7 @@ class GroundliftEventCheckout(WebsiteSale):
             "gl_has_newsletter_optin": gl_has_newsletter_optin,
             "gl_newsletter_optin": bool(getattr(order, "gl_cr_newsletter_optin", False)) if gl_has_newsletter_optin else False,
         })
+        request.session["gl_event_checkout_order_id"] = order.id
         return request.render("groundlift_event_checkout.one_page_checkout", values)
 
     @http.route('/groundlift/checkout/customer', type="jsonrpc", auth="public", website=True, csrf=False)
