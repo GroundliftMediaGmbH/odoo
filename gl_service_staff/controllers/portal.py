@@ -7,6 +7,31 @@ from odoo.http import request
 from ..calendar_feed import build_calendar_feed
 
 
+def _service_portal_line_sort_key(line):
+    """Sort by the date/time the employee *actually sees* in the portal.
+
+    The portal template displays ``planned_start_datetime`` when present;
+    otherwise it displays only ``shift_date``. Do not fall back to the
+    shift's ``start_datetime``: legacy/project records can hold a different
+    (or stale) year there, placing date-only projects after later events.
+    
+    Both cases are normalized to Europe/Berlin wall-clock time, so a
+    date-only project appears at 00:00 on its displayed day among events.
+    """
+    if line.planned_start_datetime:
+        effective_start = fields.Datetime.context_timestamp(
+            line.with_context(tz='Europe/Berlin'),
+            fields.Datetime.to_datetime(line.planned_start_datetime),
+        ).replace(tzinfo=None)
+    else:
+        # shift_date is required on gl.service.shift and is precisely the
+        # date shown by the project's date-only portal tile.
+        effective_start = datetime.combine(
+            fields.Date.to_date(line.shift_id.shift_date), time.min,
+        )
+    return effective_start, line.shift_id.id, line.id
+
+
 class GLServiceStaffPortal(http.Controller):
 
     @http.route(
@@ -46,16 +71,9 @@ class GLServiceStaffPortal(http.Controller):
                 ('shift_id.shift_date', '>=', fields.Date.context_today(member)),
                 ('state', '!=', 'draft'),
             ])
-            # Sort by actual effective start, not by shift creation/ID or by
-            # nullable planned_start_datetime. This interleaves projects/events.
-            def schedule_key(line):
-                start = line.planned_start_datetime or line.shift_id.start_datetime
-                if start:
-                    start = fields.Datetime.to_datetime(start)
-                else:
-                    start = datetime.combine(line.shift_id.shift_date, time.min)
-                return start, line.shift_id.id, line.id
-            lines = lines.sorted(key=schedule_key)
+            # Sort projects AND events as one list by the date/time visibly
+            # shown on their cards (including projects with date-only times).
+            lines = lines.sorted(key=_service_portal_line_sort_key)
             for line in lines:
                 others = line.shift_id.line_ids.filtered(
                     lambda other: other.state == 'accepted' and other.role == 'desired'
