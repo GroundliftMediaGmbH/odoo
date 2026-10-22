@@ -11,7 +11,7 @@
                         <group string="Tracking">
                             <field name="meta_tracking_mode"/>
                             <field name="meta_pixel_config_id" invisible="meta_tracking_mode != 'custom'" required="meta_tracking_mode == 'custom'"/>
-                            <field name="meta_test_mode" invisible="meta_tracking_mode == 'disabled'"/>
+                            <field name="meta_test_mode" invisible="meta_tracking_mode == 'disabled'" help="Wenn aktiv, hängt die CAPI den in der Pixel-Konfiguration hinterlegten Meta Test Event Code an Server-Events an. Vor dem Livebetrieb wieder deaktivieren."/>
                         </group>
                         <group string="Reporting" invisible="meta_tracking_mode == 'disabled'">
                             <field name="meta_log_count" readonly="1"/>

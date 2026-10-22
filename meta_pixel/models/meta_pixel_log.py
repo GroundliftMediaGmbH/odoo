@@ -27,6 +27,8 @@ class MetaPixelLog(models.Model):
     response_code = fields.Char()
     response_message = fields.Text()
     page_url = fields.Char()
+    sent_event_fields = fields.Char(string="Gesendete Event-Parameter", readonly=True)
+    sent_user_fields = fields.Char(string="Gesendete Kundendaten-Felder", readonly=True)
 
     _sql_constraints = [
         ("event_source_uid_uniq", "unique(event_uid, source)", "Dieses Tracking-Ereignis wurde über diese Quelle bereits protokolliert."),
