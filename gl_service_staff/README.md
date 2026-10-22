@@ -75,3 +75,42 @@ Eine spätere manuelle Änderung der Schicht-Anfangs- oder Endzeit löst die Kop
 - Mitarbeiterliste ist nicht mehr inline-editierbar. Anklicken öffnet die Detailansicht.
 - Neuer Button **PIN / Details** öffnet explizit das Servicepersonal-Formular mit PIN-Feld und PIN-Neugenerierung.
 - Bestehende PINs, Daten und Schichten bleiben unverändert.
+
+
+## Hotfix 19.0.2.0.7 — Veranstaltung nach Ankündigung verschoben
+
+Wird ein bereits angekündigtes Event (`Angekündigt`/`Announced`) nachträglich
+zeitlich verschoben, übernimmt die gekoppelte Serviceschicht den neuen Zeitraum
+und aktualisiert die Einsatzzeiten ihrer Mitarbeiter. Der Auslöser ist eine
+**tatsächliche Änderung von `date_begin` oder `date_end`**, nicht nur ein
+Phasenwechsel, eine Umbenennung, der manuelle Import oder ein Upgrade.
+
+- Automatisch geführte Mitarbeitereinsätze folgen dem neuen Schichtstandard.
+- Individuell angepasste Einsatzzeiten werden um die Änderung des
+  Veranstaltungsbeginns/-endes verschoben; ihre relative Abweichung bleibt
+  erhalten (z. B. eigener Dienstbeginn 17:00 statt 17:30).
+- Fest gebuchte Mitarbeiter bleiben fest gebucht, müssen die neuen Zeiten
+  aber erneut bestätigen.
+- Bereits eingeladene, verfügbare, abgelehnte oder ehemals abgelaufene
+  Personaleinträge werden nach einer tatsächlichen Zeitänderung erneut mit
+  der vorhandenen Mailvorlage **Zeitänderung** angefragt. Eine frühere
+  unverbindliche Verfügbarkeitsantwort wird zurückgesetzt.
+- Noch nicht angefragte `draft`-Zeilen werden zeitlich angepasst, erhalten
+  aber keine automatische Mail.
+- Die alte und neue Einsatzzeit werden für neue Zeitänderungsmails angezeigt.
+- Ältere, noch offene/fehlerhafte Mail-Freigaben mit veralteten Zeiten werden
+  verworfen. Die bisherigen Antwortlinks werden durch neue Tokens ungültig.
+- Individuelle Schichten, deren Quellenkopplung bewusst deaktiviert wurde
+  (`managed_source_times=False`), werden **nicht** automatisch verändert;
+  ein Hinweis erscheint im Schicht-Chatter.
+- `planned_start_datetime` und `planned_end_datetime` werden künftig
+  mit Odoo-Tracking protokolliert.
+- Erkennung der Phase auch bei englischer Benutzersprache (`Announced`).
+
+**Wichtig:** Der Fix gilt für zukünftige echte Terminänderungen. Er verschiebt
+beim Upgrade **keine** bereits inkonsistenten historischen Mitarbeiterzeilen
+und erzeugt keine rückwirkenden Mails. Solche Altlasten bitte gezielt prüfen.
+
+**Mail-Modus:** Ist Mail-Debugging aktiv, landen neue Zeitänderungsmails zuerst
+in `Servicepersonal → Einstellungen → Mail-Freigaben`. Bei deaktiviertem
+Debugging werden sie wie bisher direkt versendet.

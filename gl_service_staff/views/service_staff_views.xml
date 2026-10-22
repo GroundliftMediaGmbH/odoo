@@ -27,6 +27,7 @@
                 <header>
                     <button name="action_open_portal" type="object" string="Mitarbeiter-Webseite öffnen" class="btn-primary"/>
                     <button name="action_generate_new_pin" type="object" string="Neuen PIN erzeugen" class="btn-secondary"/>
+                    <button name="action_regenerate_calendar_token" type="object" string="Kalenderlink erneuern" class="btn-secondary" confirm="Alter Kalenderlink wird ungültig. Bereits abonnierte Kalender müssen neu verbunden werden. Fortfahren?"/>
                 </header>
                 <sheet>
                     <div class="oe_title">
@@ -42,6 +43,7 @@
                         <group>
                             <field name="pin_code"/>
                             <field name="portal_url" readonly="1" widget="url"/>
+                            <field name="calendar_url" readonly="1" widget="url"/>
                             <field name="monthly_unsubscribe_url" readonly="1" widget="url" invisible="not monthly_unsubscribe_url"/>
                             <field name="last_monthly_summary_period" readonly="1" invisible="not last_monthly_summary_period"/>
                         </group>
@@ -88,7 +90,7 @@
             <list string="Servicepersonal-Zuteilungen" editable="bottom"
                   decoration-success="state == 'accepted' and role == 'desired'"
                   decoration-info="state == 'available' or (state == 'accepted' and role == 'reserve')"
-                  decoration-danger="state in ('declined', 'expired') or time_change_state == 'declined'"
+                  decoration-danger="state in ('declined', 'expired', 'not_selected') or time_change_state == 'declined'"
                   decoration-warning="state == 'invited' or time_change_state == 'pending'">
                 <field name="shift_id"/>
                 <field name="member_id"/>
@@ -118,7 +120,7 @@
                     <button name="action_book_fixed" type="object" string="Fest buchen" class="btn-primary" invisible="state != 'available'"/>
                     <button name="action_mark_available_manual" type="object" string="Manuell verfügbar" invisible="state == 'available' or (state == 'accepted' and role == 'desired')"/>
                     <button name="action_mark_unavailable_manual" type="object" string="Manuell nicht verfügbar" invisible="state == 'accepted' and role == 'desired'"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,invited,available,accepted,declined"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,invited,available,accepted,not_selected,declined"/>
                 </header>
                 <sheet>
                     <group>
@@ -168,6 +170,7 @@
                 <filter string="Verfügbar" name="available" domain="[('state','=','available')]"/>
                 <filter string="Gebucht" name="accepted" domain="[('state','=','accepted'),('role','=','desired')]"/>
                 <filter string="Nicht verfügbar" name="declined" domain="[('state','in',('declined','expired'))]"/>
+                <filter string="Absage: Schicht besetzt" name="not_selected" domain="[('state','=','not_selected')]"/>
                 <group>
                     <filter string="Schicht" name="group_shift" context="{'group_by': 'shift_id'}"/>
                     <filter string="Status" name="group_state" context="{'group_by': 'state'}"/>
@@ -262,7 +265,7 @@
                                 <list editable="bottom"
                                       decoration-success="state == 'accepted' and role == 'desired'"
                                       decoration-info="state == 'available' or (state == 'accepted' and role == 'reserve')"
-                                      decoration-danger="state in ('declined', 'expired') or time_change_state == 'declined'"
+                                      decoration-danger="state in ('declined', 'expired', 'not_selected') or time_change_state == 'declined'"
                                       decoration-warning="state == 'invited' or time_change_state == 'pending'">
                                     <field name="member_id"/>
                                     <field name="role" optional="hide"/>
