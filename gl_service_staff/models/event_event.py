@@ -68,6 +68,15 @@ class EventEvent(models.Model):
         source_ref = self.env['gl.service.shift']._source_ref('event.event', self.id)
         return self.env['gl.service.shift'].sudo().search([('source_ref', '=', source_ref)], limit=1)
 
+    def action_gl_service_open_not_selected(self):
+        self.ensure_one()
+        shift = self._gl_service_existing_shift()
+        if not shift:
+            raise UserError(_('Für diese Veranstaltung ist noch keine Serviceschicht vorhanden.'))
+        # Existing-shift lookup uses sudo for source synchronization. Re-enter with
+        # the actual user here so the service-shift ACL still applies.
+        return self.env['gl.service.shift'].browse(shift.id).action_open_not_selected_wizard()
+
     def action_gl_service_send_availability(self):
         for event in self:
             if not event.date_begin:

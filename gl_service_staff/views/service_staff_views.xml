@@ -199,6 +199,7 @@
                 <header>
                     <button name="action_generate_lines" type="object" string="Personalliste aktualisieren" class="btn-secondary"/>
                     <button name="action_send_availability_request" type="object" string="Verfügbarkeit anfragen" class="btn-primary"/>
+                    <button name="action_open_not_selected_wizard" type="object" string="Service-Absagen" class="btn-secondary"/>
                     <button name="action_book_selected" type="object" string="Ausgewählte fest buchen" class="btn-primary"/>
                 </header>
                 <field name="green_check" string="✓" readonly="1"/>
@@ -225,6 +226,7 @@
                 <header>
                     <button name="action_generate_lines" type="object" string="Personalliste aktualisieren" class="btn-secondary"/>
                     <button name="action_send_availability_request" type="object" string="Verfügbarkeit anfragen" class="btn-primary"/>
+                    <button name="action_open_not_selected_wizard" type="object" string="Service-Absagen" class="btn-secondary" invisible="coverage_state != 'complete'"/>
                     <button name="action_book_selected" type="object" string="Ausgewählte fest buchen" class="btn-primary"/>
                     <field name="state" widget="statusbar" statusbar_visible="problem,booked,confirmed,draft"/>
                 </header>
@@ -475,6 +477,7 @@
         <field name="arch" type="xml">
             <xpath expr="//form/header/field[@name='stage_id']" position="before">
                 <button name="action_gl_service_send_availability" type="object" string="Service-Verfügbarkeit anfragen" class="btn-secondary" invisible="not date_begin"/>
+                <button name="action_gl_service_open_not_selected" type="object" string="Service-Absagen" class="btn-secondary" invisible="not date_begin"/>
             </xpath>
             <xpath expr="//field[@name='date_begin']" position="after">
                 <field name="gl_service_custom_time_window"/>
@@ -494,6 +497,7 @@
         <field name="arch" type="xml">
             <xpath expr="//form/header/field[@name='stage_id']" position="before">
                 <button name="action_gl_service_send_availability" type="object" string="Service-Verfügbarkeit anfragen" class="btn-secondary" invisible="gl_service_staff_count &lt;= 0"/>
+                <button name="action_gl_service_open_not_selected" type="object" string="Service-Absagen" class="btn-secondary" invisible="gl_service_staff_count &lt;= 0"/>
             </xpath>
             <xpath expr="//field[@name='date_start']" position="after">
                 <field name="gl_service_staff_count"/>

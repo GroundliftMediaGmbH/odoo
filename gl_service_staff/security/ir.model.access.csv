@@ -5,3 +5,4 @@ access_gl_service_shift_line_user,gl.service.shift.line user,model_gl_service_sh
 access_gl_service_staff_settings_user,gl.service.staff.settings user,model_gl_service_staff_settings,base.group_user,1,1,1,1
 access_gl_service_mail_queue_manager,gl.service.mail.queue manager,model_gl_service_mail_queue,group_gl_service_mail_debug_manager,1,1,1,1
 access_gl_service_mail_queue_admin,gl.service.mail.queue administrator,model_gl_service_mail_queue,base.group_system,1,1,1,1
+access_gl_service_not_selected_wizard_user,gl.service.not.selected.wizard user,model_gl_service_not_selected_wizard,base.group_user,1,1,1,1

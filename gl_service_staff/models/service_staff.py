@@ -572,6 +572,36 @@ class GLServiceShift(models.Model):
                 ))
         return True
 
+    def _check_manual_not_selected_access(self):
+        """Internal Odoo users with write rights on the shift may request declines."""
+        if not self.env.user.has_group('base.group_user'):
+            raise AccessError(_('Diese Funktion ist nur für angemeldete Odoo-Mitarbeiter verfügbar.'))
+        self.check_access('write')
+
+    def action_open_not_selected_wizard(self):
+        """Open a per-shift confirmation dialog; never send on opening."""
+        self.ensure_one()
+        self._check_manual_not_selected_access()
+        booked = self.line_ids.filtered(
+            lambda line: line.state == 'accepted' and line.role == 'desired'
+        )
+        if not self.required_count or len(booked) < self.required_count:
+            raise UserError(_(
+                'Absagen können erst vorbereitet werden, wenn alle benötigten '
+                'Servicekräfte für diese Schicht fest gebucht sind.'
+            ))
+        wizard = self.env['gl.service.not.selected.wizard'].create({
+            'shift_id': self.id,
+        })
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Service-Absagen prüfen'),
+            'res_model': 'gl.service.not.selected.wizard',
+            'res_id': wizard.id,
+            'views': [(self.env.ref('gl_service_staff.view_gl_service_not_selected_wizard_form').id, 'form')],
+            'target': 'new',
+        }
+
     def _ensure_lines_for_all_staff(self):
         Staff = self.env['gl.service.staff.member'].sudo()
         Line = self.env['gl.service.shift.line'].sudo()
