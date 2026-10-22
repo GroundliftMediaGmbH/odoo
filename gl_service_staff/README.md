@@ -15,7 +15,7 @@ Version **19.0.2.0.0** ist ein Rework der bestehenden Servicepersonal-App. Beste
 - Veranstaltung standardmäßig: **2 h vor Beginn bis 1 h nach Ende**.
 - Die beiden Event-Zusatzzeiten sind global in `Servicepersonal → Einstellungen` editierbar und können pro Veranstaltung überschrieben werden.
 - Projekt: Homeautomation-`Startzeit` minus 1 h bis Homeautomation-`Endzeit` plus 1 h.
-- Die Projektfelder `Startzeit` und `Endzeit` werden automatisch anhand ihrer Datetime-Feldbezeichnung erkannt. Falls eure technischen Feldnamen anders heißen, können sie in den App-Einstellungen explizit hinterlegt werden.
+- Die Groundlift-Homeautomation verwendet auf `project.project` die technischen Felder `ha_start_at` (Startzeit) und `ha_end_at` (Endzeit). Diese sind jetzt die Standardfelder der Servicepersonal-App; die Feldnamen bleiben in den Einstellungen überschreibbar.
 - Neu automatisch erzeugte Schichten bleiben an ihre Quellzeit gekoppelt, bis die Standard-Anfangs- oder Endzeit in der Schicht manuell geändert wird. Bestehende Schichten bleiben unverändert.
 
 ## Bestandsschutz
@@ -36,7 +36,7 @@ Am 1. jedes Monats erhält jeder aktive Mitarbeiter mit E-Mail-Adresse eine Übe
 2. Auf Odoo SH pushen und Build abwarten.
 3. App `Groundlift Servicepersonal` aktualisieren.
 4. `Servicepersonal → Einstellungen` öffnen und mindestens **Verantwortliche Person** sowie **Technische Leitung** setzen.
-5. Prüfen, ob die Projektfelder `Startzeit`/`Endzeit` automatisch erkannt werden. Falls nicht, die technischen Feldnamen in den Einstellungen eintragen.
+5. Die Projektfelder stehen standardmäßig auf `ha_start_at` / `ha_end_at`; bei abweichenden Homeautomation-Feldern können sie in den Einstellungen überschrieben werden.
 6. Für bestehende unbesetzte Schichten die Verfügbarkeitsanfrage manuell versenden.
 
 ## Hinweis zu Daten
@@ -65,3 +65,52 @@ veranstaltungsgebundenen Serviceschichten einmalig neu berechnet:
 Nach der Korrektur folgen diese Veranstaltungsschichten wieder automatisch der Quelle.
 Eine spätere manuelle Änderung der Schicht-Anfangs- oder Endzeit löst die Kopplung wie gewohnt.
 
+
+
+## 19.0.2.0.5
+- Fix: `Mail debugging` speichert nun explizit `1`/`0` in `ir.config_parameter`, damit ein deaktivierter Haken nicht durch den Standardwert wieder aktiviert wird.
+
+
+### 19.0.2.0.6 — PIN-Verwaltung
+- Mitarbeiterliste ist nicht mehr inline-editierbar. Anklicken öffnet die Detailansicht.
+- Neuer Button **PIN / Details** öffnet explizit das Servicepersonal-Formular mit PIN-Feld und PIN-Neugenerierung.
+- Bestehende PINs, Daten und Schichten bleiben unverändert.
+
+
+## Hotfix 19.0.2.0.7 — Veranstaltung nach Ankündigung verschoben
+
+Wird ein bereits angekündigtes Event (`Angekündigt`/`Announced`) nachträglich
+zeitlich verschoben, übernimmt die gekoppelte Serviceschicht den neuen Zeitraum
+und aktualisiert die Einsatzzeiten ihrer Mitarbeiter. Der Auslöser ist eine
+**tatsächliche Änderung von `date_begin` oder `date_end`**, nicht nur ein
+Phasenwechsel, eine Umbenennung, der manuelle Import oder ein Upgrade.
+
+- Automatisch geführte Mitarbeitereinsätze folgen dem neuen Schichtstandard.
+- Individuell angepasste Einsatzzeiten werden um die Änderung des
+  Veranstaltungsbeginns/-endes verschoben; ihre relative Abweichung bleibt
+  erhalten (z. B. eigener Dienstbeginn 17:00 statt 17:30).
+- Fest gebuchte Mitarbeiter bleiben fest gebucht, müssen die neuen Zeiten
+  aber erneut bestätigen.
+- Bereits eingeladene, verfügbare, abgelehnte oder ehemals abgelaufene
+  Personaleinträge werden nach einer tatsächlichen Zeitänderung erneut mit
+  der vorhandenen Mailvorlage **Zeitänderung** angefragt. Eine frühere
+  unverbindliche Verfügbarkeitsantwort wird zurückgesetzt.
+- Noch nicht angefragte `draft`-Zeilen werden zeitlich angepasst, erhalten
+  aber keine automatische Mail.
+- Die alte und neue Einsatzzeit werden für neue Zeitänderungsmails angezeigt.
+- Ältere, noch offene/fehlerhafte Mail-Freigaben mit veralteten Zeiten werden
+  verworfen. Die bisherigen Antwortlinks werden durch neue Tokens ungültig.
+- Individuelle Schichten, deren Quellenkopplung bewusst deaktiviert wurde
+  (`managed_source_times=False`), werden **nicht** automatisch verändert;
+  ein Hinweis erscheint im Schicht-Chatter.
+- `planned_start_datetime` und `planned_end_datetime` werden künftig
+  mit Odoo-Tracking protokolliert.
+- Erkennung der Phase auch bei englischer Benutzersprache (`Announced`).
+
+**Wichtig:** Der Fix gilt für zukünftige echte Terminänderungen. Er verschiebt
+beim Upgrade **keine** bereits inkonsistenten historischen Mitarbeiterzeilen
+und erzeugt keine rückwirkenden Mails. Solche Altlasten bitte gezielt prüfen.
+
+**Mail-Modus:** Ist Mail-Debugging aktiv, landen neue Zeitänderungsmails zuerst
+in `Servicepersonal → Einstellungen → Mail-Freigaben`. Bei deaktiviertem
+Debugging werden sie wie bisher direkt versendet.

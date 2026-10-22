@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
+from datetime import datetime, time
+
 from odoo import http, fields, _
 from odoo.http import request
+
+from ..calendar_feed import build_calendar_feed
 
 
 class GLServiceStaffPortal(http.Controller):
@@ -31,18 +35,77 @@ class GLServiceStaffPortal(http.Controller):
                     request.session.pop('gl_service_staff_member_id', None)
 
         lines = request.env['gl.service.shift.line'].sudo()
+        coworkers_by_line = {}
+        calendar_url = False
         if member:
+            member._ensure_calendar_token()
+            calendar_url = member.calendar_url
             lines = lines.search([
                 ('member_id', '=', member.id),
                 ('shift_id.active', '=', True),
-                ('shift_id.shift_date', '>=', fields.Date.today()),
+                ('shift_id.shift_date', '>=', fields.Date.context_today(member)),
                 ('state', '!=', 'draft'),
-            ], order='planned_start_datetime asc, shift_id asc')
+            ])
+            # Sort by actual effective start, not by shift creation/ID or by
+            # nullable planned_start_datetime. This interleaves projects/events.
+            def schedule_key(line):
+                start = line.planned_start_datetime or line.shift_id.start_datetime
+                if start:
+                    start = fields.Datetime.to_datetime(start)
+                else:
+                    start = datetime.combine(line.shift_id.shift_date, time.min)
+                return start, line.shift_id.id, line.id
+            lines = lines.sorted(key=schedule_key)
+            for line in lines:
+                others = line.shift_id.line_ids.filtered(
+                    lambda other: other.state == 'accepted' and other.role == 'desired'
+                    and other.member_id.employee_id != member.employee_id
+                )
+                seen_employees = set()
+                people = []
+                for other in others.sorted(key=lambda rec: (rec.member_id.name or '').casefold()):
+                    employee = other.member_id.employee_id
+                    if employee.id in seen_employees:
+                        continue
+                    seen_employees.add(employee.id)
+                    people.append({
+                        'name': other.member_id.name,
+                        'start': other._format_datetime_for_mail(other.planned_start_datetime) if other.planned_start_datetime else '',
+                        'end': other._format_datetime_for_mail(other.planned_end_datetime) if other.planned_end_datetime else '',
+                    })
+                coworkers_by_line[line.id] = people
         return request.render('gl_service_staff.portal_service_staff_home', {
             'member': member,
             'lines': lines,
+            'coworkers_by_line': coworkers_by_line,
+            'calendar_url': calendar_url,
             'error': error,
         })
+
+    @http.route(
+        ['/servicepersonal/kalender/<int:member_id>/<string:token>.ics'],
+        type='http', auth='public', website=False, methods=['GET'], csrf=False
+    )
+    def service_staff_calendar_feed(self, member_id, token, **kw):
+        member = request.env['gl.service.staff.member'].sudo().search([
+            ('id', '=', member_id), ('calendar_token', '=', token), ('active', '=', True),
+        ], limit=1)
+        if not member:
+            return request.not_found()
+        lines = request.env['gl.service.shift.line'].sudo().search([
+            ('member_id', '=', member.id),
+            ('state', '=', 'accepted'),
+            ('role', '=', 'desired'),
+            ('shift_id.active', '=', True),
+        ], order='planned_start_datetime asc, id asc')
+        content = build_calendar_feed(lines)
+        return request.make_response(content, headers=[
+            ('Content-Type', 'text/calendar; charset=utf-8'),
+            ('Content-Disposition', 'inline; filename="groundlift-service.ics"'),
+            ('Cache-Control', 'private, no-store, no-cache, must-revalidate'),
+            ('X-Robots-Tag', 'noindex, nofollow, noarchive'),
+            ('Referrer-Policy', 'no-referrer'),
+        ])
 
     @http.route(
         ['/servicepersonal/mitarbeiter/<int:member_id>/<string:pin_code>'],
@@ -85,11 +148,22 @@ class GLServiceStaffPortal(http.Controller):
             })
 
         is_time_change_response = (
-            line.time_change_state == 'pending' and line.state == 'accepted' and line.role == 'desired'
+            line.time_change_state == 'pending'
         )
         if answer == 'accept':
-            line._accept(source='public')
-            if is_time_change_response:
+            fully_staffed = (
+                line.state != 'accepted'
+                and line.shift_id.required_count > 0
+                and line.shift_id.accepted_count >= line.shift_id.required_count
+            )
+            if fully_staffed:
+                title = _('Schicht bereits besetzt')
+                message = _('Vielen Dank! Für diese Schicht ist der Personalbedarf inzwischen gedeckt.')
+            else:
+                line._accept(source='public')
+            if fully_staffed:
+                pass
+            elif is_time_change_response:
                 title = _('Zeitänderung bestätigt')
                 message = _('Danke! Die geänderte Arbeitszeit ist bestätigt.')
             elif line.state == 'accepted':

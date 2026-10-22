@@ -48,14 +48,18 @@ class GLServiceMailMixin(models.AbstractModel):
             _logger.warning('Servicepersonal: Keine Empfängeradresse für %s,%s', record._name, record.id)
             return False
 
+        # In particular the day-before reminder is rendered by a scheduled
+        # action whose executing OdooBot user may have timezone UTC.
+        # Keep custom mail templates using format_datetime() in Berlin time too.
+        template = template.sudo().with_context(tz='Europe/Berlin')
         if not self._gl_mail_debugging_enabled():
-            return template.sudo().send_mail(
+            return template.send_mail(
                 record.id,
                 force_send=True,
                 email_values={'email_to': email_to},
             )
 
-        values = template.sudo()._generate_template(
+        values = template._generate_template(
             [record.id],
             ['subject', 'body_html', 'email_from', 'reply_to'],
         ).get(record.id, {})
@@ -136,6 +140,10 @@ class GLServiceStaffMember(models.Model):
         string='Letzte Monatsübersicht', copy=False, readonly=True
     )
 
+    # Separate private bearer token: changing the PIN must not break the feed.
+    calendar_token = fields.Char(string='Privater Kalender-Token', copy=False, index=True)
+    calendar_url = fields.Char(string='Kalender abonnieren (iCal)', compute='_compute_calendar_url')
+
     # Legacy-Felder bleiben ausschließlich aus Upgrade-Kompatibilitätsgründen im Modell.
     # Sie werden weder in der neuen Oberfläche noch in der Dispositionslogik verwendet.
     rating = fields.Integer(string='Sterne (Legacy)', default=3, required=True)
@@ -149,6 +157,7 @@ class GLServiceStaffMember(models.Model):
         ('employee_unique', 'unique(employee_id)', 'Dieser Mitarbeiter ist bereits als Servicepersonal angelegt.'),
         ('pin_unique', 'unique(pin_code)', 'Dieser PIN-Code ist bereits vergeben.'),
         ('monthly_unsubscribe_token_unique', 'unique(monthly_unsubscribe_token)', 'Dieser Abmelde-Token ist bereits vergeben.'),
+        ('calendar_token_unique', 'unique(calendar_token)', 'Der Kalender-Token muss eindeutig sein.'),
     ]
 
     @api.depends('rating')
@@ -172,6 +181,26 @@ class GLServiceStaffMember(models.Model):
                 '%s/servicepersonal/mitarbeiter/%s/%s' % (base_url, rec.id, rec.pin_code)
                 if base_url and rec.id and rec.pin_code else False
             )
+
+    def _compute_calendar_url(self):
+        base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url', '').rstrip('/')
+        for rec in self:
+            rec.calendar_url = (
+                '%s/servicepersonal/kalender/%s/%s.ics' % (base_url, rec.id, rec.calendar_token)
+                if base_url and rec.id and rec.calendar_token else False
+            )
+
+    def _ensure_calendar_token(self):
+        for rec in self:
+            if not rec.calendar_token:
+                rec.sudo().write({'calendar_token': secrets.token_urlsafe(32)})
+        return True
+
+    def action_regenerate_calendar_token(self):
+        # Useful if a confidential subscription URL has been shared accidentally.
+        for rec in self:
+            rec.sudo().write({'calendar_token': secrets.token_urlsafe(32)})
+        return True
 
     def _compute_monthly_unsubscribe_url(self):
         base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url', '').rstrip('/')
@@ -227,12 +256,27 @@ class GLServiceStaffMember(models.Model):
                 vals['pin_code'] = self._new_numeric_pin()
             if not vals.get('monthly_unsubscribe_token'):
                 vals['monthly_unsubscribe_token'] = self._new_unsubscribe_token()
+            if not vals.get('calendar_token'):
+                vals['calendar_token'] = secrets.token_urlsafe(32)
             if vals.get('employee_id') and not vals.get('email'):
                 employee = Employee.browse(vals['employee_id'])
                 vals['email'] = employee.work_email or (
                     employee.private_email if 'private_email' in employee._fields else False
                 ) or False
         return super().create(vals_list)
+
+    def action_open_member_details(self):
+        """Open the staff member's own form rather than the related HR record."""
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Servicepersonal: %s' % self.name,
+            'res_model': 'gl.service.staff.member',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'views': [(self.env.ref('gl_service_staff.view_gl_service_staff_member_form').id, 'form')],
+            'target': 'current',
+        }
 
     def action_generate_new_pin(self):
         for rec in self:
@@ -264,8 +308,12 @@ class GLServiceStaffMember(models.Model):
         if not value:
             return '–'
         self.ensure_one()
-        tz = self.employee_id.user_id.tz if self.employee_id.user_id else self.env.user.tz
-        localized = fields.Datetime.context_timestamp(self.with_context(tz=tz), value)
+        # Email rendering must NOT depend on the cron user (often UTC) or on
+        # the employee's optional Odoo login timezone. Groundlift shifts and the
+        # public service portal always display Europe/Berlin, incl. DST.
+        localized = fields.Datetime.context_timestamp(
+            self.with_context(tz='Europe/Berlin'), fields.Datetime.to_datetime(value)
+        )
         return localized.strftime('%d.%m.%Y %H:%M Uhr')
 
     def _send_monthly_summary(self, year, month):
@@ -472,7 +520,57 @@ class GLServiceShift(models.Model):
             and {'start_datetime', 'end_datetime'} & set(vals)
         ):
             vals = dict(vals, managed_source_times=False)
-        return super().write(vals)
+        result = super().write(vals)
+        if 'required_count' in vals and not self.env.context.get('gl_skip_coverage_close'):
+            self._close_full_staffing()
+        return result
+
+    def _close_full_staffing(self):
+        """Inform AVAILABLE (not booked) staff once when the required team is complete.
+
+        A distinct status prevents a rejected availability from being mistaken for
+        employee unavailability, and makes this idempotent when booking/editing.
+        Do not reject outstanding invitations or disturb confirmed bookings.
+        """
+        for shift in self:
+            if shift.required_count <= 0:
+                continue
+            booked = shift.line_ids.filtered(
+                lambda line: line.state == 'accepted' and line.role == 'desired'
+            )
+            if len(booked) < shift.required_count:
+                continue
+            candidates = shift.line_ids.filtered(
+                lambda line: line.state == 'available'
+            )
+            for line in candidates:
+                # Previously generated mail drafts for the same line may contradict
+                # the newly closed staffing. Keep any already-sent mails untouched.
+                self.env['gl.service.mail.queue'].sudo().search([
+                    ('model_name', '=', 'gl.service.shift.line'),
+                    ('res_id', '=', line.id),
+                    ('queue_kind', 'in', ('availability', 'time_change')),
+                    ('state', 'in', ('pending', 'error')),
+                ]).write({'state': 'cancelled'})
+                line.with_context(
+                    gl_skip_coverage_close=True, skip_service_role_balance=True,
+                ).write({
+                    'state': 'not_selected',
+                    'selected_for_booking': False,
+                    'time_change_state': 'none',
+                    # Revoke older availability links so they cannot re-open the response.
+                    'token': secrets.token_urlsafe(32),
+                })
+                line._send_template(
+                    'gl_service_staff.mail_template_service_not_selected',
+                    param_name='gl_service_staff.not_selected_template_id',
+                    queue_kind='not_selected',
+                )
+                line.message_post(body=_(
+                    'Der Personalbedarf ist vollständig gedeckt. Automatische Absage '
+                    'an die verfügbare, aber nicht gebuchte Person erstellt/gesendet.'
+                ))
+        return True
 
     def _ensure_lines_for_all_staff(self):
         Staff = self.env['gl.service.staff.member'].sudo()
@@ -669,13 +767,122 @@ class GLServiceShift(models.Model):
                     'Bitte mindestens eine als „Verfügbar“ gemeldete Person '
                     'über die Checkbox „Auswählen“ markieren.'
                 ))
+            slots = max(0, shift.required_count - len(shift.line_ids.filtered(
+                lambda l: l.state == 'accepted' and l.role == 'desired'
+            )))
+            if len(lines) > slots:
+                raise UserError(_(
+                    'Es sind nur noch %s Stellen frei; es wurden %s Personen ausgewählt.'
+                ) % (slots, len(lines)))
             for line in lines:
-                line._book_fixed()
+                line._book_fixed(defer_coverage_close=True)
+            shift._close_full_staffing()
         return True
 
     @api.model
     def _source_ref(self, model_name, record_id):
         return '%s,%s' % (model_name, record_id)
+
+    def _gl_request_event_reschedule_confirmation(self, old_event_begin, old_event_end,
+                                                 old_shift_start, old_shift_end):
+        """Handle a date/time change to an event that was *already* announced.
+
+        Move each employee's times by the appropriate event delta. Employees who
+        followed the old shift standard follow the new standard; individualized
+        times keep their relative offsets to the event. Everyone previously
+        contacted (invited, available, declined or booked) is asked again using
+        the existing time-change flow. Uncontacted draft lines are only updated.
+
+        Do not use this for upgrades, manual imports, or offset-only adjustments.
+        """
+        now = fields.Datetime.now()
+        for shift in self:
+            if not shift.managed_source_times:
+                continue
+            changed_count = requested_count = 0
+            for line in shift.line_ids:
+                old_start = line.planned_start_datetime
+                old_end = line.planned_end_datetime
+                if old_start in (False, old_shift_start, old_event_begin):
+                    new_start = shift.start_datetime
+                else:
+                    new_start = old_start + (shift.event_id.date_begin - old_event_begin)
+                new_event_end = shift.event_id.date_end or shift.event_id.date_begin
+                if old_end in (False, old_shift_end, old_event_end):
+                    new_end = shift.end_datetime
+                else:
+                    new_end = old_end + (new_event_end - old_event_end)
+
+                if new_start == old_start and new_end == old_end:
+                    continue
+                changed_count += 1
+                # A staff member may previously have declined the old date and
+                # could now be free. A changed date invalidates the old response.
+                contacted = line.state in ('invited', 'available', 'declined', 'not_selected', 'expired', 'accepted')
+                fixed_booked = line.state == 'accepted' and line.role == 'desired'
+
+                # Old pending messages contain outdated dates / response URLs.
+                # Cancel them before creating the new mail; already sent mails
+                # cannot be recalled, hence the link token is rotated as well.
+                if contacted:
+                    self.env['gl.service.mail.queue'].sudo().search([
+                        ('model_name', '=', 'gl.service.shift.line'),
+                        ('res_id', '=', line.id),
+                        ('state', 'in', ['pending', 'error']),
+                        ('queue_kind', 'in', [
+                            'availability', 'time_change', 'booking_confirmation', 'day_before',
+                        ]),
+                    ]).write({'state': 'cancelled'})
+
+                vals = {
+                    'planned_start_datetime': new_start,
+                    'planned_end_datetime': new_end,
+                    # A previously sent day-before reminder is no longer current.
+                    'day_before_sent': False,
+                }
+                if contacted:
+                    vals.update({
+                        'time_change_previous_start_datetime': old_start,
+                        'time_change_previous_end_datetime': old_end,
+                        'time_change_state': 'pending',
+                        'time_change_requested_at': now,
+                        'time_change_answered_at': False,
+                        'token': secrets.token_urlsafe(32),
+                    })
+                    if not fixed_booked:
+                        # The earlier availability/decline must be reconfirmed.
+                        # Preserve fixed bookings exactly as they were.
+                        vals.update({
+                            'state': 'invited',
+                            'role': 'reserve',
+                            'invite_sent_at': now,
+                            'availability_responded_at': False,
+                            'declined_at': False,
+                            'selected_for_booking': False,
+                        })
+                line.with_context(
+                    skip_time_change_confirmation=True,
+                    skip_service_role_balance=True,
+                    gl_skip_coverage_close=True,
+                ).write(vals)
+                if contacted:
+                    line._send_template(
+                        'gl_service_staff.mail_template_service_time_change',
+                        param_name='gl_service_staff.time_change_template_id',
+                        queue_kind='time_change',
+                    )
+                    requested_count += 1
+                    line.message_post(body=_(
+                        'Veranstaltungstermin geändert: Einsatzzeiten automatisch '
+                        'angepasst. Erneute Bestätigung der Zeitänderung angefordert.'
+                    ))
+            if changed_count:
+                shift.message_post(body=_(
+                    'Veranstaltungstermin nach der Ankündigung verschoben. '
+                    '%(changed)s Mitarbeiterzeiten aktualisiert; '
+                    '%(requested)s erneute Zeitänderungsanfragen vorbereitet/versendet.'
+                ) % {'changed': changed_count, 'requested': requested_count})
+        return True
 
     def _sync_managed_line_times(self, old_start, old_end, new_start, new_end):
         """Move lines that still follow the old standard; keep individualized line times."""
@@ -756,6 +963,70 @@ class GLServiceShift(models.Model):
         return updated
 
     @api.model
+    def _recalculate_existing_project_shift_times(self, future_only=True):
+        """Recalculate existing project shifts from Homeautomation times, mail-silent.
+
+        Groundlift Homeassistant stores the project usage window on ``project.project``
+        in ``ha_start_at`` / ``ha_end_at``.  The service window is exactly one hour
+        before/after that usage window. Existing bookings and availability states are
+        preserved; employee line times move only when they still followed the old
+        shift standard or the raw Homeautomation time.
+        """
+        Shift = self.sudo()
+        shifts = Shift.search([('project_id', '!=', False)])
+        now = fields.Datetime.now()
+        updated = 0
+
+        for shift in shifts:
+            project = shift.project_id.exists()
+            if not project:
+                continue
+            new_start, new_end = project._gl_service_get_automation_datetimes()
+            if not new_start or not new_end:
+                continue
+            if future_only and new_end < now:
+                continue
+
+            start_name = project._gl_service_configured_datetime_field(
+                'gl_service_staff.project_start_field', 'start'
+            )
+            end_name = project._gl_service_configured_datetime_field(
+                'gl_service_staff.project_end_field', 'end'
+            )
+            raw_start = project[start_name] if start_name else False
+            raw_end = project[end_name] if end_name else False
+            old_start, old_end = shift.start_datetime, shift.end_datetime
+
+            for line in shift.line_ids:
+                line_vals = {}
+                if line.planned_start_datetime in (False, old_start, raw_start):
+                    if line.planned_start_datetime != new_start:
+                        line_vals['planned_start_datetime'] = new_start
+                if line.planned_end_datetime in (False, old_end, raw_end):
+                    if line.planned_end_datetime != new_end:
+                        line_vals['planned_end_datetime'] = new_end
+                if line_vals:
+                    line.with_context(
+                        skip_time_change_confirmation=True,
+                        skip_service_role_balance=True,
+                    ).write(line_vals)
+
+            shift.with_context(gl_source_time_sync=True).write({
+                'source_model': 'project.project',
+                'source_ref': self._source_ref('project.project', project.id),
+                'project_id': project.id,
+                'name': project.display_name or project.name,
+                'shift_date': fields.Date.to_date(new_start),
+                'start_datetime': new_start,
+                'end_datetime': new_end,
+                'required_count': max(0, project.gl_service_staff_count or 0),
+                'managed_source_times': True,
+            })
+            updated += 1
+
+        return updated
+
+    @api.model
     def _sync_from_project(self, project):
         if not project or not project.exists():
             return False
@@ -810,7 +1081,9 @@ class GLServiceShift(models.Model):
             if shift.managed_source_times:
                 vals.update({'start_datetime': start_dt, 'end_datetime': end_dt})
             shift.with_context(gl_source_time_sync=True).write(vals)
-            if shift.managed_source_times and (old_start != start_dt or old_end != end_dt):
+            if (shift.managed_source_times
+                    and not self.env.context.get('gl_announced_event_reschedule')
+                    and (old_start != start_dt or old_end != end_dt)):
                 shift._sync_managed_line_times(old_start, old_end, start_dt, end_dt)
         else:
             vals.update({
@@ -834,6 +1107,9 @@ class GLServiceShift(models.Model):
             if project._gl_service_is_relevant_project():
                 self._sync_from_project(project)
                 count += 1
+        # Legacy project shifts are recalculated explicitly from the Homeautomation
+        # fields as well, without sending mails or changing booking states.
+        self._recalculate_existing_project_shift_times(future_only=True)
         if 'date_begin' in Event._fields:
             relevant_events = Event.search([('date_begin', '!=', False)]).filtered(
                 lambda event: event._gl_service_is_relevant_event()
@@ -862,7 +1138,7 @@ class GLServiceShift(models.Model):
     @api.model
     def cron_service_reminders(self):
         """Keep the useful day-before reminder; old rating/deadline replacement logic is disabled."""
-        today = fields.Date.context_today(self)
+        today = fields.Date.context_today(self.with_context(tz='Europe/Berlin'))
         tomorrow = today + timedelta(days=1)
         shifts = self.sudo().search([('shift_date', '=', tomorrow), ('active', '=', True)])
         for shift in shifts:
@@ -903,6 +1179,8 @@ class GLServiceShiftLine(models.Model):
     mail_date_display = fields.Char(string='Datum (Mail)', compute='_compute_mail_time_display')
     mail_start_display = fields.Char(string='Beginn (Mail)', compute='_compute_mail_time_display')
     mail_end_display = fields.Char(string='Ende (Mail)', compute='_compute_mail_time_display')
+    mail_previous_start_display = fields.Char(string='Alter Beginn (Mail)', compute='_compute_mail_time_display')
+    mail_previous_end_display = fields.Char(string='Altes Ende (Mail)', compute='_compute_mail_time_display')
 
     def _format_datetime_for_mail(self, value):
         """Recipient-friendly local time without seconds for all service mails."""
@@ -911,7 +1189,9 @@ class GLServiceShiftLine(models.Model):
             return _('noch offen')
         if self.member_id:
             return self.member_id._format_datetime_for_mail(value)
-        localized = fields.Datetime.context_timestamp(self, value)
+        localized = fields.Datetime.context_timestamp(
+            self.with_context(tz='Europe/Berlin'), value
+        )
         return localized.strftime('%d.%m.%Y %H:%M Uhr')
 
     def _format_date_for_mail(self, value):
@@ -921,12 +1201,24 @@ class GLServiceShiftLine(models.Model):
         date_value = fields.Date.to_date(value)
         return date_value.strftime('%d.%m.%Y') if date_value else _('noch offen')
 
-    @api.depends('planned_start_datetime', 'planned_end_datetime', 'shift_id.shift_date', 'member_id')
+    @api.depends(
+        'planned_start_datetime', 'planned_end_datetime',
+        'time_change_previous_start_datetime', 'time_change_previous_end_datetime',
+        'shift_id.shift_date', 'member_id',
+    )
     def _compute_mail_time_display(self):
         for line in self:
-            line.mail_date_display = line._format_date_for_mail(line.shift_id.shift_date)
+            if line.planned_start_datetime:
+                berlin_start = fields.Datetime.context_timestamp(
+                    line.with_context(tz='Europe/Berlin'), line.planned_start_datetime
+                )
+                line.mail_date_display = berlin_start.strftime('%d.%m.%Y')
+            else:
+                line.mail_date_display = line._format_date_for_mail(line.shift_id.shift_date)
             line.mail_start_display = line._format_datetime_for_mail(line.planned_start_datetime)
             line.mail_end_display = line._format_datetime_for_mail(line.planned_end_datetime)
+            line.mail_previous_start_display = line._format_datetime_for_mail(line.time_change_previous_start_datetime)
+            line.mail_previous_end_display = line._format_datetime_for_mail(line.time_change_previous_end_datetime)
 
     # Role remains for backwards compatibility with existing cost/reporting extensions.
     role = fields.Selection([
@@ -938,6 +1230,7 @@ class GLServiceShiftLine(models.Model):
         ('available', 'Verfügbar'),
         ('accepted', 'Gebucht'),
         ('declined', 'Nicht verfügbar'),
+        ('not_selected', 'Absage: Schicht besetzt'),
         ('expired', 'Frist abgelaufen (Legacy)'),
     ], string='Status', default='draft', required=True, tracking=True)
     selected_for_booking = fields.Boolean(string='Auswählen')
@@ -960,8 +1253,10 @@ class GLServiceShiftLine(models.Model):
     )
     rating_display = fields.Char(string='Sterne (Legacy)', compute='_compute_rating_display')
 
-    planned_start_datetime = fields.Datetime(string='Anfangszeit')
-    planned_end_datetime = fields.Datetime(string='Endzeit')
+    planned_start_datetime = fields.Datetime(string='Anfangszeit', tracking=True)
+    planned_end_datetime = fields.Datetime(string='Endzeit', tracking=True)
+    time_change_previous_start_datetime = fields.Datetime(string='Vorheriger Beginn', readonly=True, copy=False)
+    time_change_previous_end_datetime = fields.Datetime(string='Vorheriges Ende', readonly=True, copy=False)
     time_change_state = fields.Selection([
         ('none', 'Keine Zeitänderung'),
         ('pending', 'Zeitänderung offen'),
@@ -1022,6 +1317,8 @@ class GLServiceShiftLine(models.Model):
                 rec.id: (rec.planned_start_datetime, rec.planned_end_datetime) for rec in tracked
             }
         res = super().write(vals)
+        if ({'state', 'role'} & set(vals)) and not self.env.context.get('gl_skip_coverage_close'):
+            self.mapped('shift_id')._close_full_staffing()
         if time_fields_changed and tracked:
             now = fields.Datetime.now()
             for line in tracked:
@@ -1029,6 +1326,8 @@ class GLServiceShiftLine(models.Model):
                 if old_start == line.planned_start_datetime and old_end == line.planned_end_datetime:
                     continue
                 line.with_context(skip_time_change_confirmation=True).write({
+                    'time_change_previous_start_datetime': old_start,
+                    'time_change_previous_end_datetime': old_end,
                     'time_change_state': 'pending',
                     'time_change_requested_at': now,
                     'time_change_answered_at': False,
@@ -1113,6 +1412,8 @@ class GLServiceShiftLine(models.Model):
 
     def action_send_invitation(self):
         for line in self:
+            if (line.shift_id.required_count > 0 and line.shift_id.accepted_count >= line.shift_id.required_count):
+                raise UserError(_('Diese Schicht ist bereits vollständig besetzt.'))
             if line.state == 'available' or (line.state == 'accepted' and line.role == 'desired'):
                 continue
             line.with_context(skip_service_role_balance=True).write({
@@ -1147,7 +1448,13 @@ class GLServiceShiftLine(models.Model):
     def _mark_available(self, source='public'):
         now = fields.Datetime.now()
         for line in self:
-            if line.time_change_state == 'pending' and line.state == 'accepted' and source == 'public':
+            # No stale link may reopen a rejected assignment after staffing closes.
+            if line.state == 'not_selected':
+                continue
+            if (line.state != 'accepted' and line.shift_id.required_count > 0
+                    and line.shift_id.accepted_count >= line.shift_id.required_count):
+                continue
+            if line.time_change_state == 'pending' and source == 'public':
                 line.with_context(skip_time_change_confirmation=True).write({
                     'time_change_state': 'accepted',
                     'time_change_answered_at': now,
@@ -1155,7 +1462,8 @@ class GLServiceShiftLine(models.Model):
                 line.message_post(body=_(
                     'Zeitänderung wurde durch %s bestätigt.'
                 ) % (line.member_id.name or line.email or _('Servicepersonal')))
-                continue
+                if line.state == 'accepted' and line.role == 'desired':
+                    continue
             if line.state == 'accepted' and line.role == 'desired':
                 continue
             line.with_context(skip_service_role_balance=True).write({
@@ -1170,7 +1478,7 @@ class GLServiceShiftLine(models.Model):
     def _mark_unavailable(self, source='public'):
         now = fields.Datetime.now()
         for line in self:
-            if line.time_change_state == 'pending' and line.state == 'accepted' and source == 'public':
+            if line.time_change_state == 'pending' and source == 'public':
                 line.with_context(skip_time_change_confirmation=True).write({
                     'time_change_state': 'declined',
                     'time_change_answered_at': now,
@@ -1178,7 +1486,8 @@ class GLServiceShiftLine(models.Model):
                 line.message_post(body=_(
                     'Achtung: Die Zeitänderung wurde durch %s abgelehnt. Bitte im Backend prüfen.'
                 ) % (line.member_id.name or line.email or _('Servicepersonal')))
-                continue
+                if line.state == 'accepted' and line.role == 'desired':
+                    continue
             # A stale availability link must never undo an existing booking.
             if line.state == 'accepted' and line.role == 'desired':
                 continue
@@ -1201,15 +1510,23 @@ class GLServiceShiftLine(models.Model):
     def _decline(self, source='public'):
         return self._mark_unavailable(source=source)
 
-    def _book_fixed(self):
+    def _book_fixed(self, defer_coverage_close=False):
         self.ensure_one()
+        if self.shift_id.required_count <= 0:
+            raise UserError(_('Für diese Schicht ist kein Personalbedarf hinterlegt.'))
+        filled = len(self.shift_id.line_ids.filtered(
+            lambda l: l.state == 'accepted' and l.role == 'desired'
+        ))
+        if filled >= self.shift_id.required_count:
+            raise UserError(_('Alle benötigten Stellen sind bereits besetzt.'))
         if self.state != 'available':
             raise UserError(_(
                 '%s hat sich für diese Schicht nicht als verfügbar gemeldet.'
             ) % self.member_id.name)
         now = fields.Datetime.now()
         self.with_context(
-            skip_time_change_confirmation=True, skip_service_role_balance=True
+            skip_time_change_confirmation=True, skip_service_role_balance=True,
+            gl_skip_coverage_close=True,
         ).write({
             'state': 'accepted',
             'role': 'desired',
@@ -1225,12 +1542,16 @@ class GLServiceShiftLine(models.Model):
             queue_kind='booking_confirmation',
         )
         self.message_post(body=_('%s wurde fest für diese Schicht gebucht.') % self.member_id.name)
+        if not defer_coverage_close:
+            self.shift_id._close_full_staffing()
         return True
 
     def action_book_fixed(self):
-        self.mapped('shift_id')._check_responsible_can_book()
+        shifts = self.mapped('shift_id')
+        shifts._check_responsible_can_book()
         for line in self:
-            line._book_fixed()
+            line._book_fixed(defer_coverage_close=True)
+        shifts._close_full_staffing()
         return True
 
 
@@ -1246,6 +1567,7 @@ class GLServiceMailQueue(models.Model):
         ('monthly_summary', 'Monatsübersicht'),
         ('day_before', 'Vortagserinnerung'),
         ('time_change', 'Zeitänderung'),
+        ('not_selected', 'Absage wegen vollständiger Besetzung'),
         ('other', 'Sonstige'),
     ], string='Typ', default='other', required=True, index=True)
     template_id = fields.Many2one('mail.template', string='Vorlage', ondelete='set null')
@@ -1326,94 +1648,85 @@ class GLServiceMailQueue(models.Model):
 
 class GLServiceStaffSettings(models.TransientModel):
     _name = 'gl.service.staff.settings'
+    _inherit = ['res.config.settings']
     _description = 'Servicepersonal Einstellungen'
 
     responsible_user_id = fields.Many2one(
-        'res.users', string='Verantwortliche Person', domain=[('share', '=', False)]
+        'res.users', string='Verantwortliche Person', domain=[('share', '=', False)],
+        config_parameter='gl_service_staff.responsible_user_id',
     )
     technical_manager_user_id = fields.Many2one(
-        'res.users', string='Technische Leitung', domain=[('share', '=', False)]
+        'res.users', string='Technische Leitung', domain=[('share', '=', False)],
+        config_parameter='gl_service_staff.technical_manager_user_id',
     )
     mail_debugging = fields.Boolean(
         string='Mail debugging', default=True,
+        config_parameter='gl_service_staff.mail_debugging',
         help=(
             'Wenn aktiv, werden alle von dieser App erzeugten E-Mails zunächst '
             'in die Freigabe-Warteschlange gestellt.'
         ),
     )
-    event_before_hours = fields.Float(string='Veranstaltung: Stunden vor Beginn', default=2.0)
-    event_after_hours = fields.Float(string='Veranstaltung: Stunden nach Ende', default=1.0)
+    event_before_hours = fields.Float(
+        string='Veranstaltung: Stunden vor Beginn', default=2.0,
+        config_parameter='gl_service_staff.event_before_hours',
+    )
+    event_after_hours = fields.Float(
+        string='Veranstaltung: Stunden nach Ende', default=1.0,
+        config_parameter='gl_service_staff.event_after_hours',
+    )
     project_start_field = fields.Char(
         string='Projekt Startzeit – technischer Feldname',
-        help='Optional. Leer lassen für automatische Erkennung eines Datetime-Feldes mit Bezeichnung „Startzeit“.',
+        default='ha_start_at',
+        config_parameter='gl_service_staff.project_start_field',
+        help=(
+            'Technisches Datetime-Feld auf project.project. In der Groundlift '
+            'Homeautomation ist dies „ha_start_at“.'
+        ),
     )
     project_end_field = fields.Char(
         string='Projekt Endzeit – technischer Feldname',
-        help='Optional. Leer lassen für automatische Erkennung eines Datetime-Feldes mit Bezeichnung „Endzeit“.',
+        default='ha_end_at',
+        config_parameter='gl_service_staff.project_end_field',
+        help=(
+            'Technisches Datetime-Feld auf project.project. In der Groundlift '
+            'Homeautomation ist dies „ha_end_at“.'
+        ),
     )
     availability_template_id = fields.Many2one(
         'mail.template', string='Mailvorlage Verfügbarkeitsanfrage',
         domain="[('model', '=', 'gl.service.shift.line')]",
+        default=lambda self: (self.env.ref(
+            'gl_service_staff.mail_template_service_availability', raise_if_not_found=False
+        ) or self.env['mail.template']).id,
+        config_parameter='gl_service_staff.availability_template_id',
     )
     booking_template_id = fields.Many2one(
         'mail.template', string='Mailvorlage Buchungsbestätigung',
         domain="[('model', '=', 'gl.service.shift.line')]",
+        default=lambda self: (self.env.ref(
+            'gl_service_staff.mail_template_service_booking_confirmation', raise_if_not_found=False
+        ) or self.env['mail.template']).id,
+        config_parameter='gl_service_staff.booking_template_id',
     )
     day_before_template_id = fields.Many2one(
         'mail.template', string='Mailvorlage Vortagserinnerung',
         domain="[('model', '=', 'gl.service.shift.line')]",
+        default=lambda self: (self.env.ref(
+            'gl_service_staff.mail_template_service_day_before', raise_if_not_found=False
+        ) or self.env['mail.template']).id,
+        config_parameter='gl_service_staff.day_before_template_id',
     )
     time_change_template_id = fields.Many2one(
         'mail.template', string='Mailvorlage Zeitänderung',
         domain="[('model', '=', 'gl.service.shift.line')]",
+        default=lambda self: (self.env.ref(
+            'gl_service_staff.mail_template_service_time_change', raise_if_not_found=False
+        ) or self.env['mail.template']).id,
+        config_parameter='gl_service_staff.time_change_template_id',
     )
     pending_mail_count = fields.Integer(string='Mails zur Freigabe', compute='_compute_pending_mail_count')
     can_manage_debug = fields.Boolean(compute='_compute_can_manage_debug')
-
-    @api.model
-    def default_get(self, field_names):
-        vals = super().default_get(field_names)
-        ICP = self.env['ir.config_parameter'].sudo()
-
-        def _int_param(key):
-            try:
-                return int(ICP.get_param(key) or 0) or False
-            except (TypeError, ValueError):
-                return False
-
-        def _float_param(key, default):
-            try:
-                return float(ICP.get_param(key, str(default)) or default)
-            except (TypeError, ValueError):
-                return float(default)
-
-        debug_raw = ICP.get_param('gl_service_staff.mail_debugging', '1')
-        vals.update({
-            'responsible_user_id': _int_param('gl_service_staff.responsible_user_id'),
-            'technical_manager_user_id': _int_param('gl_service_staff.technical_manager_user_id'),
-            'mail_debugging': str(debug_raw).lower() not in ('0', 'false', 'no', ''),
-            'event_before_hours': _float_param('gl_service_staff.event_before_hours', 2.0),
-            'event_after_hours': _float_param('gl_service_staff.event_after_hours', 1.0),
-            'project_start_field': ICP.get_param('gl_service_staff.project_start_field') or False,
-            'project_end_field': ICP.get_param('gl_service_staff.project_end_field') or False,
-            'availability_template_id': _int_param('gl_service_staff.availability_template_id') or (
-                self.env.ref('gl_service_staff.mail_template_service_availability', raise_if_not_found=False).id
-                if self.env.ref('gl_service_staff.mail_template_service_availability', raise_if_not_found=False) else False
-            ),
-            'booking_template_id': _int_param('gl_service_staff.booking_template_id') or (
-                self.env.ref('gl_service_staff.mail_template_service_booking_confirmation', raise_if_not_found=False).id
-                if self.env.ref('gl_service_staff.mail_template_service_booking_confirmation', raise_if_not_found=False) else False
-            ),
-            'day_before_template_id': _int_param('gl_service_staff.day_before_template_id') or (
-                self.env.ref('gl_service_staff.mail_template_service_day_before', raise_if_not_found=False).id
-                if self.env.ref('gl_service_staff.mail_template_service_day_before', raise_if_not_found=False) else False
-            ),
-            'time_change_template_id': _int_param('gl_service_staff.time_change_template_id') or (
-                self.env.ref('gl_service_staff.mail_template_service_time_change', raise_if_not_found=False).id
-                if self.env.ref('gl_service_staff.mail_template_service_time_change', raise_if_not_found=False) else False
-            ),
-        })
-        return {k: v for k, v in vals.items() if k in field_names}
 
     def _compute_pending_mail_count(self):
         count = self.env['gl.service.mail.queue'].sudo().search_count([
@@ -1438,7 +1751,14 @@ class GLServiceStaffSettings(models.TransientModel):
             if rec.event_before_hours < 0 or rec.event_after_hours < 0:
                 raise ValidationError(_('Die Zusatzstunden dürfen nicht negativ sein.'))
 
-    def action_save(self):
+    def set_values(self):
+        """Persist only the Servicepersonal settings.
+
+        The wizard now inherits Odoo's ``res.config.settings`` so fields with a
+        ``config_parameter`` are restored reliably when the menu is opened again.
+        We intentionally persist only this module's fields here instead of calling
+        the global settings implementation, because this is a dedicated app page.
+        """
         self.ensure_one()
         ICP = self.env['ir.config_parameter'].sudo()
         old_before = float(ICP.get_param('gl_service_staff.event_before_hours', '2') or 2)
@@ -1458,17 +1778,24 @@ class GLServiceStaffSettings(models.TransientModel):
         if self.mail_debugging != old_debug and not can_manage_technical:
             raise AccessError(_('Nur die technische Leitung oder ein Administrator darf „Mail debugging“ ändern.'))
 
-        ICP.set_param('gl_service_staff.responsible_user_id', self.responsible_user_id.id or '')
-        ICP.set_param('gl_service_staff.technical_manager_user_id', self.technical_manager_user_id.id or '')
+        # Store explicit scalar values.  Many2one values are stored as record IDs,
+        # matching Odoo 19's native res.config.settings implementation.
+        ICP.set_param('gl_service_staff.responsible_user_id', self.responsible_user_id.id or False)
+        ICP.set_param('gl_service_staff.technical_manager_user_id', self.technical_manager_user_id.id or False)
+        # IMPORTANT: ir.config_parameter removes a key when False is passed.
+        # For this Boolean that would make a deliberately disabled setting look
+        # like "not configured" and our default ('1') would turn debugging
+        # back on when the settings page is opened again. Persist an explicit
+        # string value instead so both states survive a save/reload cycle.
         ICP.set_param('gl_service_staff.mail_debugging', '1' if self.mail_debugging else '0')
-        ICP.set_param('gl_service_staff.event_before_hours', self.event_before_hours)
-        ICP.set_param('gl_service_staff.event_after_hours', self.event_after_hours)
-        ICP.set_param('gl_service_staff.project_start_field', self.project_start_field or '')
-        ICP.set_param('gl_service_staff.project_end_field', self.project_end_field or '')
-        ICP.set_param('gl_service_staff.availability_template_id', self.availability_template_id.id or '')
-        ICP.set_param('gl_service_staff.booking_template_id', self.booking_template_id.id or '')
-        ICP.set_param('gl_service_staff.day_before_template_id', self.day_before_template_id.id or '')
-        ICP.set_param('gl_service_staff.time_change_template_id', self.time_change_template_id.id or '')
+        ICP.set_param('gl_service_staff.event_before_hours', repr(self.event_before_hours or 0.0))
+        ICP.set_param('gl_service_staff.event_after_hours', repr(self.event_after_hours or 0.0))
+        ICP.set_param('gl_service_staff.project_start_field', (self.project_start_field or 'ha_start_at').strip())
+        ICP.set_param('gl_service_staff.project_end_field', (self.project_end_field or 'ha_end_at').strip())
+        ICP.set_param('gl_service_staff.availability_template_id', self.availability_template_id.id or False)
+        ICP.set_param('gl_service_staff.booking_template_id', self.booking_template_id.id or False)
+        ICP.set_param('gl_service_staff.day_before_template_id', self.day_before_template_id.id or False)
+        ICP.set_param('gl_service_staff.time_change_template_id', self.time_change_template_id.id or False)
 
         group = self.env.ref('gl_service_staff.group_gl_service_mail_debug_manager', raise_if_not_found=False)
         if group:
@@ -1489,16 +1816,21 @@ class GLServiceStaffSettings(models.TransientModel):
             ])
             for shift in shifts:
                 self.env['gl.service.shift'].sudo()._sync_from_event(shift.event_id)
+        return True
 
+    def action_save(self):
+        self.ensure_one()
+        self.set_values()
+        # Re-open a fresh wizard record. This proves the displayed values come from
+        # persisted configuration and avoids leaving a stale transient record open.
         return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': _('Servicepersonal'),
-                'message': _('Einstellungen gespeichert.'),
-                'type': 'success',
-                'sticky': False,
-                'next': {'type': 'ir.actions.act_window_close'},
+            'type': 'ir.actions.act_window',
+            'name': _('Einstellungen'),
+            'res_model': 'gl.service.staff.settings',
+            'view_mode': 'form',
+            'target': 'current',
+            'context': {
+                'service_settings_saved': True,
             },
         }
 

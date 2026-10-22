@@ -59,7 +59,9 @@ class EventEvent(models.Model):
             return False
         if 'stage_id' not in self._fields or not self.stage_id:
             return False
-        return (self.stage_id.name or '').strip().lower() == 'angekündigt'
+        # Stage names are translated in Odoo: German users see 'Angekündigt',
+        # while OdooBot / English users may see 'Announced'.
+        return (self.stage_id.name or '').strip().casefold() in ('angekündigt', 'announced')
 
     def _gl_service_existing_shift(self):
         self.ensure_one()
@@ -96,15 +98,57 @@ class EventEvent(models.Model):
         was_relevant = {rec.id: rec._gl_service_is_relevant_event() for rec in self}
         had_shift = {rec.id: bool(rec._gl_service_existing_shift()) for rec in self}
 
+        # Snapshot BEFORE super().write(): when an already announced event is moved,
+        # we must shift even individualized employee times relative to their OLD event.
+        # Never infer an event reschedule from a phase/name/offset-only update.
+        previous = {}
+        if {'date_begin', 'date_end'} & set(vals):
+            for event in self:
+                if not was_relevant.get(event.id):
+                    continue
+                shift = event._gl_service_existing_shift()
+                if shift:
+                    previous[event.id] = {
+                        'event_begin': event.date_begin,
+                        'event_end': event.date_end or event.date_begin,
+                        'shift_id': shift.id,
+                        'shift_start': shift.start_datetime,
+                        'shift_end': shift.end_datetime,
+                        'managed': shift.managed_source_times,
+                    }
+
         res = super().write(vals)
         if watched.intersection(vals.keys()):
             Shift = self.env['gl.service.shift'].sudo()
             for event in self:
                 if not event._gl_service_is_relevant_event():
                     continue
-                shift = Shift._sync_from_event(event)
-                # Important upgrade rule: an already existing shift never gets an automatic
-                # availability request. It can only be sent manually from the event/shift.
+                old = previous.get(event.id)
+                is_reschedule = bool(
+                    old and (
+                        old['event_begin'] != event.date_begin
+                        or old['event_end'] != (event.date_end or event.date_begin)
+                    )
+                )
+                if is_reschedule and old['managed']:
+                    # Suppress the generic per-line sync for this call; otherwise it
+                    # could send a time-change mail before the full reschedule is done.
+                    shift = Shift.with_context(gl_announced_event_reschedule=True)._sync_from_event(event)
+                    if shift and shift.id == old['shift_id']:
+                        shift._gl_request_event_reschedule_confirmation(
+                            old['event_begin'], old['event_end'],
+                            old['shift_start'], old['shift_end'],
+                        )
+                else:
+                    shift = Shift._sync_from_event(event)
+                    # An explicitly decoupled shift is intentionally not overwritten.
+                    if is_reschedule and not old['managed'] and shift:
+                        shift.message_post(body=_(
+                            'Veranstaltungstermin geändert. Die Schichtzeiten sind manuell '
+                            'von der Veranstaltung entkoppelt; deshalb wurden die '
+                            'Mitarbeiterzeiten nicht automatisch geändert oder angefragt.'
+                        ))
+                # Existing shifts must not trigger blanket availability requests.
                 if shift and not was_relevant.get(event.id) and not had_shift.get(event.id):
                     shift._send_availability_request(auto=True)
         return res

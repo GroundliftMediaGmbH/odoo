@@ -32,12 +32,14 @@ class ProjectProject(models.Model):
         # Common custom-field names; exact matches are preferred before label scanning.
         candidates = {
             'start': [
+                'ha_start_at',
                 'x_studio_startzeit', 'x_startzeit', 'x_gl_startzeit',
                 'x_homeautomation_start', 'x_home_automation_start',
                 'x_gl_homeautomation_start', 'automation_start_datetime',
                 'homeautomation_start_datetime', 'start_datetime',
             ],
             'end': [
+                'ha_end_at',
                 'x_studio_endzeit', 'x_endzeit', 'x_gl_endzeit',
                 'x_homeautomation_end', 'x_home_automation_end',
                 'x_gl_homeautomation_end', 'automation_end_datetime',
