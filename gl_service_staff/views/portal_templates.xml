@@ -2,6 +2,23 @@
 <odoo>
     <template id="portal_service_staff_home" name="Servicepersonal Portal">
         <t t-call="website.layout">
+            <style type="text/css">
+                /* Employee portal only: unmistakable cards with theme-compatible colors. */
+                #gl_service_shift_list .gl-service-shift-card {
+                    border: 1px solid rgba(130, 130, 130, .55) !important;
+                    border-left: 5px solid #e66a35 !important;
+                    border-radius: 14px;
+                    box-shadow: 0 .5rem 1.3rem rgba(0, 0, 0, .12) !important;
+                    overflow: hidden;
+                }
+                #gl_service_shift_list .gl-service-coworkers {
+                    border-top: 1px solid rgba(130, 130, 130, .45);
+                }
+                .gl-service-calendar-footer {
+                    border-top: 1px solid rgba(130, 130, 130, .45);
+                }
+                .gl-service-calendar-footer summary { cursor: pointer; }
+            </style>
             <div id="wrap" class="oe_structure">
                 <section class="container py-5">
                     <div class="row justify-content-center">
@@ -41,23 +58,14 @@
                                     <a class="btn btn-outline-secondary" href="/servicepersonal/logout">Abmelden</a>
                                 </div>
 
-                                <div class="card shadow-sm border-0 mb-4" t-if="calendar_url">
-                                    <div class="card-body p-4">
-                                        <h3 class="h5 mb-2">Meine Dienste im eigenen Kalender</h3>
-                                        <p class="text-muted mb-2">Diesen privaten Kalender-Link einmal als <strong>Kalenderabonnement (per URL)</strong> in Google Kalender, Outlook oder Apple Kalender hinzufügen. Fest gebuchte Dienste und Terminänderungen werden beim nächsten Kalenderabruf automatisch aktualisiert.</p>
-                                        <input class="form-control" type="text" readonly="readonly" t-att-value="calendar_url" aria-label="Privater iCal-Abonnementlink"/>
-                                        <small class="text-muted d-block mt-2">Wichtig: Nur ein <strong>Abo per URL</strong> aktualisiert sich dauerhaft. Eine einmal heruntergeladene ICS-Datei ist nur ein Schnappschuss. Bitte den persönlichen Link nicht weitergeben. Wie oft aktualisiert wird, bestimmt der Kalenderanbieter (Google ggf. mit Verzögerung).</small>
-                                    </div>
-                                </div>
-
                                 <t t-if="not lines">
                                     <div class="alert alert-info">Aktuell sind keine zukünftigen Anfragen oder Buchungen für dich vorhanden.</div>
                                 </t>
 
-                                <div class="row g-3">
+                                <div id="gl_service_shift_list" class="row g-4">
                                     <t t-foreach="lines" t-as="line">
                                         <div class="col-12">
-                                            <div class="card shadow-sm border-0">
+                                            <div class="card gl-service-shift-card shadow-sm">
                                                 <div class="card-body p-4">
                                                     <div class="d-flex flex-wrap justify-content-between gap-2">
                                                         <div>
@@ -84,19 +92,6 @@
                                                         </div>
                                                     </div>
 
-                                                    <div class="mt-3 border-top pt-3">
-                                                        <div class="fw-semibold mb-1">Wer ist mit mir eingeteilt?</div>
-                                                        <t t-if="coworkers_by_line.get(line.id)">
-                                                            <ul class="mb-0 ps-3">
-                                                                <t t-foreach="coworkers_by_line[line.id]" t-as="coworker">
-                                                                    <li><t t-out="coworker['name']"/>
-                                                                        <span class="text-muted small" t-if="coworker['start']">(<t t-out="coworker['start']"/> bis <t t-out="coworker['end']"/>)</span>
-                                                                    </li>
-                                                                </t>
-                                                            </ul>
-                                                        </t>
-                                                        <t t-else=""><span class="text-muted small">Bisher ist noch niemand anderes fest für diese Schicht eingeteilt.</span></t>
-                                                    </div>
                                                     <t t-if="line.state == 'not_selected'">
                                                         <div class="alert alert-secondary mt-3 mb-0">Danke für deine Verfügbarkeit! Diese Schicht ist inzwischen vollständig besetzt. Du wurdest für diesen Termin nicht eingeplant.</div>
                                                     </t>
@@ -121,10 +116,40 @@
                                                             <a class="btn btn-outline-danger" t-att-href="line.decline_url">Geänderte Zeit passt nicht</a>
                                                         </div>
                                                     </t>
+
+                                                    <!-- Keep colleague list as the last section of each event/project card. -->
+                                                    <div class="gl-service-coworkers mt-4 pt-3">
+                                                        <div class="fw-semibold mb-2">Wer ist mit mir eingeteilt?</div>
+                                                        <t t-if="coworkers_by_line.get(line.id)">
+                                                            <ul class="mb-0 ps-3">
+                                                                <t t-foreach="coworkers_by_line[line.id]" t-as="coworker">
+                                                                    <li>
+                                                                        <t t-out="coworker['name']"/>
+                                                                        <span class="text-muted small" t-if="coworker['start']">
+                                                                            (<t t-out="coworker['start']"/><t t-if="coworker['end']">–<t t-out="coworker['end']"/></t> Uhr)
+                                                                        </span>
+                                                                    </li>
+                                                                </t>
+                                                            </ul>
+                                                        </t>
+                                                        <t t-else=""><span class="text-muted small">Bisher ist noch niemand anderes fest für diese Schicht eingeteilt.</span></t>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </t>
+                                </div>
+
+                                <!-- A rarely-used iCal subscription link: after every shift card. -->
+                                <div class="gl-service-calendar-footer mt-5 pt-4" t-if="calendar_url">
+                                    <details>
+                                        <summary class="fw-semibold">Kalender abonnieren (iCal / Google / Outlook)</summary>
+                                        <div class="mt-3">
+                                            <p class="text-muted mb-2">Diesen privaten Link einmal als <strong>Kalenderabonnement (per URL)</strong> in Google Kalender, Outlook oder Apple Kalender hinzufügen. Fest gebuchte Dienste und Terminänderungen werden beim nächsten Kalenderabruf automatisch aktualisiert.</p>
+                                            <input class="form-control" type="text" readonly="readonly" t-att-value="calendar_url" aria-label="Privater iCal-Abonnementlink"/>
+                                            <small class="text-muted d-block mt-2">Nur ein <strong>Abo per URL</strong> aktualisiert sich dauerhaft. Eine einmal heruntergeladene ICS-Datei ist nur ein Schnappschuss. Bitte den persönlichen Link nicht weitergeben. Wie oft aktualisiert wird, bestimmt der Kalenderanbieter (Google ggf. mit Verzögerung).</small>
+                                        </div>
+                                    </details>
                                 </div>
                             </t>
                         </div>

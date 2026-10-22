@@ -7,6 +7,17 @@ from odoo.http import request
 from ..calendar_feed import build_calendar_feed
 
 
+def _service_portal_clock_time(value, record):
+    """Return only HH:MM (Europe/Berlin) for a coworker's shift time."""
+    if not value:
+        return ''
+    localized = fields.Datetime.context_timestamp(
+        record.with_context(tz='Europe/Berlin'),
+        fields.Datetime.to_datetime(value),
+    )
+    return localized.strftime('%H:%M')
+
+
 def _service_portal_line_sort_key(line):
     """Sort by the date/time the employee *actually sees* in the portal.
 
@@ -88,8 +99,8 @@ class GLServiceStaffPortal(http.Controller):
                     seen_employees.add(employee.id)
                     people.append({
                         'name': other.member_id.name,
-                        'start': other._format_datetime_for_mail(other.planned_start_datetime) if other.planned_start_datetime else '',
-                        'end': other._format_datetime_for_mail(other.planned_end_datetime) if other.planned_end_datetime else '',
+                        'start': _service_portal_clock_time(other.planned_start_datetime, other),
+                        'end': _service_portal_clock_time(other.planned_end_datetime, other),
                     })
                 coworkers_by_line[line.id] = people
         return request.render('gl_service_staff.portal_service_staff_home', {
