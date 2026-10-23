@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="one_page_checkout" name="Groundlift One-Page Checkout">
+        <t t-call="website.layout">
+            <t t-set="pageName" t-value="'groundlift_event_checkout'"/>
+            <div id="wrap" class="oe_structure gl_checkout_page" data-gl-groundlift-checkout="1">
+                <section class="container py-5">
+                    <div class="row g-4 justify-content-center">
+                        <div class="col-lg-7 gl_checkout_main">
+                            <h1 class="h3 mb-4">Tickets kaufen</h1>
+                            <div id="gl_customer_error" class="alert alert-danger d-none" role="alert"/>
+                            <div class="card mb-4">
+                                <div class="card-body p-4">
+                                    <h2 class="h5 mb-3">Persönliche Daten</h2>
+                                    <form id="gl_customer_form" novalidate="novalidate">
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label" for="gl_first_name">Vorname *</label>
+                                                <input id="gl_first_name" name="first_name" type="text" class="form-control" required="required"
+                                                       t-att-value="order.meta_first_name or (gl_partner.name.split(' ')[0] if gl_partner and gl_partner.name else '')"/>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label" for="gl_last_name">Nachname *</label>
+                                                <input id="gl_last_name" name="last_name" type="text" class="form-control" required="required"
+                                                       t-att-value="order.meta_last_name or (' '.join(gl_partner.name.split(' ')[1:]) if gl_partner and gl_partner.name and len(gl_partner.name.split(' ')) &gt; 1 else '')"/>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label" for="gl_email">E-Mail *</label>
+                                                <input id="gl_email" name="email" type="email" class="form-control" required="required" t-att-value="gl_partner.email if gl_partner else ''"/>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label" for="gl_phone">Telefon *</label>
+                                                <input id="gl_phone" name="phone" type="tel" class="form-control" required="required" t-att-value="(gl_partner.phone or gl_partner.mobile) if gl_partner else ''"/>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label" for="gl_zip">PLZ *</label>
+                                                <input id="gl_zip" name="zip" type="text" class="form-control" required="required" inputmode="numeric" t-att-value="gl_partner.zip if gl_partner else ''"/>
+                                            </div>
+                                            <div class="col-md-8">
+                                                <label class="form-label" for="gl_city">Ort *</label>
+                                                <input id="gl_city" name="city" type="text" class="form-control" required="required" t-att-value="gl_partner.city if gl_partner else ''"/>
+                                            </div>
+                                            <div class="col-12" t-if="gl_has_newsletter_optin">
+                                                <div class="form-check mt-2">
+                                                    <input class="form-check-input"
+                                                           type="checkbox"
+                                                           id="gl_cr_newsletter_optin_checkout"
+                                                           name="gl_cr_newsletter_optin"
+                                                           value="1"
+                                                           t-att-checked="'checked' if gl_newsletter_optin else None"/>
+                                                    <label class="form-check-label" for="gl_cr_newsletter_optin_checkout">
+                                                        Ich möchte auch über andere Veranstaltungen informiert werden - Friendly Newsletter: Nervt nicht, informiert!
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="form-text mt-3">Die Daten werden für Bestellung, Ticketabwicklung und – bei erteilter Cookie-Einwilligung – für die Nachvollziebarkeit des Kaufvorgangs verwendet.</div>
+                                    </form>
+                                </div>
+                            </div>
+                            <div class="card gl_payment_block">
+                                <div class="card-body p-4">
+                                    <h2 class="h5 mb-3">Zahlungsart</h2>
+                                    <t t-if="order.amount_total">
+                                        <t t-call="payment.form"/>
+                                    </t>
+                                    <t t-else="">
+                                        <form id="gl_free_confirm_form" action="/groundlift/checkout/free_confirm" method="post">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <button type="submit" class="btn btn-primary w-100" id="gl_free_confirm_button">Kostenlos anmelden</button>
+                                        </form>
+                                    </t>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4 gl_cart_column">
+                            <div class="card sticky-lg-top gl_cart_block mb-4 mb-lg-0" style="top: 1rem">
+                                <div class="card-body p-4">
+                                    <h2 class="h5 mb-3">Deine Bestellung</h2>
+                                    <t t-foreach="gl_order_lines" t-as="line">
+                                        <t t-set="qty_label" t-value="'{:g}'.format(line.product_uom_qty)"/>
+                                        <div class="d-flex justify-content-between gap-3 py-3 border-bottom">
+                                            <div class="flex-grow-1">
+                                                <div class="fw-semibold" t-out="line.event_id.name or line.name"/>
+                                                <div class="small text-muted">
+                                                    <span t-out="qty_label"/> x <span t-out="line.event_ticket_id.name or line.product_id.display_name or line.name"/>
+                                                </div>
+                                                <div t-if="line.event_ticket_id" class="gl_line_actions mt-2 d-flex align-items-center gap-2 flex-wrap">
+                                                    <form action="/groundlift/checkout/line" method="post" class="m-0">
+                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                        <input type="hidden" name="line_id" t-att-value="line.id"/>
+                                                        <input type="hidden" name="action" value="minus"/>
+                                                        <button type="submit" class="btn btn-outline-secondary btn-sm" aria-label="Anzahl verringern">
+                                                            <i class="fa fa-minus"/>
+                                                        </button>
+                                                    </form>
+                                                    <span class="gl_line_qty_badge badge rounded-pill text-bg-light" t-out="qty_label"/>
+                                                    <form action="/groundlift/checkout/line" method="post" class="m-0">
+                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                        <input type="hidden" name="line_id" t-att-value="line.id"/>
+                                                        <input type="hidden" name="action" value="plus"/>
+                                                        <button type="submit" class="btn btn-outline-secondary btn-sm" aria-label="Anzahl erhöhen">
+                                                            <i class="fa fa-plus"/>
+                                                        </button>
+                                                    </form>
+                                                    <form action="/groundlift/checkout/line" method="post" class="m-0">
+                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                        <input type="hidden" name="line_id" t-att-value="line.id"/>
+                                                        <input type="hidden" name="action" value="remove"/>
+                                                        <button type="submit" class="btn btn-outline-danger btn-sm" aria-label="Ticket entfernen">
+                                                            <i class="fa fa-trash"/>
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                            <span class="text-nowrap fw-semibold" t-out="line.price_total" t-options="{'widget': 'monetary', 'display_currency': order.currency_id}"/>
+                                        </div>
+                                    </t>
+                                    <t t-if="gl_reward_lines">
+                                        <t t-foreach="gl_reward_lines" t-as="line">
+                                            <div class="d-flex justify-content-between gap-3 py-2 border-bottom small">
+                                                <span t-out="line.name"/>
+                                                <span class="text-nowrap" t-out="line.price_total" t-options="{'widget': 'monetary', 'display_currency': order.currency_id}"/>
+                                            </div>
+                                        </t>
+                                    </t>
+                                    <div class="gl_coupon_box pt-3">
+                                        <label class="form-label small fw-semibold mb-2" for="gl_coupon_code">Gutscheincode</label>
+                                        <form action="/groundlift/checkout/coupon" method="post" class="d-flex gap-2">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <input id="gl_coupon_code" name="coupon_code" type="text" class="form-control" placeholder="Code eingeben"/>
+                                            <button type="submit" class="btn btn-outline-primary text-nowrap">Einlösen</button>
+                                        </form>
+                                    </div>
+                                    <div class="d-flex justify-content-between fw-bold fs-5 pt-3 border-top mt-3">
+                                        <span>Gesamt</span>
+                                        <span t-out="order.amount_total" t-options="{'widget': 'monetary', 'display_currency': order.currency_id}"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </t>
+    </template>
+</odoo>

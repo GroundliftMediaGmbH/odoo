@@ -34,6 +34,21 @@ Die folgenden Werte bitte in **Einstellungen → Technisch → Parameter → Sys
 - `groundlift_event_sync.announced_stage_aliases` = `Announced|Angekündigt`
 - `groundlift_event_sync.billing_stage_aliases` = `Abrechnung|Billing`
 
+
+## Schutz vor Überschreiben durch Staging/Development
+
+Ab Version `19.0.1.0.3` wird der SFTP-Export auf Odoo.sh standardmäßig nur ausgeführt,
+wenn die Umgebungsvariable `ODOO_STAGE` den Wert `production` hat. Dadurch können
+Staging- oder Development-Datenbanken, die als Kopie der Production dieselben
+Systemparameter und SFTP-Zielpfade enthalten, die Live-Dateien auf Hetzner nicht mehr
+überschreiben.
+
+Nur für bewusst getrennte Testziele kann optional gesetzt werden:
+
+- `groundlift_event_sync.allow_non_production` = `True`
+
+Dabei müssen zwingend andere `remote_snippet_path`- und `remote_json_path`-Werte verwendet werden.
+
 ## Python-Abhängigkeit
 
 Im Root eures Custom-Repositories braucht ihr zusätzlich eine `requirements.txt` mit:
@@ -59,3 +74,16 @@ Das Modul ergänzt jede Veranstaltung um einen Tab **Groundlift Website** mit:
 
 Nicht mehr per JavaScript im Browser nachladen, sondern auf Hetzner **serverseitig** den exportierten HTML-Snippet in die Seite einbinden. Dafür gibt es in diesem Paket eine vorbereitete `public-events.php`.
 
+
+
+## Version 19.0.1.0.4 – feste Exportsprache
+
+Odoo 19 speichert den Veranstaltungstitel `event.event.name` als übersetzbares Feld.
+Der manuelle Button läuft in der Sprache des angemeldeten Benutzers, ein Cronjob kann
+hingegen in einer anderen Benutzersprache laufen. Dadurch konnte der manuelle Export
+den neuen deutschen Titel schreiben und der Fünf-Minuten-Cron anschließend eine alte
+Übersetzung wiederherstellen.
+
+Alle manuellen und automatischen Exporte verwenden nun konsequent `de_DE`.
+Optional kann die Sprache über den Systemparameter
+`groundlift_event_sync.export_lang` geändert werden.

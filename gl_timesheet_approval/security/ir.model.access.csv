@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_gl_timesheet_month_manager,gl.timesheet.month manager,model_gl_timesheet_month,gl_timesheet_approval.group_gl_timesheet_manager,1,1,1,1
+access_gl_timesheet_employee_month_manager,gl.timesheet.employee.month manager,model_gl_timesheet_employee_month,gl_timesheet_approval.group_gl_timesheet_manager,1,1,1,1
+access_gl_timesheet_day_manager,gl.timesheet.day manager,model_gl_timesheet_day,gl_timesheet_approval.group_gl_timesheet_manager,1,1,1,1
+access_gl_timesheet_reviewer_manager,gl.timesheet.reviewer manager,model_gl_timesheet_reviewer,gl_timesheet_approval.group_gl_timesheet_manager,1,1,1,1
+access_gl_timesheet_review_log_manager,gl.timesheet.review.log manager,model_gl_timesheet_review_log,gl_timesheet_approval.group_gl_timesheet_manager,1,0,1,0

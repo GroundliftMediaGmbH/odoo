@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="product_template_form_gross_price" model="ir.ui.view">
+        <field name="name">product.template.form.gross.price</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="account.product_template_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='list_price_uom']" position="after">
+                <label for="gross_list_price" string="Bruttopreis"/>
+                <div name="gross_list_price_uom" class="d-flex align-items-center gap-2">
+                    <field
+                        name="gross_list_price"
+                        class="oe_inline"
+                        widget="monetary"
+                        options="{'currency_field': 'currency_id', 'field_digits': True}"
+                    />
+                    <span
+                        groups="uom.group_uom"
+                        invisible="type == 'combo'"
+                    >
+                        pro
+                        <field
+                            name="uom_id"
+                            widget="many2one_uom"
+                            class="oe_inline"
+                            style="max-width:136px"
+                            options="{'no_quick_create': True}"
+                        />
+                    </span>
+                    <button
+                        name="action_gl_reapply_gross_price"
+                        type="object"
+                        string="Netto exakt neu berechnen"
+                        class="btn btn-secondary btn-sm"
+                        title="Für Produkte aus älteren Modulversionen: den aktuell sichtbaren Bruttopreis erneut ohne Cent-Rundung in einen exakten Nettopreis umrechnen."
+                    />
+                    <field name="gl_gross_price_managed" invisible="1"/>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="product_template_list_gross_price" model="ir.ui.view">
+        <field name="name">product.template.list.gross.price</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="account.product_template_list_view_sellable_inherit"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='list_price']" position="after">
+                <field
+                    name="gross_list_price"
+                    string="Bruttopreis"
+                    widget="monetary"
+                    options="{'currency_field': 'currency_id'}"
+                    optional="hide"
+                />
+                <field name="gl_gross_price_managed" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

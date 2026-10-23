@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_artist_portal" model="ir.ui.view">
+        <field name="name">res.config.settings.form.gl.artist.portal</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app name="gl_event_artist_portal" string="GROUNDLIFT Künstlerportal" data-string="GROUNDLIFT Künstlerportal">
+                    <block title="Globale Vorlagen und Standardwerte">
+                        <setting id="gl_artist_default_introduction" string="Standard-E-Mail-Text"
+                                 help="Vorlage für die Einladung beim ersten Wechsel nach Gebucht. Bestehende Veranstaltungstexte bleiben unverändert.">
+                            <field name="gl_artist_default_introduction" widget="text"
+                                   placeholder="{event} und {portal_url} verwenden"/>
+                            <div class="text-muted">Platzhalter: {event} = Veranstaltungsname; {portal_url} = persönlicher Zugangslink.</div>
+                        </setting>
+                        <setting id="gl_artist_tech_confirmation_text" string="Bestätigungsmail – Technical Rider"
+                                 help="Wird bei Bestätigung im Veranstaltungsbackend an den Vertragskontakt verschickt (in Staging nur an Julius).">
+                            <field name="gl_artist_tech_confirmation_text" widget="text"/>
+                            <div class="text-muted">Platzhalter: {event}, {rider}, {portal_url}.</div>
+                        </setting>
+                        <setting id="gl_artist_hospitality_confirmation_text" string="Bestätigungsmail – Hospitality Rider"
+                                 help="Wird bei Bestätigung im Veranstaltungsbackend an den Vertragskontakt verschickt (in Staging nur an Julius).">
+                            <field name="gl_artist_hospitality_confirmation_text" widget="text"/>
+                            <div class="text-muted">Platzhalter: {event}, {rider}, {portal_url}.</div>
+                        </setting>
+                        <setting id="gl_artist_default_technical_user_id" string="Standard – Technische Leitung"
+                                 help="Wird bei neuen Veranstaltungen in das vorhandene Studio-Feld Techn. Leitung übernommen.">
+                            <field name="gl_artist_default_technical_user_id" options="{'no_create': True}"/>
+                        </setting>
+                        <setting id="gl_artist_default_service_user_id" string="Standard – Organisation Service"
+                                 help="Wird bei neuen Veranstaltungen in das vorhandene Studio-Feld Organisation Service übernommen.">
+                            <field name="gl_artist_default_service_user_id" options="{'no_create': True}"/>
+                        </setting>
+                    </block>
+                    <block title="Videos im Künstlerportal (Angebot, Gebucht, Angekündigt)">
+                        <setting id="gl_artist_video_pitch_headline" string="Videoangebot – Slogan"
+                                 help="Überschrift des Videoangebots, global für alle Veranstaltungen. Änderungen werden sofort im Künstlerportal angezeigt.">
+                            <field name="gl_artist_video_pitch_headline" placeholder="Dein Slogan für Eventaufzeichnungen"/>
+                        </setting>
+                        <setting id="gl_artist_video_pitch_eyebrow" string="Videoangebot – Rubrik"
+                                 help="Kleine Überschrift über den vier Videos, global für alle Veranstaltungen.">
+                            <field name="gl_artist_video_pitch_eyebrow" placeholder="Live bei Groundlift"/>
+                        </setting>
+                        <setting id="gl_artist_video_1" string="Video 1" help="Vimeo-Video 1 im Portal-Abschnitt vor dem Live-Ticketstand.">
+                            <field name="gl_artist_video_1_url" placeholder="https://player.vimeo.com/video/..."/>
+                            <field name="gl_artist_video_1_title" placeholder="Titel des Videos"/>
+                        </setting>
+                        <setting id="gl_artist_video_2" string="Video 2" help="Vimeo-Video 2 im Portal-Abschnitt vor dem Live-Ticketstand.">
+                            <field name="gl_artist_video_2_url" placeholder="https://player.vimeo.com/video/..."/>
+                            <field name="gl_artist_video_2_title" placeholder="Titel des Videos"/>
+                        </setting>
+                        <setting id="gl_artist_video_3" string="Video 3" help="Vimeo-Video 3 im Portal-Abschnitt vor dem Live-Ticketstand.">
+                            <field name="gl_artist_video_3_url" placeholder="https://player.vimeo.com/video/..."/>
+                            <field name="gl_artist_video_3_title" placeholder="Titel des Videos"/>
+                        </setting>
+                        <setting id="gl_artist_video_4" string="Video 4" help="Vimeo-Video 4 im Portal-Abschnitt vor dem Live-Ticketstand.">
+                            <field name="gl_artist_video_4_url" placeholder="https://player.vimeo.com/video/..."/>
+                            <field name="gl_artist_video_4_title" placeholder="Titel des Videos"/>
+                        </setting>
+                    </block>
+
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>

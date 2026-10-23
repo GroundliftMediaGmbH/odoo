@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_meta_pixel_root" name="Meta Pixel" sequence="55" web_icon="meta_pixel,static/description/icon.png" groups="event.group_event_user"/>
+    <menuitem id="menu_meta_pixel_reporting" name="Reporting" parent="menu_meta_pixel_root" action="action_meta_pixel_reporting" sequence="10"/>
+    <menuitem id="menu_meta_pixel_config" name="Pixel-Konfigurationen" parent="menu_meta_pixel_root" action="action_meta_pixel_config" sequence="20" groups="event.group_event_manager"/>
+</odoo>

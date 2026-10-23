@@ -41,6 +41,10 @@
                     </group>
                     <notebook>
                         <page string="Kanäle &amp; Freigabe">
+                            <field name="story_native_supported" invisible="1"/>
+                            <div class="alert alert-warning" role="alert" invisible="story_native_supported or (weekly_publish_format != 'story' and daily_publish_format != 'story')">
+                                Story ausgewählt: Die installierte Social-App stellt keinen erkannten nativen Story-Veröffentlichungsweg bereit. Neu erzeugte Storys bleiben Entwürfe und werden nicht als reguläre Posts versendet.
+                            </div>
                             <group>
                                 <group string="Social Kanäle">
                                     <field name="social_account_ids" widget="many2many_tags"/>
@@ -60,6 +64,7 @@
                                 </group>
                                 <group string="Wochenpost Zeitpunkt">
                                     <field name="create_weekly_post"/>
+                                    <field name="weekly_publish_format"/>
                                     <field name="weekly_post_hour"/>
                                     <field name="weekly_post_minute"/>
                                 </group>
@@ -78,6 +83,7 @@
                             <group>
                                 <group string="Zeitplanung">
                                     <field name="create_daily_posts"/>
+                                    <field name="daily_publish_format"/>
                                     <field name="daily_first_hour"/>
                                     <field name="daily_first_minute"/>
                                     <field name="daily_interval_minutes"/>

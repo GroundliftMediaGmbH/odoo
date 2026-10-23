@@ -1,0 +1,199 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<odoo>
+    <record id="view_showcase_form" model="ir.ui.view">
+        <field name="name">gl.project.showcase.form</field>
+        <field name="model">gl.project.showcase</field>
+        <field name="arch" type="xml">
+            <form string="Groundlift Project Showcase">
+                <header>
+                    <button name="action_publish" type="object" string="Veröffentlichen" class="btn-primary" invisible="published"/>
+                    <button name="action_unpublish" type="object" string="Veröffentlichung aufheben" invisible="not published"/>
+                    <button name="action_enable_password_access" type="object" string="Mit Passwort veröffentlichen" class="btn-primary" invisible="not password_is_set or (published and visibility == 'password')" confirm="Diese Landingpage jetzt für externe Besucher mit Passwortschutz freigeben?"/>
+                    <button name="action_open_website" type="object" string="Landingpage ansehen" icon="fa-external-link"/>
+                    <button name="action_gl_refresh_video_thumbnails" type="object" string="Vimeo-Thumbnails abrufen" icon="fa-picture-o"/>
+                    <field name="published" widget="boolean_toggle"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name" placeholder="Projektergebnisse"/></h1></div>
+                    <group>
+                        <group>
+                            <field name="project_id" options="{'no_create': True}"/>
+                            <field name="website_id" options="{'no_create': True}"/>
+                            <field name="page_url" widget="url" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="visibility"/>
+                            <field name="indexable" invisible="visibility != 'public'"/>
+                            <field name="password_is_set" readonly="1"/>
+                            <div class="text-muted" colspan="2">Extern sichtbar erst, wenn „Veröffentlicht“ aktiv ist und „Zugriff“ auf „Mit Passwort“ steht. Passwort setzen allein veröffentlicht keine Entwürfe.</div>
+                            <button name="action_change_password" type="object" string="Zugangspasswort setzen / ändern" class="btn-secondary"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Inhalte" name="content">
+                            <group>
+                                <field name="subtitle"/>
+                                <field name="intro" placeholder="Projekt, Ergebnisse und Highlights kurz vorstellen..."/>
+                                <field name="closing_text" placeholder="Kontakt, nächste Schritte oder Abschluss..."/>
+                            </group>
+                        </page>
+                        <page string="Seitentexte" name="texts"><div class="alert alert-info" role="alert">Text leer = globaler Standard. Sichtbarkeit: Standard verwenden / Anzeigen / Ausblenden. Bereits bestehende Showcases bleiben zunächst unverändert sichtbar. Funktionale und rechtlich erforderliche Beschriftungen bleiben eingeblendet.</div><group string="Navigation &amp; Branding" col="2"><field name="gl_text_brand_fallback" placeholder="PROJECT SHOWCASE"/><field name="gl_visibility_brand_fallback"/><field name="gl_text_nav_results" placeholder="Ergebnisse"/><field name="gl_visibility_nav_results"/><field name="gl_text_nav_videos" placeholder="Filme"/><field name="gl_visibility_nav_videos"/><field name="gl_text_nav_documents" placeholder="Dokumente"/><field name="gl_visibility_nav_documents"/><field name="gl_text_nav_gallery" placeholder="Galerie"/><field name="gl_visibility_nav_gallery"/><field name="gl_text_hero_eyebrow" placeholder="Projektabschluss · Ergebnisse"/><field name="gl_visibility_hero_eyebrow"/></group><group string="Titelbild &amp; Ergebnis" col="2"><field name="gl_text_hero_cta" placeholder="Ergebnisse entdecken"/><field name="gl_visibility_hero_cta"/><field name="gl_text_results_index" placeholder="01 / ÜBERBLICK"/><field name="gl_visibility_results_index"/><field name="gl_text_results_title" placeholder="Das Ergebnis"/><field name="gl_visibility_results_title"/><field name="gl_text_intro_fallback" placeholder="Einblicke und freigegebene Ergebnisse aus unserem gemeinsamen Projekt."/><field name="gl_visibility_intro_fallback"/></group><group string="Videos" col="2"><field name="gl_text_videos_index" placeholder="02 / MOVING IMAGE"/><field name="gl_visibility_videos_index"/><field name="gl_text_videos_title" placeholder="Showreel &amp; Videos"/><field name="gl_visibility_videos_title"/><field name="gl_text_video_start" placeholder="Video auf Vimeo laden"/><field name="gl_visibility_video_start"/><field name="gl_text_video_privacy" placeholder="Beim Abspielen werden Daten an Vimeo übertragen."/><field name="gl_visibility_video_privacy"/><field name="gl_text_video_files" placeholder="Zugehörige Dateien"/><field name="gl_visibility_video_files"/></group><group string="Dokumente" col="2"><field name="gl_text_documents_index" placeholder="03 / ASSETS &amp; DOCUMENTS"/><field name="gl_visibility_documents_index"/><field name="gl_text_documents_title" placeholder="Dokumente"/><field name="gl_visibility_documents_title"/><field name="gl_text_document_view_only" placeholder="Nur Ansicht · kein Download-Button"/><field name="gl_visibility_document_view_only"/><field name="gl_text_document_preview" placeholder="Vorschau ansehen"/><field name="gl_text_document_download" placeholder="Herunterladen"/><field name="gl_text_document_new_window" placeholder="In neuem Fenster öffnen"/><field name="gl_text_document_fullscreen" placeholder="Vollbild"/><field name="gl_text_document_previous" placeholder="Vorherige Seite"/><field name="gl_text_document_next" placeholder="Nächste Seite"/><field name="gl_text_document_zoom_in" placeholder="Vergrößern"/><field name="gl_text_document_zoom_out" placeholder="Verkleinern"/><field name="gl_text_document_print_blocked" placeholder="Drucken ist für dieses Dokument nicht freigegeben."/><field name="gl_text_gallery_index" placeholder="04 / STILL IMAGE"/><field name="gl_visibility_gallery_index"/></group><group string="Galerie &amp; Footer" col="2"><field name="gl_text_gallery_title" placeholder="Galerie"/><field name="gl_visibility_gallery_title"/><field name="gl_text_gallery_untagged" placeholder="Weitere Fotos"/><field name="gl_visibility_gallery_untagged"/><field name="gl_text_thanks" placeholder="VIELEN DANK"/><field name="gl_visibility_thanks"/><field name="gl_text_imprint" placeholder="Impressum"/><field name="gl_text_privacy" placeholder="Datenschutz"/><field name="gl_text_skip_link" placeholder="Zum Inhalt springen"/><field name="gl_text_lightbox_close" placeholder="Schließen"/></group><group string="Passwortschutz" col="2"><field name="gl_text_password_eyebrow" placeholder="GESCHÜTZTER PROJEKTBEREICH"/><field name="gl_visibility_password_eyebrow"/><field name="gl_text_password_title" placeholder="Zugang zum Project Showcase"/><field name="gl_visibility_password_title"/><field name="gl_text_password_help" placeholder="Für diese Ergebnis-Landingpage benötigst du ein Zugangspasswort."/><field name="gl_visibility_password_help"/><field name="gl_text_password_label" placeholder="Passwort"/><field name="gl_text_password_submit" placeholder="Showcase öffnen"/><field name="gl_text_password_invalid" placeholder="Das Passwort ist nicht korrekt."/><field name="gl_text_password_limited" placeholder="Zu viele Versuche. Bitte später erneut versuchen."/></group><group string="Weitere Standardtexte" col="2"><field name="gl_text_page_title_suffix" placeholder="Project Showcase"/><field name="gl_text_password_browser_title" placeholder="Geschütztes Project Showcase"/><field name="gl_text_closing_body" placeholder="Vielen Dank für die Zusammenarbeit."/><field name="gl_visibility_closing_body"/><field name="gl_text_aria_navigation" placeholder="Seitennavigation"/><field name="gl_text_aria_pdf_preview" placeholder="PDF-Vorschau"/><field name="gl_text_aria_lightbox" placeholder="Bild in Großansicht"/><field name="gl_text_aria_logo" placeholder="Logo"/></group></page><page string="Kunden-CI" name="branding">
+                            <group>
+                                <group>
+                                    <field name="client_label"/>
+                                    <field name="font_choice"/>
+                                    <field name="custom_font_filename" invisible="1"/>
+                                    <field name="custom_font" filename="custom_font_filename" invisible="font_choice != 'custom'"/>
+                                    <field name="color_background"/>
+                                    <field name="color_text"/>
+                                    <field name="color_accent"/>
+                                    <separator string="Videokacheln (optional)"/>
+                                    <div class="text-muted" colspan="2">Farbwerte als #RRGGBB eingeben. Leer lassen für das bisherige Design.</div>
+                                    <field name="color_video_card" placeholder="#261845"/>
+                                    <field name="color_video_text" placeholder="#FFFFFF"/>
+                                    <field name="color_video_border" placeholder="#52416F"/>
+                                    <separator string="Dokumentenkacheln (optional)"/>
+                                    <field name="color_document_card" placeholder="#261845"/>
+                                    <field name="color_document_text" placeholder="#FFFFFF"/>
+                                    <field name="color_document_border" placeholder="#52416F"/>
+                                    <field name="legal_notice_url" placeholder="https://.../impressum"/>
+                                    <field name="privacy_url" placeholder="https://.../datenschutz"/>
+                                </group>
+                                <group>
+                                    <field name="logo" widget="image"/>
+                                    <field name="header_image" widget="image"/>
+                                    <separator string="Passwort-/Login-Seite"/>
+                                    <field name="password_logo" widget="image" options="{'size': [320, 180]}"/>
+                                    <div class="text-muted" colspan="2">Optionales Logo oberhalb des Passwortfeldes. Das Bild ist bereits vor dem Login öffentlich sichtbar. Leer lassen, um kein Login-Logo anzuzeigen.</div>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Vimeo-Showreel &amp; Videos" name="videos">
+                            <field name="video_ids" mode="list,form" context="{'default_showcase_id': id}">
+                                <list default_order="sequence,id">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="show_title" optional="show"/><field name="vimeo_url"/>
+                                    <field name="description" optional="show"/>
+                                <field name="document_count" string="Dateien" readonly="1" optional="show"/></list>
+                                <form string="Vimeo-Video &amp; zugehörige Dateien" class="gl-showcase-video-editor">
+                                    <sheet>
+                                        <group col="2">
+                                            <field name="showcase_id" invisible="1"/>
+                                            <field name="name"/>
+                                            <field name="show_title"/><field name="vimeo_url"/>
+                                            <field name="description" colspan="2"/>
+                                        </group>
+                                        <group string="Vorschaubild für dieses Video" col="2">
+                                            <group>
+                                                <field name="thumbnail_custom" widget="image" options="{'size': [480, 270]}"/>
+                                                <div class="text-muted">Optional: eigenes Bild bevorzugen (auch wenn Vimeo kein Thumbnail liefert).</div>
+                                            </group>
+                                            <group>
+                                                <field name="thumbnail_vimeo" widget="image" readonly="1" options="{'size': [480, 270]}"/>
+                                                <field name="thumbnail_checked_at" readonly="1"/><field name="thumbnail_fetch_note" readonly="1"/>
+                                                <button name="action_gl_refresh_thumbnail" type="object" string="Vimeo-Thumbnail erneut abrufen" class="btn-secondary" icon="fa-refresh"/>
+                                            </group>
+                                        </group>
+                                        <separator string="Dateien zu diesem Video"/>
+                                        <button name="action_gl_upload_video_documents" type="object" string="Mehrere Dateien zu diesem Video hochladen" class="btn-secondary" icon="fa-upload"/><div class="text-muted mb-2">Diese Dokumente erscheinen direkt unter diesem Video auf der Landingpage.</div>
+                                        <field name="document_ids" nolabel="1" mode="list,form" context="{'default_showcase_id': showcase_id}">
+                                            <list editable="bottom" default_order="sequence,id">
+                                                <field name="sequence" widget="handle"/>
+                                                <field name="name" string="Dokumenttitel"/>
+                                                <field name="show_title" optional="show"/><field name="filename" invisible="1"/>
+                                                <field name="data" filename="filename" string="Datei"/>
+                                                <field name="tag_ids" widget="many2many_tags" optional="show"/><field name="allow_download" string="Download"/>
+                                                <field name="has_preview" string="Vorschau" readonly="1" optional="show"/>
+                                            </list>
+                                            <form string="Datei zum Video">
+                                                <sheet>
+                                                    <group>
+                                                        <field name="showcase_id" invisible="1"/>
+                                                        <field name="video_id" invisible="1"/>
+                                                        <field name="name"/>
+                                                        <field name="show_title"/><field name="description"/>
+                                                        <field name="tag_ids" widget="many2many_tags" domain="[('showcase_id', '=', showcase_id)]" context="{'default_showcase_id': showcase_id}"/><field name="filename" invisible="1"/>
+                                                        <field name="data" filename="filename"/>
+                                                        <field name="allow_download"/>
+                                                        <field name="has_preview" readonly="1"/>
+                                                    </group>
+                                                </sheet>
+                                            </form>
+                                        </field>
+                                    </sheet>
+                                </form></field>
+                        </page>
+                        <page string="Dokumente" name="documents">
+                            <div class="alert alert-info" role="alert">Dateien lassen sich einem Vimeo-Video zuordnen. Zugeordnete Dokumente erscheinen direkt unter dem jeweiligen Video; andere in der Dokumenten-Sektion.</div>
+                            <group col="2"><button name="action_gl_upload_documents" type="object" string="Mehrere Dokumente hochladen" class="btn-primary" icon="fa-upload"/><button name="action_gl_edit_documents" type="object" string="Dokumente gemeinsam bearbeiten" class="btn-secondary" icon="fa-pencil"/></group><field name="document_ids" mode="list,form" context="{'default_showcase_id': id}">
+                                <list editable="bottom" default_order="sequence,id">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="show_title" optional="show"/><field name="filename"/>
+                                    <field name="data" filename="filename"/>
+                                    <field name="tag_ids" widget="many2many_tags" domain="[('showcase_id', '=', parent.id)]" context="{'default_showcase_id': parent.id}" optional="show"/><field name="allow_download"/>
+                                    <field name="video_id" domain="[('showcase_id', '=', parent.id)]" optional="show"/><field name="has_preview" readonly="1" optional="show"/>
+                                </list>
+                                <form><group><field name="name"/><field name="show_title"/><field name="description"/>
+                                    <field name="tag_ids" widget="many2many_tags" domain="[('showcase_id', '=', parent.id)]" context="{'default_showcase_id': parent.id}"/><field name="video_id" domain="[('showcase_id', '=', parent.id)]"/><field name="filename" invisible="1"/><field name="data" filename="filename"/>
+                                    <field name="allow_download"/><field name="has_preview" readonly="1"/>
+                                </group></form>
+                            </field>
+                        </page>
+                        <page string="Medien-Tags / Galerie-Überschriften" name="gallery_tags"><div class="alert alert-info" role="alert">Tags hier zentral anlegen (z. B. Aufbau, Live-Show, Behind the Scenes). Diese Tags können mehreren Fotos und Dokumenten gemeinsam zugeordnet werden. Bei Fotos bilden sie die Galerie-Überschriften.</div><field name="photo_tag_ids" mode="list,form" context="{'default_showcase_id': id}"><list editable="bottom" default_order="sequence,name,id"><field name="sequence" widget="handle"/><field name="name"/><field name="show_heading"/></list><form><group><field name="name"/><field name="show_heading"/></group></form></field></page><page string="Fotogalerie" name="photos">
+                            <div class="alert alert-info" role="alert">Tags bilden die Galerie-Überschriften und können auch für Dokumente verwendet werden. Bilder können mehrere Tags haben. Eine Bildbeschreibung ist optional. Mit „Bildtitel unter dem Foto anzeigen“ kann jede Bildunterschrift unabhängig vom internen Titel ausgeblendet werden.</div><group col="2"><button name="action_gl_upload_photos" type="object" string="Mehrere Bilder hochladen" class="btn-primary" icon="fa-upload"/><button name="action_gl_edit_photos" type="object" string="Bilder gemeinsam bearbeiten" class="btn-secondary" icon="fa-pencil"/></group><field name="photo_ids" mode="list,form" context="{'default_showcase_id': id}">
+                                <list editable="bottom" default_order="sequence,id">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="show_title" optional="show"/><field name="photo" widget="image"/>
+                                    <field name="description" optional="show"/>
+                                <field name="tag_ids" widget="many2many_tags" domain="[('showcase_id', '=', parent.id)]" context="{'default_showcase_id': parent.id}" optional="show"/></list>
+                                <form><group><field name="name"/><field name="show_title"/><field name="description"/><field name="photo" widget="image"/><field name="tag_ids" widget="many2many_tags" domain="[('showcase_id', '=', parent.id)]" context="{'default_showcase_id': parent.id}"/></group></form>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_showcase_list" model="ir.ui.view">
+        <field name="name">gl.project.showcase.list</field>
+        <field name="model">gl.project.showcase</field>
+        <field name="arch" type="xml">
+            <list string="Project Showcases" create="0">
+                <field name="name"/><field name="project_id"/><field name="website_id"/>
+                <field name="visibility"/><field name="published"/>
+            </list>
+        </field>
+    </record>
+    <record id="action_gl_showcases" model="ir.actions.act_window">
+        <field name="name">Projekt-Showcases</field>
+        <field name="res_model">gl.project.showcase</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <menuitem id="menu_gl_project_showcase" name="Ergebnis-Landingpages" parent="project.menu_main_pm" action="action_gl_showcases" sequence="99" groups="base.group_user"/>
+    <!-- On upgrades, explicitly REPLACE the old editor-only menu groups. -->
+    <record id="menu_gl_project_showcase" model="ir.ui.menu">
+        <field name="group_ids" eval="[(6, 0, [ref('base.group_user')])]"/>
+    </record>
+    <record id="view_gl_showcase_password_wizard" model="ir.ui.view">
+        <field name="name">gl.showcase.password.wizard.form</field>
+        <field name="model">gl.showcase.password.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Zugangspasswort festlegen">
+                <group>
+                    <field name="showcase_id" invisible="1"/>
+                    <field name="new_password" password="1"/>
+                    <field name="confirm_password" password="1"/>
+                    <field name="publish_now"/>
+                    <div class="text-muted">Aktiviert die Seite für Besucher ohne Odoo-Login. Ist diese Option deaktiviert, wird nur das Passwort gespeichert.</div>
+                </group>
+                <footer>
+                    <button name="action_save" type="object" string="Passwort speichern" class="btn-primary"/>
+                    <button special="cancel" string="Abbrechen"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
