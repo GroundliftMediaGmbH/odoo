@@ -1,24 +1,37 @@
 # Groundlift Bruttopreis Eingabe – Odoo 19
 
-Dieses Modul ergänzt Produkte um ein editierbares Feld **Bruttopreis**.
+Version **19.0.1.3.0**
 
-## Verhalten
+## Fix in v1.3
 
-- Im Feld **Bruttopreis** wird z. B. `5,80 €` eingegeben.
-- Odoo berechnet daraus anhand der hinterlegten Verkaufssteuer automatisch den
-  präzisen Nettopreis und schreibt ihn in das Standardfeld **Verkaufspreis**.
-- Bei 19 % Verkaufssteuer werden aus `5,80 €` intern ca. `4,87394958 €` netto.
-- Der Nettopreis wird bewusst **nicht auf zwei Nachkommastellen gerundet**.
-  Dadurch bleiben Summen bei mehreren Stück sauber.
-- Wird ein Produkt ohne Verkaufssteuer verwendet, sind Brutto- und Nettopreis identisch.
-- Das Modul verwendet für die Rückrechnung die native Odoo-19-Methode
-  `product.template._get_list_price()`.
+v1.2 kept the exact tax-exclusive product price, but Odoo 19 POS still
+aggregated and redistributed tax cents across the whole basket.
 
-## Installation
+Example:
+- customer-facing gross lines: 56.00 EUR
+- exact 7% + 19% tax groups under global redistribution: 5.21 EUR tax
+- rounded tax-exclusive bases: 50.78 EUR
+- Odoo POS total: 55.99 EUR
 
-1. Modulordner `gl_gross_sales_price` in das Custom-Addons-/GitHub-Repository legen.
-2. Auf Odoo.sh committen und deployen.
-3. Apps-Liste aktualisieren.
-4. Nach **Groundlift Bruttopreis Eingabe** suchen und installieren.
+v1.3 keeps the company setting unchanged (`round_globally`) and applies
+`round_per_line` **only to POS tax base lines whose product is marked
+`gl_gross_price_managed`**.
 
-Das Feld erscheint direkt unter dem Standard-Verkaufspreis im Produktformular.
+The same rule is applied:
+- in the POS browser calculation,
+- on the POS server calculation,
+- during POS session accounting,
+- and propagated to invoices created from those POS lines.
+
+Normal products and non-POS documents keep the company's normal rounding rule.
+
+## Upgrade
+
+1. Replace the existing `gl_gross_sales_price` folder with this version.
+2. Upgrade the app in Odoo.
+3. Reload/reopen the POS so the new asset bundle is loaded.
+4. Recreate the 56.00 EUR test basket.
+
+Expected result:
+- Taxes: 5.22 EUR
+- Total: 56.00 EUR
