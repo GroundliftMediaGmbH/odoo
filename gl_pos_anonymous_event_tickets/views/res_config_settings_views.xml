@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_gl_anonymous_event_tickets" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.gl.anonymous.event.tickets</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="point_of_sale.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@id='pos_interface_section']" position="inside">
+                <setting id="gl_anonymous_event_tickets"
+                         string="Anonyme Abendkassen-Tickets"
+                         help="Nur für diese Kasse. Verkauft Veranstaltungstickets ohne Namens-/E-Mail-Eingabe, solange keine weiteren Pflichtfragen bestehen und kein Kunde ausgewählt ist.">
+                    <field name="pos_gl_anonymous_event_tickets"/>
+                    <div class="text-muted mt8">
+                        Pro Ticket wird ein neutraler Name erzeugt; E-Mail und Telefon bleiben leer.
+                        Ticketpreise, Bezahlung, Registrierungen und Kontingente laufen weiterhin
+                        über Odoo. Bei individuellen Fragen oder einem ausgewählten Kunden gilt
+                        die normale Teilnehmerabfrage. Die Kassenoberfläche nach dem Ändern neu laden.
+                    </div>
+                </setting>
+            </xpath>
+        </field>
+    </record>
+</odoo>
