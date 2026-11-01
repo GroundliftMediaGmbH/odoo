@@ -1,6 +1,6 @@
 # Groundlift Bruttopreis Eingabe – Odoo 19
 
-Version **19.0.1.2.0**
+Version **19.0.1.4.0**
 
 ## Was v1.2 korrigiert
 
@@ -41,3 +41,8 @@ Beispiel:
 - Bruttopreis 3,80 EUR
 - exakter Netto-Basispreis 3,193277310924...
 - zwei Produkte zu je 3,80 EUR = 7,60 EUR
+
+
+## v1.4.0
+
+Technisch identisch zu v1.2.0. Diese Versionsnummer dient dazu, sauber von der fehlerhaften v1.3.0 zurück auf den stabilen v1.2-Code zu aktualisieren.
