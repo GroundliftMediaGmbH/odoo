@@ -1,7 +1,7 @@
 {
     "name": "Groundlift Bruttopreis Eingabe",
-    "summary": "Bruttopreis eingeben und Rundungsfehler im Odoo 19 POS vermeiden",
-    "version": "19.0.1.3.0",
+    "summary": "Bruttopreis eingeben und exakten Nettopreis im Odoo 19 POS verwenden",
+    "version": "19.0.1.4.0",
     "category": "Sales/Point of Sale",
     "author": "Groundlift",
     "license": "LGPL-3",
@@ -17,7 +17,6 @@
     "assets": {
         "point_of_sale._assets_pos": [
             "gl_gross_sales_price/static/src/js/pos_exact_unit_price.js",
-            "gl_gross_sales_price/static/src/js/pos_gross_tax_rounding.js",
         ],
     },
     "installable": True,

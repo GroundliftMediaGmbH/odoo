@@ -1,37 +1,48 @@
 # Groundlift Bruttopreis Eingabe – Odoo 19
 
-Version **19.0.1.3.0**
+Version **19.0.1.4.0**
 
-## Fix in v1.3
+## Was v1.2 korrigiert
 
-v1.2 kept the exact tax-exclusive product price, but Odoo 19 POS still
-aggregated and redistributed tax cents across the whole basket.
+Die frühere Version verwendete Odoos `product.template._get_list_price()`.
+Diese Methode ruft `account.tax.compute_all()` mit der normalen
+Währungsrundung auf. Deshalb wurde bei 19 % aus 3,80 EUR bereits serverseitig
+3,19 EUR statt 3,193277310924... EUR.
 
-Example:
-- customer-facing gross lines: 56.00 EUR
-- exact 7% + 19% tax groups under global redistribution: 5.21 EUR tax
-- rounded tax-exclusive bases: 50.78 EUR
-- Odoo POS total: 55.99 EUR
+v1.2 verwendet für die Rückrechnung:
 
-v1.3 keeps the company setting unchanged (`round_globally`) and applies
-`round_per_line` **only to POS tax base lines whose product is marked
-`gl_gross_price_managed`**.
+- `force_price_include=True`
+- `round_base=False`
 
-The same rule is applied:
-- in the POS browser calculation,
-- on the POS server calculation,
-- during POS session accounting,
-- and propagated to invoices created from those POS lines.
+Damit bleibt der steuerfreie Basispreis intern exakt.
 
-Normal products and non-POS documents keep the company's normal rounding rule.
+Zusätzlich kennzeichnet das Modul Produkte, deren Preis über das Feld
+**Bruttopreis** gepflegt wird. Nur bei diesen Produkten unterbindet der
+POS-Patch die zusätzliche Rundung von `price_unit` auf die Product-Price-
+Dezimalstellen.
 
-## Upgrade
+## Wichtig nach Upgrade von v1.0/v1.1
 
-1. Replace the existing `gl_gross_sales_price` folder with this version.
-2. Upgrade the app in Odoo.
-3. Reload/reopen the POS so the new asset bundle is loaded.
-4. Recreate the 56.00 EUR test basket.
+Bestehende Produkte wurden bereits mit dem alten gerundeten Nettopreis
+gespeichert. Sie müssen einmal korrigiert werden.
 
-Expected result:
-- Taxes: 5.22 EUR
-- Total: 56.00 EUR
+Einzelprodukt:
+- Produkt öffnen
+- **Netto exakt neu berechnen** klicken
+
+Mehrere Produkte:
+- Produktliste öffnen
+- betroffene Produkte markieren
+- Aktion **Bruttopreis → exakten Nettopreis anwenden**
+
+Danach POS komplett schließen und neu öffnen.
+
+Beispiel:
+- Bruttopreis 3,80 EUR
+- exakter Netto-Basispreis 3,193277310924...
+- zwei Produkte zu je 3,80 EUR = 7,60 EUR
+
+
+## v1.4.0
+
+Technisch identisch zu v1.2.0. Diese Versionsnummer dient dazu, sauber von der fehlerhaften v1.3.0 zurück auf den stabilen v1.2-Code zu aktualisieren.
