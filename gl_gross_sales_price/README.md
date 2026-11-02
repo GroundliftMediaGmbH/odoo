@@ -1,48 +1,32 @@
 # Groundlift Bruttopreis Eingabe – Odoo 19
+Version **19.0.1.5.0**
 
-Version **19.0.1.4.0**
+## Fix in v1.5.0: Bruttopreis bleibt exakt der eingegebene Centbetrag
 
-## Was v1.2 korrigiert
+Bis v1.4 war `gross_list_price` ein berechnetes Feld (`compute` + `inverse`).
+Dadurch entstand eine Rückkopplung:
 
-Die frühere Version verwendete Odoos `product.template._get_list_price()`.
-Diese Methode ruft `account.tax.compute_all()` mit der normalen
-Währungsrundung auf. Deshalb wurde bei 19 % aus 3,80 EUR bereits serverseitig
-3,19 EUR statt 3,193277310924... EUR.
+1. Nutzer gibt z. B. 4,20 EUR brutto ein.
+2. Modul berechnet daraus einen präzisen Nettopreis.
+3. Weil `list_price` eine Abhängigkeit des Bruttopreis-Felds war, berechnete
+   Odoo den Bruttopreis anschließend erneut aus Netto + Steuer.
+4. Je nach Steuer-/Rundungskonfiguration konnte der Wert auf einen Nachbar-Cent
+   springen.
 
-v1.2 verwendet für die Rückrechnung:
+Ab v1.5 ist der Bruttopreis ein **normal gespeicherter, führender Wert**.
+4,20 EUR bleibt deshalb 4,20 EUR. Nur der Nettopreis wird daraus berechnet.
 
-- `force_price_include=True`
-- `round_base=False`
+### Verhalten
+- Eingabe 4,20 EUR -> gespeicherter Bruttopreis bleibt exakt 4,20 EUR.
+- 19 % -> Nettopreis ca. 3,5294117647 EUR.
+- 7 % -> Nettopreis ca. 3,9252336449 EUR.
+- Änderung des Steuersatzes hält den Bruttopreis fest und berechnet Netto neu.
+- Das bestehende POS-Präzisions-Patch aus v1.2/v1.4 bleibt erhalten.
+- Keine Tax-/Summen-Patches aus der verworfenen v1.3 sind enthalten.
 
-Damit bleibt der steuerfreie Basispreis intern exakt.
+### Upgrade von v1.4
+Beim Modul-Upgrade rekonstruiert ein Odoo-Upgrade-Skript den neuen gespeicherten
+Bruttopreis aus den bestehenden präzisen Nettopreisen. Die bestehenden
+Nettopreise werden während der Migration nicht verändert.
 
-Zusätzlich kennzeichnet das Modul Produkte, deren Preis über das Feld
-**Bruttopreis** gepflegt wird. Nur bei diesen Produkten unterbindet der
-POS-Patch die zusätzliche Rundung von `price_unit` auf die Product-Price-
-Dezimalstellen.
-
-## Wichtig nach Upgrade von v1.0/v1.1
-
-Bestehende Produkte wurden bereits mit dem alten gerundeten Nettopreis
-gespeichert. Sie müssen einmal korrigiert werden.
-
-Einzelprodukt:
-- Produkt öffnen
-- **Netto exakt neu berechnen** klicken
-
-Mehrere Produkte:
-- Produktliste öffnen
-- betroffene Produkte markieren
-- Aktion **Bruttopreis → exakten Nettopreis anwenden**
-
-Danach POS komplett schließen und neu öffnen.
-
-Beispiel:
-- Bruttopreis 3,80 EUR
-- exakter Netto-Basispreis 3,193277310924...
-- zwei Produkte zu je 3,80 EUR = 7,60 EUR
-
-
-## v1.4.0
-
-Technisch identisch zu v1.2.0. Diese Versionsnummer dient dazu, sauber von der fehlerhaften v1.3.0 zurück auf den stabilen v1.2-Code zu aktualisieren.
+Bitte zuerst auf Staging aktualisieren und mit 4,19 / 4,20 / 4,21 testen.

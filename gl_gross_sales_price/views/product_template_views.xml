@@ -32,7 +32,14 @@
                         type="object"
                         string="Netto exakt neu berechnen"
                         class="btn btn-secondary btn-sm"
-                        title="Für Produkte aus älteren Modulversionen: den aktuell sichtbaren Bruttopreis erneut ohne Cent-Rundung in einen exakten Nettopreis umrechnen."
+                        title="Berechnet den exakten Nettopreis erneut aus dem gespeicherten Bruttopreis."
+                    />
+                    <button
+                        name="action_gl_take_gross_from_current_net"
+                        type="object"
+                        string="Brutto aus Netto übernehmen"
+                        class="btn btn-link btn-sm"
+                        title="Nur verwenden, wenn der Nettopreis absichtlich manuell geändert wurde."
                     />
                     <field name="gl_gross_price_managed" invisible="1"/>
                 </div>
@@ -51,7 +58,7 @@
                     string="Bruttopreis"
                     widget="monetary"
                     options="{'currency_field': 'currency_id'}"
-                    optional="hide"
+                    optional="show"
                 />
                 <field name="gl_gross_price_managed" optional="hide"/>
             </xpath>
