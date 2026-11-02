@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
-from datetime import datetime, time, timedelta
+from datetime import datetime
 from dateutil.relativedelta import relativedelta
-import calendar
-
 import pytz
 from odoo import fields, http, _
 from odoo.exceptions import UserError
 from odoo.http import request
+
+from ..hours_timezone import (
+    PORTAL_TZ, as_utc, local_clock_label, month_bounds, split_utc_by_local_day,
+)
 
 
 MONTH_NAMES_DE = {
@@ -40,36 +42,18 @@ class GlEmployeeHoursPortal(http.Controller):
         return request.httprequest.host_url.rstrip("/")
 
     def _timezone(self):
-        param = request.env["ir.config_parameter"].sudo().get_param("gl_employee_hours_portal.timezone")
-
-        # Public website routes run as the Odoo public user. In some databases the
-        # public user is not allowed to read res.partner. Accessing
-        # request.env.company.partner_id.tz without sudo can therefore produce a
-        # 403 on the employee hours page although the employee portal session is
-        # valid. The company timezone is configuration data, so sudo is safe here.
-        company = request.env.company.sudo()
-        company_partner = company.partner_id.sudo() if company.partner_id else False
-        company_tz = company_partner.tz if company_partner else False
-
-        tz_name = param or company_tz or "Europe/Berlin"
-        try:
-            return pytz.timezone(tz_name)
-        except Exception:
-            return pytz.timezone("Europe/Berlin")
+        # All GROUNDLIFT employees use the Munich civil timezone. Do not infer
+        # from the Odoo public user, request environment or company partner:
+        # those can vary independently of the attendance location.
+        return PORTAL_TZ
 
     def _current_account(self):
         account_id = request.session.get("gl_employee_hours_account_id")
         if not account_id:
             return request.env["gl.employee.hours.account"]
         account = request.env["gl.employee.hours.account"].sudo().browse(int(account_id))
-        if (
-            not account.exists()
-            or account.state != "active"
-            or not account.password_session_key
-            or request.session.get("gl_employee_hours_password_version") != account.password_session_key
-        ):
+        if not account.exists() or account.state != "active":
             request.session.pop("gl_employee_hours_account_id", None)
-            request.session.pop("gl_employee_hours_password_version", None)
             return request.env["gl.employee.hours.account"]
         return account
 
@@ -89,30 +73,11 @@ class GlEmployeeHoursPortal(http.Controller):
         if not value:
             return None
         if isinstance(value, str):
-            value = fields.Datetime.from_string(value)
-        value_utc = pytz.UTC.localize(value) if value.tzinfo is None else value.astimezone(pytz.UTC)
-        return value_utc.astimezone(tz)
-
-    def _split_completed_interval_by_day(self, start_local, end_local, month_start_local, month_end_local):
-        start_local = max(start_local, month_start_local)
-        end_local = min(end_local, month_end_local)
-        if end_local <= start_local:
-            return []
-        result = []
-        cursor = start_local
-        while cursor < end_local:
-            next_midnight = cursor.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
-            segment_end = min(next_midnight, end_local)
-            result.append((cursor, segment_end))
-            cursor = segment_end
-        return result
+            value = fields.Datetime.to_datetime(value)
+        return as_utc(value).astimezone(tz)
 
     def _month_bounds(self, year, month, tz):
-        month_start_local = tz.localize(datetime(year, month, 1, 0, 0, 0))
-        month_end_local = month_start_local + relativedelta(months=1)
-        utc_start = month_start_local.astimezone(pytz.UTC).replace(tzinfo=None)
-        utc_end = month_end_local.astimezone(pytz.UTC).replace(tzinfo=None)
-        return month_start_local, month_end_local, utc_start, utc_end
+        return month_bounds(year, month, tz)
 
     def _month_url_values(self, year, month):
         current = datetime(year, month, 1)
@@ -157,7 +122,7 @@ class GlEmployeeHoursPortal(http.Controller):
                         "total_minutes": 0,
                     })
                     day["intervals"].append({
-                        "start": check_in_local.strftime("%H:%M"),
+                        "start": local_clock_label(check_in_local),
                         "end": "offen",
                         "duration": "offen",
                         "open": True,
@@ -165,14 +130,20 @@ class GlEmployeeHoursPortal(http.Controller):
                     has_open_entries = True
                 continue
 
-            for segment_start, segment_end in self._split_completed_interval_by_day(
-                check_in_local,
-                check_out_local,
-                month_start_local,
-                month_end_local,
+            # Slice in UTC, not with timedelta on pytz-local datetimes. A
+            # Berlin local day is 23 or 25 hours on DST transition days.
+            for segment_start_utc, segment_end_utc in split_utc_by_local_day(
+                as_utc(attendance.check_in),
+                as_utc(attendance.check_out),
+                pytz.UTC.localize(utc_start),
+                pytz.UTC.localize(utc_end),
+                tz,
             ):
-                minutes = int(round((segment_end - segment_start).total_seconds() / 60.0))
+                segment_start = segment_start_utc.astimezone(tz)
+                segment_end = segment_end_utc.astimezone(tz)
+                minutes = int(round((segment_end_utc - segment_start_utc).total_seconds() / 60.0))
                 day_key = segment_start.date()
+                crosses_dst = segment_start.utcoffset() != segment_end.utcoffset()
                 day = days.setdefault(day_key, {
                     "date": day_key,
                     "weekday": WEEKDAY_NAMES_DE[day_key.weekday()],
@@ -181,8 +152,8 @@ class GlEmployeeHoursPortal(http.Controller):
                     "total_minutes": 0,
                 })
                 day["intervals"].append({
-                    "start": segment_start.strftime("%H:%M"),
-                    "end": segment_end.strftime("%H:%M"),
+                    "start": local_clock_label(segment_start, crosses_dst),
+                    "end": local_clock_label(segment_end, crosses_dst),
                     "duration": self._format_minutes(minutes),
                     "open": False,
                 })
@@ -208,7 +179,7 @@ class GlEmployeeHoursPortal(http.Controller):
             return request.redirect("/mitarbeiter/stunden/login")
 
         tz = self._timezone()
-        now_local = datetime.now(tz)
+        now_local = datetime.now(pytz.UTC).astimezone(tz)
         year = int(year or now_local.year)
         month = int(month or now_local.month)
         if month < 1 or month > 12:
@@ -222,7 +193,7 @@ class GlEmployeeHoursPortal(http.Controller):
             "days": attendance_data["days"],
             "monthly_total": attendance_data["monthly_total"],
             "has_open_entries": attendance_data["has_open_entries"],
-            "timezone_name": tz.zone,
+            "timezone_name": "München (MEZ/MESZ)",
             "year": year,
             "month": month,
             "month_label": month_values["month_label"],
@@ -245,20 +216,17 @@ class GlEmployeeHoursPortal(http.Controller):
             account = request.env["gl.employee.hours.account"].sudo().authenticate(email, password)
             if account:
                 request.session["gl_employee_hours_account_id"] = account.id
-                request.session["gl_employee_hours_password_version"] = account.password_session_key
                 return request.redirect("/mitarbeiter/stunden")
             error = "E-Mail oder Passwort ist nicht korrekt, oder der Zugang wurde noch nicht aktiviert."
 
         return request.render("gl_employee_hours_portal.template_login", {
             "error": error,
             "message": message,
-            "email_prefill": (post.get("email") or "").strip().lower(),
         })
 
     @http.route("/mitarbeiter/stunden/logout", type="http", auth="public", website=True, sitemap=False)
     def logout(self, **kw):
         request.session.pop("gl_employee_hours_account_id", None)
-        request.session.pop("gl_employee_hours_password_version", None)
         return request.redirect("/mitarbeiter/stunden/login")
 
     @http.route("/mitarbeiter/stunden/registrieren", type="http", auth="public", methods=["GET", "POST"], website=True, sitemap=False)
@@ -309,7 +277,6 @@ class GlEmployeeHoursPortal(http.Controller):
         try:
             account = request.env["gl.employee.hours.account"].sudo().activate_from_token(token)
             request.session["gl_employee_hours_account_id"] = account.id
-            request.session["gl_employee_hours_password_version"] = account.password_session_key
             return request.redirect("/mitarbeiter/stunden")
         except Exception as exc:
             return request.render("gl_employee_hours_portal.template_message", {
@@ -349,7 +316,6 @@ class GlEmployeeHoursPortal(http.Controller):
                     raise UserError("Die beiden Passwörter stimmen nicht überein.")
                 account = request.env["gl.employee.hours.account"].sudo().reset_password_from_token(token, password)
                 request.session["gl_employee_hours_account_id"] = account.id
-                request.session["gl_employee_hours_password_version"] = account.password_session_key
                 return request.redirect("/mitarbeiter/stunden")
             except Exception as exc:
                 error = str(exc)

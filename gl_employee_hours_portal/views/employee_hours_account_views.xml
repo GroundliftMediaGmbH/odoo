@@ -5,11 +5,9 @@
         <field name="model">gl.employee.hours.account</field>
         <field name="arch" type="xml">
             <list string="Mitarbeiter-Stundenportal Konten" decoration-success="state == 'active'" decoration-warning="state == 'pending'" decoration-danger="state == 'blocked'">
-                <field name="name" string="Mitarbeiter:in"/>
+                <field name="employee_id"/>
                 <field name="email"/>
                 <field name="state"/>
-                <field name="has_password"/>
-                <field name="portal_login_url" widget="url" optional="show"/>
                 <field name="last_login"/>
                 <field name="activation_expiration"/>
             </list>
@@ -22,36 +20,22 @@
         <field name="arch" type="xml">
             <form string="Mitarbeiter-Stundenportal Konto">
                 <header>
-                    <button name="action_open_password_wizard" string="Passwort selbst setzen" type="object" class="btn-primary"/>
-                    <button name="action_generate_password" string="Zufallspasswort erzeugen" type="object" confirm="Ein neues Passwort wird erzeugt. Alle bisherigen Stundenportal-Sitzungen werden abgemeldet. Das Passwort ist nur einmal sichtbar. Fortfahren?"/>
-                    <button name="action_send_password_reset_email" string="Reset-Link mailen" type="object" invisible="state != 'active'"/>
-                    <button name="action_open_portal_login" string="Portal öffnen" type="object"/>
-                    <button name="action_resend_activation_email" string="Aktivierungslink erneut senden" type="object" class="btn-secondary" invisible="state == 'active'" groups="hr.group_hr_manager,base.group_system"/>
-                    <button name="action_block" string="Sperren" type="object" class="btn-secondary" invisible="state == 'blocked'" groups="hr.group_hr_manager,base.group_system"/>
-                    <button name="action_unblock" string="Entsperren" type="object" class="btn-secondary" invisible="state != 'blocked'" groups="hr.group_hr_manager,base.group_system"/>
-                    <field name="state" widget="statusbar" statusbar_visible="pending,active,blocked" readonly="1"/>
+                    <button name="action_resend_activation_email" string="Aktivierungslink erneut senden" type="object" class="btn-primary" invisible="state == 'active'"/>
+                    <button name="action_block" string="Sperren" type="object" class="btn-secondary" invisible="state == 'blocked'"/>
+                    <button name="action_unblock" string="Entsperren" type="object" class="btn-secondary" invisible="state != 'blocked'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="pending,active,blocked"/>
                 </header>
                 <sheet>
                     <group>
                         <group>
-                            <field name="name" readonly="1"/>
-                            <field name="employee_id" groups="hr.group_hr_manager,base.group_system"/>
-                            <field name="email" groups="hr.group_hr_manager,base.group_system"/>
-                            <field name="email" readonly="1" groups="gl_employee_hours_portal.group_hours_credentials_manager"/>
+                            <field name="employee_id"/>
+                            <field name="email"/>
                             <field name="last_login" readonly="1"/>
-                            <field name="has_password" readonly="1"/>
                         </group>
                         <group>
                             <field name="activation_expiration" readonly="1"/>
                             <field name="reset_expiration" readonly="1"/>
                         </group>
-                    </group>
-                    <group string="Stundenportal-Zugang">
-                        <field name="portal_login_url" widget="url" readonly="1"/>
-                        <div colspan="2" class="text-muted">
-                            Der individuelle Link füllt nur die E-Mail-Adresse vor. Zum Einloggen wird weiterhin das Passwort benötigt.
-                            Bisherige Passwörter können wegen der sicheren Hash-Speicherung nicht ausgelesen werden.
-                        </div>
                     </group>
                     <group string="Technische Werte" groups="base.group_system">
                         <field name="password_hash" readonly="1" password="True"/>
@@ -63,30 +47,12 @@
         </field>
     </record>
 
-    <record id="view_gl_employee_hours_password_wizard_form" model="ir.ui.view">
-        <field name="name">gl.employee.hours.password.wizard.form</field>
-        <field name="model">gl.employee.hours.password.wizard</field>
-        <field name="arch" type="xml">
-            <form string="Stundenportal-Passwort neu setzen">
-                <group>
-                    <field name="account_id" readonly="1"/>
-                    <field name="new_password" password="True" placeholder="Mindestens 8 Zeichen"/>
-                    <field name="confirm_password" password="True"/>
-                </group>
-                <footer>
-                    <button name="action_save_password" type="object" class="btn-primary" string="Passwort speichern"/>
-                    <button string="Abbrechen" special="cancel" class="btn-secondary"/>
-                </footer>
-            </form>
-        </field>
-    </record>
-
     <record id="view_gl_employee_hours_account_search" model="ir.ui.view">
         <field name="name">gl.employee.hours.account.search</field>
         <field name="model">gl.employee.hours.account</field>
         <field name="arch" type="xml">
             <search string="Stundenportal-Konten">
-                <field name="name"/>
+                <field name="employee_id"/>
                 <field name="email"/>
                 <separator/>
                 <filter name="filter_state_active" string="Aktiv" domain="[('state','=','active')]"/>
@@ -112,6 +78,6 @@
         </field>
     </record>
 
-    <menuitem id="menu_gl_employee_hours_root" name="Stundenportal" sequence="85" groups="hr.group_hr_manager,base.group_system,gl_employee_hours_portal.group_hours_credentials_manager"/>
-    <menuitem id="menu_gl_employee_hours_account" name="Mitarbeiter-Konten" parent="menu_gl_employee_hours_root" action="action_gl_employee_hours_account" sequence="10" groups="hr.group_hr_manager,base.group_system,gl_employee_hours_portal.group_hours_credentials_manager"/>
+    <menuitem id="menu_gl_employee_hours_root" name="Stundenportal" sequence="85" groups="hr.group_hr_manager,base.group_system"/>
+    <menuitem id="menu_gl_employee_hours_account" name="Mitarbeiter-Konten" parent="menu_gl_employee_hours_root" action="action_gl_employee_hours_account" sequence="10" groups="hr.group_hr_manager,base.group_system"/>
 </odoo>

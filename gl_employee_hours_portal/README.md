@@ -1,46 +1,65 @@
-# GROUNDLIFT Mitarbeiter-Stundenportal – Odoo 19 SH
+# GROUNDLIFT Mitarbeiter-Stundenportal
 
-Version **19.0.1.1.0** (Update des bestehenden Moduls, Daten bleiben erhalten).
+Odoo 19 SH Modul für eine öffentliche Mitarbeiterseite ohne Odoo-Benutzerkonto.
 
-## Neu: Zugangsdatenverwaltung für Odoo-Nutzer
+## Funktionen
 
-Unter **Stundenportal → Mitarbeiter-Konten** gibt es für jedes registrierte Konto:
+- Mitarbeiter registrieren sich selbst mit ihrer in Odoo hinterlegten Arbeits-E-Mail (`hr.employee.work_email`).
+- Registrierung wird per E-Mail-Aktivierungslink bestätigt.
+- Kein `res.users`-Login notwendig; eigene Session für das Stundenportal.
+- Monatsübersicht der eigenen Anwesenheiten aus `hr.attendance`.
+- Navigation vor/zurück durch Monate.
+- Anzeige von Arbeitstag, Startzeit, Endzeit, Dauer je Eintrag, Tagessumme und Monatssumme.
+- Nicht gearbeitete Tage werden nicht angezeigt.
+- Offene Anwesenheiten ohne `check_out` werden angezeigt, aber nicht in die Summe eingerechnet.
+- Passwort-vergessen-Funktion mit E-Mail-Link.
 
-- **Persönlicher Login-Link**: führt zur Anmeldung mit vorbelegter E-Mail-Adresse. Der Link ersetzt **nicht** das Passwort.
-- **Passwort gesetzt**: zeigt an, ob bereits ein Passwort-Hash existiert.
-- **Passwort selbst setzen**: manuell ein neues Passwort (mindestens acht Zeichen) wählen.
-- **Zufallspasswort erzeugen**: sicheres Passwort generieren, **nur einmal** in einer dauerhaft geöffneten Odoo-Benachrichtigung anzeigen und direkt kopieren.
-- **Reset-Link mailen**: sendet der registrierten Person bei aktivem Konto einen Link zum selbständigen Zurücksetzen.
-- **Portal öffnen**: öffnet den individuellen Login-Link in einem neuen Tab.
+## Öffentliche URLs
 
-**Wichtig:** Bisherige Passwörter lassen sich *nicht* auslesen. Die Originalversion speichert einen Einweg-Hash (PBKDF2-SHA256), keinen Klartext. Auch die neue Version speichert keine dauerhaft abrufbaren Klartextpasswörter.
+- `/mitarbeiter/stunden` – Monatsübersicht nach Login
+- `/mitarbeiter/stunden/login` – Login
+- `/mitarbeiter/stunden/registrieren` – Registrierung
+- `/mitarbeiter/stunden/passwort-vergessen` – Passwort zurücksetzen
 
-## Berechtigungen
+## Installation in Odoo SH
 
-- Bestehende Nutzergruppen **Personalverwaltung / Manager** (`hr.group_hr_manager`) und **Einstellungen / Administrator** (`base.group_system`) dürfen die Zugänge wie bisher verwalten.
-- Zusätzlich gibt es die Odoo-19-Berechtigungsgruppe **GROUNDLIFT Stundenportal → Mitarbeiter-Zugänge verwalten**. Diese kann einem normalen internen Odoo-Nutzer zugewiesen werden, ohne ihm Vollzugriff auf die Mitarbeiterstammdaten zu geben. Sie kann Portal-Konten ansehen sowie neue Passwörter setzen oder Reset-Mails versenden, jedoch Konten nicht löschen oder sperren.
-- **Andere Odoo-Nutzer und Website-Besucher haben keinen Zugriff** auf die Verwaltungsansicht. Nicht für alle internen Nutzer freischalten: die Berechtigung ist sicherheitsrelevant.
-- Tokens und Hashes sind über Feldgruppen auf Odoo-Systemadministratoren begrenzt.
+1. Ordner `gl_employee_hours_portal` in dein Custom-Addons-Repository kopieren.
+2. Committen und auf den gewünschten Branch pushen.
+3. In Odoo Apps-Liste aktualisieren.
+4. Modul `GROUNDLIFT Mitarbeiter-Stundenportal` installieren.
+5. Sicherstellen, dass bei allen relevanten Mitarbeitern im Mitarbeiterprofil eine Arbeits-E-Mail hinterlegt ist.
+6. Sicherstellen, dass ausgehende E-Mails in Odoo funktionieren.
 
-## Passwortwechsel & Sessions
+## Zeitzone
 
-Bei jedem Passwortwechsel werden die vorherigen Stundenportal-Sitzungen ungültig. Auch beim **ersten** Login nach dem Update wird eine neue Sitzungs-Version angelegt. Mitarbeiter müssen sich nach der Modulaktualisierung ggf. erneut einloggen. Das E-Mail-Aktivierungsverfahren und die Registrierung bleiben erhalten.
+Das Stundenportal verwendet **fest `Europe/Berlin` (München)**, unabhängig von
+Odoo-Benutzer-, Firmen- oder Server-Zeitzonen. Der ältere Systemparameter
+`gl_employee_hours_portal.timezone` wird aus Kompatibilitätsgründen weiterhin
+angelegt, beeinflusst die Anzeige aber nicht mehr.
 
-## Bestehende Funktionen
+Alle `hr.attendance.check_in` / `check_out`-Zeitstempel werden als UTC gelesen,
+für die Anzeige nach Europe/Berlin umgerechnet und erst dann kalendarisch
+eingeordnet. Die Zeitzone regelt automatisch MEZ (UTC+1) / MESZ (UTC+2).
+Monats- und Tagesgrenzen werden pro Kalendertag separat lokalisiert. Dauer
+und Summen zählen die tatsächlich verstrichenen Minuten (in UTC). Bei
+Schichten, die eine Zeitumstellung durchlaufen, zeigt das Portal die
+Abkürzungen MEZ/MESZ an beiden Uhrzeiten an.
 
-- Öffentliche Registrierung über die beim Mitarbeiter gespeicherte Arbeits-E-Mail.
-- Bestätigung per E-Mail und Passwort-vergessen-Funktion.
-- Monatliche Anwesenheitsübersicht mit Tagessummen aus `hr.attendance`, ohne Editiermöglichkeit.
-- Zeitzone per Systemparameter `gl_employee_hours_portal.timezone` (Standard Europe/Berlin).
+Die Korrektur ändert keine bestehenden Anwesenheitsdatensätze in der Datenbank.
 
-Öffentliche Seiten: `/mitarbeiter/stunden`, `/mitarbeiter/stunden/login`, `/mitarbeiter/stunden/registrieren`, `/mitarbeiter/stunden/passwort-vergessen`.
+## Datenbasis
 
-## Installation / Aktualisierung in Odoo.sh
+Das Modul nutzt die Standard-Anwesenheiten aus `hr.attendance`:
 
-1. Bestehenden Ordner `gl_employee_hours_portal` im Custom-Addons-Repository **durch den Ordner aus diesem ZIP ersetzen** (keine zweite Kopie mit anderem technischen Namen anlegen).
-2. Commit und Push auf den Odoo.sh-Branch, zunächst Staging.
-3. **Apps-Liste aktualisieren** und beim bestehenden Modul auf **Aktualisieren** klicken.
-4. Unter **Einstellungen → Benutzer** einem gewünschten normalen internen Odoo-Nutzer die neue Gruppe *Mitarbeiter-Zugänge verwalten* zuweisen. HR-Manager und Systemadministratoren benötigen sie nicht zusätzlich.
-5. Unter **Stundenportal → Mitarbeiter-Konten** einen Portal-Link und eine Passwortänderung testen.
+- `employee_id`
+- `check_in`
+- `check_out`
 
-Eine Passwortänderung betrifft nur das Stundenportal, **nicht das Odoo-Benutzerpasswort**. Bereits bestehende Konten und Stunden werden nicht migriert oder gelöscht.
+Die Anzeige ist rein lesend. Mitarbeiter können keine Zeiten ändern.
+
+## Update (v19.0.1.0.4)
+
+Im Odoo.sh-Repository das Modul ersetzen, deployen und **die App
+`gl_employee_hours_portal` aktualisieren** (nicht deinstallieren). Danach die
+Mitarbeiter-Portal-Seite neu laden. Beispielszenarien und Regressionstests
+sind in `tests/test_hours_timezone.py` dokumentiert.
