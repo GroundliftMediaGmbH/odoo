@@ -1009,7 +1009,7 @@ body:has(#wrap.gl-ts-portal) .o_header_standard {
                                             <thead>
                                                 <tr>
                                                     <th>Datum</th>
-                                                    <th>Von – bis</th>
+                                                    <th>Von – bis (München, MEZ/MESZ)</th>
                                                     <th>Brutto</th>
                                                     <th>Pause</th>
                                                     <th>Arbeitszeit</th>

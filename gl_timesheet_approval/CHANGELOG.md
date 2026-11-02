@@ -1,5 +1,14 @@
 # Changelog
 
+## 19.0.1.0.10
+
+- Arbeitszeiten im Portal und Excel verbindlich in Europe/Berlin (München) ausgegeben, unabhängig von Mitarbeiter- oder Benutzerzeitzone.
+- Automatischer MEZ-/MESZ-Wechsel inklusive doppelt vorkommender Stunde im Oktober; im Portal eindeutig beschriftet.
+- Monatsfilter und Tageszuordnung anhand Münchner Check-in-Datum und lokalen Monatsgrenzen statt Odoo-Anwesenheitsdatum in Mitarbeiterzeitzone.
+- Excel-Zeitwerte bleiben echte Datums-/Zeitwerte; Zellkommentare dokumentieren UTC-Zeitpunkt und jeweiligen DST-Offset.
+- Monats-Cron verwendet konsistent Münchner Zeit.
+- Alte gespeicherte Tagesgruppen werden aus Sicherheitsgründen nur nach bewusstem manuellen Einlesen neu zugeordnet, nicht beim Upgrade über vorhandene Freigaben hinweg.
+
 ## 19.0.1.0.9
 
 - Pausenberechnung korrigiert: Bei mehr als 6 Stunden tatsächlicher Arbeitszeit werden 30 Minuten Pause zur Bruttozeit addiert.

@@ -151,7 +151,7 @@ Das Portal enthält personenbezogene Arbeitszeit- und Lohndaten. Daher:
 
 ## Version
 
-`19.0.1.0.8`
+`19.0.1.0.10`
 
 
 ## Sichtbarkeit auf dem Odoo-Desktop
@@ -200,3 +200,34 @@ Für jeden Prüfmonat steht im Prüfportal und im Backend der Button **Excel her
 - **Prüfhistorie**: Freigaben, Ablehnungen, Änderungen und Überweisungsmarkierungen
 
 Zeiten werden als echte Excel-Zeitwerte mit dem Format `[h]:mm:ss` geschrieben. Dadurch bleiben auch Monatssummen über 24 Stunden korrekt und können in Excel weiterverarbeitet werden.
+
+
+## Zeitzone und Sommer-/Winterzeit ab Version 19.0.1.0.10
+
+Alle Uhrzeiten im Prüfportal und Excel-Export werden unabhängig von der
+Odoo-Benutzer- oder Mitarbeiterzeitzone einheitlich in **Europe/Berlin**
+(München) ausgegeben. Die korrekte MEZ-/MESZ-Umstellung erfolgt automatisch
+über die Zeitzonendatenbank. Im Portal wird MEZ bzw. MESZ neben der Uhrzeit
+angezeigt. Excel speichert weiterhin echte Datums-/Zeitwerte; zu Ein- und
+Ausstempelzeiten stehen Zellkommentare mit MEZ/MESZ, UTC-Offset und ursprünglichem
+UTC-Zeitpunkt (wichtig für die doppelte 02-Uhr-Stunde im Oktober).
+
+Die Stundendauer wird aus den originalen UTC-Zeitstempeln berechnet; insbesondere
+bei Sommerzeitbeginn/-ende wird keine pauschale Zeitstunde addiert/abgezogen.
+Die Arbeitstage und Monatsgrenzen richten sich nun nach dem **lokalen Datum
+des Check-ins in München**. Odoos Feld `hr.attendance.date`, das unter Umständen
+in einer anderen Mitarbeiterzeitzone berechnet wurde, ist hierfür nicht mehr
+ausschlaggebend.
+
+**Upgrade und Bestandsmonate:** Das Modul auf Version 19.0.1.0.10 aktualisieren.
+Bereits gespeicherte Uhrzeiten erscheinen anschließend sofort korrekt in Portal
+und Export, weil sie direkt aus den UTC-Zeitstempeln umgerechnet werden.
+Für Bestandsmonate, deren Tages- oder Monatszuordnung bisher durch die falsche
+Zeitzone verschoben war, unter `Stundenzettel-Prüfung → Prüfmonate` den betroffenen
+Monat öffnen und **Anwesenheiten einlesen / aktualisieren** ausführen (ggf. beide
+benachbarten Monate, besonders um Monatswechsel). Dadurch werden gespeicherte
+Tagesgruppen korrigiert. Wenn sich dabei die Zuordnung/Berechnung ändert,
+werden betroffene Freigaben sowie der Überwiesen-Status aus Sicherheitsgründen
+zurückgesetzt; diese bitte anschließend erneut prüfen. Es erfolgt **keine**
+automatische, nicht kontrollierte Änderung von bereits freigegebenen Monatsdaten
+beim Modul-Upgrade.

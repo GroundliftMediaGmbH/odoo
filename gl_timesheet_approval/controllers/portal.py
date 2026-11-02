@@ -2,7 +2,7 @@
 from datetime import datetime
 from urllib.parse import quote
 
-import pytz
+from ..timezone_utils import berlin_datetime, berlin_zone_label
 
 from odoo import _, fields, http
 from odoo.exceptions import UserError
@@ -76,15 +76,12 @@ class GlTimesheetApprovalPortal(http.Controller):
         return f"{formatted} {symbol}"
 
     def _local_time(self, value, employee):
+        # employee is intentionally not used: this portal always shows Munich
+        # workplace time, even for employees with a different Odoo user timezone.
         if not value:
             return "–"
-        tz_name = employee.tz or employee.company_id.partner_id.tz or "Europe/Berlin"
-        try:
-            tz = pytz.timezone(tz_name)
-        except pytz.UnknownTimeZoneError:
-            tz = pytz.timezone("Europe/Berlin")
-        utc_value = pytz.UTC.localize(value) if value.tzinfo is None else value.astimezone(pytz.UTC)
-        return utc_value.astimezone(tz).strftime("%H:%M:%S")
+        local_value = berlin_datetime(value)
+        return f"{local_value:%H:%M:%S} {berlin_zone_label(value)}"
 
     def _serialize_day(self, day, reviewer):
         return {

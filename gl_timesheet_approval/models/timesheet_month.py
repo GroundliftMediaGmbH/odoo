@@ -5,12 +5,15 @@ import logging
 from collections import defaultdict
 from datetime import datetime
 
-import pytz
 import xlsxwriter
 from dateutil.relativedelta import relativedelta
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
+
+from ..timezone_utils import (
+    berlin_date, berlin_datetime, berlin_month_utc_bounds, berlin_zone_label, utc_aware,
+)
 
 
 _logger = logging.getLogger(__name__)
@@ -141,9 +144,13 @@ class GlTimesheetMonth(models.Model):
 
     def _attendance_domain(self):
         self.ensure_one()
+        # hr.attendance.date is computed in the employee's configured timezone.
+        # A late Munich check-in could otherwise end up in the wrong workday or
+        # even the wrong payroll month if the employee timezone is UTC.
+        start_utc, end_utc = berlin_month_utc_bounds(self.month_start)
         return [
-            ("date", ">=", self.month_start),
-            ("date", "<=", self.month_end),
+            ("check_in", ">=", start_utc),
+            ("check_in", "<", end_utc),
             ("check_out", "!=", False),
             ("employee_id.company_id", "=", self.company_id.id),
         ]
@@ -185,7 +192,7 @@ class GlTimesheetMonth(models.Model):
         EmployeeMonth = self.env["gl.timesheet.employee.month"].sudo()
         Day = self.env["gl.timesheet.day"].sudo()
 
-        attendances = Attendance.search(self._attendance_domain(), order="employee_id, date, check_in")
+        attendances = Attendance.search(self._attendance_domain(), order="employee_id, check_in")
         source_employees = attendances.mapped("employee_id")
         grouped = defaultdict(lambda: Attendance.browse())
         eligible_employee_ids = set()
@@ -195,10 +202,13 @@ class GlTimesheetMonth(models.Model):
         # version valid on the attendance date so historical months remain correct.
         for attendance in attendances:
             employee = attendance.employee_id.sudo()
-            eligible, details = employee._gl_timesheet_eligibility_details(on_date=attendance.date)
+            # Source clock values are Odoo UTC; group consistently by the local
+            # date at check-in.  Odoo's attendance.date may use employee.tz.
+            work_date = berlin_date(attendance.check_in)
+            eligible, details = employee._gl_timesheet_eligibility_details(on_date=work_date)
             if eligible:
                 eligible_employee_ids.add(employee.id)
-                grouped[(employee.id, attendance.date)] |= attendance
+                grouped[(employee.id, work_date)] |= attendance
             else:
                 excluded_reason_by_employee[employee.id] = details
 
@@ -462,19 +472,22 @@ class GlTimesheetMonth(models.Model):
 
     def _xlsx_local_datetime(self, value, employee=None):
         self.ensure_one()
-        if not value:
-            return False
-        tz_name = (
-            (employee.tz if employee and employee.tz else False)
-            or self.company_id.partner_id.tz
-            or "Europe/Berlin"
+        # The employee argument is kept for call-site compatibility, but never
+        # overrides the Munich accounting timezone. XLSX cannot store tz-aware
+        # datetime values, therefore only the final Excel value is naive.
+        local_value = berlin_datetime(value)
+        return local_value.replace(tzinfo=None) if local_value else False
+
+    @staticmethod
+    def _xlsx_zone_comment(value):
+        # In the October DST fallback, 02:30 happens twice. Excel cannot encode
+        # tzinfo with a date cell: retain the original UTC instant in a note.
+        local_value = berlin_datetime(value)
+        utc_value = utc_aware(value)
+        return (
+            f"München: {berlin_zone_label(value)} (UTC{local_value:%z})\n"
+            f"Original: {utc_value:%Y-%m-%d %H:%M:%S} UTC"
         )
-        try:
-            timezone = pytz.timezone(tz_name)
-        except pytz.UnknownTimeZoneError:
-            timezone = pytz.timezone("Europe/Berlin")
-        utc_value = pytz.UTC.localize(value) if value.tzinfo is None else value.astimezone(pytz.UTC)
-        return utc_value.astimezone(timezone).replace(tzinfo=None)
 
     def _xlsx_structure_type_name(self, employee, work_date):
         self.ensure_one()
@@ -769,6 +782,7 @@ class GlTimesheetMonth(models.Model):
         overview.fit_to_pages(1, 0)
         overview.set_margins(0.3, 0.3, 0.5, 0.5)
         overview.merge_range("A1:M1", f"Groundlift Stundenzettel – {self.name}", formats["title"])
+        overview.write_comment("A1", "Alle Uhrzeiten: München (Europe/Berlin, MEZ/MESZ). Dauerberechnung: UTC.")
         overview.set_row(0, 34)
         overview.write("A3", "Firma", formats["meta_label"])
         overview.merge_range("B3:D3", self.company_id.name or "", formats["meta_value"])
@@ -893,8 +907,8 @@ class GlTimesheetMonth(models.Model):
             "Funktion",
             "Datum",
             "Wochentag",
-            "Von",
-            "Bis",
+            "Von (MEZ/MESZ)",
+            "Bis (MEZ/MESZ)",
             "Anwesenheiten",
             "Bruttozeit",
             "Pause",
@@ -936,7 +950,9 @@ class GlTimesheetMonth(models.Model):
                 days_sheet.write_datetime(day_row, 2, day.work_date, formats["date"])
                 days_sheet.write(day_row, 3, weekdays[day.work_date.weekday()], formats["text"])
                 days_sheet.write_datetime(day_row, 4, check_in, formats["time"])
+                days_sheet.write_comment(day_row, 4, self._xlsx_zone_comment(day.first_check_in))
                 days_sheet.write_datetime(day_row, 5, check_out, formats["time"])
+                days_sheet.write_comment(day_row, 5, self._xlsx_zone_comment(day.last_check_out))
                 days_sheet.write_number(day_row, 6, day.attendance_count, formats["integer"])
                 days_sheet.write_number(day_row, 7, self._xlsx_duration(day.gross_seconds), formats["duration"])
                 days_sheet.write_number(day_row, 8, self._xlsx_duration(day.break_seconds), formats["duration"])
@@ -998,8 +1014,8 @@ class GlTimesheetMonth(models.Model):
             "Mitarbeiter",
             "Funktion",
             "Datum",
-            "Einchecken",
-            "Auschecken",
+            "Einchecken (MEZ/MESZ)",
+            "Auschecken (MEZ/MESZ)",
             "Dauer",
             "Zahlungskategorie",
             "Aggregierter Arbeitstag",
@@ -1022,14 +1038,16 @@ class GlTimesheetMonth(models.Model):
                     attendance_sheet.write_number(attendance_row, 0, attendance.id, formats["integer"])
                     attendance_sheet.write(attendance_row, 1, line.employee_id.name or "", formats["text"])
                     attendance_sheet.write(attendance_row, 2, line.employee_id.job_title or "", formats["text"])
-                    attendance_sheet.write_datetime(attendance_row, 3, attendance.date or day.work_date, formats["date"])
+                    attendance_sheet.write_datetime(attendance_row, 3, day.work_date, formats["date"])
                     attendance_sheet.write_datetime(attendance_row, 4, check_in, formats["datetime"])
+                    attendance_sheet.write_comment(attendance_row, 4, self._xlsx_zone_comment(attendance.check_in))
                     if check_out:
                         attendance_sheet.write_datetime(attendance_row, 5, check_out, formats["datetime"])
+                        attendance_sheet.write_comment(attendance_row, 5, self._xlsx_zone_comment(attendance.check_out))
                     else:
                         attendance_sheet.write_blank(attendance_row, 5, None, formats["datetime"])
                     attendance_sheet.write_number(attendance_row, 6, self._xlsx_duration(duration_seconds), formats["duration"])
-                    attendance_sheet.write(attendance_row, 7, self._xlsx_structure_type_name(line.employee_id, attendance.date or day.work_date), formats["text"])
+                    attendance_sheet.write(attendance_row, 7, self._xlsx_structure_type_name(line.employee_id, day.work_date), formats["text"])
                     attendance_sheet.write_datetime(attendance_row, 8, day.work_date, formats["date"])
                     attendance_sheet.write(attendance_row, 9, self.name or "", formats["text"])
                     attendance_row += 1
@@ -1143,13 +1161,8 @@ class GlTimesheetMonth(models.Model):
 
     @api.model
     def _cron_prepare_and_notify_previous_month(self):
-        utc_now = fields.Datetime.now().replace(tzinfo=pytz.UTC)
+        local_now = berlin_datetime(fields.Datetime.now())
         for company in self.env["res.company"].sudo().search([]):
-            tz_name = company.partner_id.tz or "Europe/Berlin"
-            try:
-                local_now = utc_now.astimezone(pytz.timezone(tz_name))
-            except pytz.UnknownTimeZoneError:
-                local_now = utc_now.astimezone(pytz.timezone("Europe/Berlin"))
             if local_now.day != 1:
                 continue
 
