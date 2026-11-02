@@ -104,6 +104,7 @@
                 <field name="availability_responded_at" readonly="1" optional="hide"/>
                 <button name="action_send_invitation" type="object" string="Verfügbarkeit mailen" class="btn-secondary" invisible="state == 'available' or (state == 'accepted' and role == 'desired')"/>
                 <button name="action_book_fixed" type="object" string="Fest buchen" class="btn-primary" invisible="state != 'available'"/>
+                <button name="action_reject_available" type="object" string="Absagen" class="btn-secondary" invisible="state != 'available' and not (state == 'accepted' and role == 'reserve')" confirm="Diese Person für den Einsatz absagen? Die Verfügbarkeit wird als nicht eingeplant markiert und eine Absage-Mail vorbereitet bzw. versendet."/>
                 <button name="action_mark_available_manual" type="object" string="Verfügbar" invisible="state == 'available' or (state == 'accepted' and role == 'desired')"/>
                 <button name="action_mark_unavailable_manual" type="object" string="Nicht verfügbar" invisible="state == 'accepted' and role == 'desired'"/>
             </list>
@@ -118,6 +119,7 @@
                 <header>
                     <button name="action_send_invitation" type="object" string="Verfügbarkeit mailen" class="btn-secondary" invisible="state == 'available' or (state == 'accepted' and role == 'desired')"/>
                     <button name="action_book_fixed" type="object" string="Fest buchen" class="btn-primary" invisible="state != 'available'"/>
+                    <button name="action_reject_available" type="object" string="Absagen" class="btn-secondary" invisible="state != 'available' and not (state == 'accepted' and role == 'reserve')" confirm="Diese Person für den Einsatz absagen? Die Verfügbarkeit wird als nicht eingeplant markiert und eine Absage-Mail vorbereitet bzw. versendet."/>
                     <button name="action_mark_available_manual" type="object" string="Manuell verfügbar" invisible="state == 'available' or (state == 'accepted' and role == 'desired')"/>
                     <button name="action_mark_unavailable_manual" type="object" string="Manuell nicht verfügbar" invisible="state == 'accepted' and role == 'desired'"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,invited,available,accepted,not_selected,declined"/>
@@ -280,6 +282,7 @@
                                     <field name="availability_responded_at" readonly="1" optional="hide"/>
                                     <button name="action_send_invitation" type="object" string="Mailen" invisible="state == 'available' or (state == 'accepted' and role == 'desired')"/>
                                     <button name="action_book_fixed" type="object" string="Fest buchen" class="btn-primary" invisible="state != 'available'"/>
+                                    <button name="action_reject_available" type="object" string="Absagen" class="btn-secondary" invisible="state != 'available' and not (state == 'accepted' and role == 'reserve')" confirm="Diese Person für den Einsatz absagen? Die Verfügbarkeit wird als nicht eingeplant markiert und eine Absage-Mail vorbereitet bzw. versendet."/>
                                 </list>
                             </field>
                         </page>

@@ -556,6 +556,7 @@ class GLServiceShift(models.Model):
                     gl_skip_coverage_close=True, skip_service_role_balance=True,
                 ).write({
                     'state': 'not_selected',
+                    'not_selected_reason': 'fully_staffed',
                     'selected_for_booking': False,
                     'time_change_state': 'none',
                     # Revoke older availability links so they cannot re-open the response.
@@ -742,6 +743,7 @@ class GLServiceShift(models.Model):
                 lambda l: l.member_id.active
                 and l.state != 'available'
                 and not (l.state == 'accepted' and l.role == 'desired')
+                and not (l.state == 'not_selected' and l.not_selected_reason == 'manual')
             )
             missing_mail = candidates.filtered(lambda l: not l.email)
             if missing_mail:
@@ -757,6 +759,7 @@ class GLServiceShift(models.Model):
                     'declined_at': False,
                     'availability_responded_at': False,
                     'selected_for_booking': False,
+                    'not_selected_reason': False,
                 })
                 line._send_template(
                     'gl_service_staff.mail_template_service_availability',
@@ -1260,9 +1263,13 @@ class GLServiceShiftLine(models.Model):
         ('available', 'Verfügbar'),
         ('accepted', 'Gebucht'),
         ('declined', 'Nicht verfügbar'),
-        ('not_selected', 'Absage: Schicht besetzt'),
+        ('not_selected', 'Absage: Nicht eingeplant'),
         ('expired', 'Frist abgelaufen (Legacy)'),
     ], string='Status', default='draft', required=True, tracking=True)
+    not_selected_reason = fields.Selection([
+        ('fully_staffed', 'Schicht vollständig besetzt'),
+        ('manual', 'Manuelle Absage'),
+    ], string='Grund der Absage', copy=False, readonly=True)
     selected_for_booking = fields.Boolean(string='Auswählen')
     availability_responded_at = fields.Datetime(
         string='Verfügbarkeit gemeldet am', readonly=True
@@ -1453,6 +1460,7 @@ class GLServiceShiftLine(models.Model):
                 'declined_at': False,
                 'availability_responded_at': False,
                 'selected_for_booking': False,
+                'not_selected_reason': False,
             })
             line._send_template(
                 'gl_service_staff.mail_template_service_availability',
@@ -1460,6 +1468,73 @@ class GLServiceShiftLine(models.Model):
                 queue_kind='availability',
             )
         return True
+
+    def action_reject_available(self):
+        """Decline this candidate, not the candidate's own availability.
+
+        This is intentionally independent of full staffing: the organizer can
+        decline an available person while other slots are still open. Never
+        modify a fixed booking. Keep older response URLs and pending messages
+        from contradicting the rejection.
+        """
+        self.ensure_one()
+        self.shift_id._check_manual_not_selected_access()
+        # Lock and refresh before deciding, so a concurrent fixed booking
+        # cannot be overwritten by a manual decline.
+        self.env.cr.execute(
+            'SELECT id FROM gl_service_shift_line WHERE id = %s FOR UPDATE',
+            (self.id,),
+        )
+        self.invalidate_recordset(['state', 'role'])
+        if not (self.state == 'available' or
+                (self.state == 'accepted' and self.role == 'reserve')):
+            raise UserError(_(
+                'Nur verfügbare, noch nicht fest gebuchte Personen können '
+                'auf diese Weise abgesagt werden. Bitte die Schicht aktualisieren.'
+            ))
+        self.env['gl.service.mail.queue'].sudo().search([
+            ('model_name', '=', 'gl.service.shift.line'),
+            ('res_id', '=', self.id),
+            ('queue_kind', 'in', ('availability', 'time_change', 'not_selected')),
+            ('state', 'in', ('pending', 'error')),
+        ]).write({'state': 'cancelled'})
+        self.with_context(
+            gl_skip_coverage_close=True, skip_service_role_balance=True,
+        ).write({
+            'state': 'not_selected',
+            'role': 'reserve',
+            'not_selected_reason': 'manual',
+            'selected_for_booking': False,
+            'time_change_state': 'none',
+            'token': secrets.token_urlsafe(32),
+        })
+        sent = self._send_template(
+            'gl_service_staff.mail_template_service_manual_not_selected',
+            queue_kind='not_selected',
+        )
+        self.message_post(body=_(
+            'Manuelle Absage durch %s. %s'
+        ) % (
+            self.env.user.name,
+            _('Absage-E-Mail vorbereitet/ausgelöst.') if sent else
+            _('Keine Absage-E-Mail versendet (E-Mail-Adresse fehlt oder Versand nicht möglich).'),
+        ))
+        if sent:
+            info = (_('Die Absage wurde zur Mail-Freigabe gestellt.')
+                    if self._gl_mail_debugging_enabled() else
+                    _('Die Absage wurde an den Mailversand übergeben.'))
+        else:
+            info = _('Die Absage wurde gespeichert. Es konnte keine E-Mail erstellt werden.')
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('Servicepersonal abgesagt'),
+                'message': info,
+                'type': 'success' if sent else 'warning',
+                'sticky': False,
+            },
+        }
 
     def action_mark_available_manual(self):
         self._mark_available(source='manual')
@@ -1508,7 +1583,7 @@ class GLServiceShiftLine(models.Model):
     def _mark_unavailable(self, source='public'):
         now = fields.Datetime.now()
         for line in self:
-            if line.time_change_state == 'pending' and source == 'public':
+            if line.time_change_state == 'pending' and source in ('public', 'portal'):
                 line.with_context(skip_time_change_confirmation=True).write({
                     'time_change_state': 'declined',
                     'time_change_answered_at': now,
@@ -1521,13 +1596,24 @@ class GLServiceShiftLine(models.Model):
             # A stale availability link must never undo an existing booking.
             if line.state == 'accepted' and line.role == 'desired':
                 continue
-            line.with_context(skip_service_role_balance=True).write({
+            changes = {
                 'state': 'declined',
                 'role': 'reserve',
                 'declined_at': now,
                 'availability_responded_at': now,
                 'selected_for_booking': False,
-            })
+            }
+            if source == 'portal':
+                # A previously emailed answer link must not be able to undo
+                # a deliberate withdrawal from the authenticated portal.
+                changes['token'] = secrets.token_urlsafe(32)
+                self.env['gl.service.mail.queue'].sudo().search([
+                    ('model_name', '=', 'gl.service.shift.line'),
+                    ('res_id', '=', line.id),
+                    ('queue_kind', 'in', ('availability', 'time_change')),
+                    ('state', 'in', ('pending', 'error')),
+                ]).write({'state': 'cancelled'})
+            line.with_context(skip_service_role_balance=True).write(changes)
         return True
 
     def _expire_and_replace(self):

@@ -193,4 +193,25 @@
             </div>
         </field>
     </record>
+    <record id="mail_template_service_manual_not_selected" model="mail.template">
+        <field name="name">Servicepersonal: Manuelle Absage einer Verfügbarkeit</field>
+        <field name="model_id" ref="model_gl_service_shift_line"/>
+        <field name="subject">Dein Serviceeinsatz: {{ object.shift_id.name }}</field>
+        <field name="email_from">{{ user.email_formatted or company.email_formatted }}</field>
+        <field name="email_to">{{ object.email }}</field>
+        <field name="auto_delete" eval="False"/>
+        <field name="body_html" type="html">
+            <div style="background-color:#f0f2f5;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+                <div style="background-color:#ffffff;max-width:640px;margin:auto;padding:28px;border-radius:12px;">
+                    <p>Hallo <strong><t t-out="object.member_id.name"/></strong>,</p>
+                    <p>vielen Dank, dass du dich für unseren Einsatz als verfügbar gemeldet hast!</p>
+                    <p>Wir haben unsere Einsatzplanung angepasst und werden dich für diesen Termin leider nicht fest einplanen:</p>
+                    <p><strong><t t-out="object.shift_id.name"/></strong><br/>
+                       <t t-out="object.mail_start_display"/> bis <t t-out="object.mail_end_display"/></p>
+                    <p>Wir freuen uns, wenn du bei einer nächsten Veranstaltung wieder dabei bist.</p>
+                    <p>Liebe Grüße<br/>Dein Groundlift-Team</p>
+                </div>
+            </div>
+        </field>
+    </record>
 </odoo>

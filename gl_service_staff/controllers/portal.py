@@ -103,13 +103,75 @@ class GLServiceStaffPortal(http.Controller):
                         'end': _service_portal_clock_time(other.planned_end_datetime, other),
                     })
                 coworkers_by_line[line.id] = people
+        portal_notice = request.session.pop('gl_service_staff_notice', False) if member else False
         return request.render('gl_service_staff.portal_service_staff_home', {
             'member': member,
             'lines': lines,
             'coworkers_by_line': coworkers_by_line,
             'calendar_url': calendar_url,
             'error': error,
+            'portal_notice': portal_notice,
         })
+
+    @http.route(
+        ['/servicepersonal/verfuegbarkeit-absagen/<int:line_id>'],
+        type='http', auth='public', website=True, methods=['POST'], csrf=True,
+    )
+    def service_staff_withdraw_availability(self, line_id, **post):
+        """Only the staff member signed in with a PIN may withdraw availability.
+
+        Deliberately uses POST + session binding + CSRF; the public answer URL
+        is not used for this new dashboard operation.
+        """
+        member_id = request.session.get('gl_service_staff_member_id')
+        member = request.env['gl.service.staff.member'].sudo().search([
+            ('id', '=', member_id or 0), ('active', '=', True),
+        ], limit=1)
+        if not member:
+            return request.redirect('/servicepersonal')
+
+        # Check the member as well as the line; a guessed line ID must never
+        # allow an employee to edit another employee's response.
+        line = request.env['gl.service.shift.line'].sudo().search([
+            ('id', '=', line_id),
+            ('member_id', '=', member.id),
+            ('shift_id.active', '=', True),
+            ('shift_id.shift_date', '>=', fields.Date.context_today(member.with_context(tz='Europe/Berlin'))),
+        ], limit=1)
+        if line:
+            # Recheck status under a row lock, protecting against a manager
+            # fixing the booking while the employee sends this form.
+            request.env.cr.execute(
+                'SELECT id FROM gl_service_shift_line WHERE id = %s FOR UPDATE',
+                (line.id,),
+            )
+            line.invalidate_recordset(['state', 'role'])
+        if not line:
+            notice = {
+                'success': False,
+                'message': _('Dieser Einsatz wurde nicht gefunden oder liegt bereits in der Vergangenheit.'),
+            }
+        elif line.state == 'available' or (line.state == 'accepted' and line.role == 'reserve'):
+            line._mark_unavailable(source='portal')
+            line.message_post(body=_(
+                'Die zuvor gemeldete Verfügbarkeit wurde durch %s im Servicepersonal-Portal zurückgezogen.'
+            ) % (member.name or _('Servicepersonal')))
+            notice = {
+                'success': True,
+                'message': _('Deine Verfügbarkeit wurde zurückgezogen. Du bist für diesen Einsatz nun als nicht verfügbar eingetragen.'),
+            }
+        elif line.state == 'accepted' and line.role == 'desired':
+            notice = {
+                'success': False,
+                'message': _('Du bist bereits fest gebucht. Bitte wende dich für eine Absage direkt an das Groundlift-Team.'),
+            }
+        else:
+            notice = {
+                'success': False,
+                'message': _('Deine Rückmeldung hat sich inzwischen geändert. Bitte prüfe den aktuellen Status.'),
+            }
+        request.session['gl_service_staff_notice'] = notice
+        return request.redirect('/servicepersonal')
 
     @http.route(
         ['/servicepersonal/kalender/<int:member_id>/<string:token>.ics'],
