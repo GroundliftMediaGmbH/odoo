@@ -1,13 +1,18 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+
 import pytz
 from odoo import fields, http, _
 from odoo.exceptions import UserError
 from odoo.http import request
 
 from ..hours_timezone import (
-    PORTAL_TZ, as_utc, local_clock_label, month_bounds, split_utc_by_local_day,
+    PORTAL_TZ,
+    as_utc,
+    local_clock_label,
+    month_bounds,
+    split_utc_by_local_day,
 )
 
 
@@ -42,9 +47,9 @@ class GlEmployeeHoursPortal(http.Controller):
         return request.httprequest.host_url.rstrip("/")
 
     def _timezone(self):
-        # All GROUNDLIFT employees use the Munich civil timezone. Do not infer
-        # from the Odoo public user, request environment or company partner:
-        # those can vary independently of the attendance location.
+        # All GROUNDLIFT attendance is interpreted in Munich civil time.
+        # The public Odoo user, server and company can use other timezones;
+        # no such setting should shift the employee's recorded hours.
         return PORTAL_TZ
 
     def _current_account(self):
@@ -52,8 +57,14 @@ class GlEmployeeHoursPortal(http.Controller):
         if not account_id:
             return request.env["gl.employee.hours.account"]
         account = request.env["gl.employee.hours.account"].sudo().browse(int(account_id))
-        if not account.exists() or account.state != "active":
+        if (
+            not account.exists()
+            or account.state != "active"
+            or not account.password_session_key
+            or request.session.get("gl_employee_hours_password_version") != account.password_session_key
+        ):
             request.session.pop("gl_employee_hours_account_id", None)
+            request.session.pop("gl_employee_hours_password_version", None)
             return request.env["gl.employee.hours.account"]
         return account
 
@@ -74,9 +85,11 @@ class GlEmployeeHoursPortal(http.Controller):
             return None
         if isinstance(value, str):
             value = fields.Datetime.to_datetime(value)
+        # hr.attendance.check_in/check_out are stored as naive UTC in Odoo.
         return as_utc(value).astimezone(tz)
 
     def _month_bounds(self, year, month, tz):
+        # Localized independently for each boundary to account for CET/CEST.
         return month_bounds(year, month, tz)
 
     def _month_url_values(self, year, month):
@@ -130,8 +143,8 @@ class GlEmployeeHoursPortal(http.Controller):
                     has_open_entries = True
                 continue
 
-            # Slice in UTC, not with timedelta on pytz-local datetimes. A
-            # Berlin local day is 23 or 25 hours on DST transition days.
+            # Work in UTC for the duration and split at Berlin local
+            # midnights, each with its actual DST offset (23/25-hour days).
             for segment_start_utc, segment_end_utc in split_utc_by_local_day(
                 as_utc(attendance.check_in),
                 as_utc(attendance.check_out),
@@ -216,17 +229,20 @@ class GlEmployeeHoursPortal(http.Controller):
             account = request.env["gl.employee.hours.account"].sudo().authenticate(email, password)
             if account:
                 request.session["gl_employee_hours_account_id"] = account.id
+                request.session["gl_employee_hours_password_version"] = account.password_session_key
                 return request.redirect("/mitarbeiter/stunden")
             error = "E-Mail oder Passwort ist nicht korrekt, oder der Zugang wurde noch nicht aktiviert."
 
         return request.render("gl_employee_hours_portal.template_login", {
             "error": error,
             "message": message,
+            "email_prefill": (post.get("email") or "").strip().lower(),
         })
 
     @http.route("/mitarbeiter/stunden/logout", type="http", auth="public", website=True, sitemap=False)
     def logout(self, **kw):
         request.session.pop("gl_employee_hours_account_id", None)
+        request.session.pop("gl_employee_hours_password_version", None)
         return request.redirect("/mitarbeiter/stunden/login")
 
     @http.route("/mitarbeiter/stunden/registrieren", type="http", auth="public", methods=["GET", "POST"], website=True, sitemap=False)
@@ -277,6 +293,7 @@ class GlEmployeeHoursPortal(http.Controller):
         try:
             account = request.env["gl.employee.hours.account"].sudo().activate_from_token(token)
             request.session["gl_employee_hours_account_id"] = account.id
+            request.session["gl_employee_hours_password_version"] = account.password_session_key
             return request.redirect("/mitarbeiter/stunden")
         except Exception as exc:
             return request.render("gl_employee_hours_portal.template_message", {
@@ -316,6 +333,7 @@ class GlEmployeeHoursPortal(http.Controller):
                     raise UserError("Die beiden Passwörter stimmen nicht überein.")
                 account = request.env["gl.employee.hours.account"].sudo().reset_password_from_token(token, password)
                 request.session["gl_employee_hours_account_id"] = account.id
+                request.session["gl_employee_hours_password_version"] = account.password_session_key
                 return request.redirect("/mitarbeiter/stunden")
             except Exception as exc:
                 error = str(exc)
