@@ -554,6 +554,8 @@ class GLServiceShift(models.Model):
                 ]).write({'state': 'cancelled'})
                 line.with_context(
                     gl_skip_coverage_close=True, skip_service_role_balance=True,
+                    # The automatic close already sends its own, different mail.
+                    gl_not_selected_mail_handled=True,
                 ).write({
                     'state': 'not_selected',
                     'not_selected_reason': 'fully_staffed',
@@ -1340,9 +1342,71 @@ class GLServiceShiftLine(models.Model):
                 shift = self.env['gl.service.shift'].browse(vals['shift_id'])
                 vals.setdefault('planned_start_datetime', shift.start_datetime)
                 vals.setdefault('planned_end_datetime', shift.end_datetime)
-        return super().create(vals_list)
+        lines = super().create(vals_list)
+        # A line can also be created directly with the final status in an
+        # editable Odoo list. Treat this like an explicit manual status change.
+        if not self.env.context.get('gl_not_selected_mail_handled'):
+            lines.filtered(lambda line: line.state == 'not_selected')._notify_manual_not_selected()
+        return lines
+
+    def _notify_manual_not_selected(self):
+        """Notify once when someone is *manually* set to 'not selected'.
+
+        Keep this in the model rather than an onchange: status edits in list,
+        form and nested event/project views all use ORM create()/write().
+        The button and full-staffing automation already handle their own mails
+        and explicitly bypass this helper via context.
+        """
+        for line in self:
+            # Direct status edits must have the same technical invariants as
+            # the dedicated decline button (including invalidating old URLs).
+            line.with_context(
+                gl_not_selected_mail_handled=True,
+                gl_skip_coverage_close=True,
+                skip_service_role_balance=True,
+                skip_time_change_confirmation=True,
+            ).write({
+                'not_selected_reason': 'manual',
+                'role': 'reserve',
+                'selected_for_booking': False,
+                'time_change_state': 'none',
+                'token': secrets.token_urlsafe(32),
+            })
+            # Pending mails for earlier availability/bookings must not go out
+            # after we have informed the person that they are not scheduled.
+            self.env['gl.service.mail.queue'].sudo().search([
+                ('model_name', '=', 'gl.service.shift.line'),
+                ('res_id', '=', line.id),
+                ('queue_kind', 'in', (
+                    'availability', 'time_change', 'not_selected',
+                    'booking_confirmation', 'day_before',
+                )),
+                ('state', 'in', ('pending', 'error')),
+            ]).write({'state': 'cancelled'})
+            sent = bool(line.email) and line._send_template(
+                'gl_service_staff.mail_template_service_manual_not_selected',
+                queue_kind='not_selected',
+            )
+            line.message_post(body=(
+                _('Status manuell auf „Absage: Nicht eingeplant“ geändert durch %s. ')
+                % self.env.user.name
+            ) + (
+                _('Absage-E-Mail zur Freigabe vorbereitet bzw. versendet.') if sent else
+                _('Keine Absage-E-Mail: E-Mail-Adresse oder Mailvorlage fehlt.')
+            ))
 
     def write(self, vals):
+        # A direct status edit must send exactly one decline notification.
+        # Re-saving an already rejected status does not constitute a new
+        # rejection and must never trigger a second mail.
+        manual_transition = (
+            vals.get('state') == 'not_selected'
+            and not self.env.context.get('gl_not_selected_mail_handled')
+        )
+        newly_rejected = (
+            self.filtered(lambda line: line.state != 'not_selected')
+            if manual_transition else self.browse([])
+        )
         time_fields_changed = any(
             key in vals for key in ('planned_start_datetime', 'planned_end_datetime')
         )
@@ -1356,9 +1420,15 @@ class GLServiceShiftLine(models.Model):
         res = super().write(vals)
         if ({'state', 'role'} & set(vals)) and not self.env.context.get('gl_skip_coverage_close'):
             self.mapped('shift_id')._close_full_staffing()
+        if newly_rejected:
+            newly_rejected._notify_manual_not_selected()
         if time_fields_changed and tracked:
             now = fields.Datetime.now()
             for line in tracked:
+                # A simultaneous manual cancellation and time edit must not
+                # generate a contradictory time-confirmation email.
+                if line.state != 'accepted' or line.role != 'desired':
+                    continue
                 old_start, old_end = old_times.get(line.id, (False, False))
                 if old_start == line.planned_start_datetime and old_end == line.planned_end_datetime:
                     continue
@@ -1500,6 +1570,8 @@ class GLServiceShiftLine(models.Model):
         ]).write({'state': 'cancelled'})
         self.with_context(
             gl_skip_coverage_close=True, skip_service_role_balance=True,
+            # This action sends the manual-decline mail itself.
+            gl_not_selected_mail_handled=True,
         ).write({
             'state': 'not_selected',
             'role': 'reserve',
