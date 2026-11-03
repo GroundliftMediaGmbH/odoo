@@ -1,47 +1,38 @@
 # Groundlift Bruttopreis Eingabe – Odoo 19
-Version **19.0.1.6.0**
+Version **19.0.1.7.0**
 
-## v1.6.0 – Event-Ticket 12,00 → 11,99 Fix
+## v1.7.0 – Eventticket 12,00 EUR statt 11,99 EUR
 
-Odoo hält den Preis eines Eventtickets (`event.event.ticket.price`) netto.
-Der Website-/Checkout-Bruttopreis wird anschließend aus diesem Netto plus
-Produktsteuer berechnet.
+Diagnose am realen Ticket:
+- ticket.price: 11.214953
+- Steuer: 7 %
+- Firma verwendet `round_per_line`
+- Odoo-Core `event_product` berechnet `price_incl` / `price_reduce_taxinc`
+  mit `tax_ids.compute_all(...)`.
 
-Bei einem gewünschten Bruttopreis von 12,00 EUR und 7 % MwSt. lautet der
-exakte Nettowert:
+Bei `round_per_line` kann die Basis zuerst auf Cent reduziert werden:
+- 11.214953 -> 11.21
+- 7 % von 11.21 -> 0.78
+- Brutto -> 11.99
 
-    12.00 / 1.07 = 11.214953271...
+Die mathematisch beabsichtigte Berechnung lautet:
+- 11.214953 * 1.07 = 11.99999971
+- Endbetrag auf Währung runden -> 12.00
 
-Wird dieser Wert irgendwo auf 11,21 EUR reduziert, ergibt die erneute
-Bruttoberechnung:
+### Fix
 
-    11.21 * 1.07 = 11.9947 -> 11.99 EUR
+1. `event.event.ticket.price_incl`
+2. `event.event.ticket.price_reduce_taxinc`
 
-v1.6 schützt genau gegen diesen Präzisionsverlust.
+werden mit voller Basispräzision berechnet und erst das Endergebnis auf die
+Währung gerundet.
 
-### Was der Fix macht
+Zusätzlich werden `sale.order.line`-Positionen mit `event_ticket_id` für die
+Steuerberechnung als "total included" behandelt. Damit bleibt der auf der
+Eventseite angezeigte Bruttopreis auch im Groundlift-Checkout und Auftrag
+führend.
 
-- Nur Tickets, deren verknüpftes Produkt ausdrücklich
-  `gl_gross_price_managed = True` ist, werden berücksichtigt.
-- Wenn ein Ticket-Netto exakt der auf Währungsstellen gerundeten Form des
-  korrekten Produkt-Nettos entspricht, wird wieder der exakte Netto-Wert
-  gespeichert.
-- Echte, abweichende manuelle Ticketpreise werden nicht verändert.
-- Beim Upgrade werden bereits betroffene Tickets nach demselben konservativen
-  Kriterium repariert.
-- POS-Logik bleibt auf dem stabilen v1.5/v1.4/v1.2-Pfad.
-- Die verworfene v1.3-Steuer-Summenlogik ist nicht enthalten.
+Normale Verkaufspositionen und POS-Positionen sind davon nicht betroffen.
 
-### Beispiel
-
-Produkt:
-- Bruttopreis 12,00 EUR
-- Steuer 7 %
-- exaktes Netto 11,214953271...
-
-Betroffenes Ticket:
-- gespeichert 11,21 EUR
-
-Nach Upgrade:
-- Ticket-Netto 11,214953271...
-- Website/Checkout wieder 12,00 EUR brutto
+Die verworfene v1.3-POS-Steuerlogik und die v1.6-Ticketpreis-Umschreibung sind
+nicht enthalten. Basis ist der stabile v1.5-Code.

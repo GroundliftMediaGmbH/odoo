@@ -1,7 +1,7 @@
 {
     "name": "Groundlift Bruttopreis Eingabe",
-    "summary": "Stabiler Bruttopreis, exakter Nettopreis und Event-Ticket-Rundungsschutz für Odoo 19",
-    "version": "19.0.1.6.0",
+    "summary": "Stabiler Bruttopreis, exakter POS-Nettopreis und korrekte Event-Bruttopreise in Odoo 19",
+    "version": "19.0.1.7.0",
     "category": "Sales/Point of Sale",
     "author": "Groundlift",
     "license": "LGPL-3",
