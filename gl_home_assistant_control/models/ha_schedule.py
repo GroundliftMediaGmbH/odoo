@@ -1,0 +1,379 @@
+# -*- coding: utf-8 -*-
+import logging
+import re
+from datetime import datetime, timedelta, timezone
+
+import pytz
+
+from odoo import _, api, fields, models
+
+_logger = logging.getLogger(__name__)
+
+
+class GlHaScheduleWindow(models.Model):
+    _name = "gl.ha.schedule.window"
+    _description = "Home Assistant Automatik-Zeitfenster"
+    _order = "start_at, source, name"
+
+    name = fields.Char(required=True)
+    source = fields.Selection([
+        ("event", "Groundlift Veranstaltung"),
+        ("cinema", "Kino"),
+        ("project_event", "Projekt · Theater / Veranstaltung"),
+        ("project_cinema", "Projekt · Kino"),
+        ("project_lounge", "Projekt Lounge"),
+        ("project_podcast", "Projekt Podcaststudio"),
+    ], required=True, index=True)
+    source_ref = fields.Char(index=True)
+    start_at = fields.Datetime(required=True, index=True)
+    end_at = fields.Datetime(required=True, index=True)
+    details = fields.Char()
+    room_code = fields.Char(
+        string="Raumcode",
+        index=True,
+        help="Optionaler technischer Raum-/Saalcode, z. B. cinema_1, cinema_2, theater, lounge oder podcast.",
+    )
+
+    _source_ref_time_unique = models.Constraint(
+        "UNIQUE(source, source_ref, start_at)",
+        "Dieses Zeitfenster existiert bereits.",
+    )
+
+    @api.model
+    def refresh_all(self, config=None):
+        config = config or self.env["gl.ha.config"].get_config().sudo()
+        self._refresh_events(config)
+        self._refresh_cinema(config)
+        self._refresh_projects(config)
+        # Alte Cache-Fenster dienen nicht als Historie und werden begrenzt gehalten.
+        self.search([("end_at", "<", fields.Datetime.now() - timedelta(days=7))]).unlink()
+        config.sudo().write({"last_schedule_sync_at": fields.Datetime.now()})
+        return True
+
+    @api.model
+    def _replace_source(self, source, vals_list, cutoff_start, cutoff_end):
+        old = self.search([
+            ("source", "=", source),
+            ("start_at", "<=", cutoff_end),
+            ("end_at", ">=", cutoff_start),
+        ])
+        if old:
+            old.unlink()
+        if vals_list:
+            self.create(vals_list)
+
+    @api.model
+    def _refresh_events(self, config):
+        now = fields.Datetime.now()
+        start = now - timedelta(days=2)
+        end = now + timedelta(days=config.schedule_horizon_days)
+        Event = self.env["event.event"].sudo()
+        domain = [("date_begin", "<=", end), ("date_end", ">=", start)]
+        if "active" in Event._fields:
+            domain.append(("active", "=", True))
+        if "kanban_state" in Event._fields:
+            domain.append(("kanban_state", "!=", "cancel"))
+        if config.event_stage_ids and "stage_id" in Event._fields:
+            domain.append(("stage_id", "in", config.event_stage_ids.ids))
+        events = Event.search(domain)
+        vals_list = []
+        for event in events:
+            # Odoo 19 kann Event-Slots verwenden. Dann wird pro Slot ein eigenes
+            # Zeitfenster erzeugt, damit Pausen zwischen Slots nicht unnötig Licht aktivieren.
+            slots = event.event_slot_ids if "event_slot_ids" in Event._fields and getattr(event, "is_multi_slots", False) else False
+            if slots:
+                for slot in slots:
+                    begin = fields.Datetime.to_datetime(slot.start_datetime)
+                    finish = fields.Datetime.to_datetime(slot.end_datetime or slot.start_datetime)
+                    if not begin or not finish:
+                        continue
+                    vals_list.append({
+                        "name": event.name or _("Veranstaltung"),
+                        "source": "event",
+                        "source_ref": "%s:slot:%s" % (event.id, slot.id),
+                        "start_at": begin,
+                        "end_at": finish,
+                        "details": _("Odoo Veranstaltung · Slot"),
+                        "room_code": "theater",
+                    })
+                continue
+
+            begin = fields.Datetime.to_datetime(event.date_begin)
+            finish = fields.Datetime.to_datetime(event.date_end or event.date_begin)
+            if not begin or not finish:
+                continue
+            vals_list.append({
+                "name": event.name or _("Veranstaltung"),
+                "source": "event",
+                "source_ref": str(event.id),
+                "start_at": begin,
+                "end_at": finish,
+                "details": _("Odoo Veranstaltung"),
+                "room_code": "theater",
+            })
+        self._replace_source("event", vals_list, start, end)
+
+    @api.model
+    def _project_window_values(self, project):
+        """Zeitfensterwerte eines Odoo-Projekts je Raum liefern.
+
+        Seit 1.8 bleibt der konkrete Raumcode erhalten. Dadurch kann ein
+        Raumthermostat z. B. Kino 1 und Kino 2 getrennt vorheizen, während
+        bestehende Automatikregeln weiterhin über die gemeinsame Quelle
+        ``project_cinema`` reagieren.
+        """
+        if not project or not project.exists():
+            return []
+        if not getattr(project, "ha_building_automation", False):
+            return []
+        if "active" in project._fields and not project.active:
+            return []
+        start_at = fields.Datetime.to_datetime(getattr(project, "ha_start_at", False))
+        end_at = fields.Datetime.to_datetime(getattr(project, "ha_end_at", False))
+        rooms = getattr(project, "ha_room_ids", self.env["gl.ha.project.room"])
+        if not start_at or not end_at or end_at <= start_at or not rooms:
+            return []
+
+        vals_list = []
+        for room in rooms:
+            source = room.schedule_source()
+            if not source:
+                continue
+            vals_list.append({
+                "name": project.name or _("Projekt"),
+                "source": source,
+                "source_ref": "project:%s:%s:%s" % (project.id, source, room.code),
+                "start_at": start_at,
+                "end_at": end_at,
+                "details": _("Odoo-Projekt · Raum: %s") % room.name,
+                "room_code": room.code,
+            })
+        return vals_list
+
+    @api.model
+    def _sync_single_project(self, project):
+        """Ein Projekt unmittelbar aktualisieren, ohne auf den Cron zu warten."""
+        if not project or not project.exists():
+            return True
+        self.search([("source_ref", "=like", "project:%s:%%" % project.id)]).unlink()
+        vals_list = self._project_window_values(project)
+        if vals_list:
+            self.create(vals_list)
+        return True
+
+    @api.model
+    def _refresh_projects(self, config):
+        now = fields.Datetime.now()
+        cutoff_start = now - timedelta(days=7)
+        cutoff_end = now + timedelta(days=config.schedule_horizon_days + 7)
+        Project = self.env["project.project"].sudo()
+        domain = [
+            ("ha_building_automation", "=", True),
+            ("ha_start_at", "<=", cutoff_end),
+            ("ha_end_at", ">=", cutoff_start),
+        ]
+        if "active" in Project._fields:
+            domain.append(("active", "=", True))
+        projects = Project.search(domain)
+        vals_by_source = {
+            "project_event": [],
+            "project_cinema": [],
+            "project_lounge": [],
+            "project_podcast": [],
+        }
+        for project in projects:
+            for vals in self._project_window_values(project):
+                vals_by_source[vals["source"]].append(vals)
+        for source, vals_list in vals_by_source.items():
+            self._replace_source(source, vals_list, cutoff_start, cutoff_end)
+        return True
+
+    @api.model
+    def _parse_duration_minutes(self, raw, fallback):
+        if not raw:
+            return fallback
+        text = str(raw).strip()
+        clock = re.match(r"^(\d{1,2}):(\d{2})(?::\d{2})?$", text)
+        if clock:
+            value = int(clock.group(1)) * 60 + int(clock.group(2))
+            return value if 1 <= value <= 600 else fallback
+        match = re.search(r"(\d+)", text)
+        if not match:
+            return fallback
+        value = int(match.group(1))
+        return value if 1 <= value <= 600 else fallback
+
+    @api.model
+    def _aware_to_odoo(self, dt):
+        if dt.tzinfo:
+            return dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
+
+    @api.model
+    def _cinema_datetime_local(self, raw_value, tz):
+        """Parse a Cinetixx timestamp and normalize it to the configured cinema timezone."""
+        dt = datetime.fromisoformat(str(raw_value).replace("Z", "+00:00"))
+        if dt.tzinfo:
+            return dt.astimezone(tz)
+        # Cinetixx values without an offset are interpreted as cinema-local time.
+        return tz.localize(dt)
+
+    @api.model
+    def _refresh_cinema(self, config):
+        KinoConfig = self.env["gl.kino.newsletter.config"].sudo()
+        Issue = self.env["gl.kino.newsletter.issue"].sudo()
+        kino_config = KinoConfig.get_config()
+        tz = pytz.timezone(kino_config.timezone_name or config.timezone_name or "Europe/Berlin")
+        local_today = datetime.now(tz).date()
+        week_start, week_end = Issue._get_week_range(local_today, kino_config)
+
+        ranges = [(week_start, week_end)]
+        next_start = week_end + timedelta(days=1)
+        next_end = next_start + timedelta(days=6)
+        if next_start <= local_today + timedelta(days=config.schedule_horizon_days):
+            ranges.append((next_start, next_end))
+
+        shows = []
+        for start_date, end_date in ranges:
+            issue = Issue.new({
+                "name": "HA Kino Cache",
+                "config_id": kino_config.id,
+                "week_start": start_date,
+                "week_end": end_date,
+            })
+            shows.extend(issue._fetch_cinetixx_shows())
+
+        # Kino-Automatik arbeitet absichtlich tageweise: pro lokalem Kalendertag
+        # entsteht GENAU EIN Zeitfenster von der ersten Vorstellung bis zum Ende
+        # der letzten Vorstellung. Vor-/Nachlauf der Automatikregel werden dann
+        # nur vor dieses Tagesfenster bzw. hinter dieses Tagesfenster gelegt.
+        daily = {}
+        room_daily = {}
+        dedupe = set()
+        for show in shows:
+            raw_start = show.get("start")
+            if not raw_start:
+                continue
+            try:
+                start_local = self._cinema_datetime_local(raw_start, tz)
+            except Exception:
+                _logger.warning("Ungültiger Cinetixx-Startzeitpunkt übersprungen: %r", raw_start, exc_info=True)
+                continue
+
+            raw_end = show.get("end")
+            if raw_end:
+                try:
+                    end_local = self._cinema_datetime_local(raw_end, tz)
+                except Exception:
+                    _logger.warning("Ungültiger Cinetixx-Endzeitpunkt; verwende Fallbackdauer: %r", raw_end, exc_info=True)
+                    minutes = self._parse_duration_minutes(show.get("duration"), config.cinema_default_duration_minutes)
+                    end_local = start_local + timedelta(minutes=minutes)
+            else:
+                minutes = self._parse_duration_minutes(show.get("duration"), config.cinema_default_duration_minutes)
+                end_local = start_local + timedelta(minutes=minutes)
+
+            if end_local < start_local:
+                end_local = start_local + timedelta(minutes=config.cinema_default_duration_minutes)
+
+            ref = show.get("show_id") or "%s|%s|%s" % (
+                show.get("film") or "Film",
+                show.get("kino") or "",
+                raw_start,
+            )
+            dedupe_key = (str(ref), start_local.isoformat())
+            if dedupe_key in dedupe:
+                continue
+            dedupe.add(dedupe_key)
+
+            day = start_local.date()
+            bucket = daily.setdefault(day, {
+                "start_local": start_local,
+                "end_local": end_local,
+                "films": [],
+                "cinemas": set(),
+                "count": 0,
+            })
+            if start_local < bucket["start_local"]:
+                bucket["start_local"] = start_local
+            if end_local > bucket["end_local"]:
+                bucket["end_local"] = end_local
+            film = (show.get("film") or "").strip()
+            if film and film not in bucket["films"]:
+                bucket["films"].append(film)
+            cinema = (show.get("kino") or "").strip()
+            if cinema:
+                bucket["cinemas"].add(cinema)
+            bucket["count"] += 1
+
+            # Zusätzlicher saalbezogener Cache für Raumthermostate. Das globale
+            # Tagesfenster oben bleibt unverändert erhalten, damit bestehende
+            # Kino-Automatikregeln weiterhin exakt wie bisher arbeiten.
+            cinema_norm = cinema.lower().replace("saal", "kino").replace("-", " ").replace("_", " ")
+            room_code = False
+            if re.search(r"(?:kino\s*)?1(?:\D|$)", cinema_norm):
+                room_code = "cinema_1"
+            elif re.search(r"(?:kino\s*)?2(?:\D|$)", cinema_norm):
+                room_code = "cinema_2"
+            if room_code:
+                room_key = (day, room_code)
+                room_bucket = room_daily.setdefault(room_key, {
+                    "start_local": start_local,
+                    "end_local": end_local,
+                    "films": [],
+                    "cinema": cinema or ("Kino 1" if room_code == "cinema_1" else "Kino 2"),
+                    "count": 0,
+                })
+                if start_local < room_bucket["start_local"]:
+                    room_bucket["start_local"] = start_local
+                if end_local > room_bucket["end_local"]:
+                    room_bucket["end_local"] = end_local
+                if film and film not in room_bucket["films"]:
+                    room_bucket["films"].append(film)
+                room_bucket["count"] += 1
+
+        vals_list = []
+        for day in sorted(daily):
+            bucket = daily[day]
+            count = bucket["count"]
+            cinemas = ", ".join(sorted(bucket["cinemas"]))
+            film_preview = ", ".join(bucket["films"][:3])
+            if len(bucket["films"]) > 3:
+                film_preview += _(" + weitere")
+            detail_parts = [_(("%s Vorstellung" if count == 1 else "%s Vorstellungen")) % count]
+            if cinemas:
+                detail_parts.append(cinemas)
+            if film_preview:
+                detail_parts.append(film_preview)
+
+            vals_list.append({
+                "name": _("Kino – Tagesbetrieb"),
+                "source": "cinema",
+                "source_ref": "cinema-day:%s" % day.isoformat(),
+                "start_at": self._aware_to_odoo(bucket["start_local"]),
+                "end_at": self._aware_to_odoo(bucket["end_local"]),
+                "details": " · ".join(detail_parts),
+                "room_code": False,
+            })
+
+        for (day, room_code), bucket in sorted(room_daily.items(), key=lambda item: (item[0][0], item[0][1])):
+            count = bucket["count"]
+            film_preview = ", ".join(bucket["films"][:3])
+            if len(bucket["films"]) > 3:
+                film_preview += _(" + weitere")
+            detail_parts = [_("%s Vorstellung" if count == 1 else "%s Vorstellungen") % count, bucket["cinema"]]
+            if film_preview:
+                detail_parts.append(film_preview)
+            vals_list.append({
+                "name": _("Kino – %s") % bucket["cinema"],
+                "source": "cinema",
+                "source_ref": "cinema-room:%s:%s" % (room_code, day.isoformat()),
+                "start_at": self._aware_to_odoo(bucket["start_local"]),
+                "end_at": self._aware_to_odoo(bucket["end_local"]),
+                "details": " · ".join(detail_parts),
+                "room_code": room_code,
+            })
+
+        now = fields.Datetime.now()
+        cutoff_start = now - timedelta(days=2)
+        cutoff_end = now + timedelta(days=config.schedule_horizon_days + 7)
+        self._replace_source("cinema", vals_list, cutoff_start, cutoff_end)

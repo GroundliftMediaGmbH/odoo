@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_meta_pixel" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.meta.pixel</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="website.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app string="Meta Pixel" name="meta_pixel" groups="base.group_system">
+                    <block title="Standard-Konfiguration" name="meta_pixel_settings_block">
+                        <setting string="Groundlift Standard-Pixel" help="Wird für Veranstaltungen mit Meta Tracking = Groundlift Standard verwendet.">
+                            <field name="meta_pixel_default_config_id"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>

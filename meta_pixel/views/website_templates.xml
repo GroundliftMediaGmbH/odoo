@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="event_layout_meta_context" inherit_id="website_event.layout" name="Meta Pixel Event Context">
+        <xpath expr="//div[@id='wrap']" position="inside">
+            <div id="gl_meta_pixel_event_context" class="d-none" t-att-data-event-id="event.id"/>
+        </xpath>
+    </template>
+</odoo>

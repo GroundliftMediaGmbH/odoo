@@ -24,6 +24,14 @@ class GlKinoSettingsWizard(models.TransientModel):
         required=True,
         default=DEFAULT_DISPO_EMAIL,
     )
+    gl_kino_sender_reply_email = fields.Char(
+        string="Absender-/Antwortadresse für KDM/DCP",
+        help=(
+            "Diese Adresse wird als sichtbarer Absender und als Reply-To verwendet. "
+            "Bleibt das Feld leer, verwendet die App zuerst die Firmenadresse und danach die Adresse des aktuellen Benutzers. "
+            "Odoo-Catchall-Adressen werden nicht verwendet."
+        ),
+    )
     gl_kino_tuesday_user_id = fields.Many2one(
         "res.users",
         string="Mitarbeiter für Dienstagabend-Erinnerung",
@@ -69,6 +77,14 @@ class GlKinoSettingsWizard(models.TransientModel):
                 or DEFAULT_DISPO_EMAIL
             )
 
+        if "gl_kino_sender_reply_email" in fields_list:
+            res["gl_kino_sender_reply_email"] = (
+                param.get_param("gl_kino_readiness.sender_reply_email")
+                or self.env.company.email
+                or self.env.user.email
+                or ""
+            )
+
         if "gl_kino_tuesday_user_id" in fields_list:
             user_id = self._safe_int(param.get_param("gl_kino_readiness.tuesday_user_id"))
             if user_id and self.env["res.users"].browse(user_id).exists():
@@ -91,6 +107,10 @@ class GlKinoSettingsWizard(models.TransientModel):
         param.set_param(
             "gl_kino_readiness.dispo_email",
             (self.gl_kino_dispo_email or DEFAULT_DISPO_EMAIL).strip(),
+        )
+        param.set_param(
+            "gl_kino_readiness.sender_reply_email",
+            (self.gl_kino_sender_reply_email or "").strip(),
         )
         param.set_param(
             "gl_kino_readiness.tuesday_user_id",

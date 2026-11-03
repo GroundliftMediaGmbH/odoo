@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Replace only the customer-visible technical timezone label on the
+        website event landing page. The real event.date_tz stays untouched
+        and is still used for all date/time calculations and calendar links.
+
+        Important: each XPath targets a structurally unique occurrence.
+        This avoids the Odoo inheritance issue caused by replacing [1] first
+        and then trying to address the former [2] afterwards.
+    -->
+    <template id="event_description_dates_location_label"
+              inherit_id="website_event.event_description_dates"
+              name="Groundlift: Event Location Label"
+              priority="90">
+
+        <!-- Multi-slot events: timezone next to "Next Dates" -->
+        <xpath expr="//span[@t-out='event.date_tz' and contains(@class, 'text-truncate')]"
+               position="attributes">
+            <attribute name="t-out">'Inning am Ammersee'</attribute>
+        </xpath>
+
+        <!-- Normal one-day event: timezone below start/end time -->
+        <xpath expr="//span[@t-out='event.date_tz' and contains(@class, 'd-block')]"
+               position="attributes">
+            <attribute name="t-out">'Inning am Ammersee'</attribute>
+        </xpath>
+
+        <!-- Multi-day event: start card -->
+        <xpath expr="//div[contains(@class, 'card')][.//time[@t-out='event.date_begin']]//small[@t-out='event.date_tz']"
+               position="attributes">
+            <attribute name="t-out">'Inning am Ammersee'</attribute>
+        </xpath>
+
+        <!-- Multi-day event: end card -->
+        <xpath expr="//div[contains(@class, 'card')][.//time[@t-out='event.date_end']]//small[@t-out='event.date_tz']"
+               position="attributes">
+            <attribute name="t-out">'Inning am Ammersee'</attribute>
+        </xpath>
+
+    </template>
+</odoo>

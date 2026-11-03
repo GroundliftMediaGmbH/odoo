@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Wird sowohl bei der Erstinstallation als auch bei jedem Modul-Upgrade
+        ausgeführt. So existiert die Systemkategorie sicher und vorhandene
+        kategorielose To-Dos werden automatisch migriert.
+    -->
+    <function model="project.task" name="_gl_ensure_uncategorized_category_and_backfill"/>
+</odoo>

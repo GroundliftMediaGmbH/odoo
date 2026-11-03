@@ -1,3 +1,35 @@
+## Änderung 19.0.1.5.0 – Zwei-Monats-Planung, feste spontane Termine und Versand-Sicherheiten
+
+- Die **Planungsübersicht** zeigt jetzt immer alle automatischen Versandtermine der kommenden **zwei Monate**. Auch Termine ohne aktuell passenden Inhalt werden als **Termin-Platzhalter** angelegt und können nicht versendet werden.
+- **Spontane Newsletter / neue Events** haben nun einen festen, konfigurierbaren Rhythmus: Wochentag, Intervall in Tagen, Stunde, Minute und nächster Ankertermin. Standard für neue Installationen: Sonntag alle 14 Tage. Neue angekündigte Events werden dem jeweils nächsten spontanen Termin zugeordnet.
+- Der Inhalt wird weiterhin laufend aktualisiert. Direkt vor dem tatsächlichen Versand werden die Eventdaten nochmals geprüft und neu gerendert; spontane Newsletter nehmen zusätzlich noch nicht zugeordnete neue Events in den fälligen Versand auf.
+- Kalendertermine der Newsletter werden weiterhin synchronisiert, aber mit deaktiviertem Mail-/Tracking-Kontext. Dadurch erzeugen Terminverschiebungen der App keine Chatter-/Benachrichtigungs-Meldungen mehr.
+- **Staging-/Development-/Test-Schutz:** In Odoo.sh Nicht-Produktivumgebungen und neutralisierten Datenbanken ist der tatsächliche CleverReach-Release technisch blockiert – auch bei manuellem Sofortversand. Planung und Vorschau bleiben möglich.
+- **Sicheres Upgrade:** Beim Update auf 19.0.1.5.0 werden der globale CleverReach-Schalter sowie 2-wöchig, Diese Woche und Spontan einmalig deaktiviert. Erst nach bewusster Reaktivierung kann Production wieder senden.
+- Alte dynamisch geplante spontane Versandjobs werden beim nächsten Planungsaufbau in den festen Rhythmus übernommen und als alte Versandtermine stillgelegt.
+
+**Nach dem Odoo.sh-Update:** App aktualisieren, Planungsübersicht prüfen, den spontanen Rhythmus festlegen und anschließend auf **Production** den globalen Schalter sowie nur die gewünschten Newsletter-Arten wieder aktivieren. Auf Staging bleibt der Versand unabhängig davon gesperrt.
+
+## Änderung 19.0.1.4.9 – Aktivierungsschalter zuverlässig speichern
+
+- In **Einstellungen** und in jedem der drei Newsletter-Bereiche wird der tatsächlich gespeicherte Aktivierungszustand angezeigt. Daneben gibt es **Aktivieren** bzw. **Deaktivieren**. Der Klick schreibt den Wert direkt in die *bestehende* CleverReach-Konfiguration und öffnet anschließend denselben Datensatz erneut. Ein bloßer Wechsel des Häkchens ohne Speichern ist damit ausgeschlossen.
+- Die drei Arten bleiben vollständig voneinander und vom globalen Hauptschalter unabhängig.
+- Die bisherige Migration, die „Spontan“ bei jedem dafür relevanten Upgrade wieder aktivieren konnte, wurde korrigiert: Nur beim Erst-Upgrade von einer Version *vor* 19.0.1.4.8 wird der neue Schalter initial eingeschaltet. Bereits gespeichertes `False` wird bei späteren Upgrades nicht überschrieben.
+- Die Vorschau-Berechnung schreibt beim bloßen Öffnen eines Formulars keine Konfigurationswerte mehr. Falls ein Kalendertermin nicht aktualisiert werden kann, bleibt die Änderung des Aktivierungsschalters gespeichert; der Sendeschutz gilt weiterhin.
+- Zum Testen: jeweils alle drei Arten deaktivieren, Menü wechseln, Einstellungen erneut aufrufen; anschließend einzeln aktivieren. Die globale Aktivierung muss unverändert bleiben.
+
+**Odoo.sh:** Modulordner im Repository ersetzen, pushen und die App **aktualisieren**; nicht deinstallieren. Nach der Aktualisierung die Oberfläche einmal neu laden.
+
+## Änderung 19.0.1.4.8 – Newsletter-Arten unabhängig steuern
+
+- Unter **Einstellungen** sowie in den drei jeweiligen Newsletter-Menüpunkten besitzt jede automatische Art ihren eigenen Aktivierungsschalter und eine eigene CleverReach-Empfängerliste: **2-wöchig**, **Diese Woche bei Groundlift**, **Spontan / neue Events**.
+- Die globale Empfängerliste bleibt als **Fallback** erhalten, wenn bei einer Art keine eigene Liste ausgewählt wurde. Dadurch bleiben bestehende Installationen ohne Neu-Konfiguration versandfähig. Der manuelle Konzert-Newsletter behält seine freie Empfängerwahl und den globalen Fallback.
+- Ein deaktivierter Typ wird nicht mehr automatisch erzeugt, vorbereitet oder versendet. Bereits geplante, noch nicht versendete Jobs dieser Art werden auf **Blockiert** gesetzt; versendete Jobs und andere Newsletter-Arten bleiben unverändert. Bei erneuter Aktivierung werden nur zukünftige, durch diese Deaktivierung blockierte Jobs wieder freigegeben. Alte, inzwischen fällige Jobs werden nicht nachträglich automatisch verschickt.
+- Bei Änderung der Liste werden noch nicht versendete Jobs, die bisher die alte Standardliste dieses Typs verwenden, auf die neue Liste umgestellt. Individuell auf einem Job eingestellte andere Listen bleiben erhalten. Ein bereits in CleverReach vorbereiteter Entwurf wird bei Bedarf mit der neuen Liste neu angelegt (der alte CleverReach-Entwurf wird nicht versendet).
+- Beim Modulupgrade wird **Spontan** einmalig auf aktiviert gesetzt, damit die bisher bestehende spontane Automatik nicht durch den neuen Schalter ungewollt ausgeschaltet wird. Bereits bestehende Termine, geplante Sendezeiten und die Newsletter-Historie werden nicht gelöscht.
+
+**Update in Odoo.sh:** Ordner `gl_cleverreach_newsletter` im bestehenden Addons-Pfad ersetzen/pushen und die App **Groundlift CleverReach Event Newsletter** aktualisieren (nicht deinstallieren), damit die neuen Felder und die Migration angelegt werden. Anschließend die drei Empfängerlisten in den einzelnen Menüpunkten prüfen; leere Typ-Listen verwenden weiterhin den globalen Fallback.
+
 # Groundlift CleverReach Event Newsletter für Odoo 19 SH
 
 Dieses Modul erzeugt aus Odoo-Veranstaltungen automatisch HTML-Newsletter für CleverReach.
@@ -206,3 +238,17 @@ Zusätzlich wurde ein Duplikatschutz ergänzt:
 - Die technischen CleverReach-Aktionen Verbindung testen, Benutzer autorisieren, Listen importieren und Planungsübersicht öffnen liegen nun im Menüpunkt „Einstellungen“.
 - Der Header-Button „Manueller Konzert-Newsletter“ wurde aus der Einstellungs-Zwischenleiste entfernt; der Wizard bleibt über die Menüleiste erreichbar.
 - Die Newsletter-Funktionalität wurde nicht verändert.
+
+
+### 19.0.1.4.10 – Veranstaltungsdatum beim tatsächlichen Versand
+
+- Die Einstellungen-Vorschau des 2-wöchigen Newsletters verwendet jetzt den nächsten geplanten Sendetag statt immer das aktuelle Datum.
+- Unmittelbar vor jedem Versand eines 2-wöchigen oder Diese-Woche-Newsletters werden Veranstaltungen nach der tatsächlichen lokalen Versandzeit neu ausgewählt und automatisch generiertes HTML erneut gerendert. Ein bereits vorbereitetes CleverReach-Mailing mit veraltetem HTML wird nicht freigegeben; stattdessen wird bei Bedarf ein aktuelles Mailing erzeugt.
+- Wenn keine kommenden Veranstaltungen mehr vorhanden sind, wird nicht versendet. Bei manuell bearbeitetem HTML und inzwischen geänderter Eventauswahl wird der Versand zur manuellen Prüfung angehalten statt bearbeitetes HTML stillschweigend zu überschreiben.
+
+### Schedule defaults (19.0.1.5.1)
+
+- **Diese Woche bei Groundlift:** Tuesday, 17:00, weekly.
+- **2-wöchiger Newsletter:** Thursday, 18:00, every 14 days.
+- **Spontane Newsletter / neue Events:** Sunday, 17:00, every 14 days.
+- The planning overview is forward-looking from the current moment through the next two months, even while sending is disabled.

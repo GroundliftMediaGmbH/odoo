@@ -401,9 +401,20 @@ class SocialPost(models.Model):
             image_field = self._gl_attachment_field_name()
             if image_field:
                 vals[image_field] = [(6, 0, [attachment.id])]
+        # A replacement event must not inherit the old event's fallback/artwork.
+        vals.update({
+            'gl_graphics_fallback_captured': False,
+            'gl_graphics_fallback_image_ids': [(5, 0, 0)],
+            'gl_graphics_output_id': False,
+            'gl_graphics_output_write_date': False,
+            'gl_graphics_source_hash': False,
+            'gl_graphics_attachment_id': False,
+            'gl_graphics_final_checked_for': False,
+        })
         self.with_context(gl_skip_groundlift_approval_hook=True).write(vals)
         self._gl_force_draft_if_possible()
         self._gl_update_image_aspect_status()
+        self._gl_sync_graphics_for_posts(force=True)
         return True
 
     def _gl_replace_with_gap_filler(self, extra_information=''):
@@ -433,6 +444,16 @@ class SocialPost(models.Model):
             image_field = self._gl_attachment_field_name()
             if image_field:
                 vals[image_field] = [(6, 0, [attachment.id])]
+        # Generic gap fillers have no associated event artwork.
+        vals.update({
+            'gl_graphics_fallback_captured': False,
+            'gl_graphics_fallback_image_ids': [(5, 0, 0)],
+            'gl_graphics_output_id': False,
+            'gl_graphics_output_write_date': False,
+            'gl_graphics_source_hash': False,
+            'gl_graphics_attachment_id': False,
+            'gl_graphics_final_checked_for': False,
+        })
         self.with_context(gl_skip_groundlift_approval_hook=True).write(vals)
         self._gl_force_draft_if_possible()
         self._gl_update_image_aspect_status()
@@ -989,6 +1010,7 @@ class SocialPost(models.Model):
         posts = super().create(prepared_vals_list)
         posts._gl_auto_apply_default_image_adjustment()
         posts._gl_update_image_aspect_status()
+        posts._gl_sync_graphics_for_posts()
         return posts
 
     def write(self, vals):

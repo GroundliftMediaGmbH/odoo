@@ -2,7 +2,16 @@
 
 Custom Odoo 19 SH Modul für die monatliche Abfrage und Verwaltung der Filmvorführer:innen-Schichten.
 
-## Version 19.0.1.8.0
+## Version 19.0.1.10.0 – globale Kinotage als Standard
+
+- Neues Menü **Kino Dienstplan → Einstellungen → Kinotage** mit sieben Checkboxen (Montag–Sonntag).
+- Standard beim erstmaligen Upgrade: **Donnerstag bis Sonntag**, wie bisher. Danach frei konfigurierbar; mindestens ein Tag muss aktiv sein.
+- Beim Anlegen **eines neuen** Monatsplans (manuell oder durch den Monats-Cron vor dem automatischen Mailversand) werden die Wochentage als **unabhängige Kopie in diesem Monatsplan gespeichert**.
+- Im Monatsplan stehen weiterhin die zwei bisherigen Modi zur Auswahl: `Donnerstag bis Sonntag` und `Dienstag bis Sonntag`. Bereits vorhandene Monatspläne behalten ihren bisherigen Modus, alle bestehenden Termine, Besetzungen und Eintragungen.
+- Das Ändern der globalen Einstellungen fügt **keine** Tage in bestehenden Monaten hinzu und entfernt keine. Auch späteres erneutes Versenden eines bestehenden Monatsplans liest dessen gespeicherte Auswahl, nicht die geänderten globalen Einstellungen.
+- Für die Aktivierung auf Odoo SH: Dateien ersetzen, Commit/Push, Apps-Liste aktualisieren und **App aktualisieren (Upgrade)**; ein bloßer Serverneustart lädt neue Felder und den Menüpunkt nicht.
+
+## Frühere Version 19.0.1.8.0
 
 Diese Version erweitert die bestehende Schichtlogik um sieben Punkte:
 

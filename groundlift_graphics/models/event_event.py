@@ -26,7 +26,13 @@ class EventEvent(models.Model):
 
     def action_create_graphics_poster(self):
         self.ensure_one()
-        poster = self.env["gl.graphics.poster"].create({"event_id": self.id})
+        poster = self.env["gl.graphics.poster"].search(
+            [("event_id", "=", self.id), ("active", "=", True)],
+            order="write_date desc, id desc",
+            limit=1,
+        )
+        if not poster:
+            poster = self.env["gl.graphics.poster"].create({"event_id": self.id})
         return poster.action_open_editor()
 
     def action_view_graphics_posters(self):

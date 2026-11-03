@@ -458,7 +458,7 @@
                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                         <div class="gl-hours-field">
                             <label class="gl-hours-label" for="email">E-Mail</label>
-                            <input class="gl-hours-input" id="email" type="email" name="email" required="required" autocomplete="email"/>
+                            <input class="gl-hours-input" id="email" type="email" name="email" required="required" autocomplete="email" t-att-value="email_prefill or ''"/>
                         </div>
                         <div class="gl-hours-field">
                             <label class="gl-hours-label" for="password">Passwort</label>

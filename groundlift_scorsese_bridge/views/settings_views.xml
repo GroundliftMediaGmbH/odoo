@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_gl_scorsese_settings_form" model="ir.ui.view">
+        <field name="name">gl.scorsese.settings.form</field>
+        <field name="model">gl.scorsese.settings</field>
+        <field name="arch" type="xml">
+            <form string="SCORSESE Einstellungen">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>SCORSESE Einstellungen</h1>
+                    </div>
+                    <group string="Automatische Veranstaltungsordner">
+                        <field name="event_folder_stage_id" options="{'no_create': True, 'no_create_edit': True}"/>
+                    </group>
+                    <div class="alert alert-info" role="alert">
+                        Sobald eine Veranstaltung die ausgewählte Phase erreicht, legt SCORSESE automatisch den Veranstaltungsordner an, sofern noch kein Ordner hinterlegt ist. Standardmäßig wird die Phase „Gebucht“ verwendet.
+                    </div>
+                </sheet>
+                <footer>
+                    <button name="action_save" type="object" string="Speichern" class="btn-primary"/>
+                    <button string="Abbrechen" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_gl_scorsese_settings" model="ir.actions.act_window">
+        <field name="name">Einstellungen</field>
+        <field name="res_model">gl.scorsese.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_gl_scorsese_settings"
+              name="Einstellungen"
+              parent="groundlift_scorsese_bridge.menu_gl_scorsese_config"
+              action="action_gl_scorsese_settings"
+              sequence="5"
+              groups="groundlift_scorsese_bridge.group_scorsese_manager"/>
+</odoo>
