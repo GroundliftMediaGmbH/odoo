@@ -1,32 +1,47 @@
 # Groundlift Bruttopreis Eingabe – Odoo 19
-Version **19.0.1.5.0**
+Version **19.0.1.6.0**
 
-## Fix in v1.5.0: Bruttopreis bleibt exakt der eingegebene Centbetrag
+## v1.6.0 – Event-Ticket 12,00 → 11,99 Fix
 
-Bis v1.4 war `gross_list_price` ein berechnetes Feld (`compute` + `inverse`).
-Dadurch entstand eine Rückkopplung:
+Odoo hält den Preis eines Eventtickets (`event.event.ticket.price`) netto.
+Der Website-/Checkout-Bruttopreis wird anschließend aus diesem Netto plus
+Produktsteuer berechnet.
 
-1. Nutzer gibt z. B. 4,20 EUR brutto ein.
-2. Modul berechnet daraus einen präzisen Nettopreis.
-3. Weil `list_price` eine Abhängigkeit des Bruttopreis-Felds war, berechnete
-   Odoo den Bruttopreis anschließend erneut aus Netto + Steuer.
-4. Je nach Steuer-/Rundungskonfiguration konnte der Wert auf einen Nachbar-Cent
-   springen.
+Bei einem gewünschten Bruttopreis von 12,00 EUR und 7 % MwSt. lautet der
+exakte Nettowert:
 
-Ab v1.5 ist der Bruttopreis ein **normal gespeicherter, führender Wert**.
-4,20 EUR bleibt deshalb 4,20 EUR. Nur der Nettopreis wird daraus berechnet.
+    12.00 / 1.07 = 11.214953271...
 
-### Verhalten
-- Eingabe 4,20 EUR -> gespeicherter Bruttopreis bleibt exakt 4,20 EUR.
-- 19 % -> Nettopreis ca. 3,5294117647 EUR.
-- 7 % -> Nettopreis ca. 3,9252336449 EUR.
-- Änderung des Steuersatzes hält den Bruttopreis fest und berechnet Netto neu.
-- Das bestehende POS-Präzisions-Patch aus v1.2/v1.4 bleibt erhalten.
-- Keine Tax-/Summen-Patches aus der verworfenen v1.3 sind enthalten.
+Wird dieser Wert irgendwo auf 11,21 EUR reduziert, ergibt die erneute
+Bruttoberechnung:
 
-### Upgrade von v1.4
-Beim Modul-Upgrade rekonstruiert ein Odoo-Upgrade-Skript den neuen gespeicherten
-Bruttopreis aus den bestehenden präzisen Nettopreisen. Die bestehenden
-Nettopreise werden während der Migration nicht verändert.
+    11.21 * 1.07 = 11.9947 -> 11.99 EUR
 
-Bitte zuerst auf Staging aktualisieren und mit 4,19 / 4,20 / 4,21 testen.
+v1.6 schützt genau gegen diesen Präzisionsverlust.
+
+### Was der Fix macht
+
+- Nur Tickets, deren verknüpftes Produkt ausdrücklich
+  `gl_gross_price_managed = True` ist, werden berücksichtigt.
+- Wenn ein Ticket-Netto exakt der auf Währungsstellen gerundeten Form des
+  korrekten Produkt-Nettos entspricht, wird wieder der exakte Netto-Wert
+  gespeichert.
+- Echte, abweichende manuelle Ticketpreise werden nicht verändert.
+- Beim Upgrade werden bereits betroffene Tickets nach demselben konservativen
+  Kriterium repariert.
+- POS-Logik bleibt auf dem stabilen v1.5/v1.4/v1.2-Pfad.
+- Die verworfene v1.3-Steuer-Summenlogik ist nicht enthalten.
+
+### Beispiel
+
+Produkt:
+- Bruttopreis 12,00 EUR
+- Steuer 7 %
+- exaktes Netto 11,214953271...
+
+Betroffenes Ticket:
+- gespeichert 11,21 EUR
+
+Nach Upgrade:
+- Ticket-Netto 11,214953271...
+- Website/Checkout wieder 12,00 EUR brutto
