@@ -1,48 +1,38 @@
 # Groundlift Bruttopreis Eingabe – Odoo 19
+Version **19.0.1.7.0**
 
-Version **19.0.1.4.0**
+## v1.7.0 – Eventticket 12,00 EUR statt 11,99 EUR
 
-## Was v1.2 korrigiert
+Diagnose am realen Ticket:
+- ticket.price: 11.214953
+- Steuer: 7 %
+- Firma verwendet `round_per_line`
+- Odoo-Core `event_product` berechnet `price_incl` / `price_reduce_taxinc`
+  mit `tax_ids.compute_all(...)`.
 
-Die frühere Version verwendete Odoos `product.template._get_list_price()`.
-Diese Methode ruft `account.tax.compute_all()` mit der normalen
-Währungsrundung auf. Deshalb wurde bei 19 % aus 3,80 EUR bereits serverseitig
-3,19 EUR statt 3,193277310924... EUR.
+Bei `round_per_line` kann die Basis zuerst auf Cent reduziert werden:
+- 11.214953 -> 11.21
+- 7 % von 11.21 -> 0.78
+- Brutto -> 11.99
 
-v1.2 verwendet für die Rückrechnung:
+Die mathematisch beabsichtigte Berechnung lautet:
+- 11.214953 * 1.07 = 11.99999971
+- Endbetrag auf Währung runden -> 12.00
 
-- `force_price_include=True`
-- `round_base=False`
+### Fix
 
-Damit bleibt der steuerfreie Basispreis intern exakt.
+1. `event.event.ticket.price_incl`
+2. `event.event.ticket.price_reduce_taxinc`
 
-Zusätzlich kennzeichnet das Modul Produkte, deren Preis über das Feld
-**Bruttopreis** gepflegt wird. Nur bei diesen Produkten unterbindet der
-POS-Patch die zusätzliche Rundung von `price_unit` auf die Product-Price-
-Dezimalstellen.
+werden mit voller Basispräzision berechnet und erst das Endergebnis auf die
+Währung gerundet.
 
-## Wichtig nach Upgrade von v1.0/v1.1
+Zusätzlich werden `sale.order.line`-Positionen mit `event_ticket_id` für die
+Steuerberechnung als "total included" behandelt. Damit bleibt der auf der
+Eventseite angezeigte Bruttopreis auch im Groundlift-Checkout und Auftrag
+führend.
 
-Bestehende Produkte wurden bereits mit dem alten gerundeten Nettopreis
-gespeichert. Sie müssen einmal korrigiert werden.
+Normale Verkaufspositionen und POS-Positionen sind davon nicht betroffen.
 
-Einzelprodukt:
-- Produkt öffnen
-- **Netto exakt neu berechnen** klicken
-
-Mehrere Produkte:
-- Produktliste öffnen
-- betroffene Produkte markieren
-- Aktion **Bruttopreis → exakten Nettopreis anwenden**
-
-Danach POS komplett schließen und neu öffnen.
-
-Beispiel:
-- Bruttopreis 3,80 EUR
-- exakter Netto-Basispreis 3,193277310924...
-- zwei Produkte zu je 3,80 EUR = 7,60 EUR
-
-
-## v1.4.0
-
-Technisch identisch zu v1.2.0. Diese Versionsnummer dient dazu, sauber von der fehlerhaften v1.3.0 zurück auf den stabilen v1.2-Code zu aktualisieren.
+Die verworfene v1.3-POS-Steuerlogik und die v1.6-Ticketpreis-Umschreibung sind
+nicht enthalten. Basis ist der stabile v1.5-Code.

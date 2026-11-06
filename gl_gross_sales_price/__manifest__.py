@@ -1,7 +1,7 @@
 {
     "name": "Groundlift Bruttopreis Eingabe",
-    "summary": "Bruttopreis eingeben und exakten Nettopreis im Odoo 19 POS verwenden",
-    "version": "19.0.1.4.0",
+    "summary": "Stabiler Bruttopreis, exakter POS-Nettopreis und korrekte Event-Bruttopreise in Odoo 19",
+    "version": "19.0.1.7.0",
     "category": "Sales/Point of Sale",
     "author": "Groundlift",
     "license": "LGPL-3",
@@ -9,6 +9,8 @@
         "product",
         "account",
         "point_of_sale",
+        "event_product",
+        "event_sale",
     ],
     "data": [
         "views/product_template_views.xml",
@@ -19,6 +21,7 @@
             "gl_gross_sales_price/static/src/js/pos_exact_unit_price.js",
         ],
     },
+    "post_init_hook": "post_init_hook",
     "installable": True,
     "application": False,
 }
