@@ -2,7 +2,7 @@
 {
     "name": "Groundlift – Weiterleitung abgelaufener Veranstaltungslinks",
     "summary": "Leitet alte Odoo-Eventseiten auf die Groundlift-Veranstaltungsübersicht weiter.",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.0.1",
     "category": "Website/Website",
     "author": "Groundlift",
     "website": "https://groundlift.de",

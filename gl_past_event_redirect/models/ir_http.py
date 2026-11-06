@@ -77,20 +77,38 @@ class IrHttp(models.AbstractModel):
 
     @classmethod
     def _pre_dispatch(cls, rule, args):
-        # Restrict the interception to the event's public landing pages.
-        # In particular: no /event overview, no POST, no ticket purchase,
-        # no registration confirmation, no artist or staff portals.
+        # Only public event landing pages need the early interception.  Other
+        # requests must use Odoo's unchanged dispatch / language handling.
         if (
             request.httprequest.method in ("GET", "HEAD")
             and rule.rule in PUBLIC_EVENT_PAGE_RULES
-            and not cls._is_groundlift_website_editor_request()
-            and cls._is_retired_groundlift_event(args.get("event"))
         ):
-            # A permanent move tells crawlers to replace the stale event URL
-            # with the live public-events overview. Do not forward any query
-            # string (may contain checkout or personal parameters).
-            werkzeug.exceptions.abort(
-                request.redirect(DESTINATION, code=301, local=False)
-            )
+            # Odoo 19's regular ir.http._pre_dispatch validates the context
+            # language in its super() implementation.  We must inspect retired
+            # events BEFORE super(), however, because super() rejects access
+            # to an unpublished event.  In this narrow window a visitor's
+            # session can contain an inactive locale (e.g. de_AT or es_ES).
+            # Reading event fields at that moment raises:
+            #     UserError: Invalid language code: de_AT
+            # ir.http._match has already resolved the correct ACTIVE frontend
+            # language in request.lang.  Use that same value; do not hardcode
+            # German, alter cookies, or disable multilingual URL rewriting.
+            frontend_lang = getattr(request, "lang", None)
+            if not frontend_lang:
+                # Defensive fallback for unexpected non-frontend routing:
+                # let core safely normalize the language.  On Odoo 19's
+                # website_event routes request.lang is always available.
+                return super()._pre_dispatch(rule, args)
+            if request.env.context.get("lang") != frontend_lang.code:
+                request.update_context(lang=frontend_lang.code)
+
+            if (
+                not cls._is_groundlift_website_editor_request()
+                and cls._is_retired_groundlift_event(args.get("event"))
+            ):
+                # No query string: it may carry checkout or personal data.
+                werkzeug.exceptions.abort(
+                    request.redirect(DESTINATION, code=301, local=False)
+                )
 
         return super()._pre_dispatch(rule, args)

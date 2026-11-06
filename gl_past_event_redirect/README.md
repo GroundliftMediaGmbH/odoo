@@ -1,6 +1,6 @@
 # Groundlift – Weiterleitung abgelaufener Veranstaltungslinks
 
-Odoo 19.sh | `gl_past_event_redirect` | Version `19.0.1.0.0`
+Odoo 19.sh | `gl_past_event_redirect` | Version `19.0.1.0.1`
 
 ## Warum das Modul nötig ist
 
@@ -81,3 +81,26 @@ bereits indexierte Eventseiten weiter unter ihrem alten Titel sichtbar bleiben.
   einzuführen.
 - Keine neuen Datenbankfelder, Scheduler, Abhängigkeiten von externen
   Python-Paketen oder Anpassungen vorhandener Module.
+
+## Hotfix 19.0.1.0.1: ungültige Browser-Sprachcodes
+
+Ein Besucher kann im Session-Kontext eine Sprache wie `de_AT` oder `es_ES`
+mitbringen, die für die aktuelle Odoo-Website nicht aktiviert ist. Der
+Redirect-Hook untersucht Event-Daten bereits vor Odoos normaler
+Sprachvalidierung und konnte so `Invalid language code` auslösen, auch für
+aktive Veranstaltungen.
+
+Jetzt wird **ausschließlich auf den relevanten Eventseiten** die von Odoo
+beim URL-Routing bereits ermittelte, gültige `request.lang.code` in den
+Request-Kontext übernommen, bevor das Modul Event-Felder liest.
+
+Die Weiterleitung bleibt unverändert: abgelaufene, unveröffentlichte
+Events → HTTP 301; aktuelle Events → Standard-Odoo; sonstige Routen
+und Checkout-Aktionen → unverändert. Keine Datenbankmigration nötig.
+
+Nach Installation/Upgrade bitte testen:
+
+- `/event/pulse-12/register` mit frischem privaten Browserfenster
+- Aktuelle vs. abgelaufene Veranstaltungslinks
+- Website-Editor (Iframe), Ticketwahl und Checkout
+- Website-Sprachen und Besucher mit `de_AT` bzw. `es_ES` als Browserlocale
