@@ -10,7 +10,7 @@
                     <div class="gl-denom-item" t-foreach="glEuroDenoms" t-as="den" t-key="den.cents">
                         <div class="gl-denom-label"><img t-att-src="'/gl_pos_cash_count_funnel/static/src/img/' + den.filename" t-att-alt="den.label"/><label t-esc="den.label"/></div>
                         <input type="number" inputmode="numeric" min="0" max="10000" step="1"
-                               class="form-control text-center" t-att-value="glOpening.quantities[String(den.cents)]"
+                               class="form-control text-center" t-att-value="glOpening.quantities[den.cents]"
                                t-on-input="(ev) => this.glSetOpeningQty(den.cents, ev.target.value)"/>
                     </div>
                 </div>
@@ -55,7 +55,7 @@
                         <div class="gl-denom-item" t-foreach="glEuroDenoms" t-as="den" t-key="den.cents">
                             <div class="gl-denom-label"><img t-att-src="'/gl_pos_cash_count_funnel/static/src/img/' + den.filename" t-att-alt="den.label"/><label t-esc="den.label"/></div>
                             <input type="number" inputmode="numeric" min="0" max="10000" step="1"
-                                   class="form-control text-center" t-att-value="glClosing.quantities[String(den.cents)]"
+                                   class="form-control text-center" t-att-value="glClosing.quantities[den.cents]"
                                    t-on-input="(ev) => this.glSetClosingQty(den.cents, ev.target.value)"/>
                         </div>
                     </div>
@@ -103,7 +103,7 @@
                         <div class="gl-denom-item" t-foreach="glEuroDenoms" t-as="den" t-key="den.cents">
                             <div class="gl-denom-label"><img t-att-src="'/gl_pos_cash_count_funnel/static/src/img/' + den.filename" t-att-alt="den.label"/><label t-esc="den.label"/></div>
                             <input type="number" inputmode="numeric" min="0" max="10000" step="1"
-                                   class="form-control text-center" t-att-value="glClosing.recount[String(den.cents)]"
+                                   class="form-control text-center" t-att-value="glClosing.recount[den.cents]"
                                    t-on-input="(ev) => this.glSetRecountQty(den.cents, ev.target.value)"/>
                         </div>
                     </div>

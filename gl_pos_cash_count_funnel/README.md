@@ -1,6 +1,6 @@
 # Groundlift POS – Kassenzähl-Funnel & Trinkgeldentnahme (Odoo 19 / Odoo.sh)
 
-Eigenständiges Addon: `gl_pos_cash_count_funnel` (Version `19.0.1.0.0`).
+Eigenständiges Addon: `gl_pos_cash_count_funnel` (Version `19.0.1.0.1`).
 
 ## Bedienung
 
@@ -124,3 +124,12 @@ PY- und JS-Syntax, XML-Wohlgeformtheit und Paketstruktur lokal geprüft.
 Kein Zugriff auf eine laufende Groundlift-Staging-Datenbank und kein Live-Test
 der OWL-Assets/Buchhaltungsbuchungen; **vor Einsatz zwingend Staging-Test**.
 Nur Euro-Stückelungen werden ersetzt; andere Währungen nutzen nativen Dialog.
+
+## Fix 19.0.1.0.1 (07.11.2026)
+
+Owl-Lifecycle-Absturz `TypeError: ctx.String is not a function` beim
+Kassenschluss behoben. In allen drei Scheine-/Münzenlisten wird statt
+`[String(den.cents)]` nun `[den.cents]` verwendet. Numerische
+JavaScript-Objektschlüssel werden automatisch in Strings konvertiert.
+**Keine Änderung an Serverlogik, Kassenbuchungen oder Berechnungen.**
+Nach Modul-Upgrade POS-Frontend / Assets neu laden.
