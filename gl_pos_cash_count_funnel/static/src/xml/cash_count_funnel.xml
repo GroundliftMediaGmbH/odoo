@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="gl_pos_cash_count_funnel.OpeningControlPopup"
+       t-inherit="point_of_sale.OpeningControlPopup" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('opening-cash-section')]" position="replace">
+            <div t-if="glEuroEnabled" class="gl-cash-funnel gl-opening-count mb-3">
+                <h5>Schritt 1/2 · Kasse zu Beginn zählen</h5>
+                <p class="gl-cash-hint">Anzahl der vorhandenen Scheine und Münzen eingeben. Der Anfangsbestand wird automatisch berechnet.</p>
+                <div class="gl-denom-grid">
+                    <div class="gl-denom-item" t-foreach="glEuroDenoms" t-as="den" t-key="den.cents">
+                        <div class="gl-denom-label"><img t-att-src="'/gl_pos_cash_count_funnel/static/src/img/' + den.filename" t-att-alt="den.label"/><label t-esc="den.label"/></div>
+                        <input type="number" inputmode="numeric" min="0" max="10000" step="1"
+                               class="form-control text-center" t-att-value="glOpening.quantities[String(den.cents)]"
+                               t-on-input="(ev) => this.glSetOpeningQty(den.cents, ev.target.value)"/>
+                    </div>
+                </div>
+                <div class="gl-cash-total">
+                    <span>Gezählter Anfangsbestand</span>
+                    <strong t-esc="glOpeningCents() === null ? 'Ungültige Stückzahl' : glMoneyFormat(glOpeningCents() / 100)"/>
+                </div>
+                <button type="button" class="btn btn-primary w-100 mt-2" t-on-click="glConfirmOpeningCount">
+                    <i class="fa fa-check me-1"/> Zählung übernehmen
+                </button>
+                <div t-if="glOpening.confirmed" class="alert alert-success mt-2 mb-0">
+                    Schritt 2/2 · Anfangsbestand übernommen. Jetzt mit „Kasse eröffnen“ fortfahren.
+                </div>
+            </div>
+            <t t-else=""><div class="opening-cash-section mb-3" t-if="this.cashMethodCount">
+                <label class="form-label">Opening cash</label>
+                <div class="d-flex gap-2">
+                    <Input tModel="[state, 'openingCash']" isValid.bind="env.utils.isValidFloat" callback.bind="handleInputChange"/>
+                    <button class="btn btn-secondary" t-on-click="openDetailsPopup">Scheine / Münzen</button>
+                </div>
+            </div></t>
+        </xpath>
+        <xpath expr="//button[@t-on-click='confirm']" position="attributes">
+            <attribute name="t-att-disabled">!env.utils.isValidFloat(state.openingCash) || (glEuroEnabled &amp;&amp; !glOpening.confirmed)</attribute>
+        </xpath>
+    </t>
+
+    <t t-name="gl_pos_cash_count_funnel.ClosePosPopup"
+       t-inherit="point_of_sale.ClosePosPopup" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('payment-methods-overview')]" position="before">
+            <div t-if="glEuroEnabled" class="gl-cash-funnel mb-3">
+                <h5>Kassenzähl-Helfer · Abschluss</h5>
+                <div t-if="glClosing.stage === 'loading'" class="alert alert-info">Kassensitzung wird geprüft …</div>
+                <div t-if="glClosing.stage === 'error'" class="alert alert-warning">
+                    <p t-esc="glClosing.error"/>
+                    <button class="btn btn-outline-primary" t-on-click="glRefreshStatus" t-att-disabled="glClosing.busy">Buchungsstatus erneut prüfen</button>
+                </div>
+                <t t-if="glClosing.stage === 'count'">
+                    <h6>Schritt 1/4 · Bargeld VOR Entnahmen zählen</h6>
+                    <p class="gl-cash-hint">Alle Scheine und Münzen zählen, die jetzt tatsächlich in der Kasse liegen – inklusive Bargeld-Trinkgeld.</p>
+                    <div class="gl-denom-grid">
+                        <div class="gl-denom-item" t-foreach="glEuroDenoms" t-as="den" t-key="den.cents">
+                            <div class="gl-denom-label"><img t-att-src="'/gl_pos_cash_count_funnel/static/src/img/' + den.filename" t-att-alt="den.label"/><label t-esc="den.label"/></div>
+                            <input type="number" inputmode="numeric" min="0" max="10000" step="1"
+                                   class="form-control text-center" t-att-value="glClosing.quantities[String(den.cents)]"
+                                   t-on-input="(ev) => this.glSetClosingQty(den.cents, ev.target.value)"/>
+                        </div>
+                    </div>
+                    <div class="gl-cash-total">
+                        <span>Aktuell gezähltes Bargeld</span>
+                        <strong t-esc="glClosingCents() === null ? 'Ungültig' : glMoneyFormat(glClosingCents() / 100)"/>
+                    </div>
+                    <button class="btn btn-primary w-100 mt-2" t-on-click="glComputePreview" t-att-disabled="glClosing.busy">
+                        Zählung übernehmen &amp; Entnahme berechnen
+                    </button>
+                </t>
+                <t t-if="glClosing.stage === 'preview'">
+                    <h6>Schritt 2/4 · Entnahmevorschau</h6>
+                    <div class="gl-cash-rows">
+                        <div><span>Anfangsbestand / Wechselgeld</span><b t-esc="glMoneyFormat(glClosing.plan.opening)"/></div>
+                        <div><span>Gezählt VOR Entnahmen</span><b t-esc="glMoneyFormat(glClosing.plan.counted_before)"/></div>
+                        <hr/>
+                        <div><span>Tagesüberschuss entnehmen</span><b t-esc="glMoneyFormat(glClosing.plan.daily_out)"/></div>
+                        <div><span>Trinkgeld gesamt entnehmen</span><b t-esc="glMoneyFormat(glClosing.plan.tip_total)"/></div>
+                        <div class="gl-indent"><span>davon Bar-Trinkgeld</span><span t-esc="glMoneyFormat(glClosing.plan.cash_tips)"/></div>
+                        <div class="gl-indent"><span>davon unbar (Karte/sonstige)</span><span t-esc="glMoneyFormat(glClosing.plan.noncash_tips)"/></div>
+                        <div t-if="glClosing.plan.mixed_tips" class="gl-indent"><span>davon gemischt / nicht zuordenbar</span><span t-esc="glMoneyFormat(glClosing.plan.mixed_tips)"/></div>
+                        <div class="gl-highlight"><span>GESAMT BAR ENTNEHMEN</span><strong t-esc="glMoneyFormat(glClosing.plan.total_out)"/></div>
+                        <hr/>
+                        <div><span>Geplanter Bargeld-Rest</span><strong t-esc="glMoneyFormat(glClosing.plan.remaining)"/></div>
+                        <div><span>Fehlbetrag zum ursprünglichen Wechselgeld</span><strong t-esc="glMoneyFormat(glClosing.plan.cash_shortfall)"/></div>
+                        <div><span>Sicher unbar ausgezahltes Trinkgeld</span><b t-esc="glMoneyFormat(glClosing.plan.known_card_shortfall)"/></div>
+                        <div t-att-class="glClosing.plan.unexplained_before ? 'text-danger' : 'text-success'"><span>Abweichung vor Entnahmen zu Odoo-Soll</span><strong t-esc="glMoneyFormat(glClosing.plan.unexplained_before)"/></div>
+                    </div>
+                    <p class="gl-cash-hint mt-2">Der Bargeld-Fehlbetrag gegenüber dem Anfangsbestand ist nicht automatisch eine Kassendifferenz. Die Odoo-Differenz wird separat ausgewiesen. Gemischtes Trinkgeld kann nicht exakt Bar/Karte zugeordnet werden.</p>
+                    <button class="btn btn-primary w-100" t-on-click="glPostWithdrawals" t-att-disabled="glClosing.busy">
+                        <i class="fa fa-check me-1"/> Schritt 3/4 · Entnahmen verbindlich buchen
+                    </button>
+                    <button class="btn btn-outline-secondary w-100 mt-2" t-on-click="() => this.glClosing.stage = 'count'">Zurück zur Zählung</button>
+                </t>
+                <t t-if="glClosing.stage === 'recount'">
+                    <h6>Schritt 4/4 · Nach den gebuchten Entnahmen erneut zählen</h6>
+                    <div class="alert alert-success">Die Entnahmen sind bereits auf dem Server gebucht. Bargeld jetzt tatsächlich entnehmen und die Kasse nachzählen. NICHT erneut buchen!</div>
+                    <div class="gl-cash-rows">
+                        <div><span>Gebuchter Tagesüberschuss</span><b t-esc="glMoneyFormat(glClosing.plan.daily_out)"/></div>
+                        <div><span>Gebuchtes Trinkgeld</span><b t-esc="glMoneyFormat(glClosing.plan.tip_total)"/></div>
+                        <div><span>Soll nach Entnahme</span><strong t-esc="glMoneyFormat(glClosing.plan.remaining)"/></div>
+                    </div>
+                    <div class="gl-denom-grid mt-2">
+                        <div class="gl-denom-item" t-foreach="glEuroDenoms" t-as="den" t-key="den.cents">
+                            <div class="gl-denom-label"><img t-att-src="'/gl_pos_cash_count_funnel/static/src/img/' + den.filename" t-att-alt="den.label"/><label t-esc="den.label"/></div>
+                            <input type="number" inputmode="numeric" min="0" max="10000" step="1"
+                                   class="form-control text-center" t-att-value="glClosing.recount[String(den.cents)]"
+                                   t-on-input="(ev) => this.glSetRecountQty(den.cents, ev.target.value)"/>
+                        </div>
+                    </div>
+                    <div class="gl-cash-total">
+                        <span>IST nach Entnahme</span>
+                        <strong t-esc="glRecountCents() === null ? 'Ungültig' : glMoneyFormat(glRecountCents() / 100)"/>
+                    </div>
+                    <button class="btn btn-primary w-100 mt-2" t-on-click="glConfirmFinalCount">Nachzählung übernehmen</button>
+                </t>
+                <t t-if="glClosing.stage === 'done'">
+                    <div class="alert alert-success mb-1">
+                        <strong>Zähl-Helfer abgeschlossen.</strong> Gebuchte Entnahmen und Nachzählung sind erfasst.
+                    </div>
+                    <div class="gl-cash-rows">
+                        <div><span>IST nach Entnahme</span><b t-esc="glMoneyFormat(glClosing.finalCents / 100)"/></div>
+                        <div><span>Odoo-Soll nach Cash Out</span><b t-esc="glMoneyFormat(props.default_cash_details.amount)"/></div>
+                        <div><span>Verbleibende echte Kassendifferenz</span><strong t-esc="glMoneyFormat(glClosing.finalCents / 100 - props.default_cash_details.amount)"/></div>
+                    </div>
+                    <button class="btn btn-outline-secondary mt-2" t-on-click="() => this.glClosing.stage = 'recount'">Noch einmal nachzählen</button>
+                </t>
+                <p t-if="glClosing.error &amp;&amp; glClosing.stage !== 'error'" class="alert alert-warning mt-2" t-esc="glClosing.error"/>
+            </div>
+        </xpath>
+        <xpath expr="//button[@t-on-click='confirm']" position="attributes">
+            <attribute name="t-att-disabled">!canConfirm() || !glCanClose()</attribute>
+        </xpath>
+    </t>
+</templates>
