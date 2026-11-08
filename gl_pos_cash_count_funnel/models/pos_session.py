@@ -15,6 +15,8 @@ from odoo.exceptions import AccessError, UserError
 EUR_DENOMINATIONS = (50000, 20000, 10000, 5000, 2000, 1000, 500,
                      200, 100, 50, 20, 10, 5, 2, 1)
 MAX_PIECES_PER_DENOMINATION = 10000
+# Differences larger than 1 euro must be clarified before *automatic* cash-out.
+MAX_AUTO_CASH_DIFFERENCE_CENTS = 100
 
 
 class PosSession(models.Model):
@@ -107,15 +109,33 @@ class PosSession(models.Model):
         counted, normalized = self._gl_helper_money_details(details)
         tips, signature_rows = self._gl_helper_tips()
         opening = int(round(self.cash_register_balance_start * 100))
-        # Mixed payments are treated as cash for surplus calculation: never
-        # presume that the mixed tip has been paid by card.
-        daily_out = max(0, counted - opening - tips["cash"] - tips["mixed"])
+        # Native Odoo closing amounts are session-local, never a sum of other
+        # POS registers / terminal balances. Compare against the exact figure
+        # the cashier sees in the native closing popup.
+        closing = self.get_closing_control_data()
+        cash_details = closing.get("default_cash_details") or {}
+        if "amount" not in cash_details:
+            raise UserError(_("Odoo konnte keinen Bargeld-Sollbestand für diese Kassensitzung liefern."))
+        expected = int(round(float(cash_details["amount"]) * 100))
+        discrepancy = counted - expected
+        needs_reconciliation = abs(discrepancy) > MAX_AUTO_CASH_DIFFERENCE_CENTS
+        # Mixed-payment tips are conservatively treated as cash. All tips,
+        # including card tips, must ultimately be paid FROM THE SAME DRAWER;
+        # don't inadvertently pay card tips twice (or create negative cash).
         tip_out = tips["total"]
-        if daily_out + tip_out > counted:
-            raise UserError(_("Es ist nicht genügend Bargeld vorhanden, um das gesamte Trinkgeld auszuzahlen. Bitte POS-Manager hinzuziehen."))
+        if tip_out > counted:
+            raise UserError(_(
+                "Gezähltes Bargeld reicht nicht aus, um das gesamte Trinkgeld bar auszuzahlen. "
+                "Bitte die Zählung prüfen oder ohne automatische Entnahmen "
+                "zur Odoo-Kassenprüfung wechseln."
+            ))
+        intended_daily_out = max(0, counted - opening - tips["cash"] - tips["mixed"])
+        # Card-tip payouts must first be funded by available cash. When the
+        # opening float is small (e.g. 0), cap daily cash-out accordingly.
+        daily_out = min(intended_daily_out, counted - tip_out)
+        daily_capped_by = intended_daily_out - daily_out
         remaining = counted - daily_out - tip_out
         shortage = max(0, opening - remaining)
-        expected = int(round(self.cash_register_balance_end * 100))
         moves = sorted((l.id, int(round(l.amount * 100))) for l in self.sudo().statement_line_ids)
         identity = [self.id, opening, expected, normalized, signature_rows, moves]
         signature = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
@@ -133,8 +153,11 @@ class PosSession(models.Model):
             "remaining": remaining / 100,
             "cash_shortfall": shortage / 100,
             "known_card_shortfall": tips["noncash"] / 100,
-            "unexplained_before": (counted - expected) / 100,
+            "daily_capped_by_card_tips": daily_capped_by / 100,
+            "unexplained_before": discrepancy / 100,
             "expected_before": expected / 100,
+            "requires_reconciliation": needs_reconciliation,
+            "cash_difference_limit": MAX_AUTO_CASH_DIFFERENCE_CENTS / 100,
             "signature": signature,
             "denominations": normalized,
         }
@@ -176,6 +199,13 @@ class PosSession(models.Model):
         plan = session._gl_helper_calculation(details)
         if signature != plan["signature"]:
             raise UserError(_("Seit der Vorschau haben sich Buchungen oder der Kassenbestand verändert. Bitte neu zählen und erneut berechnen."))
+        if plan["requires_reconciliation"]:
+            raise UserError(_(
+                "Automatische Barentnahme gesperrt: Gezähltes Bargeld und Odoo-Soll "
+                "weichen um mehr als 1,00 EUR ab. Bitte Zählung und "
+                "Eröffnungsbestand prüfen. Danach neu berechnen oder die "
+                "native Odoo-Kassenprüfung ohne automatische Entnahmen nutzen."
+            ))
         daily_out = plan["daily_out"]
         tip_out = plan["tip_total"]
         partner_id = self.env.user.partner_id.id

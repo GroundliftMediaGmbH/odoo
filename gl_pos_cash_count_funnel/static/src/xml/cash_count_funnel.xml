@@ -6,6 +6,13 @@
             <div t-if="glEuroEnabled" class="gl-cash-funnel gl-opening-count mb-3">
                 <h5>Schritt 1/2 · Kasse zu Beginn zählen</h5>
                 <p class="gl-cash-hint">Anzahl der vorhandenen Scheine und Münzen eingeben. Der Anfangsbestand wird automatisch berechnet.</p>
+                <div class="gl-cash-count-top gl-funnel-action-bar">
+                    <div class="gl-count-top-total"><span>Aktuell gezählt</span><strong t-esc="glOpeningCents() === null ? 'Ungültig' : glMoneyFormat(glOpeningCents() / 100)"/></div>
+                    <button type="button" class="btn btn-primary gl-next-btn" t-on-click="glConfirmOpeningCount">
+                        <i class="fa fa-check me-1"/> Zählung übernehmen
+                    </button>
+                    <span class="gl-cash-hint">Nach der Zählung hier tippen, anschließend „Kasse eröffnen“.</span>
+                </div>
                 <div class="gl-denom-grid">
                     <div class="gl-denom-item" t-foreach="glEuroDenoms" t-as="den" t-key="den.cents">
                         <div class="gl-denom-label"><img t-att-src="'/gl_pos_cash_count_funnel/static/src/img/' + den.filename" t-att-alt="den.label"/><label t-esc="den.label"/></div>
@@ -58,6 +65,13 @@
                 <t t-if="glClosing.stage === 'count'">
                     <h6>Schritt 1/4 · Bargeld VOR Entnahmen zählen</h6>
                     <p class="gl-cash-hint">Alle Scheine und Münzen zählen, die jetzt tatsächlich in der Kasse liegen – inklusive Bargeld-Trinkgeld.</p>
+                    <div class="gl-cash-count-top gl-funnel-action-bar">
+                        <div class="gl-count-top-total"><span>Aktuell gezählt</span><strong t-esc="glClosingCents() === null ? 'Ungültig' : glMoneyFormat(glClosingCents() / 100)"/></div>
+                        <button type="button" class="btn btn-primary gl-next-btn" t-on-click="glComputePreview" t-att-disabled="glClosing.busy">
+                            Weiter zur Entnahmevorschau
+                        </button>
+                        <span class="gl-cash-hint">Nächster Schritt: Auswertung, dann Entnahme und Nachzählung.</span>
+                    </div>
                     <div class="gl-denom-grid">
                         <div class="gl-denom-item" t-foreach="glEuroDenoms" t-as="den" t-key="den.cents">
                             <div class="gl-denom-label"><img t-att-src="'/gl_pos_cash_count_funnel/static/src/img/' + den.filename" t-att-alt="den.label"/><label t-esc="den.label"/></div>
@@ -80,30 +94,40 @@
                     <button class="btn btn-primary w-100 mt-2" t-on-click="glComputePreview" t-att-disabled="glClosing.busy">
                         Zählung übernehmen &amp; Entnahme berechnen
                     </button>
+                    <button type="button" class="btn btn-outline-secondary w-100 mt-2" t-on-click="glUseNativeClosing" t-att-disabled="glClosing.busy">Bei Problemen: ohne Cash Out zur Odoo-Kassenprüfung</button>
                 </t>
                 <t t-if="glClosing.stage === 'preview'">
                     <h6>Schritt 2/4 · Entnahmevorschau</h6>
+                    <div t-if="glClosing.plan.requires_reconciliation" class="gl-reconcile-alert" role="alert">
+                        <strong>WICHTIG: Zählabweichung – keine automatische Entnahme!</strong>
+                        <div>Gezählt: <b t-esc="glMoneyFormat(glClosing.plan.counted_before)"/> · Odoo-Soll dieser Kassensitzung: <b t-esc="glMoneyFormat(glClosing.plan.expected_before)"/></div>
+                        <div>Differenz: <b t-esc="glMoneyFormat(glClosing.plan.unexplained_before)"/>. Bitte Münzen/Scheine, Eröffnungsbestand und vorherige Ein-/Auszahlungen überprüfen. Die Differenz ist kein zusätzlicher Umsatz.</div>
+                        <div>Bei korrekter Zählung kann ohne automatische Entnahme zur normalen Odoo-Kassenprüfung gewechselt werden. Eine notwendige Managerfreigabe bleibt bestehen.</div>
+                    </div>
                     <div class="gl-cash-rows">
                         <div><span>Anfangsbestand / Wechselgeld</span><b t-esc="glMoneyFormat(glClosing.plan.opening)"/></div>
                         <div><span>Gezählt VOR Entnahmen</span><b t-esc="glMoneyFormat(glClosing.plan.counted_before)"/></div>
                         <hr/>
                         <div><span>Tagesüberschuss (nur Bar) – in den Umschlag!</span><b t-esc="glMoneyFormat(glClosing.plan.daily_out)"/></div>
                         <div><span>Trinkgeld gesamt entnehmen</span><b t-esc="glMoneyFormat(glClosing.plan.tip_total)"/></div>
+                        <div t-if="glClosing.plan.daily_capped_by_card_tips" class="gl-cash-adjustment"><span>Für unbares Trinkgeld vom Tagesüberschuss zurückbehalten</span><b t-esc="glMoneyFormat(glClosing.plan.daily_capped_by_card_tips)"/></div>
                         <div class="gl-indent"><span>davon Bar-Trinkgeld</span><span t-esc="glMoneyFormat(glClosing.plan.cash_tips)"/></div>
                         <div class="gl-indent"><span>davon unbar (Karte/sonstige)</span><span t-esc="glMoneyFormat(glClosing.plan.noncash_tips)"/></div>
                         <div t-if="glClosing.plan.mixed_tips" class="gl-indent"><span>davon gemischt / nicht zuordenbar</span><span t-esc="glMoneyFormat(glClosing.plan.mixed_tips)"/></div>
                         <div class="gl-highlight"><span>GESAMT BAR ENTNEHMEN</span><strong t-esc="glMoneyFormat(glClosing.plan.total_out)"/></div>
                         <div class="gl-tip-refill"><span>Trinkgelddefizit auffüllen:</span><strong t-esc="glMoneyFormat(glClosing.plan.known_card_shortfall)"/></div>
                         <hr/>
+                        <div><span>Odoo-Soll vor Entnahmen (nur diese Kassensitzung)</span><strong t-esc="glMoneyFormat(glClosing.plan.expected_before)"/></div>
                         <div><span>Geplanter Bargeld-Rest</span><strong t-esc="glMoneyFormat(glClosing.plan.remaining)"/></div>
                         <div><span>Fehlbetrag zum ursprünglichen Wechselgeld</span><strong t-esc="glMoneyFormat(glClosing.plan.cash_shortfall)"/></div>
                         <div t-att-class="glClosing.plan.unexplained_before ? 'text-danger' : 'text-success'"><span>Abweichung vor Entnahmen zu Odoo-Soll</span><strong t-esc="glMoneyFormat(glClosing.plan.unexplained_before)"/></div>
                     </div>
                     <p class="gl-cash-hint mt-2">„Trinkgelddefizit auffüllen“ umfasst sicher unbar vereinnahmtes Trinkgeld (Karte und ggf. andere unbare Zahlungsarten). Bei Mischzahlungen ist der Kartenanteil nicht exakt zuordenbar. Der Betrag ist bereits in „GESAMT BAR ENTNEHMEN“ enthalten und darf nicht nochmals entnommen werden. Ein Wechselgeld-Fehlbetrag ist nicht automatisch eine Kassendifferenz; Odoo weist echte Abweichungen separat aus.</p>
-                    <button class="btn btn-primary w-100" t-on-click="glPostWithdrawals" t-att-disabled="glClosing.busy">
+                    <button class="btn btn-primary w-100" t-on-click="glPostWithdrawals" t-att-disabled="glClosing.busy || glClosing.plan.requires_reconciliation">
                         <i class="fa fa-check me-1"/> Schritt 3/4 · Entnahmen verbindlich buchen
                     </button>
                     <button class="btn btn-outline-secondary w-100 mt-2" t-on-click="() => this.glClosing.stage = 'count'">Zurück zur Zählung</button>
+                    <button t-if="glClosing.plan.requires_reconciliation" type="button" class="btn btn-outline-primary w-100 mt-2" t-on-click="glUseNativeClosing" t-att-disabled="glClosing.busy">Ohne Cash Out zur Odoo-Kassenprüfung</button>
                 </t>
                 <t t-if="glClosing.stage === 'recount'">
                     <h6>Schritt 4/4 · Nach den gebuchten Entnahmen erneut zählen</h6>
@@ -113,6 +137,11 @@
                         <div><span>Gebuchtes Trinkgeld</span><b t-esc="glMoneyFormat(glClosing.plan.tip_total)"/></div>
                         <div><span>Trinkgelddefizit auffüllen:</span><b t-esc="glMoneyFormat(glClosing.plan.known_card_shortfall)"/></div>
                         <div><span>Soll nach Entnahme</span><strong t-esc="glMoneyFormat(glClosing.plan.remaining)"/></div>
+                    </div>
+                    <div class="gl-cash-count-top gl-funnel-action-bar mt-2">
+                        <div class="gl-count-top-total"><span>Nachgezählt</span><strong t-esc="glRecountCents() === null ? 'Ungültig' : glMoneyFormat(glRecountCents() / 100)"/></div>
+                        <button type="button" class="btn btn-primary gl-next-btn" t-on-click="glConfirmFinalCount" t-att-disabled="glClosing.busy">Nachzählung übernehmen</button>
+                        <span class="gl-cash-hint">Danach erscheint die abschließende Odoo-Kassenprüfung.</span>
                     </div>
                     <div class="gl-denom-grid mt-2">
                         <div class="gl-denom-item" t-foreach="glEuroDenoms" t-as="den" t-key="den.cents">
@@ -135,6 +164,14 @@
                     </div>
                     <button class="btn btn-primary w-100 mt-2" t-on-click="glConfirmFinalCount">Nachzählung übernehmen</button>
                 </t>
+                <t t-if="glClosing.stage === 'manual'">
+                    <div class="alert alert-warning">
+                        <strong>Odoo-Kassenprüfung ohne automatische Entnahmen</strong>
+                        <p class="mb-0">Die Stückelzählung ist als IST-Bestand übernommen. Keine automatische Barentnahme gebucht. Im nativen Abschluss unten alle Zahlungsarten prüfen; eine Kassendifferenz ist gegebenenfalls durch einen POS-Manager freizugeben. Trinkgeld getrennt klären.</p>
+                    </div>
+                    <div class="gl-cash-rows"><div><span>Gezählter IST-Bestand</span><strong t-esc="glMoneyFormat(glClosing.finalCents / 100)"/></div></div>
+                    <button type="button" class="btn btn-outline-secondary w-100 mt-2" t-on-click="glReturnFromManual">Noch einmal zählen</button>
+                </t>
                 <t t-if="glClosing.stage === 'done'">
                     <div class="alert alert-success mb-1">
                         <strong>Zähl-Helfer abgeschlossen.</strong> Gebuchte Entnahmen und Nachzählung sind erfasst.
@@ -150,6 +187,7 @@
                     <button class="btn btn-outline-secondary mt-2" t-on-click="() => this.glClosing.stage = 'recount'">Noch einmal nachzählen</button>
                 </t>
                 <p t-if="glClosing.error &amp;&amp; glClosing.stage !== 'error'" class="alert alert-warning mt-2" t-esc="glClosing.error"/>
+                <p class="gl-cash-hint gl-method-note mt-2">Nur die oben ausgewiesene POS-Kassensitzung wird gebucht. Die Odoo-Liste darunter zeigt auch konfigurierte Zahlungsarten mit 0,00 € an – das sind keine zusätzlichen Bargeldbestände.</p>
             </div>
         </xpath>
         <xpath expr="//button[@t-on-click='confirm']" position="attributes">

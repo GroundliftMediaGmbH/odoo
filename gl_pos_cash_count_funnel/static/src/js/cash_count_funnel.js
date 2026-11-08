@@ -119,6 +119,7 @@ patch(ClosePosPopup.prototype, {
     glSetClosingQty(cents, value) {
         this.glClosing.quantities[String(cents)] = value === "" ? "0" : value;
         this.glClosing.error = "";
+        this.glClosing.finalCents = null;
     },
     glSetRecountQty(cents, value) {
         this.glClosing.recount[String(cents)] = value === "" ? "0" : value;
@@ -197,7 +198,8 @@ patch(ClosePosPopup.prototype, {
         }
     },
     async glPostWithdrawals() {
-        if (this.glClosing.busy || this.glClosing.stage !== "preview") return;
+        if (this.glClosing.busy || this.glClosing.stage !== "preview" ||
+            this.glClosing.plan?.requires_reconciliation) return;
         const p = this.glClosing.plan;
         const confirmed = await ask(this.dialog, {
             title: "Barentnahmen verbindlich buchen?",
@@ -234,6 +236,43 @@ patch(ClosePosPopup.prototype, {
             this.glClosing.busy = false;
         }
     },
+    async glUseNativeClosing() {
+        // NO CASH OUT HERE. This is the safe alternative when the physical
+        // count and Odoo's cash expectation cannot be reconciled, or the tip
+        // payout cannot be funded. Native POS discrepancy rules still apply.
+        if (this.glClosing.busy || !["count", "preview"].includes(this.glClosing.stage)) return;
+        const cents = this.glClosingCents();
+        if (cents === null) {
+            this.glClosing.error = "Bitte zuerst die Stückzahlen prüfen.";
+            return;
+        }
+        const confirmed = await ask(this.dialog, {
+            title: "Ohne automatische Entnahmen fortfahren?",
+            body: "Die Stückelzählung wird als IST-Bargeld für Odoos reguläre Kassenprüfung " +
+                "übernommen. Es werden KEINE Barentnahmen gebucht. Odoo prüft " +
+                "Kassendifferenzen und ggf. die Freigabe durch einen POS-Manager. " +
+                "Trinkgeld muss bei Bedarf separat ausgeglichen werden.",
+            confirmLabel: "Zur Odoo-Kassenprüfung",
+            cancelLabel: "Zurück",
+        });
+        if (!confirmed) return;
+        this.state.payments[this.props.default_cash_details.id].counted =
+            this.env.utils.formatCurrency(cents / 100, false);
+        const prefix = "[Groundlift Kassenabschluss – ohne automatische Barentnahme]";
+        const existing = (this.state.notes || "").split(prefix)[0].trim();
+        this.state.notes = `${existing}${existing ? "\n" : ""}${prefix}\n` +
+            `Gezählt: ${euroValue(this.env, cents / 100)}. ` +
+            "Keine Cash-Out-Buchungen durch den Kassenzähl-Helfer. " +
+            "Abweichungen und ggf. Trinkgeld über reguläre Odoo-Prüfung klären.";
+        this.glClosing.finalCents = cents;
+        this.glClosing.stage = "manual";
+    },
+    glReturnFromManual() {
+        const prefix = "[Groundlift Kassenabschluss – ohne automatische Barentnahme]";
+        this.state.notes = (this.state.notes || "").split(prefix)[0].trim();
+        this.glClosing.finalCents = null;
+        this.glClosing.stage = "count";
+    },
     glConfirmFinalCount() {
         const cents = this.glRecountCents();
         if (cents === null) {
@@ -263,7 +302,7 @@ patch(ClosePosPopup.prototype, {
     },
     glCanClose() {
         if (!this.glEuroEnabled) return true;
-        if (this.glClosing.stage !== "done" || this.glClosing.finalCents === null) return false;
+        if (!["done", "manual"].includes(this.glClosing.stage) || this.glClosing.finalCents === null) return false;
         const nativeCount = this.state.payments[this.props.default_cash_details.id]?.counted;
         const parsed = this.env.utils.parseValidFloat(nativeCount || "");
         return Number.isFinite(parsed) && Math.round(parsed * 100) === this.glClosing.finalCents;
@@ -272,7 +311,7 @@ patch(ClosePosPopup.prototype, {
         if (!this.glCanClose()) {
             this.dialog.add(AlertDialog, {
                 title: "Kassenzähl-Helfer noch nicht abgeschlossen",
-                body: "Bitte alle Schritte durchführen, Entnahmen buchen und den Bargeldbestand danach erneut zählen und übernehmen.",
+                body: "Bitte die Entnahme- und Nachzählungsschritte abschließen oder bei ungeklärter Differenz die Odoo-Kassenprüfung ohne automatische Entnahme wählen.",
             });
             return;
         }
@@ -281,8 +320,15 @@ patch(ClosePosPopup.prototype, {
                 const status = await this.pos.data.call(
                     "pos.session", "gl_cash_helper_status", [this.pos.session.id]
                 );
-                if (!status.posted) throw new Error("Entnahme wurde serverseitig nicht bestätigt.");
-                await this.glRefreshNativeExpected(status.expected_now);
+                if (this.glClosing.stage === "manual") {
+                    if (status.posted) {
+                        throw new Error("Inzwischen wurden Entnahmen gebucht. " +
+                            "Bitte Dialog neu öffnen und nachzählen.");
+                    }
+                } else {
+                    if (!status.posted) throw new Error("Entnahme wurde serverseitig nicht bestätigt.");
+                    await this.glRefreshNativeExpected(status.expected_now);
+                }
             } catch (error) {
                 this.dialog.add(AlertDialog, {
                     title: "Kassenabschluss zur Sicherheit angehalten",

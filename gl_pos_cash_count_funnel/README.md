@@ -1,6 +1,6 @@
 # Groundlift POS – Kassenzähl-Funnel & Trinkgeldentnahme (Odoo 19 / Odoo.sh)
 
-Eigenständiges Addon: `gl_pos_cash_count_funnel` (Version `19.0.1.0.2`).
+Eigenständiges Addon: `gl_pos_cash_count_funnel` (Version `19.0.1.0.3`).
 
 ## Bedienung
 
@@ -133,6 +133,84 @@ Kassenschluss behoben. In allen drei Scheine-/Münzenlisten wird statt
 JavaScript-Objektschlüssel werden automatisch in Strings konvertiert.
 **Keine Änderung an Serverlogik, Kassenbuchungen oder Berechnungen.**
 Nach Modul-Upgrade POS-Frontend / Assets neu laden.
+
+## Korrektur 19.0.1.0.3 (08.11.2026)
+
+**WICHTIG: Nur nach Staging-Test im Produktivsystem einsetzen.** Diese
+Version behebt eine automatische Überentnahme bei Kartentrinkgeld,
+insbesondere bei einem erfassten Anfangsbestand von **0,00 EUR**.
+
+### Fehlerursache und Fix
+
+Bis 19.0.1.0.2 wurde `daily_out = max(0, gezählt - Start -
+Bartrinkgeld - Mischtrinkgeld)` berechnet; anschließend wurde das gesamte
+Trinkgeld zusätzlich ausgezahlt. Bei zu kleinem Startbestand wurde dadurch
+mehr Bargeld entnommen, als im Kasten lag. Beispiel des Vorfalls:
+
+- Stückelzählung **614,80 EUR**, Odoo-Soll für diese Sitzung **139,13 EUR**.
+- Trinkgeld **11,29 EUR** (6,49 EUR bar + 4,80 EUR unbar).
+- Alter Algorithmus: **608,31 EUR** Tagesüberschuss + **11,29 EUR**
+  Trinkgeld = **619,60 EUR**, also **4,80 EUR mehr als vorhanden**.
+- Neuer Algorithmus: Der Tagesüberschuss wird notfalls um den unbaren
+  Trinkgeldanteil gekappt. **Keine Überentnahme**. In diesem Beispiel wären
+  die rein arithmetisch möglichen Entnahmen 603,51 + 11,29 EUR. Aber:
+  **Sie werden NICHT automatisch gebucht**, weil die unabhängige
+  Odoo-Sollprüfung eine Differenz von **475,67 EUR** feststellt.
+
+### Sicherheit bei Differenzen
+
+Die Preview zeigt den tatsächlich gezählten Bestand, den
+`get_closing_control_data()`-Bargeld-Sollbetrag **dieser** Sitzung und die
+Differenz. Bei einer Abweichung von **mehr als 1,00 EUR** ist jede
+**automatische** Cash-Out-Buchung gesperrt, und zwar auch serverseitig, nicht
+nur über den Button. Es werden keine fremden POS-Sitzungen aggregiert.
+
+Die Bedienperson soll Zählung, Eröffnungsbestand und frühere
+Bargeldbewegungen prüfen. **Bei weiterhin korrekter Zählung** kann sie die
+Option **„Ohne Cash Out zur Odoo-Kassenprüfung“** wählen. Der IST-Wert wird
+an das native Abschlussformular übergeben. **Es wird dann keine
+Barentnahme gebucht**, und die Standard-Kassendifferenzprüfung von Odoo
+bleibt aktiv (ggf. Managerfreigabe). Trinkgelder sind in diesem Sonderfall
+separat zu klären; das Ausweichen auf die manuelle Odoo-Prüfung ist
+**keine** automatische Trinkgeld-Auszahlung oder Differenzkorrektur.
+
+Wenn wirklich weniger Bargeld als Trinkgeld vorhanden ist, bleibt eine
+vollständige Auszahlung als Cash Out gesperrt. Die Fehlermeldung verweist
+nun auf die manuelle Odoo-Kassenprüfung.
+
+### POS-Oberfläche
+
+- Hell/dunkel-Kontrast lokal definiert: dunkle Zahlen in weißen Eingaben;
+  klar erkennbare +/- Touch-Buttons, eindeutige Scheine-/Münzwerte.
+- Für Eröffnung, erste Schlusszählung und Nachzählung gibt es einen
+  **sofort sichtbaren nächsten Schritt oberhalb der Zähltabelle**;
+  die Summen und die Fortschrittsaktion stehen zusätzlich auch unten.
+  Der obere Aktionsstreifen bleibt beim Scrollen soweit durch die
+  Odoo-Popup-Struktur möglich sichtbar.
+- Für große Abweichungen erscheint eine ausführliche Warnung anstelle
+  eines scheinbar buchbaren Tagesüberschusses.
+- Die native Odoo-Zahlungsartenliste bleibt bewusst erhalten. 0,00-EUR-
+  Methoden sind konfigurierte Zahlungsmethoden, **keine anderen
+  Bargeldbestände**. Die Zahlungsartenliste wird **nicht umgebucht oder
+  künstlich gefiltert** (auch eine mit 0,00 EUR angezeigte Methode kann
+  für spätere Korrekturen relevant sein).
+
+### Bestandsdaten und Upgrades
+
+Die Änderungen gelten für **neue** Buchungen ab 19.0.1.0.3. Bereits
+gebuchte Cash-Out-Bewegungen älterer Versionen werden weder rückwirkend
+geändert noch erneut gebucht. Bei früheren fehlerhaften Auszahlungen müssen
+Kassenbuchungen einzeln von einem POS-Manager/Buchhaltung geprüft werden.
+
+### Lokale Prüfergebnisse
+
+- Serverformel mit den exakten Stückelzahlen aus dem Screenshot getestet,
+  inkl. Sicherheitsblock und Grenzfällen mit 0 EUR Startbestand.
+- Beispiel mit 200 EUR Start, 700 EUR Bestand, 20 EUR barem und 30 EUR
+  unbarem Trinkgeld: 480 EUR Bar-Tagesüberschuss + 50 EUR Trinkgeld,
+  170 EUR verbleiben (wie bisher).
+- Python-/JS-Syntax und XML-Struktur geprüft. Ein interaktiver
+  Odoo-19-Staging-Lauftest inklusive echter Cash-Out-Buchung steht noch aus.
 
 ## Erweiterung 19.0.1.0.2 (08.11.2026)
 
