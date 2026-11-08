@@ -28,6 +28,20 @@ function sumCents(counts) {
     }
     return Number.isSafeInteger(total) ? total : null;
 }
+// One-piece touch adjustment, clamped to the same limits as manual entry and
+// server validation. Update the active input too (its DOM value can be "dirty"
+// after manual typing and would not necessarily follow a value-attribute patch).
+function stepQuantity(quantities, cents, delta, event, update) {
+    const current = quantities[String(cents)];
+    const parsed = Number(current);
+    const safe = Number.isSafeInteger(parsed) && parsed >= 0 && parsed <= 10000 ? parsed : 0;
+    const next = String(Math.max(0, Math.min(10000, safe + delta)));
+    if (next !== current) {
+        update(cents, next);
+        const input = event?.currentTarget?.parentElement?.querySelector("input");
+        if (input) input.value = next;
+    }
+}
 function errorText(error) {
     return error?.data?.message || error?.message || String(error);
 }
@@ -47,6 +61,10 @@ patch(OpeningControlPopup.prototype, {
     glSetOpeningQty(cents, value) {
         this.glOpening.quantities[String(cents)] = value === "" ? "0" : value;
         this.glOpening.confirmed = false;
+    },
+    glAdjustOpeningQty(cents, delta, event) {
+        stepQuantity(this.glOpening.quantities, cents, delta, event,
+            (denom, qty) => this.glSetOpeningQty(denom, qty));
     },
     glConfirmOpeningCount() {
         const cents = this.glOpeningCents();
@@ -105,6 +123,14 @@ patch(ClosePosPopup.prototype, {
     glSetRecountQty(cents, value) {
         this.glClosing.recount[String(cents)] = value === "" ? "0" : value;
         this.glClosing.finalCents = null;
+    },
+    glAdjustClosingQty(cents, delta, event) {
+        stepQuantity(this.glClosing.quantities, cents, delta, event,
+            (denom, qty) => this.glSetClosingQty(denom, qty));
+    },
+    glAdjustRecountQty(cents, delta, event) {
+        stepQuantity(this.glClosing.recount, cents, delta, event,
+            (denom, qty) => this.glSetRecountQty(denom, qty));
     },
     async glRefreshStatus() {
         this.glClosing.busy = true;
@@ -177,9 +203,10 @@ patch(ClosePosPopup.prototype, {
             title: "Barentnahmen verbindlich buchen?",
             body: [
                 `Gezählter Bestand vor Entnahme: ${euroValue(this.env, p.counted_before)}`,
-                `Tagesüberschuss: ${euroValue(this.env, p.daily_out)}`,
+                `Tagesüberschuss (nur Bar) – in den Umschlag!: ${euroValue(this.env, p.daily_out)}`,
                 `Gesamtes Trinkgeld: ${euroValue(this.env, p.tip_total)}`,
                 `Insgesamt BAR entnehmen: ${euroValue(this.env, p.total_out)}`,
+                `Trinkgelddefizit auffüllen (sicher unbar): ${euroValue(this.env, p.known_card_shortfall)}`,
                 `Danach soll in der Schublade sein: ${euroValue(this.env, p.remaining)}`,
                 "Durch die Bestätigung werden die Entnahmen als echte Cash-Out-Vorgänge in Odoo gebucht. Bitte erst danach das Bargeld tatsächlich herausnehmen und erneut zählen.",
             ].join("\n"),
@@ -226,8 +253,9 @@ patch(ClosePosPopup.prototype, {
             .map((d) => `${this.glClosing.recount[String(d.cents)]} × ${d.label}`);
         this.state.notes = `${existing}${existing ? "\n" : ""}${prefix}\n` +
             `Vor Entnahmen: ${euroValue(this.env, plan.counted_before)}; ` +
-            `Tagesüberschuss: ${euroValue(this.env, plan.daily_out)}; ` +
+            `Tagesüberschuss (nur Bar; in den Umschlag!): ${euroValue(this.env, plan.daily_out)}; ` +
             `Trinkgeld: ${euroValue(this.env, plan.tip_total)}; ` +
+            `Trinkgelddefizit auffüllen (sicher unbar): ${euroValue(this.env, plan.known_card_shortfall)}; ` +
             `Soll nach Entnahme: ${euroValue(this.env, plan.remaining)}; ` +
             `IST nach Entnahme: ${euroValue(this.env, amount)}.\n` +
             `Nachgezählt: ${cashNotes.join("; ") || "Kasse leer"}`;

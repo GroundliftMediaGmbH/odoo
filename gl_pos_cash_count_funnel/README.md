@@ -1,6 +1,6 @@
 # Groundlift POS – Kassenzähl-Funnel & Trinkgeldentnahme (Odoo 19 / Odoo.sh)
 
-Eigenständiges Addon: `gl_pos_cash_count_funnel` (Version `19.0.1.0.1`).
+Eigenständiges Addon: `gl_pos_cash_count_funnel` (Version `19.0.1.0.2`).
 
 ## Bedienung
 
@@ -133,3 +133,28 @@ Kassenschluss behoben. In allen drei Scheine-/Münzenlisten wird statt
 JavaScript-Objektschlüssel werden automatisch in Strings konvertiert.
 **Keine Änderung an Serverlogik, Kassenbuchungen oder Berechnungen.**
 Nach Modul-Upgrade POS-Frontend / Assets neu laden.
+
+## Erweiterung 19.0.1.0.2 (08.11.2026)
+
+- **Touchbedienung:** Bei Eröffnung, erster Schlusszählung und Nachzählung
+  stehen jeweils **− / Menge / +**. Die Zähler laufen in Einzelschritten,
+  niemals unter 0 oder über 10.000. Bei Änderung der Eröffnungsmenge muss
+  die Eröffnungszählung erneut übernommen werden.
+- **Bar-Tagesüberschuss:** Der Wert ist ausschließlich aus **physisch
+  gezähltem Bargeld** berechnet (gezählt minus Anfangsbestand minus
+  sicher bare und vorsichtshalber als bar eingeordnete gemischte Trinkgelder).
+  In der Vorschau und allen Abschlussansichten steht jetzt ausdrücklich
+  **„in den Umschlag!“**. Es handelt sich nicht um den gesamten Tagesumsatz
+  aller Zahlungsarten. Andere bereits erfolgte Bargeldbewegungen sind in
+  der physisch gezählten Menge enthalten und müssen betrieblich berücksichtigt werden.
+- **Trinkgelddefizit auffüllen:** Direkt unter „GESAMT BAR ENTNEHMEN“ steht
+  das **sicher unbar eingenommene Trinkgeld**. Wenn unbare Zahlungen im POS
+  nur Kartenzahlungen sind, entspricht das dem Karten-Trinkgeld. Bei weiteren
+  unbaren Zahlungsarten sind diese ebenfalls enthalten; bei gemischten
+  Zahlungen ist der Karten-Trinkgeldanteil nicht exakt zuzuordnen.
+  **Der Betrag wird nicht zusätzlich entnommen**: Er ist bereits im
+  „GESAMT BAR ENTNEHMEN“ enthalten. Der Hinweis erscheint auch nach der
+  Buchung und im Bestätigungsdialog.
+- Buchungslogik, Server-RPCs und die Trinkgeldzuordnung sind gegenüber
+  19.0.1.0.1 **unverändert**. Nur Frontend-Labels/Touchsteuerung und
+  die Modulversion wurden angepasst.

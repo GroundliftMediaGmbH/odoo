@@ -9,9 +9,16 @@
                 <div class="gl-denom-grid">
                     <div class="gl-denom-item" t-foreach="glEuroDenoms" t-as="den" t-key="den.cents">
                         <div class="gl-denom-label"><img t-att-src="'/gl_pos_cash_count_funnel/static/src/img/' + den.filename" t-att-alt="den.label"/><label t-esc="den.label"/></div>
-                        <input type="number" inputmode="numeric" min="0" max="10000" step="1"
-                               class="form-control text-center" t-att-value="glOpening.quantities[den.cents]"
-                               t-on-input="(ev) => this.glSetOpeningQty(den.cents, ev.target.value)"/>
+                        <div class="gl-denom-controls">
+                            <button type="button" class="btn btn-outline-secondary gl-denom-step"
+                                    t-att-aria-label="'Weniger ' + den.label" t-on-click="(ev) => this.glAdjustOpeningQty(den.cents, -1, ev)">−</button>
+                            <input type="number" inputmode="numeric" min="0" max="10000" step="1"
+                                   class="form-control text-center" t-att-value="glOpening.quantities[den.cents]"
+                                   t-att-aria-label="'Stückzahl ' + den.label"
+                                   t-on-input="(ev) => this.glSetOpeningQty(den.cents, ev.target.value)"/>
+                            <button type="button" class="btn btn-outline-secondary gl-denom-step"
+                                    t-att-aria-label="'Mehr ' + den.label" t-on-click="(ev) => this.glAdjustOpeningQty(den.cents, 1, ev)">+</button>
+                        </div>
                     </div>
                 </div>
                 <div class="gl-cash-total">
@@ -54,9 +61,16 @@
                     <div class="gl-denom-grid">
                         <div class="gl-denom-item" t-foreach="glEuroDenoms" t-as="den" t-key="den.cents">
                             <div class="gl-denom-label"><img t-att-src="'/gl_pos_cash_count_funnel/static/src/img/' + den.filename" t-att-alt="den.label"/><label t-esc="den.label"/></div>
-                            <input type="number" inputmode="numeric" min="0" max="10000" step="1"
-                                   class="form-control text-center" t-att-value="glClosing.quantities[den.cents]"
-                                   t-on-input="(ev) => this.glSetClosingQty(den.cents, ev.target.value)"/>
+                            <div class="gl-denom-controls">
+                                <button type="button" class="btn btn-outline-secondary gl-denom-step"
+                                        t-att-aria-label="'Weniger ' + den.label" t-on-click="(ev) => this.glAdjustClosingQty(den.cents, -1, ev)" t-att-disabled="glClosing.busy">−</button>
+                                <input type="number" inputmode="numeric" min="0" max="10000" step="1"
+                                       class="form-control text-center" t-att-value="glClosing.quantities[den.cents]"
+                                       t-att-aria-label="'Stückzahl ' + den.label"
+                                       t-on-input="(ev) => this.glSetClosingQty(den.cents, ev.target.value)"/>
+                                <button type="button" class="btn btn-outline-secondary gl-denom-step"
+                                        t-att-aria-label="'Mehr ' + den.label" t-on-click="(ev) => this.glAdjustClosingQty(den.cents, 1, ev)" t-att-disabled="glClosing.busy">+</button>
+                            </div>
                         </div>
                     </div>
                     <div class="gl-cash-total">
@@ -73,19 +87,19 @@
                         <div><span>Anfangsbestand / Wechselgeld</span><b t-esc="glMoneyFormat(glClosing.plan.opening)"/></div>
                         <div><span>Gezählt VOR Entnahmen</span><b t-esc="glMoneyFormat(glClosing.plan.counted_before)"/></div>
                         <hr/>
-                        <div><span>Tagesüberschuss entnehmen</span><b t-esc="glMoneyFormat(glClosing.plan.daily_out)"/></div>
+                        <div><span>Tagesüberschuss (nur Bar) – in den Umschlag!</span><b t-esc="glMoneyFormat(glClosing.plan.daily_out)"/></div>
                         <div><span>Trinkgeld gesamt entnehmen</span><b t-esc="glMoneyFormat(glClosing.plan.tip_total)"/></div>
                         <div class="gl-indent"><span>davon Bar-Trinkgeld</span><span t-esc="glMoneyFormat(glClosing.plan.cash_tips)"/></div>
                         <div class="gl-indent"><span>davon unbar (Karte/sonstige)</span><span t-esc="glMoneyFormat(glClosing.plan.noncash_tips)"/></div>
                         <div t-if="glClosing.plan.mixed_tips" class="gl-indent"><span>davon gemischt / nicht zuordenbar</span><span t-esc="glMoneyFormat(glClosing.plan.mixed_tips)"/></div>
                         <div class="gl-highlight"><span>GESAMT BAR ENTNEHMEN</span><strong t-esc="glMoneyFormat(glClosing.plan.total_out)"/></div>
+                        <div class="gl-tip-refill"><span>Trinkgelddefizit auffüllen:</span><strong t-esc="glMoneyFormat(glClosing.plan.known_card_shortfall)"/></div>
                         <hr/>
                         <div><span>Geplanter Bargeld-Rest</span><strong t-esc="glMoneyFormat(glClosing.plan.remaining)"/></div>
                         <div><span>Fehlbetrag zum ursprünglichen Wechselgeld</span><strong t-esc="glMoneyFormat(glClosing.plan.cash_shortfall)"/></div>
-                        <div><span>Sicher unbar ausgezahltes Trinkgeld</span><b t-esc="glMoneyFormat(glClosing.plan.known_card_shortfall)"/></div>
                         <div t-att-class="glClosing.plan.unexplained_before ? 'text-danger' : 'text-success'"><span>Abweichung vor Entnahmen zu Odoo-Soll</span><strong t-esc="glMoneyFormat(glClosing.plan.unexplained_before)"/></div>
                     </div>
-                    <p class="gl-cash-hint mt-2">Der Bargeld-Fehlbetrag gegenüber dem Anfangsbestand ist nicht automatisch eine Kassendifferenz. Die Odoo-Differenz wird separat ausgewiesen. Gemischtes Trinkgeld kann nicht exakt Bar/Karte zugeordnet werden.</p>
+                    <p class="gl-cash-hint mt-2">„Trinkgelddefizit auffüllen“ umfasst sicher unbar vereinnahmtes Trinkgeld (Karte und ggf. andere unbare Zahlungsarten). Bei Mischzahlungen ist der Kartenanteil nicht exakt zuordenbar. Der Betrag ist bereits in „GESAMT BAR ENTNEHMEN“ enthalten und darf nicht nochmals entnommen werden. Ein Wechselgeld-Fehlbetrag ist nicht automatisch eine Kassendifferenz; Odoo weist echte Abweichungen separat aus.</p>
                     <button class="btn btn-primary w-100" t-on-click="glPostWithdrawals" t-att-disabled="glClosing.busy">
                         <i class="fa fa-check me-1"/> Schritt 3/4 · Entnahmen verbindlich buchen
                     </button>
@@ -95,16 +109,24 @@
                     <h6>Schritt 4/4 · Nach den gebuchten Entnahmen erneut zählen</h6>
                     <div class="alert alert-success">Die Entnahmen sind bereits auf dem Server gebucht. Bargeld jetzt tatsächlich entnehmen und die Kasse nachzählen. NICHT erneut buchen!</div>
                     <div class="gl-cash-rows">
-                        <div><span>Gebuchter Tagesüberschuss</span><b t-esc="glMoneyFormat(glClosing.plan.daily_out)"/></div>
+                        <div><span>Gebuchter Bar-Tagesüberschuss – in den Umschlag!</span><b t-esc="glMoneyFormat(glClosing.plan.daily_out)"/></div>
                         <div><span>Gebuchtes Trinkgeld</span><b t-esc="glMoneyFormat(glClosing.plan.tip_total)"/></div>
+                        <div><span>Trinkgelddefizit auffüllen:</span><b t-esc="glMoneyFormat(glClosing.plan.known_card_shortfall)"/></div>
                         <div><span>Soll nach Entnahme</span><strong t-esc="glMoneyFormat(glClosing.plan.remaining)"/></div>
                     </div>
                     <div class="gl-denom-grid mt-2">
                         <div class="gl-denom-item" t-foreach="glEuroDenoms" t-as="den" t-key="den.cents">
                             <div class="gl-denom-label"><img t-att-src="'/gl_pos_cash_count_funnel/static/src/img/' + den.filename" t-att-alt="den.label"/><label t-esc="den.label"/></div>
-                            <input type="number" inputmode="numeric" min="0" max="10000" step="1"
-                                   class="form-control text-center" t-att-value="glClosing.recount[den.cents]"
-                                   t-on-input="(ev) => this.glSetRecountQty(den.cents, ev.target.value)"/>
+                            <div class="gl-denom-controls">
+                                <button type="button" class="btn btn-outline-secondary gl-denom-step"
+                                        t-att-aria-label="'Weniger ' + den.label" t-on-click="(ev) => this.glAdjustRecountQty(den.cents, -1, ev)" t-att-disabled="glClosing.busy">−</button>
+                                <input type="number" inputmode="numeric" min="0" max="10000" step="1"
+                                       class="form-control text-center" t-att-value="glClosing.recount[den.cents]"
+                                       t-att-aria-label="'Stückzahl ' + den.label"
+                                       t-on-input="(ev) => this.glSetRecountQty(den.cents, ev.target.value)"/>
+                                <button type="button" class="btn btn-outline-secondary gl-denom-step"
+                                        t-att-aria-label="'Mehr ' + den.label" t-on-click="(ev) => this.glAdjustRecountQty(den.cents, 1, ev)" t-att-disabled="glClosing.busy">+</button>
+                            </div>
                         </div>
                     </div>
                     <div class="gl-cash-total">
@@ -118,6 +140,9 @@
                         <strong>Zähl-Helfer abgeschlossen.</strong> Gebuchte Entnahmen und Nachzählung sind erfasst.
                     </div>
                     <div class="gl-cash-rows">
+                        <div><span>Bar-Tagesüberschuss – in den Umschlag!</span><b t-esc="glMoneyFormat(glClosing.plan.daily_out)"/></div>
+                        <div><span>Trinkgelddefizit auffüllen:</span><b t-esc="glMoneyFormat(glClosing.plan.known_card_shortfall)"/></div>
+                        <hr/>
                         <div><span>IST nach Entnahme</span><b t-esc="glMoneyFormat(glClosing.finalCents / 100)"/></div>
                         <div><span>Odoo-Soll nach Cash Out</span><b t-esc="glMoneyFormat(props.default_cash_details.amount)"/></div>
                         <div><span>Verbleibende echte Kassendifferenz</span><strong t-esc="glMoneyFormat(glClosing.finalCents / 100 - props.default_cash_details.amount)"/></div>
