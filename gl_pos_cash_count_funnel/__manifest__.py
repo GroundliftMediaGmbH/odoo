@@ -1,7 +1,7 @@
 {
     "name": "Groundlift POS – Kassenzähl-Funnel & Trinkgeldentnahme",
     "summary": "Stückelzählung beim Öffnen und Schließen mit geprüften Cash-Out-Entnahmen",
-    "version": "19.0.1.0.3",
+    "version": "19.0.1.0.4",
     "category": "Point of Sale",
     "author": "Groundlift",
     "license": "LGPL-3",
@@ -10,7 +10,7 @@
         "point_of_sale._assets_pos": [
             "gl_pos_cash_count_funnel/static/src/js/cash_count_funnel.js",
             "gl_pos_cash_count_funnel/static/src/xml/cash_count_funnel.xml",
-            "gl_pos_cash_count_funnel/static/src/scss/cash_count_funnel.scss",
+            "gl_pos_cash_count_funnel/static/src/css/cash_count_funnel.css",
         ],
     },
     "installable": True,

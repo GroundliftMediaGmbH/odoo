@@ -6,12 +6,12 @@
             <div t-if="glEuroEnabled" class="gl-cash-funnel gl-opening-count mb-3">
                 <h5>Schritt 1/2 · Kasse zu Beginn zählen</h5>
                 <p class="gl-cash-hint">Anzahl der vorhandenen Scheine und Münzen eingeben. Der Anfangsbestand wird automatisch berechnet.</p>
-                <div class="gl-cash-count-top gl-funnel-action-bar">
-                    <div class="gl-count-top-total"><span>Aktuell gezählt</span><strong t-esc="glOpeningCents() === null ? 'Ungültig' : glMoneyFormat(glOpeningCents() / 100)"/></div>
-                    <button type="button" class="btn btn-primary gl-next-btn" t-on-click="glConfirmOpeningCount">
+                <div class="gl-cash-count-top gl-funnel-action-bar d-flex flex-column gap-2">
+                    <div class="gl-count-top-total d-flex justify-content-between align-items-center flex-wrap gap-2"><span>Aktuell gezählt</span><strong t-esc="glOpeningCents() === null ? 'Ungültig' : glMoneyFormat(glOpeningCents() / 100)"/></div>
+                    <button type="button" class="btn btn-primary gl-next-btn w-100" t-on-click="glConfirmOpeningCount">
                         <i class="fa fa-check me-1"/> Zählung übernehmen
                     </button>
-                    <span class="gl-cash-hint">Nach der Zählung hier tippen, anschließend „Kasse eröffnen“.</span>
+                    <div class="gl-cash-hint">Nach der Zählung hier tippen, anschließend „Kasse eröffnen“.</div>
                 </div>
                 <div class="gl-denom-grid">
                     <div class="gl-denom-item" t-foreach="glEuroDenoms" t-as="den" t-key="den.cents">
@@ -65,12 +65,12 @@
                 <t t-if="glClosing.stage === 'count'">
                     <h6>Schritt 1/4 · Bargeld VOR Entnahmen zählen</h6>
                     <p class="gl-cash-hint">Alle Scheine und Münzen zählen, die jetzt tatsächlich in der Kasse liegen – inklusive Bargeld-Trinkgeld.</p>
-                    <div class="gl-cash-count-top gl-funnel-action-bar">
-                        <div class="gl-count-top-total"><span>Aktuell gezählt</span><strong t-esc="glClosingCents() === null ? 'Ungültig' : glMoneyFormat(glClosingCents() / 100)"/></div>
-                        <button type="button" class="btn btn-primary gl-next-btn" t-on-click="glComputePreview" t-att-disabled="glClosing.busy">
+                    <div class="gl-cash-count-top gl-funnel-action-bar d-flex flex-column gap-2">
+                        <div class="gl-count-top-total d-flex justify-content-between align-items-center flex-wrap gap-2"><span>Aktuell gezählt</span><strong t-esc="glClosingCents() === null ? 'Ungültig' : glMoneyFormat(glClosingCents() / 100)"/></div>
+                        <button type="button" class="btn btn-primary gl-next-btn w-100" t-on-click="glComputePreview" t-att-disabled="glClosing.busy">
                             Weiter zur Entnahmevorschau
                         </button>
-                        <span class="gl-cash-hint">Nächster Schritt: Auswertung, dann Entnahme und Nachzählung.</span>
+                        <div class="gl-cash-hint">Nächster Schritt: Auswertung, dann Entnahme und Nachzählung. Weitere Stückelungen folgen beim Scrollen.</div>
                     </div>
                     <div class="gl-denom-grid">
                         <div class="gl-denom-item" t-foreach="glEuroDenoms" t-as="den" t-key="den.cents">
@@ -91,8 +91,8 @@
                         <span>Aktuell gezähltes Bargeld</span>
                         <strong t-esc="glClosingCents() === null ? 'Ungültig' : glMoneyFormat(glClosingCents() / 100)"/>
                     </div>
-                    <button class="btn btn-primary w-100 mt-2" t-on-click="glComputePreview" t-att-disabled="glClosing.busy">
-                        Zählung übernehmen &amp; Entnahme berechnen
+                    <button type="button" class="btn btn-primary w-100 mt-2" t-on-click="glComputePreview" t-att-disabled="glClosing.busy">
+                        Weiter zur Entnahmevorschau
                     </button>
                     <button type="button" class="btn btn-outline-secondary w-100 mt-2" t-on-click="glUseNativeClosing" t-att-disabled="glClosing.busy">Bei Problemen: ohne Cash Out zur Odoo-Kassenprüfung</button>
                 </t>
@@ -138,10 +138,10 @@
                         <div><span>Trinkgelddefizit auffüllen:</span><b t-esc="glMoneyFormat(glClosing.plan.known_card_shortfall)"/></div>
                         <div><span>Soll nach Entnahme</span><strong t-esc="glMoneyFormat(glClosing.plan.remaining)"/></div>
                     </div>
-                    <div class="gl-cash-count-top gl-funnel-action-bar mt-2">
-                        <div class="gl-count-top-total"><span>Nachgezählt</span><strong t-esc="glRecountCents() === null ? 'Ungültig' : glMoneyFormat(glRecountCents() / 100)"/></div>
-                        <button type="button" class="btn btn-primary gl-next-btn" t-on-click="glConfirmFinalCount" t-att-disabled="glClosing.busy">Nachzählung übernehmen</button>
-                        <span class="gl-cash-hint">Danach erscheint die abschließende Odoo-Kassenprüfung.</span>
+                    <div class="gl-cash-count-top gl-funnel-action-bar d-flex flex-column gap-2 mt-2">
+                        <div class="gl-count-top-total d-flex justify-content-between align-items-center flex-wrap gap-2"><span>Nachgezählt</span><strong t-esc="glRecountCents() === null ? 'Ungültig' : glMoneyFormat(glRecountCents() / 100)"/></div>
+                        <button type="button" class="btn btn-primary gl-next-btn w-100" t-on-click="glConfirmFinalCount" t-att-disabled="glClosing.busy">Nachzählung übernehmen</button>
+                        <div class="gl-cash-hint">Danach erscheint die abschließende Odoo-Kassenprüfung.</div>
                     </div>
                     <div class="gl-denom-grid mt-2">
                         <div class="gl-denom-item" t-foreach="glEuroDenoms" t-as="den" t-key="den.cents">

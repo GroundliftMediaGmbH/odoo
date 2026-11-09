@@ -1,6 +1,6 @@
 # Groundlift POS – Kassenzähl-Funnel & Trinkgeldentnahme (Odoo 19 / Odoo.sh)
 
-Eigenständiges Addon: `gl_pos_cash_count_funnel` (Version `19.0.1.0.3`).
+Eigenständiges Addon: `gl_pos_cash_count_funnel` (Version `19.0.1.0.4`).
 
 ## Bedienung
 
@@ -236,3 +236,23 @@ Kassenbuchungen einzeln von einem POS-Manager/Buchhaltung geprüft werden.
 - Buchungslogik, Server-RPCs und die Trinkgeldzuordnung sind gegenüber
   19.0.1.0.1 **unverändert**. Nur Frontend-Labels/Touchsteuerung und
   die Modulversion wurden angepasst.
+
+## Layout- und CSS-Korrektur 19.0.1.0.4 (08.11.2026)
+
+- Zur Vermeidung von Sass-Kompilierfehlern wurde die lokale `.scss`-Datei
+  vollständig durch **flaches, Odoo-asset-kompatibles CSS** ersetzt. Insbesondere
+  der Ausdruck `min(100%, 330px)` im vorherigen SCSS konnte von Sass als
+  dimensionsübergreifende Berechnung interpretiert werden.
+- Bei Eröffnungszählung, Abschlusszählung und Nachzählung befinden sich
+  gezählter Betrag, Hauptbutton und Hilfetext jeweils in **eigenen Zeilen**.
+  Die Hauptbuttons bleiben auf schmalen Bildschirmen vollflächig, brechen
+  bei Bedarf um und überdecken keine andere UI mehr.
+- Alle Stückelungszeilen bleiben touch-tauglich mit großen Minus-/Plus-Tasten
+  und gut lesbarer Anzahl; auf schmalen POS-Dialogen nur eine vollständige
+  Stückelung pro Zeile statt zwei ineinander gequetschter Einträge.
+- Für die Ausführung wird ein Odoo-Modulupgrade und POS-Asset-Neuladen
+  benötigt. Wenn die Odoo-Meldung über fehlgeschlagene CSS-Kompilierung
+  bestehen bleibt, muss der konkrete erste Kompilierungsfehler des POS-Bundles
+  im Odoo.sh-Log geprüft werden, da andere Addons ebenfalls Ursachen sein können.
+- Keine Änderungen an `models/pos_session.py` oder `cash_count_funnel.js`;
+  keine Änderung an Kassenbeträgen, Cash-Outs oder Buchungsabläufen.
