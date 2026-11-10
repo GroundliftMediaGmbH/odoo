@@ -62,7 +62,8 @@ class MusicPlayer(models.AbstractModel):
     _description = "Hintergrundmusik – Steuerung"
 
     def _assert_user(self):
-        if not (self.env.user.has_group("gl_background_music.group_music_user")
+        if not (self.env.user.has_group("base.group_user")
+                or self.env.user.has_group("gl_background_music.group_music_user")
                 or self.env.user.has_group("base.group_system")):
             raise AccessError(_("Keine Berechtigung für Hintergrundmusik."))
 

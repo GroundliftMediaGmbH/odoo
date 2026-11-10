@@ -78,7 +78,8 @@ class MusicTablet(http.Controller):
 
     @http.route("/hintergrundmusik", type="http", auth="user", methods=["GET"])
     def tablet_page(self, **kwargs):
-        if not (request.env.user.has_group("gl_background_music.group_music_user")
+        if not (request.env.user.has_group("base.group_user")
+                or request.env.user.has_group("gl_background_music.group_music_user")
                 or request.env.user.has_group("base.group_system")):
             return request.make_response("Keine Berechtigung für Hintergrundmusik.", status=403)
         response = request.render("gl_background_music.tablet_page", {
