@@ -1,13 +1,9 @@
-from odoo import api, SUPERUSER_ID
+import logging
+
+_logger = logging.getLogger(__name__)
 
 
 def migrate(cr, version):
-    env = api.Environment(cr, SUPERUSER_ID, {})
-
-    # Repair only tickets whose linked product is explicitly managed by the
-    # Groundlift gross-price module. The model method itself additionally checks
-    # that the current ticket net equals the currency-rounded expected net.
-    tickets = env["event.event.ticket"].with_context(active_test=False).search([
-        ("product_id.product_tmpl_id.gl_gross_price_managed", "=", True),
-    ])
-    tickets._gl_repair_rounded_net_from_managed_product()
+    # The 1.6 ticket rewrite was withdrawn in 1.7. The method it called no
+    # longer exists; do not rewrite historical ticket net prices on upgrades.
+    _logger.info("GL gross: obsolete 1.6 ticket rewrite skipped")
