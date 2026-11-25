@@ -1,0 +1,15 @@
+/* v1.4 – exclusively target the Vimeo editor, never other Odoo dialogs. */
+@media (min-width: 900px) {
+    .modal-dialog:has(.gl-showcase-video-editor) {
+        width: calc(100vw - 80px);
+        max-width: 1400px;
+    }
+}
+.gl-showcase-video-editor .o_field_x2many,
+.gl-showcase-video-editor .o_list_renderer {
+    width: 100%;
+    min-width: 0;
+}
+.gl-showcase-video-editor .o_list_table {
+    width: 100%;
+}

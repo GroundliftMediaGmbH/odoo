@@ -447,7 +447,12 @@ class EventEvent(models.Model):
                 source_attachment = False
                 image_field = post._gl_attachment_field_name() if hasattr(post, '_gl_attachment_field_name') else False
                 if image_field and hasattr(post, '_gl_image_attachments'):
-                    source_attachment = post._gl_image_attachments()[:1]
+                    # Apply the badge to the ORIGINAL fallback, not to the
+                    # Graphics-app image which will receive its own badge.
+                    if post.gl_graphics_fallback_captured:
+                        source_attachment = post.gl_graphics_fallback_image_ids[:1]
+                    else:
+                        source_attachment = post._gl_image_attachments()[:1]
                 attachment = event._gl_create_event_image_attachment(
                     sold_out=True,
                     publication_kind=post.gl_publication_kind or config.default_publication_kind or 'story',
@@ -455,7 +460,10 @@ class EventEvent(models.Model):
                 )
                 if attachment and image_field:
                     vals[image_field] = [(6, 0, [attachment.id])]
+                    if post.gl_graphics_fallback_captured:
+                        vals['gl_graphics_fallback_image_ids'] = [(6, 0, [attachment.id])]
                 post.write(vals)
+                post._gl_sync_graphics_for_posts(force=True)
 
     def _gl_handle_completed_changes(self, config=None):
         config = config or self.env['gl.event.social.config'].get_config()

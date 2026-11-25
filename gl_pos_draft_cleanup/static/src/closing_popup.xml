@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="gl_pos_draft_cleanup.ClosePosPopup"
+       t-inherit="point_of_sale.ClosePosPopup" t-inherit-mode="extension">
+        <xpath expr="//button[@t-on-click='downloadSalesReport']" position="before">
+            <button class="button btn btn-outline-danger"
+                    t-att-class="this.ui.isSmall ? 'w-100' : 'btn-lg'"
+                    t-att-disabled="glDraftCleanupState.busy"
+                    t-on-click="glDeleteDrafts"
+                    title="0-Euro-Drafts prüfen; nach ausdrücklicher Bestätigung auf dem Server stornieren">
+                <i class="fa fa-trash me-1" role="img"/>
+                Drafts löschen
+            </button>
+        </xpath>
+    </t>
+</templates>

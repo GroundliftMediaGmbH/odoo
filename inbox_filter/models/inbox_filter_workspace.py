@@ -153,13 +153,18 @@ class InboxFilterWorkspace(models.Model):
         return action
 
     def action_resort_all_history(self):
-        action = self.env["inbox.filter.service"].reclassify_all_history_records_action()
-        summary = action.get("params", {}).get("message") if isinstance(action, dict) else None
         self.write({
             "last_run_at": fields.Datetime.now(),
-            "last_run_summary": summary or _("Neu-Einsortierung abgeschlossen."),
+            "last_run_summary": _("Neu-Einsortierung als Batch gestartet."),
         })
-        return action
+        return self.env["inbox.filter.batch"].action_start_batch("all")
+
+    def action_resort_error_history(self):
+        self.write({
+            "last_run_at": fields.Datetime.now(),
+            "last_run_summary": _("Fehlerhafte Einsortierungen werden erneut geprüft."),
+        })
+        return self.env["inbox.filter.batch"].action_start_batch("errors")
 
 
     def action_regenerate_prompts(self):

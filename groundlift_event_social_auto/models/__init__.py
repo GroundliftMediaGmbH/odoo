@@ -2,3 +2,4 @@
 from . import event_social_config
 from . import social_post
 from . import event_event
+from . import social_graphics

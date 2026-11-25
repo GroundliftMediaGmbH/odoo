@@ -1,0 +1,28 @@
+.o_gl_quick_note_wizard {
+  .o_field_html .odoo-editor-editable,
+  .o_field_html .note-editable,
+  .o_field_html .o_editable,
+  .o_field_html .oe_structure {
+    min-height: 330px;
+  }
+  .o_field_html { min-height: 345px; }
+  .o_notebook { margin-top: 1rem; }
+
+  .o_gl_quick_note_savebar {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    padding: 12px 16px;
+    margin-top: 12px;
+    // Deliberately use the same dark surface in both themes: in Odoo 19 the
+    // generic view-background variable may resolve to white in a dark form.
+    background-color: #262b35 !important;
+    color: #e7ebf2;
+    border-top: 1px solid #3f4655;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.22);
+  }
+  .o_gl_quick_note_savebar_label { font-weight: 600; }
+  .o_gl_quick_note_receipt { margin-bottom: 16px; }
+  .o_gl_quick_note_receipt .o_field_html { min-height: 0; }
+  .o_gl_quick_note_receipt_actions { margin-bottom: 20px; }
+}

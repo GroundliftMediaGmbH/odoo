@@ -58,24 +58,30 @@
                         </page>
                         <page string="Schriften">
                             <div class="alert alert-info" role="alert">
-                                Die gelieferten PNG-Ebenen enthalten keine Schriftdateien. Für pixelgenaue Buchstabenformen hier die tatsächlich verwendeten OTF-, TTF- oder WOFF2-Dateien hochladen. Ohne Upload verwendet der Editor die angegebenen CSS-Schriftfamilien.
+                                Der Editor verwendet Rubik mit den Gewichten Light (300), Regular (400), Medium (500) und Bold (700). Ohne lokale Uploads wird Rubik über Google Fonts geladen. Für einen vollständig lokalen Betrieb können hier die vier Rubik-Dateien hinterlegt werden.
                             </div>
                             <group>
-                                <group string="Normal">
-                                    <field name="font_regular_name"/>
+                                <group string="Rubik Light">
+                                    <field name="font_light_file" filename="font_light_filename"/>
+                                    <field name="font_light_filename" invisible="1"/>
+                                </group>
+                                <group string="Rubik Regular">
+                                    <field name="font_regular_name" invisible="1"/>
                                     <field name="font_regular_file" filename="font_regular_filename"/>
                                     <field name="font_regular_filename" invisible="1"/>
                                 </group>
-                                <group string="Fett">
-                                    <field name="font_bold_name"/>
+                                <group string="Rubik Medium">
+                                    <field name="font_medium_file" filename="font_medium_filename"/>
+                                    <field name="font_medium_filename" invisible="1"/>
+                                </group>
+                                <group string="Rubik Bold">
+                                    <field name="font_bold_name" invisible="1"/>
                                     <field name="font_bold_file" filename="font_bold_filename"/>
                                     <field name="font_bold_filename" invisible="1"/>
                                 </group>
-                                <group string="Schmal">
-                                    <field name="font_condensed_name"/>
-                                    <field name="font_condensed_file" filename="font_condensed_filename"/>
-                                    <field name="font_condensed_filename" invisible="1"/>
-                                </group>
+                                <field name="font_condensed_name" invisible="1"/>
+                                <field name="font_condensed_file" invisible="1" filename="font_condensed_filename"/>
+                                <field name="font_condensed_filename" invisible="1"/>
                             </group>
                         </page>
                     </notebook>

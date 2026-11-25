@@ -1,0 +1,206 @@
+/* Groundlift POS: plain CSS avoids SCSS/Sass function parsing in Odoo assets. */
+/* All selectors are restricted to the own counting assistant. */
+.gl-cash-funnel {
+    color: #17263a !important;
+    background-color: #f8fafc !important;
+    border: 2px solid #94a3b8;
+    border-radius: .7rem;
+    padding: .8rem;
+    color-scheme: light;
+    font-size: 1rem;
+    min-width: 0;
+}
+.gl-cash-funnel h5,
+.gl-cash-funnel h6,
+.gl-cash-funnel p,
+.gl-cash-funnel label,
+.gl-cash-funnel span,
+.gl-cash-funnel strong,
+.gl-cash-funnel b { color: inherit; }
+.gl-cash-funnel h5, .gl-cash-funnel h6 { font-weight: 800; }
+.gl-cash-funnel .gl-cash-hint {
+    color: #34465d !important;
+    font-size: .92rem;
+    line-height: 1.35;
+    margin: 0;
+}
+/* One full-width row per action: the count, button and hint never share a row. */
+.gl-cash-funnel .gl-cash-count-top {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100%;
+    gap: .4rem;
+    padding: .65rem;
+    border: 2px solid #94a3b8;
+    border-radius: .45rem;
+    background-color: #eaf1fa;
+    box-shadow: 0 2px 5px #091b2930;
+}
+.gl-cash-funnel .gl-count-top-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .5rem;
+    width: 100%;
+    font-size: 1rem;
+    font-weight: 750;
+}
+.gl-cash-funnel .gl-count-top-total strong {
+    font-size: 1.2rem;
+    font-variant-numeric: tabular-nums;
+}
+.gl-cash-funnel .gl-cash-count-top .gl-next-btn {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100%;
+    min-height: 46px;
+    padding: .6rem .75rem;
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.25;
+    text-align: center;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    flex: 0 0 auto;
+}
+.gl-cash-funnel .gl-denom-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: .4rem;
+    margin-top: .6rem;
+}
+.gl-cash-funnel .gl-denom-item {
+    display: grid;
+    grid-template-columns: minmax(92px, 1fr) minmax(166px, 1.2fr);
+    align-items: center;
+    gap: .5rem;
+    padding: .3rem .25rem;
+    min-width: 0;
+    border-bottom: 1px solid #dbe3ed;
+}
+.gl-cash-funnel .gl-denom-controls {
+    display: grid;
+    grid-template-columns: 46px minmax(54px, 1fr) 46px;
+    align-items: stretch;
+    gap: .3rem;
+    min-width: 0;
+}
+.gl-cash-funnel .gl-denom-controls .gl-denom-step {
+    min-width: 46px;
+    min-height: 46px;
+    border: 2px solid #6b7c96 !important;
+    background-color: #e4ebf5 !important;
+    color: #0c203d !important;
+    padding: .15rem;
+    font-size: 1.65rem;
+    font-weight: 900;
+    line-height: 1;
+    touch-action: manipulation;
+}
+.gl-cash-funnel .gl-denom-controls .gl-denom-step:active,
+.gl-cash-funnel .gl-denom-controls .gl-denom-step:focus-visible {
+    background-color: #c0d8f9 !important;
+    outline: 2px solid #2563eb;
+}
+.gl-cash-funnel .gl-denom-controls input {
+    min-width: 0;
+    min-height: 46px;
+    padding: .1rem .15rem;
+    border: 2px solid #8294ab !important;
+    background-color: #fff !important;
+    color: #081b34 !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #081b34 !important;
+    font-size: 1.1rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+.gl-cash-funnel .gl-denom-controls input::-webkit-inner-spin-button,
+.gl-cash-funnel .gl-denom-controls input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.gl-cash-funnel .gl-denom-label {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    min-width: 0;
+}
+.gl-cash-funnel .gl-denom-label img {
+    width: 46px;
+    height: 34px;
+    object-fit: contain;
+    flex-shrink: 0;
+    border-radius: 2px;
+}
+.gl-cash-funnel .gl-denom-label label {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 800;
+    white-space: nowrap;
+    color: #17263a !important;
+}
+.gl-cash-funnel .gl-cash-total,
+.gl-cash-funnel .gl-cash-rows > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+.gl-cash-funnel .gl-cash-total {
+    border-top: 1px solid #9daec1;
+    margin-top: .75rem;
+    padding-top: .65rem;
+    font-size: 1.15rem;
+}
+.gl-cash-funnel .gl-cash-rows { display: flex; flex-direction: column; gap: .45rem; }
+.gl-cash-funnel .gl-cash-rows > div span:first-child { min-width: 0; }
+.gl-cash-funnel .gl-cash-rows > div :last-child { text-align: right; white-space: nowrap; }
+.gl-cash-funnel .gl-cash-rows .gl-indent { padding-left: 1rem; opacity: .9; font-size: .94rem; }
+.gl-cash-funnel .gl-cash-rows .gl-highlight {
+    border: 2px solid #2563eb;
+    border-radius: .45rem;
+    padding: .65rem;
+    font-size: 1.1rem;
+    background-color: #eaf2ff;
+}
+.gl-cash-funnel .gl-cash-rows .gl-tip-refill { padding: .3rem .65rem; font-weight: 750; }
+.gl-cash-funnel .gl-cash-rows .gl-cash-adjustment {
+    color: #674000;
+    background-color: #fff1cd;
+    padding: .35rem .5rem;
+    border-radius: .3rem;
+}
+.gl-cash-funnel .gl-cash-rows hr { width: 100%; margin: .3rem 0; border-color: #94a3b8; }
+.gl-cash-funnel .gl-reconcile-alert {
+    background-color: #ffecd9;
+    border: 2px solid #b45309;
+    color: #5d2705;
+    border-radius: .5rem;
+    padding: .75rem;
+    line-height: 1.45;
+    margin: .65rem 0;
+}
+.gl-cash-funnel .gl-reconcile-alert > div { margin-top: .35rem; }
+.gl-cash-funnel .gl-method-note { border-top: 1px dashed #8294ab; padding-top: .6rem; }
+.gl-cash-funnel .alert { color: #17263a; }
+.gl-cash-funnel .alert.alert-success { background-color: #d1fae5; color: #065f46; }
+.gl-cash-funnel .alert.alert-warning { background-color: #fff1cd; color: #754700; }
+@media (max-width: 520px) {
+    .gl-cash-funnel { padding: .5rem; }
+    .gl-cash-funnel .gl-denom-item {
+        grid-template-columns: minmax(80px, 1fr) minmax(152px, 1.25fr);
+        gap: .25rem;
+    }
+    .gl-cash-funnel .gl-denom-controls { grid-template-columns: 42px minmax(45px, 1fr) 42px; gap: .2rem; }
+    .gl-cash-funnel .gl-denom-controls .gl-denom-step { min-width: 42px; min-height: 44px; }
+    .gl-cash-funnel .gl-denom-label img { width: 36px; }
+    .gl-cash-funnel .gl-denom-label label { font-size: .9rem; }
+}

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="gl_kino_pos_config_default" model="gl.kino.pos.config">
+        <field name="name">Kino POS</field>
+        <field name="timezone">Europe/Berlin</field>
+        <field name="refresh_seconds">30</field>
+        <field name="ticket_limit">50</field>
+    </record>
+</odoo>

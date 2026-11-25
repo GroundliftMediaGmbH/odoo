@@ -162,3 +162,22 @@ Die Standardvorlage verwendet nun die Markierung `gl-dynamic-newsletter-template
 ## Version 19.0.1.4.6 – finales Newsletter-HTML
 
 Die Methode `CleverReachNewsletterConfig._normalize_newsletter_html()` entfernt das Hero-Eyebrow „Newsletter“ aus älteren gespeicherten Vorlagen und ergänzt über `_append_unsubscribe_link()` einen dezenten Abmeldelink am Ende des Newsletters, falls die CleverReach-Abmelde-URL noch nicht im HTML enthalten ist. Die Standardvorlage trägt nun die Markierung `gl-dynamic-newsletter-template-v3`, damit bestehende `Groundlift Standardvorlage`-Datensätze nach dem Update sauber aktualisiert werden.
+
+## 19.0.1.5.1 – Schedule/save repair
+
+- Fixes the inactive-config menu bug introduced by the one-time safety shutdown in 19.0.1.5.0: settings menus now search with `active_test=False`, so the existing saved configuration is opened instead of an unsaved `/new` form.
+- Planning refresh also includes inactive configurations. This keeps the next two months visible while sending remains disabled.
+- The planning menu now applies a direct runtime date domain (`now` through `now + 2 months`) and excludes sent/past rows.
+- Schedule edits immediately rebuild future generated slots; obsolete future slots are retired without calendar chatter.
+- Groundlift schedule defaults are now: Tuesday 17:00 weekly, Thursday 18:00 every 14 days, Sunday 17:00 every 14 days for spontaneous/new-event newsletters.
+- Upgrade migration resets the three schedule anchors to their next matching weekday and rebuilds the future plan without changing any activation switch.
+
+
+## 19.0.1.5.2
+- Repairs the duplicate-config regression from 19.0.1.5.0/1.5.1.
+- Cleans unsent auto-generated duplicate planning rows and their calendar events during upgrade.
+- All planning and send crons now operate exclusively on one canonical CleverReach configuration.
+- Planning overview is restricted to that canonical configuration.
+- New accidental secondary configurations are rejected.
+- Defensive per-planning-key deduplication added.
+- Groundlift standard schedule remains Tuesday 17:00 / every second Thursday 18:00 / every second Sunday 17:00.

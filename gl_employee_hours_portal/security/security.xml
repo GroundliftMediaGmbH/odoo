@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- In Odoo 19 besitzen Gruppen eine res.groups.privilege-Zuordnung. -->
+    <record id="category_gl_hours_portal" model="ir.module.category">
+        <field name="name">GROUNDLIFT Stundenportal</field>
+        <field name="sequence">65</field>
+    </record>
+    <record id="privilege_gl_hours_portal" model="res.groups.privilege">
+        <field name="name">Stundenportal</field>
+        <field name="category_id" ref="category_gl_hours_portal"/>
+    </record>
+    <record id="group_hours_credentials_manager" model="res.groups">
+        <field name="name">Mitarbeiter-Zugänge verwalten</field>
+        <field name="privilege_id" ref="privilege_gl_hours_portal"/>
+        <field name="comment">Kann Stundenportal-Links einsehen und Mitarbeiter-Passwörter neu setzen. Kein genereller Zugriff auf Personalstammdaten.</field>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+</odoo>

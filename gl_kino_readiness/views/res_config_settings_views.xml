@@ -14,6 +14,11 @@
                     </group>
                     <group string="Fehlende DCP/KDM">
                         <field name="gl_kino_dispo_email" placeholder="dispo@neokinos.de"/>
+                        <field name="gl_kino_sender_reply_email" placeholder="z. B. kino@groundlift.de"/>
+                        <div class="text-muted" colspan="2">
+                            Diese Adresse wird bei KDM/DCP-Anfragen als Absender und Reply-To gesetzt.
+                            Bleibt sie leer, nutzt die App die Firmenadresse bzw. Benutzeradresse – niemals die Odoo-Catchall-Adresse.
+                        </div>
                     </group>
                     <group string="Automatische Erinnerungen">
                         <field name="gl_kino_tuesday_user_id"/>

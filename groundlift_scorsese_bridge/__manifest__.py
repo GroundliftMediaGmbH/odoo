@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'GROUNDLIFT SCORSESE Bridge',
-    'version': '19.0.1.15.0',
+    'version': '19.0.1.16.0',
     'summary': 'Verbindet Odoo Events/Projekte mit dem lokalen SCORSESE Dateisystem-Agenten',
     'description': """
 GROUNDLIFT SCORSESE Bridge
@@ -20,6 +20,7 @@ SCORSESE holt Aufträge per Odoo JSON-2 API ab, führt Dateisystem-Aktionen loka
         'security/ir.model.access.csv',
         'data/default_data.xml',
         'views/scorsese_menu_views.xml',
+        'views/settings_views.xml',
         'views/event_views.xml',
         'views/project_views.xml',
         'views/task_views.xml',

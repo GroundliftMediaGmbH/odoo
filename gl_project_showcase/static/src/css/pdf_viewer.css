@@ -1,0 +1,15 @@
+:root{color-scheme:dark}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#111820;color:#fff;font:14px/1.4 Arial,Helvetica,sans-serif}
+#gl-pdf-viewer{height:100vh;min-height:340px;display:flex;flex-direction:column;background:#111820}
+.gl-pdf-toolbar{flex:none;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:#19222b;border-bottom:1px solid #45515b;padding:10px 14px}
+.gl-pdf-title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:35ch}
+.gl-pdf-controls{display:flex;flex-wrap:wrap;align-items:center;gap:7px}
+.gl-pdf-controls button,.gl-pdf-download{display:inline-flex;align-items:center;justify-content:center;min-height:34px;min-width:34px;border:1px solid #6f7e8c;background:#202d36;color:#fff;padding:5px 9px;text-decoration:none;cursor:pointer;border-radius:3px;font:inherit}
+.gl-pdf-controls button:hover,.gl-pdf-download:hover{background:#344653}
+.gl-pdf-controls button:disabled{opacity:.4;cursor:not-allowed}
+.gl-pdf-counter{min-width:65px;text-align:center;font-variant-numeric:tabular-nums}
+.gl-pdf-canvas{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:20px;min-height:0}
+.gl-pdf-canvas img{height:auto;width:auto;max-width:none;display:block;box-shadow:0 6px 24px #0009;background:#fff;user-select:none}
+.gl-pdf-print-notice{display:none}
+#gl-pdf-viewer:fullscreen{height:100vh;width:100vw}
+@media(max-width:550px){.gl-pdf-title{width:100%;max-width:100%}.gl-pdf-toolbar{gap:6px}.gl-pdf-canvas{padding:8px}}
+@media print{body.gl-pdf-no-print #gl-pdf-viewer>*{display:none!important}body.gl-pdf-no-print .gl-pdf-print-notice{display:block!important;color:#000!important;font-size:22px;margin:25px}body.gl-pdf-no-print{background:#fff!important}}

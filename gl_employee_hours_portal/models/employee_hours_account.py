@@ -5,10 +5,10 @@ import hmac
 import os
 import secrets
 from datetime import timedelta
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from odoo import api, fields, models, _
-from odoo.exceptions import UserError
+from odoo.exceptions import AccessError, UserError
 from odoo.tools import html_escape
 
 
@@ -29,7 +29,20 @@ class GlEmployeeHoursAccount(models.Model):
     )
     name = fields.Char(related="employee_id.name", store=True, readonly=True)
     email = fields.Char(string="E-Mail", required=True, index=True)
-    password_hash = fields.Char(string="Passwort-Hash", readonly=True, copy=False)
+    # Einweg-Hash: Ein existierendes Passwort ist technisch nicht auslesbar.
+    password_hash = fields.Char(
+        string="Passwort-Hash", readonly=True, copy=False, groups="base.group_system"
+    )
+    # Ein Passwortwechsel widerruft alle bisherigen Stundenportal-Sessions.
+    password_session_key = fields.Char(
+        string="Sitzungs-Version", readonly=True, copy=False, groups="base.group_system"
+    )
+    has_password = fields.Boolean(
+        string="Passwort gesetzt", compute="_compute_has_password", compute_sudo=True
+    )
+    portal_login_url = fields.Char(
+        string="Persönlicher Login-Link", compute="_compute_portal_login_url"
+    )
     state = fields.Selection(
         [
             ("pending", "Wartet auf E-Mail-Bestätigung"),
@@ -40,9 +53,9 @@ class GlEmployeeHoursAccount(models.Model):
         required=True,
         index=True,
     )
-    activation_token = fields.Char(string="Aktivierungs-Token", readonly=True, copy=False, index=True)
+    activation_token = fields.Char(string="Aktivierungs-Token", readonly=True, copy=False, index=True, groups="base.group_system")
     activation_expiration = fields.Datetime(string="Aktivierung gültig bis", readonly=True, copy=False)
-    reset_token = fields.Char(string="Passwort-Reset-Token", readonly=True, copy=False, index=True)
+    reset_token = fields.Char(string="Passwort-Reset-Token", readonly=True, copy=False, index=True, groups="base.group_system")
     reset_expiration = fields.Datetime(string="Passwort-Reset gültig bis", readonly=True, copy=False)
     last_login = fields.Datetime(string="Letzter Login", readonly=True, copy=False)
 
@@ -50,6 +63,81 @@ class GlEmployeeHoursAccount(models.Model):
         ("gl_employee_hours_account_email_unique", "unique(email)", "Diese E-Mail ist bereits für das Mitarbeiter-Stundenportal registriert."),
         ("gl_employee_hours_account_employee_unique", "unique(employee_id)", "Für diese Mitarbeiterin / diesen Mitarbeiter existiert bereits ein Stundenportal-Konto."),
     ]
+
+    @api.depends("password_hash")
+    def _compute_has_password(self):
+        for account in self:
+            account.has_password = bool(account.password_hash)
+
+    @api.depends("email")
+    def _compute_portal_login_url(self):
+        base_url = (self.env["ir.config_parameter"].sudo().get_param("web.base.url") or "").rstrip("/")
+        for account in self:
+            # Individuell vorbelegtes Login, KEIN Login ohne Passwort.
+            qs = urlencode({"email": account.email or ""})
+            account.portal_login_url = ("%s/mitarbeiter/stunden/login?%s" % (base_url, qs)) if base_url else False
+
+    def _check_credential_manager(self):
+        user = self.env.user
+        if not (
+            user.has_group("base.group_system")
+            or user.has_group("hr.group_hr_manager")
+            or user.has_group("gl_employee_hours_portal.group_hours_credentials_manager")
+        ):
+            raise AccessError(_("Du hast keine Berechtigung zur Verwaltung der Stundenportal-Zugänge."))
+
+    def action_open_portal_login(self):
+        self.ensure_one()
+        self._check_credential_manager()
+        if not self.portal_login_url:
+            raise UserError(_("Bitte zuerst die Web-Basis-URL (web.base.url) konfigurieren."))
+        return {"type": "ir.actions.act_url", "url": self.portal_login_url, "target": "new"}
+
+    def action_open_password_wizard(self):
+        self.ensure_one()
+        self._check_credential_manager()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Stundenportal-Passwort setzen"),
+            "res_model": "gl.employee.hours.password.wizard",
+            "view_mode": "form",
+            "views": [(self.env.ref("gl_employee_hours_portal.view_gl_employee_hours_password_wizard_form").id, "form")],
+            "target": "new",
+            "context": {"default_account_id": self.id},
+        }
+
+    def action_generate_password(self):
+        self.ensure_one()
+        self._check_credential_manager()
+        password = secrets.token_urlsafe(18)
+        self.sudo().set_password(password)
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Neues Stundenportal-Passwort (einmalige Anzeige)"),
+                "message": _("Neues Passwort für %(name)s: %(password)s  —  Bitte jetzt kopieren. Es kann später nicht mehr angezeigt werden.") % {
+                    "name": self.name or self.email, "password": password,
+                },
+                "type": "warning",
+                "sticky": True,
+            },
+        }
+
+    def action_send_password_reset_email(self):
+        self._check_credential_manager()
+        base_url = self.env["ir.config_parameter"].sudo().get_param("web.base.url")
+        if not base_url:
+            raise UserError(_("Bitte zuerst die Web-Basis-URL (web.base.url) konfigurieren."))
+        for account in self:
+            if account.state != "active":
+                raise UserError(_("Der Reset-Link ist nur für aktive Konten möglich."))
+            account.sudo().send_reset_email(base_url)
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {"title": _("Passwort-Reset"), "message": _("E-Mail zum Zurücksetzen wurde versendet."), "type": "success"},
+        }
 
     @api.model
     def _normalize_email(self, email):
@@ -97,7 +185,10 @@ class GlEmployeeHoursAccount(models.Model):
         self.ensure_one()
         if not password or len(password) < 8:
             raise UserError(_("Das Passwort muss mindestens 8 Zeichen lang sein."))
-        self.write({"password_hash": self._make_password_hash(password)})
+        self.write({
+            "password_hash": self._make_password_hash(password),
+            "password_session_key": secrets.token_urlsafe(32),
+        })
 
     @api.model
     def find_employee_by_email(self, email):
@@ -114,7 +205,10 @@ class GlEmployeeHoursAccount(models.Model):
             return self.env[self._name]
         if not self._verify_password_hash(password, account.password_hash):
             return self.env[self._name]
-        account.sudo().write({"last_login": fields.Datetime.now()})
+        values = {"last_login": fields.Datetime.now()}
+        if not account.password_session_key:
+            values["password_session_key"] = secrets.token_urlsafe(32)
+        account.sudo().write(values)
         return account
 
     def _new_token_values(self, prefix, hours_valid):
@@ -124,13 +218,13 @@ class GlEmployeeHoursAccount(models.Model):
             "%s_expiration" % prefix: fields.Datetime.now() + timedelta(hours=hours_valid),
         }
 
-    def create_activation_token(self):
+    def _create_activation_token(self):
         self.ensure_one()
         vals = self._new_token_values("activation", 72)
         self.sudo().write(vals)
         return vals["activation_token"]
 
-    def create_reset_token(self):
+    def _create_reset_token(self):
         self.ensure_one()
         vals = self._new_token_values("reset", 4)
         self.sudo().write(vals)
@@ -177,7 +271,7 @@ class GlEmployeeHoursAccount(models.Model):
 
     def send_activation_email(self, base_url):
         self.ensure_one()
-        token = self.create_activation_token()
+        token = self._create_activation_token()
         url = "%s/mitarbeiter/stunden/aktivieren/%s" % (base_url.rstrip("/"), quote(token))
         employee_name = html_escape(self.employee_id.name or "")
         body = """
@@ -191,7 +285,7 @@ class GlEmployeeHoursAccount(models.Model):
 
     def send_reset_email(self, base_url):
         self.ensure_one()
-        token = self.create_reset_token()
+        token = self._create_reset_token()
         url = "%s/mitarbeiter/stunden/passwort-neu/%s" % (base_url.rstrip("/"), quote(token))
         employee_name = html_escape(self.employee_id.name or "")
         body = """

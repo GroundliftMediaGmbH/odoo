@@ -1,0 +1,37 @@
+.gl_event_ticket_selector .gl_ticket_row:last-of-type {
+    border-bottom: 0 !important;
+}
+.gl_event_ticket_selector .gl_qty_picker .form-control {
+    min-width: 48px;
+}
+.gl_event_ticket_selector .gl_qty_picker input::-webkit-outer-spin-button,
+.gl_event_ticket_selector .gl_qty_picker input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.gl_event_ticket_selector .gl_qty_picker input[type=number] {
+    -moz-appearance: textfield;
+}
+.gl_checkout_page .card {
+    border-radius: 0.75rem;
+}
+.gl_checkout_page #o_payment_form {
+    margin-top: 0 !important;
+}
+.gl_checkout_page #o_payment_submit_button {
+    width: 100%;
+    margin-top: 1rem;
+}
+.gl_checkout_page .gl_line_qty_badge {
+    min-width: 2.5rem;
+    text-align: center;
+}
+.gl_checkout_page .gl_coupon_box {
+    margin-top: 0.5rem;
+}
+
+@media (max-width: 991.98px) {
+    .gl_checkout_page .gl_cart_column:empty {
+        display: none;
+    }
+}

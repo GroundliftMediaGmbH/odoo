@@ -69,7 +69,24 @@
                     </group>
                     <notebook>
                         <page string="Programm und DCP/KDM">
-                            <field name="active_line_ids" nolabel="1" context="{'default_week_id': id}">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <field name="collapse_identical_films" nolabel="1"/>
+                                <label for="collapse_identical_films" string="Identische Filme zusammenfassen"/>
+                            </div>
+                            <field name="grouped_line_ids" nolabel="1" context="{'default_week_id': id}" invisible="not collapse_identical_films">
+                                <list editable="bottom" create="false" delete="false" decoration-success="row_ready" decoration-danger="not row_ready">
+                                    <field name="show_datetime" string="Erste Vorstellung"/>
+                                    <field name="cinema"/>
+                                    <field name="display_film_name" string="Film" readonly="1"/>
+                                    <field name="film_title" optional="hide"/>
+                                    <field name="version"/>
+                                    <field name="group_show_count" string="Termine" readonly="1"/>
+                                    <field name="kdm_ready"/>
+                                    <field name="dcp_ready"/>
+                                    <field name="row_ready" string="OK"/>
+                                </list>
+                            </field>
+                            <field name="active_line_ids" nolabel="1" context="{'default_week_id': id}" invisible="collapse_identical_films">
                                 <list editable="bottom" create="false" delete="false" decoration-success="row_ready" decoration-danger="not row_ready">
                                     <field name="show_datetime"/>
                                     <field name="cinema"/>
@@ -78,7 +95,7 @@
                                     <field name="version"/>
                                     <field name="kdm_ready"/>
                                     <field name="dcp_ready"/>
-                                    <field name="row_ready" string="OK" readonly="1"/>
+                                    <field name="row_ready" string="OK"/>
                                 </list>
                             </field>
                         </page>
@@ -118,7 +135,7 @@
                 <field name="version"/>
                 <field name="kdm_ready"/>
                 <field name="dcp_ready"/>
-                <field name="row_ready" readonly="1"/>
+                <field name="row_ready"/>
                 <field name="active" optional="hide"/>
             </list>
         </field>
