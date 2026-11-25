@@ -1,5 +1,5 @@
 # Groundlift Bruttopreis Eingabe – Odoo 19
-Version **19.0.1.8.0**
+Version **19.0.1.8.1**
 
 ## v1.7.0 – Eventticket 12,00 EUR statt 11,99 EUR
 
@@ -76,3 +76,23 @@ historischen POS-Bestellungen werden durch die Migration verändert.
 Odoo-Tests: `--test-enable --test-tags /gl_gross_sales_price` bei Installation/
 Upgrade auf einer separaten Testdatenbank. Python-/JS-Syntax und isolierte
 Regressionssimulation lokal geprüft; keine Odoo-SH-Instanz im Build-Umfeld.
+
+## v1.8.1 – Upgrade- und Build-Härtung
+
+- Die alte 1.6-Migration rief eine in 1.7 entfernte Methode auf. Sie ist jetzt
+  bewusst ein No-op; die verworfene Ticket-Umschreibung wird nicht wieder aktiviert.
+- Die neue Produktmigration liegt unter 19.0.1.8.1 und läuft beim Upgrade von
+  1.7 oder 1.8.0. Einzelne Odoo-Geschäftsvalidierungsfehler werden per Savepoint
+  zurückgerollt und als Warnung mit Produkt-ID protokolliert. Unerwartete
+  Programmierfehler werden nicht unterdrückt. Konflikte bei gemeinsam
+  verwendeten Produkten werden weiterhin übersprungen.
+- Die Produktpreis-Rückrechnung nutzt die rohe Odoo-19-Steuerberechnung ohne
+  den Buchhaltungs-/Steuerverteilungswrapper von compute_all.
+- Die nativen Tests berücksichtigen zwei Steuergruppen und tolerieren sechs
+  Nachkommastellen bei der Nettopreisspeicherung.
+- Lokale Prüfung: Python-Syntax, XML-Wohlgeformtheit, Manifest/Asset-Pfade,
+  JS-Modulsyntax und isolierte POS-Simulation (tests/pos_regression.cjs).
+  Kein echter Odoo-Registry- oder GitHub/Odoo.sh-Build in dieser Umgebung.
+
+Nach dem Upgrade im Odoo.sh-Log nach `GL gross:` suchen und übersprungene
+Produkte prüfen. Keine historischen Bestellungen werden migriert.

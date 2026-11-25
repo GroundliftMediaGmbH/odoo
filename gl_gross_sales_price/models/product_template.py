@@ -44,16 +44,16 @@ class ProductTemplate(models.Model):
         if not taxes:
             return gross_price
 
-        result = taxes.with_context(
-            force_price_include=True,
-            round_base=False,
-        ).compute_all(
+        # Use Odoo's raw tax engine, not compute_all's legacy accounting
+        # repartition wrapper. No accounting entries/tax tags are needed to
+        # recover a product's net catalog price (also during registry upgrade).
+        result = taxes._get_tax_details(
             gross_price,
-            currency=self.currency_id,
-            quantity=1.0,
-            product=self,
-            partner=self.env["res.partner"],
+            1.0,
+            precision_rounding=self.currency_id.rounding,
             rounding_method="round_globally",
+            product=self,
+            special_mode="total_included",
         )
         return result["total_excluded"]
 
@@ -69,16 +69,13 @@ class ProductTemplate(models.Model):
         if not taxes:
             return self.currency_id.round(self.list_price)
 
-        result = taxes.with_context(
-            force_price_include=False,
-            round_base=False,
-        ).compute_all(
+        result = taxes._get_tax_details(
             self.list_price,
-            currency=self.currency_id,
-            quantity=1.0,
-            product=self,
-            partner=self.env["res.partner"],
+            1.0,
+            precision_rounding=self.currency_id.rounding,
             rounding_method="round_globally",
+            product=self,
+            special_mode="total_excluded",
         )
         return self.currency_id.round(result["total_included"])
 
@@ -160,7 +157,7 @@ class ProductTemplate(models.Model):
 
     @api.model
     def _load_pos_data_fields(self, config_id):
-        fields_list = super()._load_pos_data_fields(config_id)
+        fields_list = list(super()._load_pos_data_fields(config_id))
         for field in ("gl_gross_price_managed", "gross_list_price"):
             if field not in fields_list:
                 fields_list.append(field)

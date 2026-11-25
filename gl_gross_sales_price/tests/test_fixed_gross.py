@@ -1,4 +1,4 @@
-from odoo import Command
+from odoo.fields import Command
 from odoo.tests import TransactionCase, tagged
 from ..models.account_tax import GL_GROSS_KEY
 
@@ -11,15 +11,19 @@ class TestFixedGross(TransactionCase):
         cls.company = cls.env.company
         cls.currency = cls.company.currency_id
         cls.company.tax_calculation_rounding_method = 'round_globally'
-        group = cls.env['account.tax.group'].create({
-            'name': 'GL regression VAT', 'company_id': cls.company.id,
-        })
+        country = cls.company.account_fiscal_country_id or cls.company.country_id
+        groups = cls.env['account.tax.group'].create([
+            {'name': 'GL regression VAT %s' % rate,
+             'company_id': cls.company.id, 'country_id': country.id}
+            for rate in (19, 7)
+        ])
         cls.tax19, cls.tax7 = cls.env['account.tax'].create([
             {'name': 'GL test VAT %s' % rate, 'amount': rate,
              'amount_type': 'percent', 'type_tax_use': 'sale',
              'price_include_override': 'tax_excluded',
-             'company_id': cls.company.id, 'tax_group_id': group.id}
-            for rate in (19, 7)
+             'company_id': cls.company.id, 'tax_group_id': group.id,
+             'country_id': country.id}
+            for rate, group in zip((19, 7), groups)
         ])
 
     def _line(self, gross, qty, tax, discount=0, marked=True):
@@ -41,9 +45,11 @@ class TestFixedGross(TransactionCase):
             'name': 'GL test Tegernseer', 'company_id': self.company.id,
             'taxes_id': [Command.set(self.tax19.ids)], 'gross_list_price': 3.60,
         })
-        self.assertAlmostEqual(product.list_price, 3.60 / 1.19, places=7)
+        self.assertAlmostEqual(product.list_price, 3.60 / 1.19, delta=0.000001)
         product.action_gl_reapply_gross_price()
-        self.assertAlmostEqual(product.list_price, 3.60 / 1.19, places=7)
+        product.flush_recordset(["list_price", "gross_list_price"])
+        product.invalidate_recordset(["list_price", "gross_list_price"])
+        self.assertAlmostEqual(product.list_price, 3.60 / 1.19, delta=0.000001)
         self.assertAlmostEqual(product.gross_list_price, 3.60, places=2)
 
     def test_groundlift_cart_global(self):
