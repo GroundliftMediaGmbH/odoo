@@ -1,5 +1,5 @@
 # Groundlift Bruttopreis Eingabe – Odoo 19
-Version **19.0.1.7.0**
+Version **19.0.1.8.0**
 
 ## v1.7.0 – Eventticket 12,00 EUR statt 11,99 EUR
 
@@ -36,3 +36,27 @@ Normale Verkaufspositionen und POS-Positionen sind davon nicht betroffen.
 
 Die verworfene v1.3-POS-Steuerlogik und die v1.6-Ticketpreis-Umschreibung sind
 nicht enthalten. Basis ist der stabile v1.5-Code.
+
+## v1.8.0 – Produkt-Bruttopreis / POS (3,60 statt 3,61 EUR)
+
+- Beide Umrechnungen im Produktstamm verwenden explizit
+  `rounding_method="round_globally"` und `round_base=False`, unabhängig
+  von der Steuerrundungsmethode der Firma. Brutto wird erst am Ende auf
+  die Währungsgenauigkeit gerundet; Netto bleibt ungerundet.
+- Upgrade-Migration: Nur explizit bruttopreisgesteuerte Produkte werden
+  anhand ihres gespeicherten Bruttos neu berechnet (auch archivierte).
+  Bei gemeinsamen Produkten mit widersprüchlichen Steuerergebnissen
+  mehrerer Firmen wird die Änderung übersprungen und im Log gemeldet.
+  Normale Produkte, Bruttopreise, Tickets und vorhandene Aufträge werden
+  von dieser Migration nicht umgeschrieben.
+- Der POS-Patch erhält die Netto-Präzision für gesteuerte Produkte;
+  für andere Produkte wird die originale Odoo-Methode aufgerufen.
+- Keine Änderung der Firmen-/Währungsrundung. Für reguläre POS-Verkäufe
+  mit Nettosteuern weiterhin globale Steuerrundung und Product Price = 6
+  empfohlen. Preislisten, Steuermappings und Varianten können den
+  tatsächlich verkauften Preis absichtlich ändern.
+
+Nach Upgrade POS neu laden (neuer Warenkorb) und 1, 2, 3, 10 Stück
+zu 3,60 EUR testen: 3,60 / 7,20 / 10,80 / 36,00 EUR. Kassenbon und
+gespeicherten Auftrag kontrollieren. Odoo-Integrationstest auf Staging
+notwendig; lokale Syntax-/Modultests ersetzen diesen nicht.

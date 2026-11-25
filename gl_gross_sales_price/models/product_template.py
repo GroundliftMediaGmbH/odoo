@@ -53,6 +53,7 @@ class ProductTemplate(models.Model):
             quantity=1.0,
             product=self,
             partner=self.env["res.partner"],
+            rounding_method="round_globally",
         )
         return result["total_excluded"]
 
@@ -77,6 +78,7 @@ class ProductTemplate(models.Model):
             quantity=1.0,
             product=self,
             partner=self.env["res.partner"],
+            rounding_method="round_globally",
         )
         return self.currency_id.round(result["total_included"])
 
