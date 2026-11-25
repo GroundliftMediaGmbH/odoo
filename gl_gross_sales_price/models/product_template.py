@@ -39,7 +39,7 @@ class ProductTemplate(models.Model):
     def _gl_exact_net_from_gross(self, gross_price):
         """Convert the fixed gross amount to an unrounded tax-exclusive price."""
         self.ensure_one()
-        company = self.env.company
+        company = self.company_id or self.env.company
         taxes = self.taxes_id._filter_taxes_by_company(company)
         if not taxes:
             return gross_price
@@ -64,7 +64,7 @@ class ProductTemplate(models.Model):
         used during normal editing, so it cannot overwrite a user's gross input.
         """
         self.ensure_one()
-        company = self.env.company
+        company = self.company_id or self.env.company
         taxes = self.taxes_id._filter_taxes_by_company(company)
         if not taxes:
             return self.currency_id.round(self.list_price)
@@ -161,6 +161,7 @@ class ProductTemplate(models.Model):
     @api.model
     def _load_pos_data_fields(self, config_id):
         fields_list = super()._load_pos_data_fields(config_id)
-        if "gl_gross_price_managed" not in fields_list:
-            fields_list.append("gl_gross_price_managed")
+        for field in ("gl_gross_price_managed", "gross_list_price"):
+            if field not in fields_list:
+                fields_list.append(field)
         return fields_list

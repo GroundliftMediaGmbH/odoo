@@ -37,26 +37,42 @@ Normale Verkaufspositionen und POS-Positionen sind davon nicht betroffen.
 Die verworfene v1.3-POS-Steuerlogik und die v1.6-Ticketpreis-Umschreibung sind
 nicht enthalten. Basis ist der stabile v1.5-Code.
 
-## v1.8.0 – Produkt-Bruttopreis / POS (3,60 statt 3,61 EUR)
+## v1.8.0 – Fix für centgenaue POS-Bruttopreise
 
-- Beide Umrechnungen im Produktstamm verwenden explizit
-  `rounding_method="round_globally"` und `round_base=False`, unabhängig
-  von der Steuerrundungsmethode der Firma. Brutto wird erst am Ende auf
-  die Währungsgenauigkeit gerundet; Netto bleibt ungerundet.
-- Upgrade-Migration: Nur explizit bruttopreisgesteuerte Produkte werden
-  anhand ihres gespeicherten Bruttos neu berechnet (auch archivierte).
-  Bei gemeinsamen Produkten mit widersprüchlichen Steuerergebnissen
-  mehrerer Firmen wird die Änderung übersprungen und im Log gemeldet.
-  Normale Produkte, Bruttopreise, Tickets und vorhandene Aufträge werden
-  von dieser Migration nicht umgeschrieben.
-- Der POS-Patch erhält die Netto-Präzision für gesteuerte Produkte;
-  für andere Produkte wird die originale Odoo-Methode aufgerufen.
-- Keine Änderung der Firmen-/Währungsrundung. Für reguläre POS-Verkäufe
-  mit Nettosteuern weiterhin globale Steuerrundung und Product Price = 6
-  empfohlen. Preislisten, Steuermappings und Varianten können den
-  tatsächlich verkauften Preis absichtlich ändern.
+- Produkt-Netto-Rückrechnung und explizite Brutto-Übernahme verwenden
+  `round_globally` und `round_base=False`, unabhängig von der Firmenrundung.
+- Migration: nur bereits bruttopreisgesteuerte Produkte neu berechnen. Der
+  gespeicherte Bruttopreis bleibt unverändert. Gemeinsame Produkte mit
+  widersprüchlichen Steuern verschiedener Firmen werden protokolliert und
+  übersprungen, da `list_price` nicht firmenspezifisch ist.
+- POS lädt zusätzlich `gross_list_price`. Normale Standardpreise mit einer
+  einfachen, nicht im Preis enthaltenen Prozentsteuer (z. B. 7/19 %) werden
+  mit einem Odoo-`computation_key` markiert. Er wird über `extra_tax_data`
+  gespeichert und in die Rechnung exportiert. Nicht markierte Altbelege,
+  abweichende Preislistenpreise, manuelle Sonderpreise und native manuelle
+  Steuervorgaben werden nicht auf den Stammpreis zurückgesetzt.
+- Der markierte Preis wird nur in der Steuerberechnung als Brutto behandelt;
+  `price_unit` bleibt netto. Nach der Odoo-Steuerverteilung wird je markierter
+  Position Netto = gerundetes Brutto minus zugeteilte MwSt. gesetzt, ohne die
+  zugeteilte MwSt. zu verändern. Frontend und Python nutzen dieselbe Logik.
+- Die Steuer-Rundungsmethode der Firma bleibt bestehen; bei globaler Rundung
+  können sich MwSt.-Cents zwischen Positionen verschieben, nicht aber deren
+  Bruttobeträge. Bestehende Eventticket-Korrekturen bleiben unverändert.
+- Grenzen: komplexe Steuergruppen, negative Steuerfaktoren, im Preis bereits
+  enthaltene Steuern, Fremdwährungspreise und Sondersteuerdaten verwenden
+  weiterhin den Standardweg. Mengenrabatte/Preislisten und manuelle Preise,
+  die nicht dem exakten Stammpreis entsprechen, werden nicht fixiert.
 
-Nach Upgrade POS neu laden (neuer Warenkorb) und 1, 2, 3, 10 Stück
-zu 3,60 EUR testen: 3,60 / 7,20 / 10,80 / 36,00 EUR. Kassenbon und
-gespeicherten Auftrag kontrollieren. Odoo-Integrationstest auf Staging
-notwendig; lokale Syntax-/Modultests ersetzen diesen nicht.
+### Staging-Check (vor Produktion)
+
+Modul aktualisieren (kein Deinstallieren). POS-Tabs schließen und mit frischen
+Assets neu öffnen. Neue Testbestellung mit 36 x 3,60, 8 x 3,00, 3 x 0,70,
+19 x 4,50 erstellen. Bei 7 % für Chupa Chups und 19 % für die Getränke sowie
+`round_globally`: 241,20 brutto, 38,32 Steuer, 202,88 netto. Zusätzlich einzelne
+und getrennte Zeilen, Mengenänderungen, Rabatt, Storno, Bar/Karte (Testmodus),
+Rechnung und Kassenabschluss inklusive Buchungssätzen abgleichen. Keine
+historischen POS-Bestellungen werden durch die Migration verändert.
+
+Odoo-Tests: `--test-enable --test-tags /gl_gross_sales_price` bei Installation/
+Upgrade auf einer separaten Testdatenbank. Python-/JS-Syntax und isolierte
+Regressionssimulation lokal geprüft; keine Odoo-SH-Instanz im Build-Umfeld.
